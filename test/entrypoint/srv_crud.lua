@@ -6,8 +6,6 @@ _G.is_initialized = function() return false end
 local log = require('log')
 local errors = require('errors')
 local cartridge = require('cartridge')
-local membership = require('membership')
-local fiber = require('fiber')
 local elect = require('elect')
 
 package.preload['customers-storage'] = function()
@@ -55,22 +53,6 @@ end
 
 -- initialize elect
 elect.init()
-
-local ok, err = elect.register({
-    say_hi_politely = function(to_name)
-        to_name = to_name or "handsome"
-        local my_alias = membership.myself().payload.alias
-        return string.format("HI, %s! I am %s", to_name, my_alias)
-    end,
-
-    say_hi_sleepily = function(time_to_sleep)
-        if time_to_sleep ~= nil then
-            fiber.sleep(time_to_sleep)
-        end
-
-        return "HI"
-    end,
-})
 
 if not ok then
     log.error('%s', err)

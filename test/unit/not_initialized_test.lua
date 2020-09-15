@@ -39,7 +39,7 @@ end
 
 g.test_call = function()
     local results, err = g.cluster.main_server.net_box:eval([[
-        local call = require('elect.call')
+        local call = require('elect.common.call')
         return call.ro({
             func_name = 'say_hi',
         })

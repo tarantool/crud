@@ -3,8 +3,8 @@ local fiber = require('fiber')
 local vshard = require('vshard')
 local errors = require('errors')
 
-local registry = require('elect.registry')
-local utils = require('elect.utils')
+local registry = require('elect.common.registry')
+local utils = require('elect.common.utils')
 
 local CallError = errors.new_class('Call')
 local NotInitializedError = errors.new_class('NotInitialized')

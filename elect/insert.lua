@@ -2,10 +2,10 @@ local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
 
-local call = require('elect.call')
-local registry = require('elect.registry')
+local call = require('elect.common.call')
+local registry = require('elect.common.registry')
 
-require('elect.checkers')
+require('elect.common.checkers')
 
 local InsertError = errors.new_class('Insert',  {capture_stack = false})
 

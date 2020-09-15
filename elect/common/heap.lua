@@ -1,6 +1,6 @@
 local checks = require('checks')
 
-require('elect.checkers')
+require('elect.common.checkers')
 
 local Heap = {}
 Heap.__index = Heap

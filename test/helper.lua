@@ -2,6 +2,7 @@ require('strict').on()
 
 local log = require('log')
 local checks = require('checks')
+local digest = require('digest')
 
 local fio = require('fio')
 local ok, cartridge_helpers = pcall(require, 'cartridge.test-helpers')
@@ -13,6 +14,20 @@ end
 local helpers = table.copy(cartridge_helpers)
 
 helpers.project_root = fio.dirname(debug.sourcedir())
+
+local __fio_tempdir = fio.tempdir
+fio.tempdir = function(base)
+    base = base or os.getenv('TMPDIR')
+    if base == nil or base == '/tmp' then
+        return __fio_tempdir()
+    else
+        local random = digest.urandom(9)
+        local suffix = digest.base64_encode(random, {urlsafe = true})
+        local path = fio.pathjoin(base, 'tmp.cartridge.' .. suffix)
+        fio.mktree(path)
+        return path
+    end
+end
 
 function helpers.entrypoint(name)
     local path = fio.pathjoin(
@@ -42,6 +57,19 @@ function helpers.get_results_list(results_map)
         table.insert(results_list, res)
     end
     return results_list
+end
+
+function helpers.box_cfg()
+    if type(box.cfg) ~= 'function' then
+        return
+    end
+
+    local tempdir = fio.tempdir()
+    box.cfg({
+        memtx_dir = tempdir,
+        wal_mode = 'none',
+    })
+    fio.rmtree(tempdir)
 end
 
 return helpers

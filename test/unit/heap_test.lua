@@ -1,7 +1,7 @@
 local t = require('luatest')
 local g = t.group('heap')
 
-local Heap = require('elect.heap')
+local Heap = require('elect.common.heap')
 
 g.test_get_one_part_number_key = function()
     local heap = Heap.new({ key_parts = {'id'} })

@@ -1,8 +1,8 @@
 local checks = require('checks')
 local uuid = require('uuid')
-local utils = require('elect.utils')
+local utils = require('elect.common.utils')
 
-require('elect.checkers')
+require('elect.common.checkers')
 
 local Heap = require('elect.heap')
 

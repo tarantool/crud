@@ -2,8 +2,8 @@ local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
 
-local call = require('elect.call')
-local registry = require('elect.registry')
+local call = require('elect.common.call')
+local registry = require('elect.common.registry')
 
 local DeleteError = errors.new_class('Delete',  {capture_stack = false})
 
