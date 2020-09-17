@@ -3,12 +3,19 @@ local json = require('json')
 
 local select_plan = {}
 
-local SelectPlanError = errors.new_class('SelectPlan', {capture_stack = false})
+local SelectPlanError = errors.new_class('SelectPlanError', {capture_stack = false})
+local ScannerError = errors.new_class('ScannerError', {capture_stack = false})
+local IndexTypeError = errors.new_class('IndexTypeError', {capture_stack = false})
+local ValidateConditionsError = errors.new_class('ValidateConditionsError', {capture_stack = false})
+
+local function index_is_allowed(index)
+    return index.type == 'TREE'
+end
 
 local function get_index_for_condition(space_indexes, space_format, condition)
     for i= 0, #space_indexes do
         local index = space_indexes[i]
-        if index.name == condition.operand then
+        if index.name == condition.operand and index_is_allowed(index) then
             return index
         end
     end
@@ -17,7 +24,7 @@ local function get_index_for_condition(space_indexes, space_format, condition)
         local index = space_indexes[i]
         local first_part_fieldno = index.parts[1].fieldno
         local first_part_name = space_format[first_part_fieldno].name
-        if first_part_name == condition.operand then
+        if first_part_name == condition.operand and index_is_allowed(index) then
             return index
         end
     end
@@ -95,6 +102,11 @@ local function get_select_scanner(space_name, space_indexes, space_format, condi
 
     -- default iteration index is primary index
     if scan_index == nil then
+        if not index_is_allowed(primary_index) then
+            return nil, IndexTypeError:new('An index that matches specified conditions was not found: ' ..
+                'At least one of condition indexes or primary index should be of type TREE')
+        end
+
         scan_index = primary_index
         scan_iter = box.index.GE -- default iteration is `next greater than previous`
         scan_value = {}
@@ -203,7 +215,7 @@ local function get_filter_conditions(space_indexes, space_format, conditions, sc
                     fieldnos_by_names[condition.operand],
                 }
             else
-                return nil, string.format('No field or index is found for condition %s', json.encode(condition))
+                return nil, ScannerError('No field or index is found for condition %s', json.encode(condition))
             end
 
             table.insert(filter_conditions, {
@@ -233,7 +245,7 @@ local function validate_conditions(conditions, space_indexes, space_format)
 
     for _, condition in ipairs(conditions) do
         if index_names[condition.operand] == nil and field_names[condition.operand] == nil then
-            return false, SelectPlanError:new("No field or index %q found", condition.operand)
+            return false, ValidateConditionsError:new("No field or index %q found", condition.operand)
         end
     end
 
@@ -255,10 +267,13 @@ function select_plan.new(space_obj, conditions, opts)
     end
 
     -- compute scanner
-    local scanner = get_select_scanner(space_name, space_indexes, space_format, conditions, {
+    local scanner, err = get_select_scanner(space_name, space_indexes, space_format, conditions, {
         limit = opts.limit,
         after_tuple = opts.after_tuple,
     })
+    if err ~= nil then
+        return nil, SelectPlanError:new('Failed to get index to iterate over: %s', err)
+    end
 
     -- compute filter conditions
     local filter_conditions, err = get_filter_conditions(space_indexes, space_format, conditions, scanner)
