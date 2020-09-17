@@ -5,11 +5,11 @@ local select_plan = {}
 
 local SelectPlanError = errors.new_class('SelectPlan', {capture_stack = false})
 
-local function get_index_name_for_condition(space_indexes, space_format, condition)
+local function get_index_for_condition(space_indexes, space_format, condition)
     for i= 0, #space_indexes do
         local index = space_indexes[i]
         if index.name == condition.operand then
-            return index.name
+            return index
         end
     end
 
@@ -18,18 +18,18 @@ local function get_index_name_for_condition(space_indexes, space_format, conditi
         local first_part_fieldno = index.parts[1].fieldno
         local first_part_name = space_format[first_part_fieldno].name
         if first_part_name == condition.operand then
-            return index.name
+            return index
         end
     end
 end
 
-local function only_one_value_is_needed(scanner, primary_index)
-    if scanner.value == nil then
+local function only_one_value_is_needed(scan_index_name, scan_iter, scan_value, primary_index)
+    if scan_value == nil then
         return false
     end
-    if scanner.index_name == primary_index.name then
-        if scanner.iter == box.index.EQ or scanner.iter == box.index.REQ then
-            if #primary_index.parts == #scanner.value then
+    if scan_index_name == primary_index.name then
+        if scan_iter == box.index.EQ or scan_iter == box.index.REQ then
+            if #primary_index.parts == #scan_value then
                 return true -- fully specified primary key
             end
         end
@@ -64,21 +64,26 @@ local function is_early_exit_possible(scanner, condition)
     return false
 end
 
-local function get_select_scanner(space_indexes, space_format, conditions)
+local function get_select_scanner(space_name, space_indexes, space_format, conditions, opts)
+    opts = opts or {}
+
     if conditions == nil then -- also cdata<NULL>
         conditions = {}
     end
 
-    local scan_index_name = nil
+    local scan_space_name = space_name
+    local scan_index = nil
     local scan_iter = nil
     local scan_value = nil
     local scan_condition_num = nil
+    local scan_limit = opts.limit
+    local scan_after_tuple = opts.after_tuple
 
     -- search index to iterate over
     for i, condition in ipairs(conditions) do
-        scan_index_name = get_index_name_for_condition(space_indexes, space_format, condition)
+        scan_index = get_index_for_condition(space_indexes, space_format, condition)
 
-        if scan_index_name ~= nil then
+        if scan_index ~= nil then
             scan_iter = condition:get_tarantool_iter()
             scan_value = condition.values
             scan_condition_num = i
@@ -89,22 +94,27 @@ local function get_select_scanner(space_indexes, space_format, conditions)
     local primary_index = space_indexes[0]
 
     -- default iteration index is primary index
-    if scan_index_name == nil then
-        scan_index_name = primary_index.name
+    if scan_index == nil then
+        scan_index = primary_index
         scan_iter = box.index.GE -- default iteration is `next greater than previous`
         scan_value = {}
     end
 
+    if only_one_value_is_needed(scan_index.name, scan_iter, scan_value, primary_index) then
+        scan_iter = box.index.REQ
+        scan_limit = 1
+    end
+
     local scanner = {
-        index_name = scan_index_name,
+        space_name = scan_space_name,
+        index_id = scan_index.id,
+        index_name = scan_index.name,
         iter = scan_iter,
         value = scan_value,
         condition_num = scan_condition_num,
+        limit = scan_limit,
+        after_tuple = scan_after_tuple,
     }
-
-    if only_one_value_is_needed(scanner, primary_index) then
-        scanner.iter = box.index.REQ
-    end
 
     return scanner
 end
@@ -230,7 +240,12 @@ local function validate_conditions(conditions, space_indexes, space_format)
     return true
 end
 
-function select_plan.new(space_obj, conditions)
+
+function select_plan.new(space_obj, conditions, opts)
+    conditions = conditions or {}
+    opts = opts or {}
+
+    local space_name = space_obj.name
     local space_indexes = space_obj.index
     local space_format = space_obj:format()
 
@@ -239,13 +254,24 @@ function select_plan.new(space_obj, conditions)
         return nil, SelectPlanError:new('Passed bad conditions: %s', err)
     end
 
-    local scanner = get_select_scanner(space_indexes, space_format, conditions)
-    local filter_conditions = get_filter_conditions(space_indexes, space_format, conditions, scanner)
+    -- compute scanner
+    local scanner = get_select_scanner(space_name, space_indexes, space_format, conditions, {
+        limit = opts.limit,
+        after_tuple = opts.after_tuple,
+    })
 
-    return {
+    -- compute filter conditions
+    local filter_conditions, err = get_filter_conditions(space_indexes, space_format, conditions, scanner)
+    if err ~= nil then
+        return nil, SelectPlanError:new('Failed to compute filter conditions: %s', err)
+    end
+
+    local plan = {
         scanner = scanner,
         filter_conditions = filter_conditions,
     }
+
+    return plan
 end
 
 return select_plan

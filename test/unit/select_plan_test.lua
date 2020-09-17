@@ -22,21 +22,16 @@ g.before_all = function()
         },
         if_not_exists = true,
     })
-    customers_space:create_index('id', {
+    customers_space:create_index('id', { -- id: 0
         parts = {'id'},
         if_not_exists = true,
     })
-    customers_space:create_index('bucket_id', {
-        parts = {'bucket_id'},
-        unique = false,
-        if_not_exists = true,
-    })
-    customers_space:create_index('age', {
+    customers_space:create_index('age', { -- id: 1
         parts = {'age'},
         unique = false,
         if_not_exists = true,
     })
-    customers_space:create_index('full_name', {
+    customers_space:create_index('full_name', { -- id: 2
         parts = {
             { field = 'name', collation = 'unicode_ci' },
             { field = 'last_name', is_nullable = true },
@@ -45,6 +40,10 @@ g.before_all = function()
         if_not_exists = true,
     })
 end
+
+g.after_all(function()
+    box.space.customers:drop()
+end)
 
 g.test_scanner_bad_operand_name = function()
     local plan, err = select_plan.new(box.space.customers, {
@@ -68,10 +67,14 @@ g.test_scanner_indexed_field = function()
     local scanner = plan.scanner
     t.assert_type(scanner, 'table')
 
+    t.assert_equals(scanner.space_name, 'customers')
+    t.assert_equals(scanner.index_id, 1)
     t.assert_equals(scanner.index_name, 'age')
     t.assert_equals(scanner.iter, box.index.GT)
     t.assert_equals(scanner.value, {20})
     t.assert_equals(scanner.condition_num, 1)
+    t.assert_equals(scanner.limit, nil)
+    t.assert_equals(scanner.after_tuple, nil)
 end
 
 g.test_scanner_non_indexed_field = function()
@@ -85,10 +88,14 @@ g.test_scanner_non_indexed_field = function()
     local scanner = plan.scanner
     t.assert_type(scanner, 'table')
 
+    t.assert_equals(scanner.space_name, 'customers')
+    t.assert_equals(scanner.index_id, 0)
     t.assert_equals(scanner.index_name, 'id')
     t.assert_equals(scanner.iter, box.index.GE)
     t.assert_equals(scanner.value, {})
     t.assert_equals(scanner.condition_num, nil)
+    t.assert_equals(scanner.limit, nil)
+    t.assert_equals(scanner.after_tuple, nil)
 end
 
 g.test_scanner_partial_indexed_field = function()
@@ -103,9 +110,14 @@ g.test_scanner_partial_indexed_field = function()
     local scanner = plan.scanner
     t.assert_type(scanner, 'table')
 
+    t.assert_equals(scanner.space_name, 'customers')
+    t.assert_equals(scanner.index_id, 2)
     t.assert_equals(scanner.index_name, 'full_name')
     t.assert_equals(scanner.iter, box.index.GT)
     t.assert_equals(scanner.value, {'A'})
+    t.assert_equals(scanner.condition_num, 1)
+    t.assert_equals(scanner.limit, nil)
+    t.assert_equals(scanner.after_tuple, nil)
 
     -- select by second part of the index
     local plan, err = select_plan.new(box.space.customers, {
@@ -118,10 +130,36 @@ g.test_scanner_partial_indexed_field = function()
     local scanner = plan.scanner
     t.assert_type(scanner, 'table')
 
+    t.assert_equals(scanner.space_name, 'customers')
+    t.assert_equals(scanner.index_id, 0)
     t.assert_equals(scanner.index_name, 'id')
     t.assert_equals(scanner.iter, box.index.GE)
     t.assert_equals(scanner.value, {})
     t.assert_equals(scanner.condition_num, nil)
+    t.assert_equals(scanner.limit, nil)
+    t.assert_equals(scanner.after_tuple, nil)
+end
+
+g.test_limit_passed = function()
+    -- select by indexed field with conditions by index and field
+    local plan, err = select_plan.new(box.space.customers, {
+        elect.gt('age', 20),
+    }, { limit = 100 })
+
+    t.assert_equals(err, nil)
+    t.assert_type(plan, 'table')
+
+    local scanner = plan.scanner
+    t.assert_type(scanner, 'table')
+
+    t.assert_equals(scanner.space_name, 'customers')
+    t.assert_equals(scanner.index_id, 1)
+    t.assert_equals(scanner.index_name, 'age')
+    t.assert_equals(scanner.iter, box.index.GT)
+    t.assert_equals(scanner.value, {20})
+    t.assert_equals(scanner.condition_num, 1)
+    t.assert_equals(scanner.limit, 100)
+    t.assert_equals(scanner.after_tuple, nil)
 end
 
 g.test_full_primary_key = function()
@@ -139,10 +177,14 @@ g.test_full_primary_key = function()
     local scanner = plan.scanner
     t.assert_type(scanner, 'table')
 
+    t.assert_equals(scanner.space_name, 'customers')
+    t.assert_equals(scanner.index_id, 0)
     t.assert_equals(scanner.index_name, 'id')
     t.assert_equals(scanner.iter, box.index.REQ)
     t.assert_equals(scanner.value, {15})
     t.assert_equals(scanner.condition_num, 1)
+    t.assert_equals(scanner.limit, 1)
+    t.assert_equals(scanner.after_tuple, nil)
 end
 
 g.test_filter_conditions = function()

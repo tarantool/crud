@@ -10,7 +10,7 @@ g.test_empty_conditions = function()
     local filter_conditions = {}
 
     local expected_code = 'return true, false'
-    local expected_library_code = nil
+    local expected_library_code = 'return {}'
 
     local filter = select_filters.gen_code(filter_conditions)
     t.assert_equals(filter.code, expected_code)

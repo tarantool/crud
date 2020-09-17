@@ -247,7 +247,7 @@ end
 
 local function gen_code(filter_conditions)
     if #filter_conditions == 0 then
-        return { code = 'return true, false' }
+        return { code = 'return true, false', library_code = 'return {}' }
     end
 
     local library_funcs_code_parts = {}
