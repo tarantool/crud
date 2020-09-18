@@ -253,13 +253,13 @@ local function validate_conditions(conditions, space_indexes, space_format)
 end
 
 
-function select_plan.new(space_obj, conditions, opts)
+function select_plan.new(space, conditions, opts)
     conditions = conditions or {}
     opts = opts or {}
 
-    local space_name = space_obj.name
-    local space_indexes = space_obj.index
-    local space_format = space_obj:format()
+    local space_name = space.name
+    local space_indexes = space.index
+    local space_format = space:format()
 
     local ok, err = validate_conditions(conditions, space_indexes, space_format)
     if not ok then

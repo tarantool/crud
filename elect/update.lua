@@ -4,6 +4,7 @@ local vshard = require('vshard')
 
 local call = require('elect.common.call')
 local registry = require('elect.common.registry')
+local utils = require('elect.common.utils')
 
 require('elect.common.checkers')
 
@@ -18,11 +19,11 @@ local function call_update_on_storage(space_name, key, operations)
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, UpdateError:new("Space %s doesn't exists", space_name)
+        return nil, UpdateError:new("Space %q doesn't exists", space_name)
     end
 
     local tuple = space:update(key, operations)
-    return tuple:tomap({names_only = true})
+    return tuple
 end
 
 function update.init()
@@ -43,7 +44,7 @@ end
 --
 -- @param table operations
 --  Operations to be performed.
---  See `space_object:update` operations in Tarantool doc
+--  See `spaceect:update` operations in Tarantool doc
 --
 -- @tparam ?number opts.timeout
 --  Function call timeout
@@ -59,7 +60,16 @@ function update.call(space_name, key, operations, opts)
 
     opts = opts or {}
 
-    local bucket_id = vshard.router.bucket_id(key)
+    local space = utils.get_space(space_name, vshard.router.routeall())
+    if space == nil then
+        return nil, UpdateError:new("Space %q doesn't exists", space_name)
+    end
+
+    if box.tuple.is(key) then
+        key = key:totable()
+    end
+
+    local bucket_id = vshard.router.bucket_id_mpcrc32(key)
     local replicaset, err = vshard.router.route(bucket_id)
     if replicaset == nil then
         return nil, UpdateError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
@@ -76,7 +86,13 @@ function update.call(space_name, key, operations, opts)
         return nil, UpdateError:new("Failed to update: %s", err)
     end
 
-    return results[replicaset.uuid]
+    local tuple = results[replicaset.uuid]
+    local object, err = utils.unflatten(tuple, space:format())
+    if err ~= nil then
+        return nil, UpdateError:new("Received tuple that doesn't match space format: %s", err)
+    end
+
+    return object
 end
 
 return update

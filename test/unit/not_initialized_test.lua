@@ -22,7 +22,7 @@ g.before_all = function()
             {
                 uuid = helpers.uuid('b'),
                 alias = 's-1',
-                roles = { 'vshard-storage' },
+                roles = { 'customers-storage' },
                 servers = {
                     { instance_uuid = helpers.uuid('b', 1), alias = 's1-master' },
                 },
@@ -53,7 +53,7 @@ end
 g.test_insert = function()
     local results, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
-        return elect.insert('customers', {'id'}, {id = 1, name = 'Fedor'})
+        return elect.insert('customers', {id = 1, name = 'Fedor', age = 15})
     ]])
 
     t.assert_equals(results, nil)

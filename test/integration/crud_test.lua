@@ -64,12 +64,20 @@ g.test_non_existent_space = function()
     -- insert
     local obj, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
-        return elect.insert('non_existent_space', {'id'}, {id = 0, name = 'Fedor', age = 59})
+        return elect.insert('non_existent_space', {id = 0, name = 'Fedor', age = 59})
     ]])
 
     t.assert_equals(obj, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
-    t.assert_str_contains(err.err, "Space non_existent_space doesn't exists")
+    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exists')
+
+    -- get
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local elect = require('elect')
+        return elect.get('non_existent_space', 0)
+    ]])
+
+    t.assert_equals(obj, nil)
+    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exists')
 
     -- update
     local obj, err = g.cluster.main_server.net_box:eval([[
@@ -78,15 +86,23 @@ g.test_non_existent_space = function()
     ]])
 
     t.assert_equals(obj, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
-    t.assert_str_contains(err.err, "Space non_existent_space doesn't exists")
+    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exists')
+
+    -- delete
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local elect = require('elect')
+        return elect.delete('non_existent_space', 0)
+    ]])
+
+    t.assert_equals(obj, nil)
+    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exists')
 end
 
 g.test_insert_get = function()
     -- insert
     local obj, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
-        return elect.insert('customers', {'id'}, {id = 1, name = 'Fedor', age = 59})
+        return elect.insert('customers', {id = 1, name = 'Fedor', age = 59})
     ]])
 
     t.assert_equals(err, nil)
@@ -100,13 +116,14 @@ g.test_insert_get = function()
     ]])
 
     t.assert_equals(err, nil)
+    t.assert(obj ~= nil)
     t.assert_covers(obj, {id = 1, name = 'Fedor', age = 59})
     t.assert(type(obj.bucket_id) == 'number')
 
     -- insert again
     local obj, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
-        return elect.insert('customers', {'id'}, {id = 1, name = 'Alexander', age = 37})
+        return elect.insert('customers', {id = 1, name = 'Alexander', age = 37})
     ]])
 
     t.assert_equals(obj, nil)
@@ -116,12 +133,11 @@ g.test_insert_get = function()
     -- bad format
     local obj, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
-        return elect.insert('customers', {'id'}, {id = 2, name = 'Alexander'})
+        return elect.insert('customers', {id = 2, name = 'Alexander'})
     ]])
 
     t.assert_equals(obj, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
-    t.assert_str_contains(err.err, "Object specified in wrong format")
+    t.assert_str_contains(err.err, " Field \"age\" isn't nullable")
 
     -- get non existent
     local obj, err = g.cluster.main_server.net_box:eval([[
@@ -137,7 +153,7 @@ g.test_update = function()
     -- insert tuple
     local obj, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
-        return elect.insert('customers', {'id'}, {id = 22, name = 'Leo', age = 72})
+        return elect.insert('customers', {id = 22, name = 'Leo', age = 72})
     ]])
 
     t.assert_equals(err, nil)
@@ -182,7 +198,7 @@ g.test_delete = function()
     -- insert tuple
     local obj, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
-        return elect.insert('customers', {'id'}, {id = 33, name = 'Mayakovsky', age = 36})
+        return elect.insert('customers', {id = 33, name = 'Mayakovsky', age = 36})
     ]])
 
     t.assert_equals(err, nil)

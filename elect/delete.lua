@@ -4,6 +4,7 @@ local vshard = require('vshard')
 
 local call = require('elect.common.call')
 local registry = require('elect.common.registry')
+local utils = require('elect.common.utils')
 
 local DeleteError = errors.new_class('Delete',  {capture_stack = false})
 
@@ -16,11 +17,11 @@ local function call_delete_on_storage(space_name, key)
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, DeleteError:new("Space %s doesn't exists", space_name)
+        return nil, DeleteError:new("Space %q doesn't exists", space_name)
     end
 
     local tuple = space:delete(key)
-    return tuple:tomap({names_only = true})
+    return tuple
 end
 
 function delete.init()
@@ -53,7 +54,17 @@ function delete.call(space_name, key, opts)
 
     opts = opts or {}
 
-    local bucket_id = vshard.router.bucket_id(key)
+
+    local space = utils.get_space(space_name, vshard.router.routeall())
+    if space == nil then
+        return nil, DeleteError:new("Space %q doesn't exists", space_name)
+    end
+
+    if box.tuple.is(key) then
+        key = key:totable()
+    end
+
+    local bucket_id = vshard.router.bucket_id_mpcrc32(key)
     local replicaset, err = vshard.router.route(bucket_id)
     if replicaset == nil then
         return nil, DeleteError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
@@ -70,7 +81,13 @@ function delete.call(space_name, key, opts)
         return nil, DeleteError:new("Failed to delete: %s", err)
     end
 
-    return results[replicaset.uuid]
+    local tuple = results[replicaset.uuid]
+    local object, err = utils.unflatten(tuple, space:format())
+    if err ~= nil then
+        return nil, DeleteError:new("Received tuple that doesn't match space format: %s", err)
+    end
+
+    return object
 end
 
 return delete

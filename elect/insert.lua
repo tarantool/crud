@@ -4,6 +4,7 @@ local vshard = require('vshard')
 
 local call = require('elect.common.call')
 local registry = require('elect.common.registry')
+local utils = require('elect.common.utils')
 
 require('elect.common.checkers')
 
@@ -13,20 +14,15 @@ local insert = {}
 
 local INSERT_FUNC_NAME = '__insert'
 
-local function call_insert_on_storage(space_name, obj)
+local function call_insert_on_storage(space_name, tuple)
     checks('string', 'table')
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, InsertError:new("Space %s doesn't exists", space_name)
+        return nil, InsertError:new("Space %q doesn't exists", space_name)
     end
 
-    local tuple, err = space:frommap(obj)
-    if tuple == nil then
-        return nil, InsertError:new("Object specified in wrong format: %s", err)
-    end
-
-    return space:insert(tuple):tomap({names_only = true})
+    return space:insert(tuple)
 end
 
 function insert.init()
@@ -55,19 +51,27 @@ end
 -- @treturn[2] nil
 -- @treturn[2] table Error description
 --
-function insert.call(space_name, key_parts, obj, opts)
-    checks('string', 'strings_array', 'table', {
+function insert.call(space_name, obj, opts)
+    checks('string', 'table', {
         timeout = '?number',
     })
 
     opts = opts or {}
 
-    local key = {}
-    for _, key_part in ipairs(key_parts) do
-        table.insert(key, obj[key_part])
+    local space = utils.get_space(space_name, vshard.router.routeall())
+    if space == nil then
+        return nil, InsertError:new("Space %q doesn't exists", space_name)
     end
 
-    local bucket_id = vshard.router.bucket_id(key)
+    -- compute default buckect_id
+    local tuple, err = utils.flatten(obj, space:format(), true)
+    if err ~= nil then
+        return nil, InsertError:new("Object is specified in bad format: %s", err)
+    end
+
+    local key = utils.extract_key(tuple, space.index[0].parts)
+
+    local bucket_id = vshard.router.bucket_id_mpcrc32(key)
     local replicaset, err = vshard.router.route(bucket_id)
     if replicaset == nil then
         return nil, InsertError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
@@ -76,9 +80,14 @@ function insert.call(space_name, key_parts, obj, opts)
     obj = table.copy(obj)
     obj.bucket_id = bucket_id
 
+    local tuple, err = utils.flatten(obj, space:format())
+    if err ~= nil then
+        return nil, InsertError:new("Object is specified in bad format: %s", err)
+    end
+
     local results, err = call.rw({
         func_name = INSERT_FUNC_NAME,
-        func_args = {space_name, obj},
+        func_args = {space_name, tuple},
         replicasets = {replicaset},
         timeout = opts.timeout,
     })
@@ -87,7 +96,13 @@ function insert.call(space_name, key_parts, obj, opts)
         return nil, InsertError:new("Failed to insert: %s", err)
     end
 
-    return results[replicaset.uuid]
+    local tuple = results[replicaset.uuid]
+    local object, err = utils.unflatten(tuple, space:format())
+    if err ~= nil then
+        return nil, InsertError:new("Received tuple that doesn't match space format: %s", err)
+    end
+
+    return object
 end
 
 return insert

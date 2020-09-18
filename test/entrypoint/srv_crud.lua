@@ -54,10 +54,4 @@ end
 -- initialize elect
 elect.init()
 
-if not ok then
-    log.error('%s', err)
-    os.exit(1)
-end
-
-
 _G.is_initialized = cartridge.is_healthy

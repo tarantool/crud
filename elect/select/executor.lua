@@ -15,8 +15,8 @@ function executor.execute(plan)
     local tuples = {}
     local tuples_count = 0
 
-    local space_obj = box.space[scanner.space_name]
-    local index_obj = space_obj.index[scanner.index_id]
+    local space = box.space[scanner.space_name]
+    local index_obj = space.index[scanner.index_id]
 
     for _, tuple in index_obj:cont_pairs(scanner.value, scanner.after_tuple, {iterator = scanner.iter}) do
         local matched, early_exit = filer_func(tuple)

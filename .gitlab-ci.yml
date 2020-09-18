@@ -2,7 +2,7 @@ stages:
   - test
 
 variables:
-  BUNDLE_VERSION: 2.3.1-20-ga4330d8
+  BUNDLE_VERSION: 2.4.2-16-gb6ec93d
 
 .test-template:
   stage: test

@@ -8,15 +8,41 @@ local errors = require('errors')
 local cartridge = require('cartridge')
 local elect = require('elect')
 
-local ok, err
+package.preload['customers-storage'] = function()
+    return {
+        role_name = 'customers-storage',
+        init = function()
+            local customers_space = box.schema.space.create('customers', {
+                format = {
+                    {'id', 'unsigned'},
+                    {'bucket_id', 'unsigned'},
+                    {'name', 'string'},
+                    {'age', 'number'},
+                },
+                if_not_exists = true,
+            })
+            customers_space:create_index('id', {
+                parts = {'id'},
+                if_not_exists = true,
+            })
+            customers_space:create_index('bucket_id', {
+                parts = {'bucket_id'},
+                unique = false,
+                if_not_exists = true,
+            })
+        end,
+        dependencies = {'cartridge.roles.vshard-storage'},
+    }
+end
 
-ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
+local ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
     advertise_uri = 'localhost:3301',
     http_port = 8081,
     bucket_count = 3000,
     roles = {
         'cartridge.roles.vshard-storage',
         'cartridge.roles.vshard-router',
+        'customers-storage',
     },
 })
 
