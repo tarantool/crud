@@ -13,6 +13,8 @@ local call = {}
 
 local CALL_FUNC_NAME = '__elect_call'
 
+local DEFAULT_VSHARD_CALL_TIMEOUT = 2
+
 --- Initializes call on node
 --
 -- Wrapper function is registered to call functions remotely.
@@ -68,6 +70,8 @@ local function call_impl(vshard_call, opts)
         replicasets = '?table',
     })
 
+    local timeout = opts.timeout or DEFAULT_VSHARD_CALL_TIMEOUT
+
     local replicasets, err
     if opts.replicasets ~= nil then
         replicasets = opts.replicasets
@@ -84,7 +88,7 @@ local function call_impl(vshard_call, opts)
     for _, replicaset in pairs(replicasets) do
         fiber.create(
             call_on_replicaset, replicaset, channel, vshard_call, opts.func_name, opts.func_args, {
-                timeout = opts.timeout,
+                timeout = timeout,
             }
         )
     end
