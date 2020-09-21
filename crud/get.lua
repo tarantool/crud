@@ -70,9 +70,7 @@ function get.call(space_name, key, opts)
         return nil, GetError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
     end
 
-    local results, err = call.rw({
-        func_name = GET_FUNC_NAME,
-        func_args = {space_name, key},
+    local results, err = call.rw(GET_FUNC_NAME, {space_name, key}, {
         replicasets = {replicaset},
         timeout = opts.timeout,
     })

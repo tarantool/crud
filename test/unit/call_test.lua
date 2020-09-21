@@ -49,9 +49,7 @@ end
 g.test_non_existent_func = function()
     local results, err = g.cluster.main_server.net_box:eval([[
         local call = require('crud.common.call')
-        return call.ro({
-            func_name = 'non_existent_func',
-        })
+        return call.ro('non_existent_func')
     ]])
 
     t.assert_equals(results, nil)
@@ -62,9 +60,7 @@ end
 g.test_no_args = function()
     local results_map, err  = g.cluster.main_server.net_box:eval([[
         local call = require('crud.common.call')
-        return call.ro({
-            func_name = 'say_hi_politely',
-        })
+        return call.ro('say_hi_politely')
     ]])
 
     t.assert_equals(err, nil)
@@ -76,10 +72,7 @@ end
 g.test_args = function()
     local results_map, err = g.cluster.main_server.net_box:eval([[
         local call = require('crud.common.call')
-        return call.ro({
-            func_name = 'say_hi_politely',
-            func_args = {'dokshina'},
-        })
+        return call.ro('say_hi_politely', {'dokshina'})
     ]])
 
     t.assert_equals(err, nil)
@@ -91,10 +84,7 @@ end
 g.test_callrw = function()
     local results_map, err = g.cluster.main_server.net_box:eval([[
         local call = require('crud.common.call')
-        return call.rw({
-            func_name = 'say_hi_politely',
-            func_args = {'dokshina'},
-        })
+        return call.ro('say_hi_politely', {'dokshina'})
     ]])
 
     t.assert_equals(err, nil)
@@ -106,14 +96,15 @@ end
 g.test_timeout = function()
     local timeout = 0.2
 
-    local results, err = g.cluster.main_server.net_box:eval(string.format([[
+    local results, err = g.cluster.main_server.net_box:eval([[
         local call = require('crud.common.call')
-        return call.ro({
-            func_name = 'say_hi_sleepily',
-            func_args = {%s},
-            timeout = %s,
+
+        local say_hi_timeout, call_timeout = ...
+
+        return call.ro('say_hi_sleepily', {say_hi_timeout}, {
+            timeout = call_timeout,
         })
-    ]], timeout + 0.1, timeout))
+    ]], {timeout + 0.1, timeout})
 
     t.assert_equals(results, nil)
     t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)

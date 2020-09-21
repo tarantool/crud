@@ -40,9 +40,7 @@ end
 g.test_call = function()
     local results, err = g.cluster.main_server.net_box:eval([[
         local call = require('crud.common.call')
-        return call.ro({
-            func_name = 'say_hi',
-        })
+        return call.ro('say_hi')
     ]])
 
     t.assert_equals(results, nil)

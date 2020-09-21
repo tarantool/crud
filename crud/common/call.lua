@@ -62,13 +62,13 @@ local function call_on_replicaset(replicaset, channel, vshard_call, func_name, f
     })
 end
 
-local function call_impl(vshard_call, opts)
-    checks('string', {
-        func_name = 'string',
-        func_args = '?table',
+local function call_impl(vshard_call, func_name, func_args, opts)
+    checks('string', 'string', '?table', {
         timeout = '?number',
         replicasets = '?table',
     })
+
+    opts = opts or {}
 
     local timeout = opts.timeout or DEFAULT_VSHARD_CALL_TIMEOUT
 
@@ -87,7 +87,7 @@ local function call_impl(vshard_call, opts)
 
     for _, replicaset in pairs(replicasets) do
         fiber.create(
-            call_on_replicaset, replicaset, channel, vshard_call, opts.func_name, opts.func_args, {
+            call_on_replicaset, replicaset, channel, vshard_call, func_name, func_args, {
                 timeout = timeout,
             }
         )
@@ -130,13 +130,13 @@ end
 --
 -- @function rw
 --
--- @tparam table opts Available options are:
---
--- @tparam string opts.func_name
+-- @param string func_name
 --  A function name
 --
--- @tparam ?table opts.func_args
---  Array of arguments to passed to the function
+-- @param ?table func_args
+--  Array of arguments to be passed to the function
+--
+-- @tparam table opts Available options are:
 --
 -- @tparam ?number opts.timeout
 --  Function call timeout
@@ -151,8 +151,8 @@ end
 -- @treturn[2] nil
 -- @treturn[2] table Error description
 --
-function call.rw(opts)
-    return call_impl('callrw', opts)
+function call.rw(func_name, func_args, opts)
+    return call_impl('callrw', func_name, func_args, opts)
 end
 
 --- Calls specified function on all cluster storages.
@@ -161,8 +161,8 @@ end
 --
 -- @function ro
 --
-function call.ro(opts)
-    return call_impl('callro', opts)
+function call.ro(func_name, func_args, opts)
+    return call_impl('callro', func_name, func_args, opts)
 end
 
 return call

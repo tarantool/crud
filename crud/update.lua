@@ -133,9 +133,7 @@ function update.call(space_name, key, user_operations, opts)
         return nil, UpdateError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
     end
 
-    local results, err = call.rw({
-        func_name = UPDATE_FUNC_NAME,
-        func_args = {space_name, key, operations},
+    local results, err = call.rw(UPDATE_FUNC_NAME, {space_name, key, operations}, {
         replicasets = {replicaset},
         timeout = opts.timeout,
     })

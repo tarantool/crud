@@ -69,11 +69,9 @@ local function select_iteration(space_name, conditions, opts)
         limit = opts.batch_size,
     }
 
-    local results, err = call.ro({
-        func_name = SELECT_FUNC_NAME,
-        func_args = {
-            space_name, conditions, storage_select_opts,
-        },
+    local storage_select_args = {space_name, conditions, storage_select_opts}
+
+    local results, err = call.ro(SELECT_FUNC_NAME, storage_select_args, {
         replicasets = opts.replicasets,
         timeout = opts.timeout,
     })

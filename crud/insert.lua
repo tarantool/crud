@@ -85,9 +85,7 @@ function insert.call(space_name, obj, opts)
         return nil, InsertError:new("Object is specified in bad format: %s", err)
     end
 
-    local results, err = call.rw({
-        func_name = INSERT_FUNC_NAME,
-        func_args = {space_name, tuple},
+    local results, err = call.rw(INSERT_FUNC_NAME, {space_name, tuple}, {
         replicasets = {replicaset},
         timeout = opts.timeout,
     })
