@@ -2,18 +2,18 @@ local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
 
-local call = require('elect.common.call')
-local registry = require('elect.common.registry')
-local utils = require('elect.common.utils')
+local call = require('crud.common.call')
+local registry = require('crud.common.registry')
+local utils = require('crud.common.utils')
 
-local select_conditions = require('elect.select.conditions')
-local select_plan = require('elect.select.plan')
-local select_executor = require('elect.select.executor')
-local select_comparators = require('elect.select.comparators')
+local select_conditions = require('crud.select.conditions')
+local select_plan = require('crud.select.plan')
+local select_executor = require('crud.select.executor')
+local select_comparators = require('crud.select.comparators')
 
-local Iterator = require('elect.select.iterator')
+local Iterator = require('crud.select.iterator')
 
-require('elect.common.checkers')
+require('crud.common.checkers')
 
 local SelectError = errors.new_class('Select', {capture_stack = false})
 
@@ -28,7 +28,7 @@ local function call_select_on_storage(space_name, conditions, opts)
     })
 
     -- XXX: init cont_pairs in other place
-    local ok, err = require('elect.cont_pairs').init()
+    local ok, err = require('crud.cont_pairs').init()
     if not ok then
         return nil, SelectError:new("Failed to init cont_pairs: %s", err)
     end

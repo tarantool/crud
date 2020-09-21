@@ -1,4 +1,4 @@
-local select_filters = require('elect.select.filters')
+local select_filters = require('crud.select.filters')
 
 local executor = {}
 

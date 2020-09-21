@@ -1,7 +1,7 @@
 local fio = require('fio')
 
 local t = require('luatest')
-local g = t.group('crud')
+local g = t.group('simple_operations')
 
 local helpers = require('test.helper')
 
@@ -10,7 +10,7 @@ math.randomseed(os.time())
 g.before_all = function()
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_crud'),
+        server_command = helpers.entrypoint('srv_simple_operations'),
         use_vshard = true,
         replicasets = {
             {
@@ -63,8 +63,8 @@ end)
 g.test_non_existent_space = function()
     -- insert
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.insert('non_existent_space', {id = 0, name = 'Fedor', age = 59})
+        local crud = require('crud')
+        return crud.insert('non_existent_space', {id = 0, name = 'Fedor', age = 59})
     ]])
 
     t.assert_equals(obj, nil)
@@ -72,8 +72,8 @@ g.test_non_existent_space = function()
 
     -- get
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.get('non_existent_space', 0)
+        local crud = require('crud')
+        return crud.get('non_existent_space', 0)
     ]])
 
     t.assert_equals(obj, nil)
@@ -81,8 +81,8 @@ g.test_non_existent_space = function()
 
     -- update
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.update('non_existent_space', 0, {{'+', 'age', 1}})
+        local crud = require('crud')
+        return crud.update('non_existent_space', 0, {{'+', 'age', 1}})
     ]])
 
     t.assert_equals(obj, nil)
@@ -90,8 +90,8 @@ g.test_non_existent_space = function()
 
     -- delete
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.delete('non_existent_space', 0)
+        local crud = require('crud')
+        return crud.delete('non_existent_space', 0)
     ]])
 
     t.assert_equals(obj, nil)
@@ -101,8 +101,8 @@ end
 g.test_insert_get = function()
     -- insert
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.insert('customers', {id = 1, name = 'Fedor', age = 59})
+        local crud = require('crud')
+        return crud.insert('customers', {id = 1, name = 'Fedor', age = 59})
     ]])
 
     t.assert_equals(err, nil)
@@ -111,8 +111,8 @@ g.test_insert_get = function()
 
     -- get
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.get('customers', 1)
+        local crud = require('crud')
+        return crud.get('customers', 1)
     ]])
 
     t.assert_equals(err, nil)
@@ -122,8 +122,8 @@ g.test_insert_get = function()
 
     -- insert again
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.insert('customers', {id = 1, name = 'Alexander', age = 37})
+        local crud = require('crud')
+        return crud.insert('customers', {id = 1, name = 'Alexander', age = 37})
     ]])
 
     t.assert_equals(obj, nil)
@@ -132,8 +132,8 @@ g.test_insert_get = function()
 
     -- bad format
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.insert('customers', {id = 2, name = 'Alexander'})
+        local crud = require('crud')
+        return crud.insert('customers', {id = 2, name = 'Alexander'})
     ]])
 
     t.assert_equals(obj, nil)
@@ -141,8 +141,8 @@ g.test_insert_get = function()
 
     -- get non existent
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.get('customers', 100)
+        local crud = require('crud')
+        return crud.get('customers', 100)
     ]])
 
     t.assert_equals(err, nil)
@@ -152,8 +152,8 @@ end
 g.test_update = function()
     -- insert tuple
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.insert('customers', {id = 22, name = 'Leo', age = 72})
+        local crud = require('crud')
+        return crud.insert('customers', {id = 22, name = 'Leo', age = 72})
     ]])
 
     t.assert_equals(err, nil)
@@ -162,8 +162,8 @@ g.test_update = function()
 
     -- update age and name fields
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.update('customers', 22, {
+        local crud = require('crud')
+        return crud.update('customers', 22, {
             {'+', 'age', 10},
             {'=', 'name', 'Leo Tolstoy'}
         })
@@ -175,8 +175,8 @@ g.test_update = function()
 
     -- get
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.get('customers', 22)
+        local crud = require('crud')
+        return crud.get('customers', 22)
     ]])
 
     t.assert_equals(err, nil)
@@ -185,8 +185,8 @@ g.test_update = function()
 
     -- bad key
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.update('customers', 'bad-key', {{'+', 'age', 10},})
+        local crud = require('crud')
+        return crud.update('customers', 'bad-key', {{'+', 'age', 10},})
     ]])
 
     t.assert_equals(obj, nil)
@@ -195,8 +195,8 @@ g.test_update = function()
 
     -- update by field numbers
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.update('customers', 22, {
+        local crud = require('crud')
+        return crud.update('customers', 22, {
             {'-', 4, 10},
             {'=', 3, 'Leo'}
         })
@@ -208,8 +208,8 @@ g.test_update = function()
 
     -- get
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.get('customers', 22)
+        local crud = require('crud')
+        return crud.get('customers', 22)
     ]])
 
     t.assert_equals(err, nil)
@@ -220,8 +220,8 @@ end
 g.test_delete = function()
     -- insert tuple
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.insert('customers', {id = 33, name = 'Mayakovsky', age = 36})
+        local crud = require('crud')
+        return crud.insert('customers', {id = 33, name = 'Mayakovsky', age = 36})
     ]])
 
     t.assert_equals(err, nil)
@@ -230,8 +230,8 @@ g.test_delete = function()
 
     -- delete
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.delete('customers', 33)
+        local crud = require('crud')
+        return crud.delete('customers', 33)
     ]])
 
     t.assert_equals(err, nil)
@@ -240,8 +240,8 @@ g.test_delete = function()
 
     -- get
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.get('customers', 33)
+        local crud = require('crud')
+        return crud.get('customers', 33)
     ]])
 
     t.assert_equals(err, nil)
@@ -249,8 +249,8 @@ g.test_delete = function()
 
     -- bad key
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.delete('customers', 'bad-key')
+        local crud = require('crud')
+        return crud.delete('customers', 'bad-key')
     ]])
 
     t.assert_equals(obj, nil)

@@ -1,4 +1,4 @@
-local utils = require('elect.common.utils')
+local utils = require('crud.common.utils')
 
 local t = require('luatest')
 local g = t.group('serialization')

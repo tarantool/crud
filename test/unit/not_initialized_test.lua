@@ -39,7 +39,7 @@ end
 
 g.test_call = function()
     local results, err = g.cluster.main_server.net_box:eval([[
-        local call = require('elect.common.call')
+        local call = require('crud.common.call')
         return call.ro({
             func_name = 'say_hi',
         })
@@ -47,16 +47,16 @@ g.test_call = function()
 
     t.assert_equals(results, nil)
     t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
-    t.assert_str_contains(err.err, "elect isn't initialized on replicaset")
+    t.assert_str_contains(err.err, "crud isn't initialized on replicaset")
 end
 
 g.test_insert = function()
     local results, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.insert('customers', {id = 1, name = 'Fedor', age = 15})
+        local crud = require('crud')
+        return crud.insert('customers', {id = 1, name = 'Fedor', age = 15})
     ]])
 
     t.assert_equals(results, nil)
     t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
-    t.assert_str_contains(err.err, "elect isn't initialized on replicaset")
+    t.assert_str_contains(err.err, "crud isn't initialized on replicaset")
 end

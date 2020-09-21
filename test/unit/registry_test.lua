@@ -1,7 +1,7 @@
 local t = require('luatest')
 local g = t.group('registry')
 
-local registry = require('elect.common.registry')
+local registry = require('crud.common.registry')
 
 local global_func_names = {}
 

@@ -1,4 +1,4 @@
-local select_conditions = require('elect.select.conditions')
+local select_conditions = require('crud.select.conditions')
 
 local function format_value(value)
     if type(value) == 'nil' then

@@ -1,7 +1,7 @@
 local checks = require('checks')
 local errors = require('errors')
 
-require('elect.common.checkers')
+require('crud.common.checkers')
 
 local registry = {}
 

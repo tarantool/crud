@@ -48,7 +48,7 @@ end
 
 g.test_non_existent_func = function()
     local results, err = g.cluster.main_server.net_box:eval([[
-        local call = require('elect.common.call')
+        local call = require('crud.common.call')
         return call.ro({
             func_name = 'non_existent_func',
         })
@@ -61,7 +61,7 @@ end
 
 g.test_no_args = function()
     local results_map, err  = g.cluster.main_server.net_box:eval([[
-        local call = require('elect.common.call')
+        local call = require('crud.common.call')
         return call.ro({
             func_name = 'say_hi_politely',
         })
@@ -75,7 +75,7 @@ end
 
 g.test_args = function()
     local results_map, err = g.cluster.main_server.net_box:eval([[
-        local call = require('elect.common.call')
+        local call = require('crud.common.call')
         return call.ro({
             func_name = 'say_hi_politely',
             func_args = {'dokshina'},
@@ -90,7 +90,7 @@ end
 
 g.test_callrw = function()
     local results_map, err = g.cluster.main_server.net_box:eval([[
-        local call = require('elect.common.call')
+        local call = require('crud.common.call')
         return call.rw({
             func_name = 'say_hi_politely',
             func_args = {'dokshina'},
@@ -107,7 +107,7 @@ g.test_timeout = function()
     local timeout = 0.2
 
     local results, err = g.cluster.main_server.net_box:eval(string.format([[
-        local call = require('elect.common.call')
+        local call = require('crud.common.call')
         return call.ro({
             func_name = 'say_hi_sleepily',
             func_args = {%s},

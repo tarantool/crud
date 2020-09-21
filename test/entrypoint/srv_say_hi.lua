@@ -8,7 +8,7 @@ local errors = require('errors')
 local cartridge = require('cartridge')
 local membership = require('membership')
 local fiber = require('fiber')
-local elect = require('elect')
+local crud = require('crud')
 
 local ok, err
 
@@ -27,10 +27,10 @@ if not ok then
     os.exit(1)
 end
 
--- initialize elect
-elect.init()
+-- initialize crud
+crud.init()
 
-ok, err = elect.register({
+ok, err = crud.register({
     say_hi_politely = function(to_name)
         to_name = to_name or "handsome"
         local my_alias = membership.myself().payload.alias

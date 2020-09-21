@@ -22,13 +22,13 @@ function cont_pairs.init()
             return false, ContPairsError:new(TARANTOOL_VERSION_ERR_MSG, _TARANTOOL)
         end
 
-        require('elect.cont_pairs.1x')
+        require('crud.cont_pairs.1x')
     elseif major == 2 then
         if minor < 3 then
             return false, ContPairsError:new(TARANTOOL_VERSION_ERR_MSG, _TARANTOOL)
         end
 
-        require('elect.cont_pairs.2x')
+        require('crud.cont_pairs.2x')
     else
         return false, ContPairsError:new("Unknown Tarantool version: %s", _TARANTOOL)
     end

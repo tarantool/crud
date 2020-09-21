@@ -1,7 +1,7 @@
 local t = require('luatest')
 local g = t.group('parse_conditions')
 
-local select_conditions = require('elect.select.conditions')
+local select_conditions = require('crud.select.conditions')
 local cond_funcs = select_conditions.funcs
 
 g.test_parse = function()

@@ -1,4 +1,4 @@
-package = 'elect'
+package = 'crud'
 version = 'scm-1'
 source  = {
 	url = '/dev/null',

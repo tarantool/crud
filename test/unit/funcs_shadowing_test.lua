@@ -38,7 +38,7 @@ end
 
 g.test_call_global = function()
     local results_map, err = g.cluster.main_server.net_box:eval([[
-        local call = require('elect.common.call')
+        local call = require('crud.common.call')
         return call.ro({
             func_name = 'global_func',
         })
@@ -51,7 +51,7 @@ end
 
 g.test_call_registered = function()
     local results_map, err = g.cluster.main_server.net_box:eval([[
-        local call = require('elect.common.call')
+        local call = require('crud.common.call')
         return call.ro({
             func_name = 'registered_func',
         })
@@ -64,7 +64,7 @@ end
 
 g.test_call_common = function()
     local results_map, err = g.cluster.main_server.net_box:eval([[
-        local call = require('elect.common.call')
+        local call = require('crud.common.call')
         return call.ro({
             func_name = 'common_func',
         })

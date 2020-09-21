@@ -1,5 +1,5 @@
-local select_comparators = require('elect.select.comparators')
-local select_conditions = require('elect.select.conditions')
+local select_comparators = require('crud.select.comparators')
+local select_conditions = require('crud.select.conditions')
 local operators = select_conditions.operators
 
 local t = require('luatest')

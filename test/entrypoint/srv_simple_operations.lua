@@ -6,7 +6,7 @@ _G.is_initialized = function() return false end
 local log = require('log')
 local errors = require('errors')
 local cartridge = require('cartridge')
-local elect = require('elect')
+local crud = require('crud')
 
 package.preload['customers-storage'] = function()
     return {
@@ -17,9 +17,7 @@ package.preload['customers-storage'] = function()
                     {'id', 'unsigned'},
                     {'bucket_id', 'unsigned'},
                     {'name', 'string'},
-                    {'last_name', 'string'},
                     {'age', 'number'},
-                    {'city', 'string'},
                 },
                 if_not_exists = true,
             })
@@ -29,18 +27,6 @@ package.preload['customers-storage'] = function()
             })
             customers_space:create_index('bucket_id', {
                 parts = {'bucket_id'},
-                if_not_exists = true,
-            })
-            customers_space:create_index('age', {
-                parts = {'age'},
-                unique = false,
-                if_not_exists = true,
-            })
-            customers_space:create_index('full_name', {
-                parts = {
-                    { field = 'name', collation = 'unicode_ci' },
-                    { field = 'last_name', is_nullable = true },
-                },
                 unique = false,
                 if_not_exists = true,
             })
@@ -65,13 +51,7 @@ if not ok then
     os.exit(1)
 end
 
--- initialize elect
-elect.init()
-
-if not ok then
-    log.error('%s', err)
-    os.exit(1)
-end
-
+-- initialize crud
+crud.init()
 
 _G.is_initialized = cartridge.is_healthy

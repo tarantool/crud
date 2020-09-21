@@ -3,8 +3,8 @@ local fiber = require('fiber')
 local vshard = require('vshard')
 local errors = require('errors')
 
-local registry = require('elect.common.registry')
-local utils = require('elect.common.utils')
+local registry = require('crud.common.registry')
+local utils = require('crud.common.utils')
 
 local CallError = errors.new_class('Call')
 local NotInitializedError = errors.new_class('NotInitialized')
@@ -51,7 +51,7 @@ local function call_on_replicaset(replicaset, channel, vshard_call, func_name, f
     local func_ret, err = replicaset[vshard_call](replicaset, CALL_FUNC_NAME, {elect_call_arg}, opts)
     if type(err) == 'table' and err.type == 'ClientError' and type(err.message) == 'string' then
         if err.message == string.format("Procedure '%s' is not defined", CALL_FUNC_NAME) then
-            err = NotInitializedError:new("elect isn't initialized on replicaset")
+            err = NotInitializedError:new("crud isn't initialized on replicaset")
         end
     end
 
@@ -122,7 +122,7 @@ end
 
 --- Calls specified function on all cluster storages.
 --
--- Allowed functions to call can be specified by `elect.register` call.
+-- Allowed functions to call can be specified by `crud.register` call.
 -- If function with specified `opts.func_name` isn't registered,
 -- global function with this name is called.
 --

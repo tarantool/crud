@@ -2,14 +2,14 @@ local checks = require('checks')
 local errors = require('errors')
 local fiber = require('fiber')
 
-local utils = require('elect.common.utils')
+local utils = require('crud.common.utils')
 
-require('elect.common.checkers')
+require('crud.common.checkers')
 
 local UpdateTuplesError = errors.new('UpdateTuplesError')
 local GetTupleError = errors.new('GetTupleError')
 
-local Heap = require('elect.common.heap')
+local Heap = require('crud.common.heap')
 
 local DEFAULT_BATCH_SIZE = 100
 

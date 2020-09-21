@@ -1,6 +1,6 @@
-local select_plan = require('elect.select.plan')
+local select_plan = require('crud.select.plan')
 
-local select_conditions = require('elect.select.conditions')
+local select_conditions = require('crud.select.conditions')
 local cond_funcs = select_conditions.funcs
 
 local t = require('luatest')

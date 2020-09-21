@@ -3,8 +3,8 @@
 local t = require('luatest')
 local g = t.group('select_filters')
 
-local select_conditions = require('elect.select.conditions')
-local select_filters = require('elect.select.filters')
+local select_conditions = require('crud.select.conditions')
+local select_filters = require('crud.select.filters')
 
 g.test_empty_conditions = function()
     local filter_conditions = {}

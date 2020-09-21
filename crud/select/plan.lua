@@ -1,7 +1,7 @@
 local errors = require('errors')
 local json = require('json')
 
-local select_conditions = require('elect.select.conditions')
+local select_conditions = require('crud.select.conditions')
 
 local select_plan = {}
 

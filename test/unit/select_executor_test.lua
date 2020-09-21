@@ -1,7 +1,7 @@
-local select_plan = require('elect.select.plan')
-local select_executor = require('elect.select.executor')
+local select_plan = require('crud.select.plan')
+local select_executor = require('crud.select.executor')
 
-local select_conditions = require('elect.select.conditions')
+local select_conditions = require('crud.select.conditions')
 local cond_funcs = select_conditions.funcs
 
 local t = require('luatest')
@@ -54,7 +54,7 @@ g.before_all = function()
         if_not_exists = true,
     })
 
-    local ok, err = require('elect.cont_pairs').init()
+    local ok, err = require('crud.cont_pairs').init()
     assert(ok, err)
 end
 

@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 
-project(elect NONE)
+project(crud NONE)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY TRUE)
 
 file(GLOB_RECURSE LUA_FILES
-  "${CMAKE_CURRENT_SOURCE_DIR}/elect.lua"
-  "${CMAKE_CURRENT_SOURCE_DIR}/elect/*.lua"
+  "${CMAKE_CURRENT_SOURCE_DIR}/crud.lua"
+  "${CMAKE_CURRENT_SOURCE_DIR}/crud/*.lua"
 )
 
 ## Install ####################################################################
@@ -19,6 +19,6 @@ install(
 )
 
 install(
-  FILES ${CMAKE_CURRENT_SOURCE_DIR}/elect.lua
+  FILES ${CMAKE_CURRENT_SOURCE_DIR}/crud.lua
   DESTINATION ${TARANTOOL_INSTALL_LUADIR}
 )

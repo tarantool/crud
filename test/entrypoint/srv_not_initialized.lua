@@ -6,7 +6,7 @@ _G.is_initialized = function() return false end
 local log = require('log')
 local errors = require('errors')
 local cartridge = require('cartridge')
-local elect = require('elect')
+local crud = require('crud')
 
 package.preload['customers-storage'] = function()
     return {
@@ -51,9 +51,9 @@ if not ok then
     os.exit(1)
 end
 
--- elect.init() isn't called
+-- crud.init() isn't called
 
-ok, err = elect.register({
+ok, err = crud.register({
     say_hi = function() return "Hi" end,
 })
 

@@ -2,11 +2,11 @@ local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
 
-local call = require('elect.common.call')
-local registry = require('elect.common.registry')
-local utils = require('elect.common.utils')
+local call = require('crud.common.call')
+local registry = require('crud.common.registry')
+local utils = require('crud.common.utils')
 
-require('elect.common.checkers')
+require('crud.common.checkers')
 
 local UpdateError = errors.new_class('Update',  {capture_stack = false})
 local ParseOperationsError = errors.new_class('ParseOperationsError',  {capture_stack = false})

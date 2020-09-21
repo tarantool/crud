@@ -1,7 +1,7 @@
 local fio = require('fio')
 
 local t = require('luatest')
-local g = t.group('crud_select')
+local g = t.group('select')
 
 local helpers = require('test.helper')
 
@@ -10,7 +10,7 @@ math.randomseed(os.time())
 g.before_all = function()
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_crud_select'),
+        server_command = helpers.entrypoint('srv_select'),
         use_vshard = true,
         replicasets = {
             {
@@ -65,8 +65,8 @@ local function insert_customers(customers)
 
     for _, customer in ipairs(customers) do
         local obj, err = g.cluster.main_server.net_box:eval([[
-            local elect = require('elect')
-            return elect.insert('customers', ...)
+            local crud = require('crud')
+            return crud.insert('customers', ...)
         ]],{customer})
 
         t.assert_equals(err, nil)
@@ -88,8 +88,8 @@ end
 g.test_non_existent_space = function()
     -- insert
     local obj, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
-        return elect.select('non_existent_space')
+        local crud = require('crud')
+        return crud.select('non_existent_space')
     ]])
 
     t.assert_equals(obj, nil)
@@ -117,9 +117,9 @@ g.test_select_all = function()
 
     -- no after
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
-        local iter, err = elect.select('customers', nil)
+        local iter, err = crud.select('customers', nil)
         if err ~= nil then return nil, err end
 
         local objects = {}
@@ -140,9 +140,9 @@ g.test_select_all = function()
     -- after obj 2
     local after = customers[2]
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
-        local iter, err = elect.select('customers', nil, {
+        local iter, err = crud.select('customers', nil, {
             after = ...,
         })
         if err ~= nil then return nil, err end
@@ -166,9 +166,9 @@ g.test_select_all = function()
     -- after obj 4 (last)
     local after = customers[4]
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
-        local iter, err = elect.select('customers', nil, {
+        local iter, err = crud.select('customers', nil, {
             after = ...,
         })
         if err ~= nil then return nil, err end
@@ -210,9 +210,9 @@ g.test_select_all_with_limit = function()
 
     -- limit 2
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
-        local iter, err = elect.select('customers', nil, {
+        local iter, err = crud.select('customers', nil, {
             limit = 2,
         })
         if err ~= nil then return nil, err end
@@ -234,9 +234,9 @@ g.test_select_all_with_limit = function()
 
     -- limit 0
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
-        local iter, err = elect.select('customers', nil, {
+        local iter, err = crud.select('customers', nil, {
             limit = 0,
         })
         if err ~= nil then return nil, err end
@@ -291,9 +291,9 @@ g.test_select_all_with_batch_size = function()
 
     -- batch size 1
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
-        local iter, err = elect.select('customers', nil, {
+        local iter, err = crud.select('customers', nil, {
             batch_size = 1,
         })
         if err ~= nil then return nil, err end
@@ -315,9 +315,9 @@ g.test_select_all_with_batch_size = function()
 
     -- batch size 3
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
-        local iter, err = elect.select('customers', nil, {
+        local iter, err = crud.select('customers', nil, {
             batch_size = 3
         })
         if err ~= nil then return nil, err end
@@ -363,11 +363,11 @@ g.test_ge_condition_with_index = function()
 
     -- no after
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
         local conditions = ...
 
-        local iter, err = elect.select('customers', conditions)
+        local iter, err = crud.select('customers', conditions)
         if err ~= nil then return nil, err end
 
         local objects = {}
@@ -388,11 +388,11 @@ g.test_ge_condition_with_index = function()
     -- after obj 3
     local after = customers[3]
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
         local conditions, after = ...
 
-        local iter, err = elect.select('customers', conditions, {
+        local iter, err = crud.select('customers', conditions, {
             after = after,
         })
         if err ~= nil then return nil, err end
@@ -438,11 +438,11 @@ g.test_le_condition_with_index = function()
 
     -- no after
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
         local conditions = ...
 
-        local iter, err = elect.select('customers', conditions)
+        local iter, err = crud.select('customers', conditions)
         if err ~= nil then return nil, err end
 
         local objects = {}
@@ -463,11 +463,11 @@ g.test_le_condition_with_index = function()
     -- after obj 3
     local after = customers[3]
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
         local conditions, after = ...
 
-        local iter, err = elect.select('customers', conditions, {
+        local iter, err = crud.select('customers', conditions, {
             after = after,
         })
         if err ~= nil then return nil, err end
@@ -513,11 +513,11 @@ g.test_lt_condition_with_index = function()
 
     -- no after
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
         local conditions = ...
 
-        local iter, err = elect.select('customers', conditions)
+        local iter, err = crud.select('customers', conditions)
         if err ~= nil then return nil, err end
 
         local objects = {}
@@ -538,11 +538,11 @@ g.test_lt_condition_with_index = function()
     -- after obj 1
     local after = customers[1]
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
         local conditions, after = ...
 
-        local iter, err = elect.select('customers', conditions, {
+        local iter, err = crud.select('customers', conditions, {
             after = after,
         })
         if err ~= nil then return nil, err end
@@ -593,11 +593,11 @@ g.test_multiple_conditions = function()
 
     -- no after
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
         local conditions = ...
 
-        local iter, err = elect.select('customers', conditions)
+        local iter, err = crud.select('customers', conditions)
         if err ~= nil then return nil, err end
 
         local objects = {}
@@ -618,11 +618,11 @@ g.test_multiple_conditions = function()
     -- after obj 5
     local after = customers[5]
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
         local conditions, after = ...
 
-        local iter, err = elect.select('customers', conditions, {
+        local iter, err = crud.select('customers', conditions, {
             after = after,
         })
         if err ~= nil then return nil, err end
@@ -668,11 +668,11 @@ g.test_composite_index = function()
 
     -- no after
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
         local conditions = ...
 
-        local iter, err = elect.select('customers', conditions)
+        local iter, err = crud.select('customers', conditions)
         if err ~= nil then return nil, err end
 
         local objects = {}
@@ -693,11 +693,11 @@ g.test_composite_index = function()
     -- after obj 2
     local after = customers[2]
     local objects, err = g.cluster.main_server.net_box:eval([[
-        local elect = require('elect')
+        local crud = require('crud')
 
         local conditions, after = ...
 
-        local iter, err = elect.select('customers', conditions, {
+        local iter, err = crud.select('customers', conditions, {
             after = after,
         })
         if err ~= nil then return nil, err end
