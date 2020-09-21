@@ -192,6 +192,29 @@ g.test_update = function()
     t.assert_equals(obj, nil)
     t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type:")
+
+    -- update by field numbers
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local elect = require('elect')
+        return elect.update('customers', 22, {
+            {'-', 4, 10},
+            {'=', 3, 'Leo'}
+        })
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert_covers(obj, {id = 22, name = 'Leo', age = 72})
+    t.assert(type(obj.bucket_id) == 'number')
+
+    -- get
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local elect = require('elect')
+        return elect.get('customers', 22)
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert_covers(obj, {id = 22, name = 'Leo', age = 72})
+    t.assert(type(obj.bucket_id) == 'number')
 end
 
 g.test_delete = function()

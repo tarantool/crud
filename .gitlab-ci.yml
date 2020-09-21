@@ -10,10 +10,6 @@ variables:
   tags:
     - docker
     - openstack
-  cache:
-    key: $BUNDLE_VERSION
-    paths:
-      - .rocks
   script:
     - ./deps.sh
 
@@ -36,10 +32,10 @@ test-ee:
     - curl -L https://tarantool.io/installer.sh | VER=${TARANTOOL_VERSION} bash
     - yum install -y tarantool-devel
 
-# test-ce-1.10:
-#   extends: .test-ce
-#   variables:
-#     TARANTOOL_VERSION: '1.10'
+test-ce-1.10:
+  extends: .test-ce
+  variables:
+    TARANTOOL_VERSION: '1.10'
 
 test-ce-2.3:
   extends: .test-ce
