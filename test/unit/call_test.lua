@@ -21,7 +21,7 @@ g.before_all = function()
             {
                 uuid = helpers.uuid('b'),
                 alias = 's-1',
-                roles = { 'vshard-storage' },
+                roles = { 'crud-storage' },
                 servers = {
                     { instance_uuid = helpers.uuid('b', 1), alias = 's1-master' },
                     { instance_uuid = helpers.uuid('b', 2), alias = 's1-replica' },
@@ -30,7 +30,7 @@ g.before_all = function()
             {
                 uuid = helpers.uuid('c'),
                 alias = 's-2',
-                roles = { 'vshard-storage' },
+                roles = { 'crud-storage' },
                 servers = {
                     { instance_uuid = helpers.uuid('c', 1), alias = 's2-master' },
                     { instance_uuid = helpers.uuid('c', 2), alias = 's2-replica' },

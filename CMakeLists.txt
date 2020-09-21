@@ -8,6 +8,7 @@ set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY TRUE)
 file(GLOB_RECURSE LUA_FILES
   "${CMAKE_CURRENT_SOURCE_DIR}/crud.lua"
   "${CMAKE_CURRENT_SOURCE_DIR}/crud/*.lua"
+  "${CMAKE_CURRENT_SOURCE_DIR}/cartridge/roles/*.lua"
 )
 
 ## Install ####################################################################
@@ -20,5 +21,10 @@ install(
 
 install(
   FILES ${CMAKE_CURRENT_SOURCE_DIR}/crud.lua
+  DESTINATION ${TARANTOOL_INSTALL_LUADIR}
+)
+
+install(
+  DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/cartridge
   DESTINATION ${TARANTOOL_INSTALL_LUADIR}
 )
