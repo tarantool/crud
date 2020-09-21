@@ -382,15 +382,4 @@ local index_cont_pairs = function(index, key, last_tuple, opts)
     return gen,param,state
 end
 
-local space_cont_pairs = function(space, key, last_tuple, opts)
-    box.internal.check_space_arg(space, 'pairs')
-    local pk = space.index[0]
-    if pk == nil then
-        -- empty space without indexes, return empty iterator
-        return fun.iter({})
-    end
-    return index_cont_pairs(pk, key, last_tuple, opts)
-end
-
-box.schema.index_mt['cont_pairs'] = index_cont_pairs
-box.schema.space_mt['cont_pairs'] = space_cont_pairs
+return index_cont_pairs

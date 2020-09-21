@@ -1,4 +1,5 @@
 local select_filters = require('crud.select.filters')
+local cont_pairs = require('crud.cont_pairs')
 
 local executor = {}
 
@@ -16,9 +17,9 @@ function executor.execute(plan)
     local tuples_count = 0
 
     local space = box.space[scanner.space_name]
-    local index_obj = space.index[scanner.index_id]
+    local index = space.index[scanner.index_id]
 
-    for _, tuple in index_obj:cont_pairs(scanner.value, scanner.after_tuple, {iterator = scanner.iter}) do
+    for _, tuple in cont_pairs(index, scanner.value, scanner.after_tuple, {iterator = scanner.iter}) do
         local matched, early_exit = filer_func(tuple)
 
         if matched then

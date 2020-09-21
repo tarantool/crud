@@ -1,3 +1,5 @@
+local crud = require('crud')
+
 local select_plan = require('crud.select.plan')
 local select_executor = require('crud.select.executor')
 
@@ -54,8 +56,7 @@ g.before_all = function()
         if_not_exists = true,
     })
 
-    local ok, err = require('crud.cont_pairs').init()
-    assert(ok, err)
+    crud.init()
 end
 
 g.after_each(function()

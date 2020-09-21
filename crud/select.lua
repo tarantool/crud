@@ -27,12 +27,6 @@ local function call_select_on_storage(space_name, conditions, opts)
         after_tuple = '?table',
     })
 
-    -- XXX: init cont_pairs in other place
-    local ok, err = require('crud.cont_pairs').init()
-    if not ok then
-        return nil, SelectError:new("Failed to init cont_pairs: %s", err)
-    end
-
     local space = box.space[space_name]
     if space == nil then
         return nil, SelectError:new("Space %s doesn't exists", space_name)
