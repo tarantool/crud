@@ -1,5 +1,4 @@
 local fio = require('fio')
-local yaml = require('yaml')
 
 local t = require('luatest')
 local g = t.group('crud_select')
@@ -65,10 +64,10 @@ local function insert_customers(customers)
     local inserted_objects = {}
 
     for _, customer in ipairs(customers) do
-        local obj, err = g.cluster.main_server.net_box:eval(string.format([=[
+        local obj, err = g.cluster.main_server.net_box:eval([[
             local elect = require('elect')
-            return elect.insert('customers', require('yaml').decode([[%s]]))
-        ]=], yaml.encode(customer)))
+            return elect.insert('customers', ...)
+        ]],{customer})
 
         t.assert_equals(err, nil)
 
@@ -140,11 +139,11 @@ g.test_select_all = function()
 
     -- after obj 2
     local after = customers[2]
-    local objects, err = g.cluster.main_server.net_box:eval(string.format([[
+    local objects, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
 
         local iter, err = elect.select('customers', nil, {
-            after = require('yaml').decode([=[%s]=]),
+            after = ...,
         })
         if err ~= nil then return nil, err end
 
@@ -158,18 +157,19 @@ g.test_select_all = function()
         end
 
         return objects
-    ]], yaml.encode(after)))
+    ]], {after}
+)
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {3, 4}))
 
     -- after obj 4 (last)
     local after = customers[4]
-    local objects, err = g.cluster.main_server.net_box:eval(string.format([[
+    local objects, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
 
         local iter, err = elect.select('customers', nil, {
-            after = require('yaml').decode([=[%s]=]),
+            after = ...,
         })
         if err ~= nil then return nil, err end
 
@@ -183,7 +183,7 @@ g.test_select_all = function()
         end
 
         return objects
-    ]], yaml.encode(after)))
+    ]], {after})
 
     t.assert_equals(err, nil)
     t.assert_equals(#objects, 0)
@@ -209,8 +209,7 @@ g.test_select_all_with_limit = function()
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
     -- limit 2
-    local after = customers[2]
-    local objects, err = g.cluster.main_server.net_box:eval(string.format([[
+    local objects, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
 
         local iter, err = elect.select('customers', nil, {
@@ -228,14 +227,13 @@ g.test_select_all_with_limit = function()
         end
 
         return objects
-    ]], yaml.encode(after)))
+    ]])
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {1, 2}))
 
     -- limit 0
-    local after = customers[2]
-    local objects, err = g.cluster.main_server.net_box:eval(string.format([[
+    local objects, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
 
         local iter, err = elect.select('customers', nil, {
@@ -253,7 +251,7 @@ g.test_select_all_with_limit = function()
         end
 
         return objects
-    ]], yaml.encode(after)))
+    ]])
 
     t.assert_equals(err, nil)
     t.assert_equals(#objects, 0)
@@ -340,7 +338,7 @@ g.test_select_all_with_batch_size = function()
     t.assert_equals(objects, customers)
 end
 
-g.test_one_condition_with_index = function()
+g.test_ge_condition_with_index = function()
     local customers = insert_customers({
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -359,13 +357,17 @@ g.test_one_condition_with_index = function()
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
+    local conditions = {
+        {'>=', 'age', 33},
+    }
+
     -- no after
     local objects, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
 
-        local iter, err = elect.select('customers', {
-            {'>=', 'age', 33},
-        })
+        local conditions = ...
+
+        local iter, err = elect.select('customers', conditions)
         if err ~= nil then return nil, err end
 
         local objects = {}
@@ -378,20 +380,20 @@ g.test_one_condition_with_index = function()
         end
 
         return objects
-    ]])
+    ]], {conditions})
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {3, 2, 4})) -- in age order
 
     -- after obj 3
     local after = customers[3]
-    local objects, err = g.cluster.main_server.net_box:eval(string.format([[
+    local objects, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
 
-        local iter, err = elect.select('customers', {
-            {'>=', 'age', 33},
-        }, {
-            after = require('yaml').decode([=[%s]=]),
+        local conditions, after = ...
+
+        local iter, err = elect.select('customers', conditions, {
+            after = after,
         })
         if err ~= nil then return nil, err end
 
@@ -405,10 +407,160 @@ g.test_one_condition_with_index = function()
         end
 
         return objects
-    ]], yaml.encode(after)))
+    ]], {conditions, after})
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {2, 4})) -- in age order
+end
+
+g.test_le_condition_with_index = function()
+    local customers = insert_customers({
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 81, city = "Chicago",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    local conditions = {
+        {'<=', 'age', 33},
+    }
+
+    -- no after
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local elect = require('elect')
+
+        local conditions = ...
+
+        local iter, err = elect.select('customers', conditions)
+        if err ~= nil then return nil, err end
+
+        local objects = {}
+        while iter:has_next() do
+            object, err = iter:get()
+            if err ~= nil then
+                return nil, err
+            end
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(objects, get_by_ids(customers, {3, 1})) -- in age order
+
+    -- after obj 3
+    local after = customers[3]
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local elect = require('elect')
+
+        local conditions, after = ...
+
+        local iter, err = elect.select('customers', conditions, {
+            after = after,
+        })
+        if err ~= nil then return nil, err end
+
+        local objects = {}
+        while iter:has_next() do
+            object, err = iter:get()
+            if err ~= nil then
+                return nil, err
+            end
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions, after})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(objects, get_by_ids(customers, {1})) -- in age order
+end
+
+g.test_lt_condition_with_index = function()
+    local customers = insert_customers({
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 81, city = "Chicago",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    local conditions = {
+        {'<', 'age', 33},
+    }
+
+    -- no after
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local elect = require('elect')
+
+        local conditions = ...
+
+        local iter, err = elect.select('customers', conditions)
+        if err ~= nil then return nil, err end
+
+        local objects = {}
+        while iter:has_next() do
+            object, err = iter:get()
+            if err ~= nil then
+                return nil, err
+            end
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(objects, get_by_ids(customers, {1})) -- in age order
+
+    -- after obj 1
+    local after = customers[1]
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local elect = require('elect')
+
+        local conditions, after = ...
+
+        local iter, err = elect.select('customers', conditions, {
+            after = after,
+        })
+        if err ~= nil then return nil, err end
+
+        local objects = {}
+        while iter:has_next() do
+            object, err = iter:get()
+            if err ~= nil then
+                return nil, err
+            end
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions, after})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(objects, get_by_ids(customers, {})) -- in age order
 end
 
 g.test_multiple_conditions = function()
@@ -433,15 +585,19 @@ g.test_multiple_conditions = function()
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
+    local conditions = {
+        {'>', 'age', 20},
+        {'==', 'name', 'Elizabeth'},
+        {'==', 'city', 'Chicago'},
+    }
+
     -- no after
     local objects, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
 
-        local iter, err = elect.select('customers', {
-            {'>', 'age', 20},
-            {'==', 'name', 'Elizabeth'},
-            {'==', 'city', 'Chicago'},
-        })
+        local conditions = ...
+
+        local iter, err = elect.select('customers', conditions)
         if err ~= nil then return nil, err end
 
         local objects = {}
@@ -454,22 +610,20 @@ g.test_multiple_conditions = function()
         end
 
         return objects
-    ]])
+    ]], {conditions})
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {5, 2})) -- in age order
 
     -- after obj 5
     local after = customers[5]
-    local objects, err = g.cluster.main_server.net_box:eval(string.format([[
+    local objects, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
 
-        local iter, err = elect.select('customers', {
-            {'>', 'age', 20},
-            {'==', 'name', 'Elizabeth'},
-            {'==', 'city', 'Chicago'},
-        }, {
-            after = require('yaml').decode([=[%s]=]),
+        local conditions, after = ...
+
+        local iter, err = elect.select('customers', conditions, {
+            after = after,
         })
         if err ~= nil then return nil, err end
 
@@ -483,7 +637,7 @@ g.test_multiple_conditions = function()
         end
 
         return objects
-    ]], yaml.encode(after)))
+    ]], {conditions, after})
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {2})) -- in age order
@@ -508,13 +662,17 @@ g.test_composite_index = function()
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
+    local conditions = {
+        {'>=', 'full_name', {"Elizabeth", "Jo"}},
+    }
+
     -- no after
     local objects, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
 
-        local iter, err = elect.select('customers', {
-            {'>=', 'full_name', {"Elizabeth", "Jo"}},
-        })
+        local conditions = ...
+
+        local iter, err = elect.select('customers', conditions)
         if err ~= nil then return nil, err end
 
         local objects = {}
@@ -527,20 +685,20 @@ g.test_composite_index = function()
         end
 
         return objects
-    ]])
+    ]], {conditions})
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {2, 1, 4})) -- in full_name order
 
     -- after obj 2
     local after = customers[2]
-    local objects, err = g.cluster.main_server.net_box:eval(string.format([[
+    local objects, err = g.cluster.main_server.net_box:eval([[
         local elect = require('elect')
 
-        local iter, err = elect.select('customers', {
-            {'>=', 'full_name', {"Elizabeth", "Jo"}},
-        }, {
-            after = require('yaml').decode([=[%s]=]),
+        local conditions, after = ...
+
+        local iter, err = elect.select('customers', conditions, {
+            after = after,
         })
         if err ~= nil then return nil, err end
 
@@ -554,7 +712,7 @@ g.test_composite_index = function()
         end
 
         return objects
-    ]], yaml.encode(after)))
+    ]], {conditions, after})
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {1, 4})) -- in full_name order

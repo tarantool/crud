@@ -1,21 +1,14 @@
-local key_def_lib = require('key_def')
-
 local t = require('luatest')
 local g = t.group('heap')
 
 local Heap = require('elect.common.heap')
 
 g.test_get_one_part_number_key = function()
-    local key_parts = {
-        {fieldno = 1, type = 'unsigned'},
-    }
-
-    local function gt_comparator(left, right)
-        local key_def = key_def_lib.new(key_parts)
-        return key_def:compare(left, right) < 0
+    local function comparator(left, right)
+        return left[1] > right[1]
     end
 
-    local heap = Heap.new({comparator = gt_comparator})
+    local heap = Heap.new({comparator = comparator})
     t.assert_is(heap:get(), nil)
 
     heap:add({2, 'B'}, {replicaset_uuid = 1})
@@ -41,16 +34,11 @@ g.test_get_one_part_number_key = function()
 end
 
 g.test_get_one_part_string_key = function()
-    local key_parts = {
-        {fieldno = 2, type = 'string'}
-    }
-
-    local function gt_comparator(left, right)
-        local key_def = key_def_lib.new(key_parts)
-        return key_def:compare(left, right) < 0
+    local function comparator(left, right)
+        return left[2] > right[2]
     end
 
-    local heap = Heap.new({comparator = gt_comparator})
+    local heap = Heap.new({comparator = comparator})
     t.assert_is(heap:get(), nil)
 
     heap:add({2, 'B'}, {replicaset_uuid = 1})
@@ -76,17 +64,19 @@ g.test_get_one_part_string_key = function()
 end
 
 g.test_get_multipart_key = function()
-    local key_parts = {
-        {fieldno = 2, type = 'unsigned'},
-        {fieldno = 1, type = 'string'},
-    }
+    local function comparator(left, right)
+        if left[2] > right[2] then
+            return true
+        end
 
-    local function gt_comparator(left, right)
-        local key_def = key_def_lib.new(key_parts)
-        return key_def:compare(left, right) < 0
+        if left[1] > right[1] then
+            return true
+        end
+
+        return false
     end
 
-    local heap = Heap.new({comparator = gt_comparator})
+    local heap = Heap.new({comparator = comparator})
     t.assert_is(heap:get(), nil)
 
     heap:add({'B', 2, 'X'}, {replicaset_uuid = 3})
@@ -112,50 +102,28 @@ g.test_get_multipart_key = function()
 end
 
 g.test_pop = function()
-    local key_parts = {
-        {fieldno = 3, type = 'unsigned'},
-        {fieldno = 2, type = 'string'},
-    }
-
-    local function gt_comparator(left, right)
-        local key_def = key_def_lib.new(key_parts)
-        return key_def:compare(left, right) < 0
+    local function comparator(left, right)
+        return left > right
     end
 
-    local heap = Heap.new({comparator = gt_comparator})
+    local heap = Heap.new({comparator = comparator})
+    t.assert_is(heap:get(), nil)
 
-    local tuples = {
-        {'x', 'A', 3},
-        {'y', 'B', 10},
-        {'z', 'C', 5},
-        {'a', 'D', 2},
-        {'b', 'E', 5},
-        {'c', 'F', 2},
-        {'k', 'G', 1},
-        {'l', 'H', 6},
-    }
 
-    for _, tuple in ipairs(tuples) do
-        heap:add(tuple)
+    local numbers = {3, 10, 5, 2, 5, 2, 1, 6}
+
+    for _, number in ipairs(numbers) do
+        heap:add(number)
     end
 
-    local size = #tuples
+    local size = #numbers
     t.assert_equals(heap:size(), size)
 
-    local sorted_tuples = {
-        {'k', 'G', 1},
-        {'a', 'D', 2},
-        {'c', 'F', 2},
-        {'x', 'A', 3},
-        {'z', 'C', 5},
-        {'b', 'E', 5},
-        {'l', 'H', 6},
-        {'y', 'B', 10},
-    }
+    local sorted_numbers = {1, 2, 2, 3, 5, 5, 6, 10}
 
-    for _, tuple in ipairs(sorted_tuples) do
+    for _, number in ipairs(sorted_numbers) do
         local node = heap:pop()
-        t.assert_equals(node.obj, tuple)
+        t.assert_equals(node.obj, number)
 
         size = size - 1
         t.assert_equals(heap:size(), size)

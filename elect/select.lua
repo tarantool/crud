@@ -1,7 +1,6 @@
 local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
-local key_def_lib = require('key_def')
 
 local call = require('elect.common.call')
 local registry = require('elect.common.registry')
@@ -10,6 +9,7 @@ local utils = require('elect.common.utils')
 local select_conditions = require('elect.select.conditions')
 local select_plan = require('elect.select.plan')
 local select_executor = require('elect.select.executor')
+local select_comparators = require('elect.select.comparators')
 
 local Iterator = require('elect.select.iterator')
 
@@ -141,11 +141,9 @@ function select_module.call(space_name, user_conditions, opts)
 
     local key_parts = space.index[plan.scanner.index_id].parts
 
-    -- XXX: this is the temporary solution
-    -- The next step is to generate comparator based on plan
-    local function gt_comparator(left, right)
-        local key_def = key_def_lib.new(key_parts)
-        return key_def:compare(left, right) < 0
+    local tuples_comparator, err = select_comparators.gen_func(plan.scanner.operator, key_parts)
+    if err ~= nil then
+        return nil, SelectError:new("Failed to generate comparator function: %s", err)
     end
 
     local iter = Iterator.new({
@@ -153,7 +151,7 @@ function select_module.call(space_name, user_conditions, opts)
         space_format = space_format,
         key_parts = key_parts,
         iteration_func = select_iteration,
-        comparator = gt_comparator,
+        comparator = tuples_comparator,
 
         conditions = conditions,
         after_tuple = after_tuple,

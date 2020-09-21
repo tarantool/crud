@@ -41,7 +41,7 @@ function Heap:_ok(child_idx, parent_idx)
     local child_node = self.nodes[child_idx].obj
     local parent_node = self.nodes[parent_idx].obj
 
-    return self.comparator(parent_node, child_node)
+    return self.comparator(child_node, parent_node)
 end
 
 function Heap:add(obj, meta)
@@ -115,12 +115,6 @@ end
 
 function Heap:size()
     return #self.nodes
-end
-
-function Heap:_print()
-    for _, node in ipairs(self.nodes) do
-        require('log').info('node: ' .. require('json').encode(node))
-    end
 end
 
 return Heap

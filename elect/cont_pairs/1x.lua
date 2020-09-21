@@ -117,7 +117,13 @@ local index_cont_pairs = function(index, key, last_tuple, opts)
     local tuple = ffi.C.box_tuple_new(fmt, data_start, data_end)
     ffi.C.box_tuple_ref(tuple)
 
-    state = gen(param, state)
+    local t
+    state, t = gen(param, state)
+    if t == nil then
+        ffi.C.box_tuple_unref(tuple)
+        return fun.iter({})
+    end
+
     if not (ffi.cast("struct tree_iterator&", state).current_tuple == box.NULL) then
         ffi.C.box_tuple_unref(ffi.cast("struct tree_iterator&", state).current_tuple)
     end

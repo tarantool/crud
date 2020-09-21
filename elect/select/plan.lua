@@ -85,6 +85,8 @@ local function get_select_scanner(space_name, space_indexes, space_format, condi
     local scan_iter = nil
     local scan_value = nil
     local scan_condition_num = nil
+    local scan_operator
+
     local scan_limit = opts.limit
     local scan_after_tuple = opts.after_tuple
 
@@ -96,6 +98,7 @@ local function get_select_scanner(space_name, space_indexes, space_format, condi
             scan_iter = select_conditions.get_tarantool_iter(condition)
             scan_value = condition.values
             scan_condition_num = i
+            scan_operator = condition.operator
             break
         end
     end
@@ -112,6 +115,7 @@ local function get_select_scanner(space_name, space_indexes, space_format, condi
         scan_index = primary_index
         scan_iter = box.index.GE -- default iteration is `next greater than previous`
         scan_value = {}
+        scan_operator = select_conditions.operators.GE
     end
 
     if only_one_value_is_needed(scan_index.name, scan_iter, scan_value, primary_index) then
@@ -126,6 +130,7 @@ local function get_select_scanner(space_name, space_indexes, space_format, condi
         iter = scan_iter,
         value = scan_value,
         condition_num = scan_condition_num,
+        operator = scan_operator,
         limit = scan_limit,
         after_tuple = scan_after_tuple,
     }
@@ -253,7 +258,6 @@ local function validate_conditions(conditions, space_indexes, space_format)
 
     return true
 end
-
 
 function select_plan.new(space, conditions, opts)
     conditions = conditions ~= nil and conditions or {}
