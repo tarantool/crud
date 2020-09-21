@@ -7,16 +7,16 @@ Heap.__index = Heap
 
 function Heap.new(opts)
     checks({
-        key_parts = 'strings_array',
+        comparator = 'function',
     })
 
-    local obj = {
-        key_parts = opts.key_parts,
+    local heap = {
+        comparator = opts.comparator,
         nodes = {},
     }
 
-    setmetatable(obj, Heap)
-    return obj
+    setmetatable(heap, Heap)
+    return heap
 end
 
 local function get_parent_idx(idx)
@@ -37,49 +37,15 @@ function Heap:_swap(idx1, idx2)
     self.nodes[idx2] = t
 end
 
-local function get_key(obj, key_parts)
-    local key = {}
-    for _, key_part in ipairs(key_parts) do
-        table.insert(key, obj[key_part])
-    end
-    return key
-end
-
--- left <= right
-local function cmp_keys(left, right)
-    checks('table', 'table')
-
-    local max_len = #left > #right and #left or #right
-
-    for i=1,max_len do
-        local part_left = left[i]
-        local part_right = right[i]
-
-        if part_left ~= nil and part_right == nil then return false end
-
-        if part_left ~= nil and part_right ~= nil then
-            if part_left < part_right then return true end
-            if part_left > part_right then return false end
-        end
-    end
-
-    return true
-end
-
 function Heap:_ok(child_idx, parent_idx)
-    -- XXX Use key parts
-    local child_node = self.nodes[child_idx]
-    local parent_node = self.nodes[parent_idx]
+    local child_node = self.nodes[child_idx].obj
+    local parent_node = self.nodes[parent_idx].obj
 
-    local child_key = get_key(child_node.obj, self.key_parts)
-    local parent_key = get_key(parent_node.obj, self.key_parts)
-
-    -- return parent_key <= child_key
-    return cmp_keys(parent_key, child_key)
+    return self.comparator(parent_node, child_node)
 end
 
 function Heap:add(obj, meta)
-    checks('table', 'table', '?')
+    checks('table', '?', '?')
 
     local node = {
         obj = obj,

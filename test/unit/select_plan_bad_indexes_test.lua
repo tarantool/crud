@@ -1,5 +1,7 @@
-local elect = require('elect')
 local select_plan = require('elect.select.plan')
+
+local select_conditions = require('elect.select.conditions')
+local cond_funcs = select_conditions.funcs
 
 local t = require('luatest')
 local g = t.group('select_plan_bad_indexes')
@@ -79,8 +81,8 @@ end
 g.test_cond_with_good_index = function()
     -- check that conditions with bad indexes are just skipped
     local plan, err = select_plan.new(box.space.customers, {
-        elect.lt('age_hash', 30),
-        elect.lt('age_tree', 30),
+        cond_funcs.lt('age_hash', 30),
+        cond_funcs.lt('age_tree', 30),
     })
 
     t.assert_equals(err, nil)
@@ -89,7 +91,7 @@ end
 
 g.test_cond_with_hash_index = function()
     local plan, err = select_plan.new(box.space.customers, {
-        elect.lt('age_hash', 30),
+        cond_funcs.lt('age_hash', 30),
     })
 
     t.assert_equals(plan, nil)
@@ -98,7 +100,7 @@ end
 
 g.test_cond_with_hash_index = function()
     local plan, err = select_plan.new(box.space.customers, {
-        elect.lt('age_bitset', 30),
+        cond_funcs.lt('age_bitset', 30),
     })
 
     t.assert_equals(plan, nil)
@@ -107,7 +109,7 @@ end
 
 g.test_cond_with_bad_composite_index = function()
     local plan, err = select_plan.new(box.space.customers, {
-        elect.lt('name', {'John', 'Doe'}),
+        cond_funcs.lt('name', {'John', 'Doe'}),
     })
 
     t.assert_equals(plan, nil)
@@ -116,7 +118,7 @@ end
 
 g.test_cond_with_rtree_index = function()
     local plan, err = select_plan.new(box.space.customers, {
-        elect.eq('cars', {'Porshe', 'Mercedes', 'Range Rover'}),
+        cond_funcs.eq('cars', {'Porshe', 'Mercedes', 'Range Rover'}),
     })
 
     t.assert_equals(plan, nil)

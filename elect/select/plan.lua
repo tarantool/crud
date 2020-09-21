@@ -1,6 +1,8 @@
 local errors = require('errors')
 local json = require('json')
 
+local select_conditions = require('elect.select.conditions')
+
 local select_plan = {}
 
 local SelectPlanError = errors.new_class('SelectPlanError', {capture_stack = false})
@@ -57,7 +59,7 @@ local function is_early_exit_possible(scanner, condition)
         return false
     end
 
-    local condition_iter = condition:get_tarantool_iter()
+    local condition_iter = select_conditions.get_tarantool_iter(condition)
     if scanner.iter == box.index.REQ or scanner.iter == box.index.LT or scanner.iter == box.index.LE then
         if condition_iter == box.index.GT or condition_iter == box.index.GE then
             return true
@@ -91,7 +93,7 @@ local function get_select_scanner(space_name, space_indexes, space_format, condi
         scan_index = get_index_for_condition(space_indexes, space_format, condition)
 
         if scan_index ~= nil then
-            scan_iter = condition:get_tarantool_iter()
+            scan_iter = select_conditions.get_tarantool_iter(condition)
             scan_value = condition.values
             scan_condition_num = i
             break
@@ -254,8 +256,8 @@ end
 
 
 function select_plan.new(space, conditions, opts)
-    conditions = conditions or {}
-    opts = opts or {}
+    conditions = conditions ~= nil and conditions or {}
+    opts = opts ~= nil and opts or {}
 
     local space_name = space.name
     local space_indexes = space.index

@@ -9,7 +9,6 @@ local get = require('elect.get')
 local update = require('elect.update')
 local delete = require('elect.delete')
 local select = require('elect.select')
-local select_conditions = require('elect.select.conditions')
 
 local elect = {}
 
@@ -42,11 +41,6 @@ elect.delete = delete.call
 -- @refer select.call
 -- @function select
 elect.select = select.call
-
--- Select operator functions
-for func_name, func in pairs(select_conditions.funcs) do
-    elect[func_name] = func
-end
 
 --- Initializes elect on node
 --

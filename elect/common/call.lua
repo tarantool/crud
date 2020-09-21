@@ -100,14 +100,10 @@ local function call_impl(vshard_call, opts)
 
         if res == nil then
             if channel:is_closed() then
-                return nil, CallError:new(utils.format_replicaset_error(
-                    res.replicaset_uuid, "Channel is closed"
-                ))
+                return nil, CallError:new("Channel is closed")
             end
 
-            return nil, CallError:new(utils.format_replicaset_error(
-                res.replicaset_uuid, "Timeout was reached"
-            ))
+            return nil, CallError:new("Timeout was reached")
         end
 
         if res.err ~= nil then

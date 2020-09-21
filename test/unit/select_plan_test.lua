@@ -1,6 +1,7 @@
-local elect = require('elect')
 local select_plan = require('elect.select.plan')
+
 local select_conditions = require('elect.select.conditions')
+local cond_funcs = select_conditions.funcs
 
 local t = require('luatest')
 local g = t.group('select_plan')
@@ -47,7 +48,7 @@ end)
 
 g.test_scanner_bad_operand_name = function()
     local plan, err = select_plan.new(box.space.customers, {
-        elect.gt('non-existent-field-index', 20),
+        cond_funcs.gt('non-existent-field-index', 20),
     })
 
     t.assert_equals(plan, nil)
@@ -58,7 +59,7 @@ end
 g.test_scanner_indexed_field = function()
     -- select by indexed field
     local plan, err = select_plan.new(box.space.customers, {
-        elect.gt('age', 20),
+        cond_funcs.gt('age', 20),
     })
 
     t.assert_equals(err, nil)
@@ -79,7 +80,7 @@ end
 
 g.test_scanner_non_indexed_field = function()
     local plan, err = select_plan.new(box.space.customers, {
-        elect.eq('city', 'Moscow'),
+        cond_funcs.eq('city', 'Moscow'),
     })
 
     t.assert_equals(err, nil)
@@ -101,7 +102,7 @@ end
 g.test_scanner_partial_indexed_field = function()
     -- select by first part of the index
     local plan, err = select_plan.new(box.space.customers, {
-        elect.gt('name', 'A'),
+        cond_funcs.gt('name', 'A'),
     })
 
     t.assert_equals(err, nil)
@@ -121,7 +122,7 @@ g.test_scanner_partial_indexed_field = function()
 
     -- select by second part of the index
     local plan, err = select_plan.new(box.space.customers, {
-        elect.gt('last_name', 'A'),
+        cond_funcs.gt('last_name', 'A'),
     })
 
     t.assert_equals(err, nil)
@@ -143,7 +144,7 @@ end
 g.test_limit_passed = function()
     -- select by indexed field with conditions by index and field
     local plan, err = select_plan.new(box.space.customers, {
-        elect.gt('age', 20),
+        cond_funcs.gt('age', 20),
     }, { limit = 100 })
 
     t.assert_equals(err, nil)
@@ -165,10 +166,10 @@ end
 g.test_full_primary_key = function()
     -- select by indexed field with conditions by index and field
     local plan, err = select_plan.new(box.space.customers, {
-        elect.eq('id', 15),
-        elect.gt('age', 20),
-        elect.eq('full_name', {'Ivan', 'Ivanov'}),
-        elect.eq('has_a_car', true)
+        cond_funcs.eq('id', 15),
+        cond_funcs.gt('age', 20),
+        cond_funcs.eq('full_name', {'Ivan', 'Ivanov'}),
+        cond_funcs.eq('has_a_car', true)
     })
 
     t.assert_equals(err, nil)
@@ -190,10 +191,10 @@ end
 g.test_filter_conditions = function()
     -- select by indexed field with conditions by index and field
     local plan, err = select_plan.new(box.space.customers, {
-        elect.gt('age', 20),
-        elect.lt('age', 40),
-        elect.eq('full_name', {'Ivan', 'Ivanov'}),
-        elect.eq('has_a_car', true)
+        cond_funcs.gt('age', 20),
+        cond_funcs.lt('age', 40),
+        cond_funcs.eq('full_name', {'Ivan', 'Ivanov'}),
+        cond_funcs.eq('has_a_car', true)
     })
 
     t.assert_equals(err, nil)

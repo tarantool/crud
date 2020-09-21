@@ -1,6 +1,8 @@
-local elect = require('elect')
 local select_plan = require('elect.select.plan')
 local select_executor = require('elect.select.executor')
+
+local select_conditions = require('elect.select.conditions')
+local cond_funcs = select_conditions.funcs
 
 local t = require('luatest')
 local g = t.group('select_executor')
@@ -84,7 +86,7 @@ g.test_one_condition_no_index = function()
 
     -- no after
     local plan, err = select_plan.new(box.space.customers, {
-        elect.eq('city', 'Los Angeles'),
+        cond_funcs.eq('city', 'Los Angeles'),
     })
 
     t.assert_equals(err, nil)
@@ -94,7 +96,7 @@ g.test_one_condition_no_index = function()
 
     -- after tuple 2
     local plan, err = select_plan.new(box.space.customers, {
-        elect.eq('city', 'Los Angeles'),
+        cond_funcs.eq('city', 'Los Angeles'),
     }, {
         after_tuple = box.space.customers:frommap(customers[2]),
     })
@@ -106,7 +108,7 @@ g.test_one_condition_no_index = function()
 
     -- after tuple 3
     local plan, err = select_plan.new(box.space.customers, {
-        elect.eq('city', 'Los Angeles'),
+        cond_funcs.eq('city', 'Los Angeles'),
     }, {
         after_tuple = box.space.customers:frommap(customers[3]),
     })
@@ -137,7 +139,7 @@ g.test_one_condition_with_index = function()
 
     -- no after
     local plan, err = select_plan.new(box.space.customers, {
-        elect.ge('age', 33),
+        cond_funcs.ge('age', 33),
     })
 
     t.assert_equals(err, nil)
@@ -147,7 +149,7 @@ g.test_one_condition_with_index = function()
 
     -- after tuple 3
     local plan, err = select_plan.new(box.space.customers, {
-        elect.ge('age', 33),
+        cond_funcs.ge('age', 33),
     }, {
         after_tuple = box.space.customers:frommap(customers[3]),
     })
@@ -181,9 +183,9 @@ g.test_multiple_conditions = function()
 
     -- no after
     local plan, err = select_plan.new(box.space.customers, {
-        elect.gt('age', 20),
-        elect.eq('name', 'Elizabeth'),
-        elect.eq('city', "Chicago"),
+        cond_funcs.gt('age', 20),
+        cond_funcs.eq('name', 'Elizabeth'),
+        cond_funcs.eq('city', "Chicago"),
     })
 
     t.assert_equals(err, nil)
@@ -193,9 +195,9 @@ g.test_multiple_conditions = function()
 
     -- after tuple 5
     local plan, err = select_plan.new(box.space.customers, {
-        elect.gt('age', 20),
-        elect.eq('name', 'Elizabeth'),
-        elect.eq('city', "Chicago"),
+        cond_funcs.gt('age', 20),
+        cond_funcs.eq('name', 'Elizabeth'),
+        cond_funcs.eq('city', "Chicago"),
     }, {
         after_tuple = box.space.customers:frommap(customers[5]),
     })
@@ -226,7 +228,7 @@ g.test_composite_index = function()
 
     -- no after
     local plan, err = select_plan.new(box.space.customers, {
-        elect.ge('full_name', {"Elizabeth", "Jo"}),
+        cond_funcs.ge('full_name', {"Elizabeth", "Jo"}),
     })
 
     t.assert_equals(err, nil)
@@ -236,7 +238,7 @@ g.test_composite_index = function()
 
     -- after tuple 2
     local plan, err = select_plan.new(box.space.customers, {
-        elect.ge('full_name', {"Elizabeth", "Jo"}),
+        cond_funcs.ge('full_name', {"Elizabeth", "Jo"}),
     }, {
         after_tuple = box.space.customers:frommap(customers[2]),
     })
@@ -263,7 +265,7 @@ g.test_get_by_id = function()
     insert_customers(customers)
 
     local plan, err = select_plan.new(box.space.customers, {
-        elect.eq('id', 2),
+        cond_funcs.eq('id', 2),
     })
 
     t.assert_equals(err, nil)
@@ -290,8 +292,8 @@ g.test_early_exit = function()
     })
 
     local plan, err = select_plan.new(box.space.customers, {
-        elect.gt('age', 11),
-        elect.le('age', 53)
+        cond_funcs.gt('age', 11),
+        cond_funcs.le('age', 53)
     })
 
     t.assert_equals(err, nil)
