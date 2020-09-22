@@ -13,19 +13,19 @@ package.preload['customers-storage'] = function()
         init = function()
             local customers_space = box.schema.space.create('customers', {
                 format = {
-                    {'id', 'unsigned'},
-                    {'bucket_id', 'unsigned'},
-                    {'name', 'string'},
-                    {'age', 'number'},
+                    {name = 'id', type = 'unsigned'},
+                    {name = 'bucket_id', type = 'unsigned'},
+                    {name = 'name', type = 'string'},
+                    {name = 'age', type = 'number'},
                 },
                 if_not_exists = true,
             })
             customers_space:create_index('id', {
-                parts = {'id'},
+                parts = { {field = 'id'} },
                 if_not_exists = true,
             })
             customers_space:create_index('bucket_id', {
-                parts = {'bucket_id'},
+                parts = { {field = 'bucket_id'} },
                 unique = false,
                 if_not_exists = true,
             })
