@@ -245,16 +245,11 @@ function select_module.call(space_name, user_conditions, opts)
 
     opts = opts or {}
 
-    local batch_size = opts.batch_size or opts.limit
-    if batch_size == 0 then
-        batch_size = nil
-    end
-
     local iter, err = build_select_iterator(space_name, user_conditions, {
         after = opts.after,
         limit = opts.limit,
         timeout = opts.timeout,
-        batch_size = batch_size,
+        batch_size = opts.batch_size,
     })
 
     if err ~= nil then

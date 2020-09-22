@@ -109,7 +109,7 @@ local function update_replicasets_tuples(iter, after_tuple, replicaset_uuid)
     end
 
     for replicaset_uuid, tuples in pairs(results_map) do
-        if #tuples == 0 or (iter.limit ~= nil and #tuples < iter.limit) then
+        if #tuples == 0 or (iter.batch_size ~= nil and #tuples < iter.batch_size) then
             iter.empty_replicasets[replicaset_uuid] = true
             iter.empty_replicasets_count = iter.empty_replicasets_count + 1
         end
