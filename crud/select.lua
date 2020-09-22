@@ -15,7 +15,8 @@ local Iterator = require('crud.select.iterator')
 
 require('crud.common.checkers')
 
-local SelectError = errors.new_class('Select', {capture_stack = false})
+local SelectError = errors.new_class('SelectError')
+local GetReplicasetsError = errors.new_class('GetReplicasetsError')
 
 local select_module = {}
 
@@ -83,6 +84,25 @@ local function select_iteration(space_name, conditions, opts)
     return results
 end
 
+local function get_replicasets_to_select_from(plan, space, sharding_index_id, all_replicasets)
+    local sharding_key_parts = space.index[sharding_index_id].parts
+    local scan_index_parts = space.index[plan.scanner.index_id]
+
+    if not select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index_parts, sharding_key_parts) then
+        return all_replicasets
+    end
+
+    local bucket_id = vshard.router.bucket_id_mpcrc32(plan.scanner.value)
+    local replicaset, err = vshard.router.route(bucket_id)
+    if replicaset == nil then
+        return nil, GetReplicasetsError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
+    end
+
+    return {
+        [replicaset.uuid] = replicaset,
+    }
+end
+
 local function create_tuples_comparator(plan, key_parts)
     local keys_comparator, err = select_comparators.gen_func(plan.scanner.operator, key_parts)
     if err ~= nil then
@@ -143,6 +163,13 @@ function select_module.call(space_name, user_conditions, opts)
 
     if err ~= nil then
         return nil, SelectError:new("Failed to plan select: %s", err)
+    end
+
+    -- get replicasets to select from
+    local sharding_index_id = 0 -- XXX: only sharding by primary key is supported
+    local replicasets, err = get_replicasets_to_select_from(plan, space, sharding_index_id, replicasets)
+    if err ~= nil then
+        return nil, SelectError:new("Failed to get replicasets to select from: %s", err)
     end
 
     local key_parts = space.index[plan.scanner.index_id].parts

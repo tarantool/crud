@@ -857,3 +857,44 @@ g.test_select_with_batch_size_1 = function()
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {8, 2, 4}))
 end
+
+g.test_select_by_full_sharding_key = function()
+    local customers = insert_customers({
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    local conditions = {{'==', 'id', 3}}
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions = ...
+
+        local iter, err = crud.select('customers', conditions)
+        if err ~= nil then return nil, err end
+
+        local objects = {}
+        while iter:has_next() do
+            object, err = iter:get()
+            if err ~= nil then
+                return nil, err
+            end
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(objects, get_by_ids(customers, {3}))
+end

@@ -249,3 +249,68 @@ g.test_filter_conditions = function()
     t.assert_equals(has_a_car_opts.is_nullable, true)
     t.assert_equals(has_a_car_opts.collation, nil)
 end
+
+g.test_is_scan_by_full_sharding_key_eq = function()
+    -- sharding by one-part key
+    local sharding_key_parts = box.space.customers.index.id.parts
+
+    -- eq
+    local plan, err = select_plan.new(box.space.customers, {
+        cond_funcs.eq('id', 15),
+    })
+    local scan_index_parts = box.space.customers.index[plan.scanner.index_id].parts
+
+    t.assert_equals(err, nil)
+    t.assert(select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index_parts, sharding_key_parts))
+
+    -- gt
+    local plan, err = select_plan.new(box.space.customers, {
+        cond_funcs.gt('id', 15),
+    })
+    local scan_index_parts = box.space.customers.index[plan.scanner.index_id].parts
+
+    t.assert_equals(err, nil)
+    t.assert(not select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index_parts, sharding_key_parts))
+
+    -- sharding by composite key, scan index is fully included
+    local sharding_key_parts = box.space.customers.index.full_name.parts
+
+    -- eq, all value parts are specified
+    local plan, err = select_plan.new(box.space.customers, {
+        cond_funcs.eq('full_name', {'John', 'Doe'}),
+    })
+    local scan_index_parts = box.space.customers.index[plan.scanner.index_id].parts
+
+    t.assert_equals(err, nil)
+    t.assert(select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index_parts, sharding_key_parts))
+
+    -- eq, not all parts are specified
+    local plan, err = select_plan.new(box.space.customers, {
+        cond_funcs.eq('full_name', {nil, 'Doe'}),
+    })
+    local scan_index_parts = box.space.customers.index[plan.scanner.index_id].parts
+
+    t.assert_equals(err, nil)
+    t.assert(not select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index_parts, sharding_key_parts))
+
+    -- gt
+    local plan, err = select_plan.new(box.space.customers, {
+        cond_funcs.gt('id', 15),
+    })
+    local scan_index_parts = box.space.customers.index[plan.scanner.index_id].parts
+
+    t.assert_equals(err, nil)
+    t.assert(not select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index_parts, sharding_key_parts))
+
+    -- sharding by composite key, scan index isn't fully included
+    local sharding_key_parts = box.space.customers.index.full_name.parts
+
+    -- eq, all value parts are specified
+    local plan, err = select_plan.new(box.space.customers, {
+        cond_funcs.eq('full_name', {'John', 'Doe'}),
+    })
+    local scan_index_parts = box.space.customers.index[plan.scanner.index_id].parts[1]
+
+    t.assert_equals(err, nil)
+    t.assert(not select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index_parts, sharding_key_parts))
+end

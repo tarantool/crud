@@ -295,4 +295,29 @@ function select_plan.new(space, conditions, opts)
     return plan
 end
 
+function select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index_parts, sharding_key_parts)
+    if plan.scanner.value == nil then
+        return false
+    end
+
+    if plan.scanner.iter ~= box.index.EQ and plan.scanner.iter ~= box.index.REQ then
+        return false
+    end
+
+    local scan_index_fieldnos = {}
+    for _, part in ipairs(scan_index_parts) do
+        scan_index_fieldnos[part.fieldno] = true
+    end
+
+    -- check that sharding key is included in the scan index fields
+    for part_num, sharding_key_part in ipairs(sharding_key_parts) do
+        local fieldno = sharding_key_part.fieldno
+        if scan_index_fieldnos[fieldno] == nil or plan.scanner.value[part_num] == nil then
+            return false
+        end
+    end
+
+    return true
+end
+
 return select_plan
