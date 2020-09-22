@@ -3,6 +3,8 @@ local errors = require('errors')
 local select_conditions = require('crud.select.conditions')
 local operators = select_conditions.operators
 
+local utils = require('crud.common.utils')
+
 local LessThenError = errors.new_class('LessThenError')
 local GenFuncError = errors.new_class('GenFuncError')
 local ComparatorsError = errors.new_class('ComparatorsError')
@@ -169,6 +171,20 @@ function comparators.gen_func(operator, key_parts)
     end
 
     return func
+end
+
+function comparators.gen_tuples_comparator(operator, key_parts)
+    local keys_comparator, err = comparators.gen_func(operator, key_parts)
+    if err ~= nil then
+        return nil, ComparatorsError:new("Failed to generate comparator function: %s", err)
+    end
+
+    return function(lhs, rhs)
+        local lhs_key = utils.extract_key(lhs, key_parts)
+        local rhs_key = utils.extract_key(rhs, key_parts)
+
+        return keys_comparator(lhs_key, rhs_key)
+    end
 end
 
 return comparators

@@ -99,7 +99,6 @@ local function update_replicasets_tuples(iter, after_tuple, replicaset_uuid)
 
     local results_map, err = iter.iteration_func(iter.space_name, iter.conditions, {
         after_tuple = after_tuple,
-        limit = iter.limit,
         replicasets = replicasets,
         timeout = iter.timeout,
         batch_size = iter.batch_size,
@@ -176,20 +175,22 @@ function Iterator:get()
 
     self.tuples_count = self.tuples_count + 1
 
-    local replicaset_tuples_count = #self.tuples_by_replicasets[last_tuple_replicaset_uuid]
-    local next_tuple_index = self.next_tuple_indexes[last_tuple_replicaset_uuid]
+    if self.limit == nil or self.tuples_count < self.limit then
+        local replicaset_tuples_count = #self.tuples_by_replicasets[last_tuple_replicaset_uuid]
+        local next_tuple_index = self.next_tuple_indexes[last_tuple_replicaset_uuid]
 
-    if next_tuple_index <= replicaset_tuples_count then
-        local next_tuple = get_next_replicaset_tuple(self, last_tuple_replicaset_uuid)
+        if next_tuple_index <= replicaset_tuples_count then
+            local next_tuple = get_next_replicaset_tuple(self, last_tuple_replicaset_uuid)
 
-        self.heap:add(next_tuple, {
-            replicaset_uuid = last_tuple_replicaset_uuid
-        })
-    elseif not self.empty_replicasets[last_tuple_replicaset_uuid] then
-        self:_update_replicasets_tuples(
-            tuple,
-            last_tuple_replicaset_uuid
-        )
+            self.heap:add(next_tuple, {
+                replicaset_uuid = last_tuple_replicaset_uuid
+            })
+        elseif not self.empty_replicasets[last_tuple_replicaset_uuid] then
+            self:_update_replicasets_tuples(
+                tuple,
+                last_tuple_replicaset_uuid
+            )
+        end
     end
 
     local object, err = utils.unflatten(tuple, self.space_format)

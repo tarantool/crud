@@ -14,7 +14,7 @@ local function gen_test_values(count)
     for i = 1, count do
         local value_obj = {
             key = math.random(1000 * i, 1000 * (i + 1)),
-            value = math.random(100000),
+            value = math.random(1000 * i, 1000 * (i + 1)),
         }
         table.insert(test_values, value_obj)
     end
@@ -102,6 +102,16 @@ local function get_first_n(objects, n)
     return result_objects
 end
 
+local function get_last_n(objects, n)
+    local result_objects = {}
+
+    for i = #objects - n + 1, #objects do
+        table.insert(result_objects, objects[i])
+    end
+
+    return result_objects
+end
+
 g.test_select_no_conditions = function()
     local values = gen_test_values()
     values = insert_values(values)
@@ -176,4 +186,174 @@ g.test_select_no_conditions = function()
     t.assert_equals(err, nil)
     t.assert_equals(#objects, #expected_values)
     t.assert_equals(objects, expected_values)
+end
+
+g.test_ge_condition_with_index = function()
+    local values = gen_test_values()
+    values = insert_values(values)
+
+    table.sort(values, function(obj1, obj2) return obj1.value < obj2.value end)
+
+    local value_to_cmp_idx = #values/2
+    local value_to_cmp = values[value_to_cmp_idx].value
+
+    local conditions = {
+        {'>=', 'value', value_to_cmp},
+    }
+
+    local expected_values = get_last_n(values, value_to_cmp_idx + 1) -- equal condition
+
+    -- no after
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions = ...
+
+        local objects, err = crud.select('values', conditions)
+        return objects, err
+    ]], {conditions})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#objects, #expected_values)
+    t.assert_equals(objects, expected_values)
+
+    -- w/ limit
+    local limit = #values / 2
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, limit = ...
+
+        local objects, err = crud.select('values', conditions, {
+            limit = limit,
+        })
+        return objects, err
+    ]], {conditions, limit})
+
+    local expected_values_with_limit = get_first_n(expected_values, limit)
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#objects, #expected_values_with_limit)
+    t.assert_equals(objects, expected_values_with_limit)
+
+    -- w/ batch_size
+    local batch_size = 200
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, batch_size = ...
+
+        local objects, err = crud.select('values', conditions, {
+            batch_size = batch_size,
+        })
+        return objects, err
+    ]], {conditions, batch_size})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#objects, #expected_values)
+    t.assert_equals(objects, expected_values)
+
+    -- w/ limit and batch_size
+    local limit = #values / 2
+    local batch_size = 200
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, limit, batch_size = ...
+
+        local objects, err = crud.select('values', conditions, {
+            batch_size = batch_size,
+            limit = limit,
+        })
+        return objects, err
+    ]], {conditions, limit, batch_size})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#objects, #expected_values_with_limit)
+    t.assert_equals(objects, expected_values_with_limit)
+end
+
+g.test_le_condition_with_index = function()
+    local values = gen_test_values()
+    values = insert_values(values)
+
+    table.sort(values, function(obj1, obj2) return obj1.value > obj2.value end)
+
+    local value_to_cmp_idx = #values/2
+    local value_to_cmp = values[value_to_cmp_idx].value
+
+    local conditions = {
+        {'<=', 'value', value_to_cmp},
+    }
+
+    local expected_values = get_last_n(values, value_to_cmp_idx + 1)
+
+    -- no after
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions = ...
+
+        local objects, err = crud.select('values', conditions)
+        return objects, err
+    ]], {conditions})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#objects, #expected_values)
+    t.assert_equals(objects, expected_values)
+
+    -- w/ limit
+    local limit = #values / 2
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, limit = ...
+
+        local objects, err = crud.select('values', conditions, {
+            limit = limit,
+        })
+        return objects, err
+    ]], {conditions, limit})
+
+    local expected_values_with_limit = get_first_n(expected_values, limit)
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#objects, #expected_values_with_limit)
+    t.assert_equals(objects, expected_values_with_limit)
+
+    -- w/ batch_size
+    local batch_size = 200
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, batch_size = ...
+
+        local objects, err = crud.select('values', conditions, {
+            batch_size = batch_size,
+        })
+        return objects, err
+    ]], {conditions, batch_size})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#objects, #expected_values)
+    t.assert_equals(objects, expected_values)
+
+    -- w/ limit and batch_size
+    local limit = #values / 2
+    local batch_size = 200
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, limit, batch_size = ...
+
+        local objects, err = crud.select('values', conditions, {
+            batch_size = batch_size,
+            limit = limit,
+        })
+        return objects, err
+    ]], {conditions, limit, batch_size})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#objects, #expected_values_with_limit)
+    t.assert_equals(objects, expected_values_with_limit)
 end

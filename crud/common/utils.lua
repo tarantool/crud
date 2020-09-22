@@ -81,4 +81,22 @@ function utils.extract_key(tuple, key_parts)
     return key
 end
 
+function utils.merge_primary_key_parts(key_parts, pk_parts)
+    local merged_parts = {}
+    local key_fieldnos = {}
+
+    for _, part in ipairs(key_parts) do
+        table.insert(merged_parts, part)
+        key_fieldnos[part.fieldno] = true
+    end
+
+    for _, pk_part in ipairs(pk_parts) do
+        if not key_fieldnos[pk_part.fieldno] then
+            table.insert(merged_parts, pk_part)
+        end
+    end
+
+    return merged_parts
+end
+
 return utils

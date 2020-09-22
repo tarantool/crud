@@ -22,6 +22,26 @@ local tarantool_iter_by_cond_operators = {
     [conditions.operators.GE] = box.index.GE,
 }
 
+function conditions.get_scroll_operator(operator)
+    if operator == conditions.operators.GE or operator == conditions.GT or operator == conditions.EQ then
+        return conditions.operators.GT
+    end
+
+    if operator == conditions.operators.LE or operator == conditions.LT or operator == conditions.REQ then
+        return conditions.operators.LT
+    end
+
+    return operator
+end
+
+function conditions.is_greater(operator)
+    return operator == conditions.operators.GE or operator == conditions.operators.GT
+end
+
+function conditions.is_less(operator)
+    return operator == conditions.operators.LE or operator == conditions.operators.LT
+end
+
 function _G.checkers.condition_operator(p)
     for _, op in pairs(conditions.operators) do
         if op == p then

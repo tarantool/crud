@@ -44,7 +44,10 @@ local function call_select_on_storage(space_name, conditions, opts)
     end
 
     -- execute select
-    local tuples = select_executor.execute(plan)
+    local tuples, err = select_executor.execute(plan)
+    if err ~= nil then
+        return nil, SelectError:new("Failed to execute select: %s", err)
+    end
 
     return tuples
 end
@@ -58,7 +61,6 @@ end
 local function select_iteration(space_name, conditions, opts)
     checks('string', '?table', {
         after_tuple = '?table',
-        limit = '?number',
         replicasets = 'table',
         timeout = '?number',
         batch_size = '?number',
@@ -84,13 +86,12 @@ local function select_iteration(space_name, conditions, opts)
     return results
 end
 
-local function get_replicasets_to_select_from(plan, space, sharding_index_id, all_replicasets)
-    local sharding_key_parts = space.index[sharding_index_id].parts
-    local scan_index_parts = space.index[plan.scanner.index_id]
-
-    if not select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index_parts, sharding_key_parts) then
+local function get_replicasets_to_select_from(plan, all_replicasets)
+    if not plan.is_scan_by_full_sharding_key_eq then
         return all_replicasets
     end
+
+    plan.scanner.limit = 1
 
     local bucket_id = vshard.router.bucket_id_mpcrc32(plan.scanner.value)
     local replicaset, err = vshard.router.route(bucket_id)
@@ -101,20 +102,6 @@ local function get_replicasets_to_select_from(plan, space, sharding_index_id, al
     return {
         [replicaset.uuid] = replicaset,
     }
-end
-
-local function create_tuples_comparator(plan, key_parts)
-    local keys_comparator, err = select_comparators.gen_func(plan.scanner.operator, key_parts)
-    if err ~= nil then
-        return nil, SelectError:new("Failed to generate comparator function: %s", err)
-    end
-
-    return function(lhs, rhs)
-        local lhs_key = utils.extract_key(lhs, key_parts)
-        local rhs_key = utils.extract_key(rhs, key_parts)
-
-        return keys_comparator(lhs_key, rhs_key)
-    end
 end
 
 local function build_select_iterator(space_name, user_conditions, opts)
@@ -158,24 +145,25 @@ local function build_select_iterator(space_name, user_conditions, opts)
     -- plan select
     local plan, err = select_plan.new(space, conditions, {
         limit = opts.limit,
-        after_tuple = after_tuple,
+        after_tuple = after_tuple
     })
 
     if err ~= nil then
-        error(string.format("Failed to plan select: %s", err))
+        return nil, SelectError:new("Failed to plan select: %s", err)
     end
 
     -- get replicasets to select from
-    local sharding_index_id = 0 -- XXX: only sharding by primary key is supported
-    local replicasets, err = get_replicasets_to_select_from(plan, space, sharding_index_id, replicasets)
+    local replicasets, err = get_replicasets_to_select_from(plan, replicasets)
     if err ~= nil then
         return nil, SelectError:new("Failed to get replicasets to select from: %s", err)
     end
 
     local key_parts = space.index[plan.scanner.index_id].parts
-    local tuples_comparator, err = create_tuples_comparator(plan, key_parts)
+    local tuples_comparator, err = select_comparators.gen_tuples_comparator(
+        plan.scanner.operator, key_parts
+    )
     if err ~= nil then
-        error(string.format("Failed to generate comparator function: %s", err))
+        return nil, SelectError:new("Failed to generate comparator function: %s", err)
     end
 
     local iter = Iterator.new({
@@ -187,7 +175,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
         conditions = conditions,
         after_tuple = after_tuple,
-        limit = opts.limit,
+        limit = plan.scanner.limit,
 
         batch_size = opts.batch_size,
         replicasets = replicasets,
@@ -262,6 +250,10 @@ function select_module.call(space_name, user_conditions, opts)
         local obj, err = iter:get()
         if err ~= nil then
             return nil, SelectError:new("Failed to get next object: %s", err)
+        end
+
+        if obj == nil then
+            break
         end
 
         table.insert(objects, obj)
