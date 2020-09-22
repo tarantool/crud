@@ -117,7 +117,7 @@ local function create_tuples_comparator(plan, key_parts)
     end
 end
 
-function select_module.call(space_name, user_conditions, opts)
+local function build_select_iterator(space_name, user_conditions, opts)
     checks('string', '?table', {
         after = '?',
         limit = '?number',
@@ -135,7 +135,7 @@ function select_module.call(space_name, user_conditions, opts)
         return nil, SelectError:new("limit should be >= 0")
     end
 
-    -- parse conditions
+    -- check conditions
     local conditions, err = select_conditions.parse(user_conditions)
     if err ~= nil then
         return nil, SelectError:new("Failed to parse conditions: %s", err)
@@ -162,7 +162,7 @@ function select_module.call(space_name, user_conditions, opts)
     })
 
     if err ~= nil then
-        return nil, SelectError:new("Failed to plan select: %s", err)
+        error(string.format("Failed to plan select: %s", err))
     end
 
     -- get replicasets to select from
@@ -175,7 +175,7 @@ function select_module.call(space_name, user_conditions, opts)
     local key_parts = space.index[plan.scanner.index_id].parts
     local tuples_comparator, err = create_tuples_comparator(plan, key_parts)
     if err ~= nil then
-        return nil, SelectError:new("Failed to generate comparator function: %s", err)
+        error(string.format("Failed to generate comparator function: %s", err))
     end
 
     local iter = Iterator.new({
@@ -196,6 +196,83 @@ function select_module.call(space_name, user_conditions, opts)
     })
 
     return iter
+end
+
+function select_module.pairs(space_name, user_conditions, opts)
+    checks('string', '?table', {
+        after = '?',
+        limit = '?number',
+        timeout = '?number',
+        batch_size = '?number',
+    })
+
+    opts = opts or {}
+
+    local iter, err = build_select_iterator(space_name, user_conditions, {
+        after = opts.after,
+        limit = opts.limit,
+        timeout = opts.timeout,
+        batch_size = opts.batch_size,
+    })
+
+    if err ~= nil then
+        error(string.format("Failed to generate iterator: %s", err))
+    end
+
+    local gen = function(_, iter)
+        if not iter:has_next() then
+            return nil
+        end
+
+        local obj, err = iter:get()
+        if err ~= nil then
+            error(string.format("Failed to get next object: %s", err))
+        end
+
+        return iter, obj
+    end
+
+    return gen, nil, iter
+end
+
+function select_module.call(space_name, user_conditions, opts)
+    checks('string', '?table', {
+        after = '?',
+        limit = '?number',
+        timeout = '?number',
+        batch_size = '?number',
+    })
+
+    opts = opts or {}
+
+    local batch_size = opts.batch_size or opts.limit
+    if batch_size == 0 then
+        batch_size = nil
+    end
+
+    local iter, err = build_select_iterator(space_name, user_conditions, {
+        after = opts.after,
+        limit = opts.limit,
+        timeout = opts.timeout,
+        batch_size = batch_size,
+    })
+
+    if err ~= nil then
+        return nil, err
+    end
+
+    local objects = {}
+
+    while iter:has_next() do
+        local obj, err = iter:get()
+        if err ~= nil then
+            return nil, SelectError:new("Failed to get next object: %s", err)
+        end
+
+        table.insert(objects, obj)
+    end
+
+    return objects
 end
 
 return select_module

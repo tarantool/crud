@@ -119,19 +119,8 @@ g.test_select_all = function()
     local objects, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
-        local iter, err = crud.select('customers', nil)
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        local objects, err = crud.select('customers', nil)
+        return objects, err
     ]])
 
     t.assert_equals(err, nil)
@@ -142,23 +131,11 @@ g.test_select_all = function()
     local objects, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
-        local iter, err = crud.select('customers', nil, {
+        local objects, err = crud.select('customers', nil, {
             after = ...,
         })
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
-    ]], {after}
-)
+        return objects, err
+    ]], {after})
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {3, 4}))
@@ -168,21 +145,10 @@ g.test_select_all = function()
     local objects, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
-        local iter, err = crud.select('customers', nil, {
+        local objects, err = crud.select('customers', nil, {
             after = ...,
         })
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        return objects, err
     ]], {after})
 
     t.assert_equals(err, nil)
@@ -212,21 +178,10 @@ g.test_select_all_with_limit = function()
     local objects, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
-        local iter, err = crud.select('customers', nil, {
+        local objects, err = crud.select('customers', nil, {
             limit = 2,
         })
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        return objects, err
     ]])
 
     t.assert_equals(err, nil)
@@ -236,21 +191,10 @@ g.test_select_all_with_limit = function()
     local objects, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
-        local iter, err = crud.select('customers', nil, {
+        local objects, err = crud.select('customers', nil, {
             limit = 0,
         })
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        return objects, err
     ]])
 
     t.assert_equals(err, nil)
@@ -293,21 +237,11 @@ g.test_select_all_with_batch_size = function()
     local objects, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
-        local iter, err = crud.select('customers', nil, {
+        local objects, err = crud.select('customers', nil, {
             batch_size = 1,
         })
-        if err ~= nil then return nil, err end
 
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        return objects, err
     ]])
 
     t.assert_equals(err, nil)
@@ -317,21 +251,11 @@ g.test_select_all_with_batch_size = function()
     local objects, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
-        local iter, err = crud.select('customers', nil, {
-            batch_size = 3
+        local objects, err = crud.select('customers', nil, {
+            batch_size = 3,
         })
-        if err ~= nil then return nil, err end
 
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        return objects, err
     ]])
 
     t.assert_equals(err, nil)
@@ -367,19 +291,8 @@ g.test_ge_condition_with_index = function()
 
         local conditions = ...
 
-        local iter, err = crud.select('customers', conditions)
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        local objects, err = crud.select('customers', conditions)
+        return objects, err
     ]], {conditions})
 
     t.assert_equals(err, nil)
@@ -392,21 +305,10 @@ g.test_ge_condition_with_index = function()
 
         local conditions, after = ...
 
-        local iter, err = crud.select('customers', conditions, {
+        local objects, err = crud.select('customers', conditions, {
             after = after,
         })
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        return objects, err
     ]], {conditions, after})
 
     t.assert_equals(err, nil)
@@ -442,19 +344,8 @@ g.test_le_condition_with_index = function()
 
         local conditions = ...
 
-        local iter, err = crud.select('customers', conditions)
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        local objects, err = crud.select('customers', conditions)
+        return objects, err
     ]], {conditions})
 
     t.assert_equals(err, nil)
@@ -467,21 +358,10 @@ g.test_le_condition_with_index = function()
 
         local conditions, after = ...
 
-        local iter, err = crud.select('customers', conditions, {
+        local objects, err = crud.select('customers', conditions, {
             after = after,
         })
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        return objects, err
     ]], {conditions, after})
 
     t.assert_equals(err, nil)
@@ -517,19 +397,8 @@ g.test_lt_condition_with_index = function()
 
         local conditions = ...
 
-        local iter, err = crud.select('customers', conditions)
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        local objects, err = crud.select('customers', conditions)
+        return objects, err
     ]], {conditions})
 
     t.assert_equals(err, nil)
@@ -542,21 +411,10 @@ g.test_lt_condition_with_index = function()
 
         local conditions, after = ...
 
-        local iter, err = crud.select('customers', conditions, {
+        local objects, err = crud.select('customers', conditions, {
             after = after,
         })
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        return objects, err
     ]], {conditions, after})
 
     t.assert_equals(err, nil)
@@ -597,19 +455,8 @@ g.test_multiple_conditions = function()
 
         local conditions = ...
 
-        local iter, err = crud.select('customers', conditions)
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        local objects, err = crud.select('customers', conditions)
+        return objects, err
     ]], {conditions})
 
     t.assert_equals(err, nil)
@@ -622,21 +469,10 @@ g.test_multiple_conditions = function()
 
         local conditions, after = ...
 
-        local iter, err = crud.select('customers', conditions, {
+        local objects, err = crud.select('customers', conditions, {
             after = after,
         })
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        return objects, err
     ]], {conditions, after})
 
     t.assert_equals(err, nil)
@@ -672,19 +508,8 @@ g.test_composite_index = function()
 
         local conditions = ...
 
-        local iter, err = crud.select('customers', conditions)
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        local objects, err = crud.select('customers', conditions)
+        return objects, err
     ]], {conditions})
 
     t.assert_equals(err, nil)
@@ -697,21 +522,10 @@ g.test_composite_index = function()
 
         local conditions, after = ...
 
-        local iter, err = crud.select('customers', conditions, {
+        local objects, err = crud.select('customers', conditions, {
             after = after,
         })
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        return objects, err
     ]], {conditions, after})
 
     t.assert_equals(err, nil)
@@ -756,21 +570,10 @@ g.test_select_with_batch_size_1 = function()
 
         local conditions = ...
 
-        local iter, err = crud.select('customers', conditions, {
+        local objects, err = crud.select('customers', conditions, {
             batch_size = 1,
         })
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        return objects, err
     ]], {conditions})
 
     t.assert_equals(err, nil)
@@ -783,21 +586,10 @@ g.test_select_with_batch_size_1 = function()
 
         local conditions = ...
 
-        local iter, err = crud.select('customers', conditions, {
+        local objects, err = crud.select('customers', conditions, {
             batch_size = 1,
         })
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        return objects, err
     ]], {conditions})
 
     t.assert_equals(err, nil)
@@ -810,21 +602,10 @@ g.test_select_with_batch_size_1 = function()
 
         local conditions = ...
 
-        local iter, err = crud.select('customers', conditions, {
+        local objects, err = crud.select('customers', conditions, {
             batch_size = 1,
         })
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        return objects, err
     ]], {conditions})
 
     t.assert_equals(err, nil)
@@ -837,21 +618,10 @@ g.test_select_with_batch_size_1 = function()
 
         local conditions = ...
 
-        local iter, err = crud.select('customers', conditions, {
+        local objects, err = crud.select('customers', conditions, {
             batch_size = 1,
         })
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        return objects, err
     ]], {conditions})
 
     t.assert_equals(err, nil)
@@ -880,19 +650,8 @@ g.test_select_by_full_sharding_key = function()
 
         local conditions = ...
 
-        local iter, err = crud.select('customers', conditions)
-        if err ~= nil then return nil, err end
-
-        local objects = {}
-        while iter:has_next() do
-            object, err = iter:get()
-            if err ~= nil then
-                return nil, err
-            end
-            table.insert(objects, object)
-        end
-
-        return objects
+        local objects, err = crud.select('customers', conditions)
+        return objects, err
     ]], {conditions})
 
     t.assert_equals(err, nil)

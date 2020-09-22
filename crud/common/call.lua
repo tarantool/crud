@@ -11,7 +11,7 @@ local NotInitializedError = errors.new_class('NotInitialized')
 
 local call = {}
 
-local CALL_FUNC_NAME = '__elect_call'
+local CALL_FUNC_NAME = '__call'
 
 local DEFAULT_VSHARD_CALL_TIMEOUT = 2
 

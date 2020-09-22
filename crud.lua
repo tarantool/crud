@@ -42,6 +42,10 @@ crud.delete = delete.call
 -- @function select
 crud.select = select.call
 
+-- @refer select.pairs
+-- @function pairs
+crud.pairs = select.pairs
+
 --- Initializes crud on node
 --
 -- Exports all functions that are used for calls
