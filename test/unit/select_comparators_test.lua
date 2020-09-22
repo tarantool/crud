@@ -7,7 +7,7 @@ local g = t.group('select_comparators')
 
 g.test_eq_no_collations = function()
     local func_eq, err = select_comparators.gen_func(operators.EQ, {
-        {}, {}, {}, -- index contains 3 any parts
+        {}, {}, {},
     })
     t.assert(err == nil)
 
@@ -27,7 +27,7 @@ end
 
 g.test_lt_no_collations = function()
     local func_lt, err = select_comparators.gen_func(operators.LT, {
-        {}, {}, {}, -- index contains 3 any parts
+        {}, {}, {},
     })
     t.assert(err == nil)
 
@@ -43,7 +43,7 @@ end
 
 g.test_le_no_collations = function()
     local func_le, err = select_comparators.gen_func(operators.LE, {
-        {}, {}, {}, -- index contains 3 any parts
+        {}, {}, {},
     })
     t.assert(err == nil)
 
@@ -62,7 +62,7 @@ end
 
 g.test_gt_no_collations = function()
     local func_gt, err = select_comparators.gen_func(operators.GT, {
-        {}, {}, {}, -- index contains 3 any parts
+        {}, {}, {},
     })
     t.assert(err == nil)
 
@@ -81,7 +81,7 @@ end
 
 g.test_ge_no_collations = function()
     local func_ge, err = select_comparators.gen_func(operators.GE, {
-        {}, {}, {}, -- index contains 3 any parts
+        {}, {}, {},
     })
     t.assert(err == nil)
 

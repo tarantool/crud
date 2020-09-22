@@ -83,6 +83,20 @@ local function select_iteration(space_name, conditions, opts)
     return results
 end
 
+local function create_tuples_comparator(plan, key_parts)
+    local keys_comparator, err = select_comparators.gen_func(plan.scanner.operator, key_parts)
+    if err ~= nil then
+        return nil, SelectError:new("Failed to generate comparator function: %s", err)
+    end
+
+    return function(lhs, rhs)
+        local lhs_key = utils.extract_key(lhs, key_parts)
+        local rhs_key = utils.extract_key(rhs, key_parts)
+
+        return keys_comparator(lhs_key, rhs_key)
+    end
+end
+
 function select_module.call(space_name, user_conditions, opts)
     checks('string', '?table', {
         after = '?',
@@ -132,8 +146,7 @@ function select_module.call(space_name, user_conditions, opts)
     end
 
     local key_parts = space.index[plan.scanner.index_id].parts
-
-    local tuples_comparator, err = select_comparators.gen_func(plan.scanner.operator, key_parts)
+    local tuples_comparator, err = create_tuples_comparator(plan, key_parts)
     if err ~= nil then
         return nil, SelectError:new("Failed to generate comparator function: %s", err)
     end

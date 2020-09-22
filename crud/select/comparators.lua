@@ -124,11 +124,11 @@ local function array_ge(lhs, rhs, len, lt_funcs, eq_funcs)
     return true
 end
 
-local function gen_array_cmp_func(target, index_parts)
+local function gen_array_cmp_func(target, key_parts)
     local lt_funcs = {}
     local eq_funcs = {}
 
-    for _, part in ipairs(index_parts) do
+    for _, part in ipairs(key_parts) do
         if part.collation == nil then
             table.insert(lt_funcs, lt)
             table.insert(eq_funcs, eq)
@@ -144,7 +144,7 @@ local function gen_array_cmp_func(target, index_parts)
     end
 
     return function(lhs, rhs)
-        return target(lhs, rhs, #index_parts, lt_funcs, eq_funcs)
+        return target(lhs, rhs, #key_parts, lt_funcs, eq_funcs)
     end
 end
 
@@ -156,14 +156,14 @@ local array_cmp_funcs_by_operators = {
     [operators.GE] = array_ge,
 }
 
-function comparators.gen_func(operator, index_parts)
+function comparators.gen_func(operator, key_parts)
     local cmp_func = array_cmp_funcs_by_operators[operator]
 
     if cmp_func == nil then
         return nil, ComparatorsError:new('Unsupported operator %q', operator)
     end
 
-    local func, err = gen_array_cmp_func(cmp_func, index_parts)
+    local func, err = gen_array_cmp_func(cmp_func, key_parts)
     if err ~= nil then
         return nil, ComparatorsError:new('Failed to generate comparator function %q', operator)
     end
