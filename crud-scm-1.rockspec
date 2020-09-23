@@ -1,7 +1,8 @@
 package = 'crud'
 version = 'scm-1'
 source  = {
-	url = '/dev/null',
+    url = 'git+https://github.com/tarantool/crud.git',
+    branch = 'master',
 }
 
 dependencies = {
