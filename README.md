@@ -15,7 +15,7 @@ across the cluster.
 **Notes:**
 
 * A space should have a format.
-* `bucket_id` is computed as `vshard.router.bucket_id_mpcrc32(key)`,
+* `bucket_id` is computed as `vshard.router.bucket_id_strcrc32(key)`,
   where `key` is the primary key value.
 
 ### Insert

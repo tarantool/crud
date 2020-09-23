@@ -71,7 +71,7 @@ function insert.call(space_name, obj, opts)
 
     local key = utils.extract_key(tuple, space.index[0].parts)
 
-    local bucket_id = vshard.router.bucket_id_mpcrc32(key)
+    local bucket_id = vshard.router.bucket_id_strcrc32(key)
     local replicaset, err = vshard.router.route(bucket_id)
     if replicaset == nil then
         return nil, InsertError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)

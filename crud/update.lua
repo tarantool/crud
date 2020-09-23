@@ -127,7 +127,7 @@ function update.call(space_name, key, user_operations, opts)
         return nil, UpdateError:new("Wrong operations are specified: %s", err)
     end
 
-    local bucket_id = vshard.router.bucket_id_mpcrc32(key)
+    local bucket_id = vshard.router.bucket_id_strcrc32(key)
     local replicaset, err = vshard.router.route(bucket_id)
     if replicaset == nil then
         return nil, UpdateError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
