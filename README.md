@@ -1,20 +1,23 @@
 # CRUD
 
-CRUD module allows to perform CRUD operations on the cluster.
-It also provides `crud-storage` role for [Tarantool Cartridge](https://github.com/tarantool/cartridge).
+The `CRUD` module allows to perform CRUD operations on the cluster.
+It also provides the `crud-storage` role for
+[Tarantool Cartridge](https://github.com/tarantool/cartridge).
 
 ## API
 
 The CRUD operations should be called from storage.
-All storage replicasets should call `crud.init()` (or enable `crud-storage` role) 
-first to initialize storage-side functions that are used to manipulate data across the cluster.
+All storage replica sets should call `crud.init()`
+(or enable the `crud-storage` role)
+first to initialize storage-side functions that are used to manipulate data
+across the cluster.
 
-**Note**, that space should have format.
+**Notes:**
 
-**Note**, that all non-TREE indexes will be ignored.
-
-**Note**, that `bucket_id` is computed as
-`vshard.router.bucket_id_mpcrc32(key)`, where `key` is primary key value
+* A space should have a format.
+* All non-TREE indexes will be ignored.
+* `bucket_id` is computed as `vshard.router.bucket_id_mpcrc32(key)`,
+  where `key` is the primary key value.
 
 ### Insert
 
@@ -22,14 +25,16 @@ first to initialize storage-side functions that are used to manipulate data acro
 local object, err = crud.insert(space_name, object, opts)
 ```
 
-* `space_name` (`string`) - name of the space to insert object
-* `object` (`table`) - an object to insert
+where:
+
+* `space_name` (`string`) - name of the space to insert an object
+* `object` (`table`) - object to insert
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
 
 Returns inserted object, error.
 
-**Example**
+**Example:**
 
 ```lua
 crud.insert('customers', {
@@ -49,6 +54,8 @@ crud.insert('customers', {
 local object, err = crud.get(space_name, key, opts)
 ```
 
+where:
+
 * `space_name` (`string`) - name of the space
 * `key` (`any`) - primary key value
 * `opts`:
@@ -56,7 +63,7 @@ local object, err = crud.get(space_name, key, opts)
 
 Returns object, error.
 
-**Example**
+**Example:**
 
 ```lua
 crud.get('customers', 1)
@@ -74,6 +81,8 @@ crud.get('customers', 1)
 local object, err = crud.update(space_name, key, operations, opts)
 ```
 
+where:
+
 * `space_name` (`string`) - name of the space
 * `key` (`any`) - primary key value
 * `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/#box-space-update)
@@ -82,7 +91,7 @@ local object, err = crud.update(space_name, key, operations, opts)
 
 Returns updated object, error.
 
-**Example**
+**Example:**
 
 ```lua
 crud.update('customers', 1, {{'+', 'age', 1}})
@@ -100,6 +109,8 @@ crud.update('customers', 1, {{'+', 'age', 1}})
 local object, err = crud.delete(space_name, key, opts)
 ```
 
+where:
+
 * `space_name` (`string`) - name of the space
 * `key` (`any`) - primary key value
 * `opts`:
@@ -107,7 +118,7 @@ local object, err = crud.delete(space_name, key, opts)
 
 Returns deleted object, error.
 
-**Example**
+**Example:**
 
 ```lua
 crud.delete('customers', 1)
@@ -125,12 +136,14 @@ crud.delete('customers', 1)
 local objects, err = crud.select(space_name, conditions, opts)
 ```
 
+where:
+
 * `space_name` (`string`) - name of the space
-* `conditions` (`?table`) - an array of [select conditions](#select-conditions)
+* `conditions` (`?table`) - array of [select conditions](#select-conditions)
 * `opts`:
-  * `limit` (`?number`) - the maximum limit of the result objects
-  * `after` (`?table`) - an object after which object should be selected
-  * `batch_size` (`?number`) - a number of tuples to process per one request to storage
+  * `limit` (`?number`) - the maximum limit of the objects to return
+  * `after` (`?table`) - object after which objects should be selected
+  * `batch_size` (`?number`) - number of tuples to process per one request to storage
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
 
 Returns selected objects, error.
@@ -142,10 +155,10 @@ Select conditions are very similar to Tarantool update
 
 Each condition is a table `{operator, field-identifier, value}`:
 
-* supported operators are: `=` (or `==`), `>`, `>=`, `<`, `<=`.
-* field identifier can be field name, field number or index name.
+* Supported operators are: `=` (or `==`), `>`, `>=`, `<`, `<=`.
+* Field identifier can be field name, field number, or index name.
 
-**Example**
+**Example:**
 
 ```lua
 crud.select('customers', {{'<=', 'age', 35}})
@@ -174,26 +187,26 @@ crud.select('customers', {{'<=', 'age', 35}})
 
 ### Pairs
 
-You can iterate across the distributed space using `crud.pairs` function.
-It's arguments are the same as [`crud.select`](#select) arguments.
+You can iterate across a distributed space using the `crud.pairs` function.
+Its arguments are the same as [`crud.select`](#select) arguments.
 
-**Example**
+**Example:**
 
 ```lua
-for _, obj in crud.pairs('customers', {{'<=', 'age', 35}}) do 
-    -- do smth with object 
+for _, obj in crud.pairs('customers', {{'<=', 'age', 35}}) do
+    -- do smth with the object
 end
 ```
 
 ## Cartridge role
 
-`cartridge.roles.crud-storage` is a Tarantool Cartridge role that depends on
+`cartridge.roles.crud-storage` is a Tarantool Cartridge role that depends on the
 `vshard-storage` role, but also initializes functions that
-are used on storage-side to perform CRUD operations.
+are used on the storage side to perform CRUD operations.
 
 ### Usage
 
-1. Add the `crud` to dependencies in the project rockspec.
+1. Add `crud` to dependencies in the project rockspec.
 
 ```lua
 -- <project-name>-scm-1.rockspec
@@ -241,10 +254,11 @@ return {
 ```
 
 3. Start the application and create `customers-storage` and
-`vshard-router` replicasets.
+   `vshard-router` replica sets.
 
 4. Don't forget to bootstrap vshard.
 
 Now your cluster contains storages that are configured to be used for
 CRUD-operations.
-You can simply call CRUD functions on the router to insert, select and update data across the cluster.
+You can simply call CRUD functions on the router to insert, select, and update
+data across the cluster.
