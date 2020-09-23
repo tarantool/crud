@@ -60,6 +60,15 @@ function utils.flatten(object, space_format, bucket_id)
     return tuple
 end
 
+function utils.get_bucket_id_pos(space_format)
+    for fieldno, field_format in ipairs(space_format) do
+        if system_fields[field_format.name] then
+            return fieldno
+        end
+    end
+    return nil, UnflattenError:new("Field `bucket_id` not found in space format")
+end
+
 function utils.unflatten(tuple, space_format)
     if tuple == nil then return nil end
 

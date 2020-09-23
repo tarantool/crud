@@ -32,6 +32,7 @@ function Iterator.new(opts)
         replicasets = 'table',
 
         timeout = '?number',
+        tuples_tomap = '?boolean'
     })
 
     local iter = {
@@ -43,6 +44,7 @@ function Iterator.new(opts)
         after_tuple = opts.after_tuple,
         limit = opts.limit,
         timeout = opts.timeout,
+        tuples_tomap = opts.tuples_tomap,
 
         replicasets = table.copy(opts.replicasets),
         replicasets_count = utils.table_count(opts.replicasets),
@@ -191,6 +193,10 @@ function Iterator:get()
                 last_tuple_replicaset_uuid
             )
         end
+    end
+
+    if self.tuples_tomap == false then
+        return tuple
     end
 
     local object, err = utils.unflatten(tuple, self.space_format)

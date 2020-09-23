@@ -187,6 +187,59 @@ add('test_insert_get', function(g)
     t.assert_equals(obj, nil)
 end)
 
+add('test_insert_get_as_tuple', function(g)
+    -- insert
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.insert('customers', {1, nil, 'Fedor', 59}, {tuples_tomap = false})
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert(type(obj[2]) == 'number')
+    t.assert_covers(obj, {1, obj[2], 'Fedor', 59})
+
+    -- get
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.get('customers', 1, {tuples_tomap = false})
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert(obj ~= nil)
+    t.assert(type(obj[2]) == 'number')
+    t.assert_covers(obj, {1, obj[2], 'Fedor', 59})
+
+    -- get as map
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.get('customers', 1, {tuples_tomap = true})
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert(obj ~= nil)
+    t.assert_covers(obj, {id = 1, name = 'Fedor', age = 59})
+    t.assert(type(obj.bucket_id) == 'number')
+
+    -- insert again
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.insert('customers', {1, nil, 'Alexander', 37}, {tuples_tomap = false})
+    ]])
+
+    t.assert_equals(obj, nil)
+    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
+    t.assert_str_contains(err.err, "Duplicate key exists")
+
+    -- get non existent
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.get('customers', 100, {tuples_tomap = false})
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert_equals(obj, nil)
+end)
+
 add('test_update', function(g)
     -- insert tuple
     local obj, err = g.cluster.main_server.net_box:eval([[
@@ -255,6 +308,74 @@ add('test_update', function(g)
     t.assert(type(obj.bucket_id) == 'number')
 end)
 
+add('test_update_as_tuple', function(g)
+    -- insert tuple
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.insert('customers', {22, nil, 'Leo', 72}, {tuples_tomap = false})
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert(type(obj[2]) == 'number')
+    t.assert_equals(obj, {22, obj[2], 'Leo', 72})
+
+    -- update age and name fields
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.update('customers', 22, {
+            {'+', 'age', 10},
+            {'=', 'name', 'Leo Tolstoy'}
+        }, {tuples_tomap = false})
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert(type(obj[2]) == 'number')
+    t.assert_equals(obj, {22, obj[2], 'Leo Tolstoy', 82})
+
+    -- get
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.get('customers', 22, {tuples_tomap = false})
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert(type(obj[2]) == 'number')
+    t.assert_equals(obj, {22, obj[2], 'Leo Tolstoy', 82})
+
+    -- bad key
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.update('customers', 'bad-key', {{'+', 'age', 10},}, {tuples_tomap = false})
+    ]])
+
+    t.assert_equals(obj, nil)
+    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
+    t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type:")
+
+    -- update by field numbers
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.update('customers', 22, {
+            {'-', 4, 10},
+            {'=', 3, 'Leo'}
+        }, {tuples_tomap = false})
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert(type(obj[2]) == 'number')
+    t.assert_equals(obj, {22, obj[2], 'Leo', 72})
+
+    -- get
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.get('customers', 22, {tuples_tomap = false})
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert(type(obj[2]) == 'number')
+    t.assert_equals(obj, {22, obj[2], 'Leo', 72})
+end)
+
 add('test_delete', function(g)
     -- insert tuple
     local obj, err = g.cluster.main_server.net_box:eval([[
@@ -274,8 +395,8 @@ add('test_delete', function(g)
 
     t.assert_equals(err, nil)
     if g.engine == 'memtx' then
-        t.assert_covers(obj, {id = 33, name = 'Mayakovsky', age = 36})
-        t.assert(type(obj.bucket_id) == 'number')
+    t.assert_covers(obj, {id = 33, name = 'Mayakovsky', age = 36})
+    t.assert(type(obj.bucket_id) == 'number')
     else
         t.assert_equals(obj, nil)
     end
@@ -293,6 +414,51 @@ add('test_delete', function(g)
     local obj, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.delete('customers', 'bad-key')
+    ]])
+
+    t.assert_equals(obj, nil)
+    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
+    t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type:")
+end)
+
+add('test_delete_as_tuple', function(g)
+    -- insert tuple
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.insert('customers', {33, nil, 'Mayakovsky', 36}, {tuples_tomap = false})
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert(type(obj[2]) == 'number')
+    t.assert_equals(obj, {33, obj[2], 'Mayakovsky', 36})
+
+    -- delete
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.delete('customers', 33, {tuples_tomap = false})
+    ]])
+
+    t.assert_equals(err, nil)
+    if g.engine == 'memtx' then
+        t.assert(type(obj[2]) == 'number')
+        t.assert_equals(obj, {33, obj[2], 'Mayakovsky', 36})
+    else
+        t.assert_equals(obj, nil)
+    end
+
+    -- get
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.get('customers', 33, {tuples_tomap = false})
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert_equals(obj, nil)
+
+    -- bad key
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.delete('customers', 'bad-key', {tuples_tomap = false})
     ]])
 
     t.assert_equals(obj, nil)

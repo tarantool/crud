@@ -273,3 +273,63 @@ g.test_le_condition_with_index = function()
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {1})) -- in age order
 end
+
+g.test_le_condition_with_index_as_tuple = function()
+    local customers = insert_customers({
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 81, city = "Chicago",
+        },
+    })
+
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    local conditions = {
+        {'<=', 'age', 33},
+    }
+
+    -- no after
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions = ...
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions, {tuples_tomap = false}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions})
+
+    t.assert_equals(err, nil)
+
+    local tuples = {}
+    for _, val in pairs(get_by_ids(customers, {3, 1})) do
+        local row = {}
+        table.insert(row, val.id)
+        table.insert(row,0)
+        table.insert(row, val.name)
+        table.insert(row, val.last_name)
+        table.insert(row, val.age)
+        table.insert(row, val.city)
+
+        table.insert(tuples, row)
+    end
+
+    -- in age order
+    for i, _ in pairs(tuples) do
+        tuples[i][2] = objects[i][2] --set bucket_id for expected
+        t.assert_equals(objects[i], tuples[i])
+    end
+end

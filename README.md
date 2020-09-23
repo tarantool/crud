@@ -12,6 +12,7 @@ All storage replica sets should call `crud.init()`
 first to initialize storage-side functions that are used to manipulate data
 across the cluster.
 
+
 **Notes:**
 
 * A space should have a format.
@@ -30,6 +31,7 @@ where:
 * `object` (`table`) - object to insert
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `tuples_tomap` (`?boolean`) - defines tuple format in result and params of operation as map or tuple, default true
 
 Returns inserted object, error.
 
@@ -45,6 +47,12 @@ crud.insert('customers', {
   name: Elizabeth
   id: 1
 ...
+
+--with `tuples_tomap = false` option:
+crud.insert('customers', {1, nil, 'Elizabeth', 23}, {tuples_tomap = false})
+---
+- [1, 7614, 'Elizabeth', 23]
+...
 ```
 
 ### Get
@@ -59,6 +67,7 @@ where:
 * `key` (`any`) - primary key value
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `tuples_tomap` (`?boolean`) - defines tuple format in result of operation as map or tuple, default true
 
 Returns object, error.
 
@@ -71,6 +80,12 @@ crud.get('customers', 1)
   age: 23
   name: Elizabeth
   id: 1
+...
+
+--with `tuples_tomap = false` option:
+crud.get('customers', 1, {tuples_tomap = false})
+---
+- [1, 7614, 'Elizabeth', 23]
 ...
 ```
 
@@ -87,6 +102,7 @@ where:
 * `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/#box-space-update)
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `tuples_tomap` (`?boolean`) - defines tuple format in result of operation as map or tuple, default true
 
 Returns updated object, error.
 
@@ -99,6 +115,12 @@ crud.update('customers', 1, {{'+', 'age', 1}})
   age: 24
   name: Elizabeth
   id: 1
+...
+
+--with `tuples_tomap = false` option:
+crud.update('customers', 1, {{'+', 'age', 1}}, {tuples_tomap = false})
+---
+- [1, 7614, 'Elizabeth', 24]
 ...
 ```
 
@@ -114,8 +136,9 @@ where:
 * `key` (`any`) - primary key value
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `tuples_tomap` (`?boolean`) - defines tuple format in result of operation as map or tuple, default true
 
-Returns deleted object, error.
+Returns deleted object (or nil for vinyl engine), error.
 
 **Example:**
 
@@ -126,6 +149,12 @@ crud.delete('customers', 1)
   age: 24
   name: Elizabeth
   id: 1
+...
+
+--with `tuples_tomap = false` option:
+crud.delete('customers', 1, {tuples_tomap = false})
+---
+- [1, 7614, 'Elizabeth', 23]
 ...
 ```
 
@@ -141,6 +170,7 @@ where:
 * `object` (`table`) - object to insert or replace exist one
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `tuples_tomap` (`?boolean`) - defines tuple format in result and params of operation as map or tuple, default true
 
 Returns inserted or replaced object, error.
 
@@ -155,6 +185,12 @@ crud.replace('customers', {
   age: 22
   name: Alice
   id: 1
+...
+
+--with `tuples_tomap = false` option:
+crud.replace('customers', {1, nil, 'Elizabeth', 23}, {tuples_tomap = false})
+---
+- [1, 7614, 'Elizabeth', 23]
 ...
 ```
 
@@ -171,6 +207,7 @@ where:
 * `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/#box-space-update) if there is an existing tuple which matches the key fields of tuple
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `tuples_tomap` (`?boolean`) - defines tuple format in result and params of operation as map or tuple, default true
 
 Returns nil, error.
 
@@ -181,6 +218,13 @@ crud.upsert('customers', {id = 1, name = 'Alice', age = 22,}, {{'+', 'age', 1}})
 ---
 - nil
 ...
+
+--with `tuples_tomap = false` option:
+crud.replace('customers', {1, nil, 'Elizabeth', 23}, {{'+', 'age', 1}}, {tuples_tomap = false})
+---
+- [1, 7614, 'Elizabeth', 23]
+...
+nil
 ```
 
 
@@ -204,6 +248,7 @@ where:
   * `after` (`?table`) - object after which objects should be selected
   * `batch_size` (`?number`) - number of tuples to process per one request to storage
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `tuples_tomap` (`?boolean`) - defines tuple format in result of operation as map or tuple, default true
 
 Returns selected objects, error.
 
@@ -242,6 +287,15 @@ crud.select('customers', {{'<=', 'age', 35}})
     age: 12
     name: Elizabeth
     id: 1
+
+--with `tuples_tomap = false` option:
+crud.select('customers', {{'<=', 'age', 35}}, {tuples_tomap = false})
+---
+- [5, 10755, 'Jack', 35]
+- [3, 8011, 'David', 33]
+- [6, 16055, 'William', 25]
+- [7, 2998, 'Elizabeth', 18]
+- [1, 7614, 'Elizabeth', 12]
 ```
 
 ### Pairs

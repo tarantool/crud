@@ -21,6 +21,15 @@ g.before_all = function()
         parts = {'id'},
         if_not_exists = true,
     })
+
+    box.schema.space.create('customers_no_bucket', {
+        format = {
+            {name = 'id', type = 'unsigned'},
+            {name = 'name', type = 'string'},
+            {name = 'age', type = 'number', is_nullable = true},
+        },
+        if_not_exists = true,
+    })
 end
 
 g.after_all(function()
@@ -146,4 +155,20 @@ g.test_extract_key = function()
         {fieldno = 3}, {fieldno = 2}, {fieldno = 1},
     })
     t.assert_equals(key, {'Marilyn', nil, 1})
+end
+
+g.test_get_bucket_id_pos = function()
+    local space_format = box.space.customers:format()
+
+    -- ok
+    local pos, err = utils.get_bucket_id_pos(space_format)
+    t.assert(err == nil)
+    t.assert_equals(pos, 2)
+
+    -- space without bucket_id field
+    local space_format = box.space.customers_no_bucket:format()
+    local pos, err = utils.get_bucket_id_pos(space_format)
+    t.assert(err ~= nil)
+    t.assert(pos == nil)
+    t.assert_str_contains(err.err, "Field `bucket_id` not found in space format")
 end

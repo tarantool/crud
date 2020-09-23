@@ -22,8 +22,7 @@ local function call_update_on_storage(space_name, key, operations)
         return nil, UpdateError:new("Space %q doesn't exists", space_name)
     end
 
-    local tuple = space:update(key, operations)
-    return tuple
+    return space:update(key, operations)
 end
 
 function update.init()
@@ -48,17 +47,23 @@ end
 --
 -- @tparam ?number opts.timeout
 --  Function call timeout
+-- @tparam ?tuples_tomap opts.tuples_tomap
+--  defines type of returned result as map or tuple, default true
 --
--- @return[1] object
+-- @return[1] object / tuple
 -- @treturn[2] nil
 -- @treturn[2] table Error description
 --
 function update.call(space_name, key, user_operations, opts)
     checks('string', '?', 'update_operations', {
         timeout = '?number',
+        tuples_tomap = '?boolean',
     })
 
     opts = opts or {}
+    if opts.tuples_tomap == nil then
+        opts.tuples_tomap = true
+    end
 
     local space = utils.get_space(space_name, vshard.router.routeall())
     if space == nil then
@@ -91,6 +96,11 @@ function update.call(space_name, key, user_operations, opts)
     end
 
     local tuple = results[replicaset.uuid]
+
+    if opts.tuples_tomap == false then
+        return tuple
+    end
+
     local object, err = utils.unflatten(tuple, space_format)
     if err ~= nil then
         return nil, UpdateError:new("Received tuple that doesn't match space format: %s", err)

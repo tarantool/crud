@@ -110,9 +110,13 @@ local function build_select_iterator(space_name, user_conditions, opts)
         limit = '?number',
         timeout = '?number',
         batch_size = '?number',
+        tuples_tomap = '?boolean',
     })
 
     opts = opts or {}
+    if opts.tuples_tomap == nil then
+        opts.tuples_tomap = true
+    end
 
     if opts.batch_size ~= nil and opts.batch_size < 1 then
         return nil, SelectError:new("batch_size should be > 0")
@@ -137,7 +141,6 @@ local function build_select_iterator(space_name, user_conditions, opts)
     if space == nil then
         return nil, SelectError:new("Space %s doesn't exists", space_name)
     end
-
     local space_format = space:format()
 
     local after_tuple = utils.flatten(opts.after, space_format)
@@ -181,6 +184,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         replicasets = replicasets,
 
         timeout = opts.timeout,
+        tuples_tomap = opts.tuples_tomap,
     })
 
     return iter
@@ -192,15 +196,20 @@ function select_module.pairs(space_name, user_conditions, opts)
         limit = '?number',
         timeout = '?number',
         batch_size = '?number',
+        tuples_tomap = '?boolean',
     })
 
     opts = opts or {}
+    if opts.tuples_tomap == nil then
+        opts.tuples_tomap = true
+    end
 
     local iter, err = build_select_iterator(space_name, user_conditions, {
         after = opts.after,
         limit = opts.limit,
         timeout = opts.timeout,
         batch_size = opts.batch_size,
+        tuples_tomap = opts.tuples_tomap,
     })
 
     if err ~= nil then
@@ -229,15 +238,20 @@ function select_module.call(space_name, user_conditions, opts)
         limit = '?number',
         timeout = '?number',
         batch_size = '?number',
+        tuples_tomap = '?boolean',
     })
 
     opts = opts or {}
+    if opts.tuples_tomap == nil then
+        opts.tuples_tomap = true
+    end
 
     local iter, err = build_select_iterator(space_name, user_conditions, {
         after = opts.after,
         limit = opts.limit,
         timeout = opts.timeout,
         batch_size = opts.batch_size,
+        tuples_tomap = opts.tuples_tomap
     })
 
     if err ~= nil then

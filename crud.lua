@@ -63,15 +63,16 @@ crud.pairs = select.pairs
 --
 -- @function init
 --
+
 function crud.init()
     call.init()
     insert.init()
-    get.init()
     replace.init()
+    get.init()
     update.init()
-    upsert.init()
     delete.init()
     select.init()
+    upsert.init()
 end
 
 return crud
