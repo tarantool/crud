@@ -93,7 +93,7 @@ local function get_replicasets_to_select_from(plan, all_replicasets)
 
     plan.scanner.limit = 1
 
-    local bucket_id = vshard.router.bucket_id_mpcrc32(plan.scanner.value)
+    local bucket_id = vshard.router.bucket_id_strcrc32(plan.scanner.value)
     local replicaset, err = vshard.router.route(bucket_id)
     if replicaset == nil then
         return nil, GetReplicasetsError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)

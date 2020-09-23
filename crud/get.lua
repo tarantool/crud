@@ -63,7 +63,7 @@ function get.call(space_name, key, opts)
         key = key:totable()
     end
 
-    local bucket_id = vshard.router.bucket_id_mpcrc32(key)
+    local bucket_id = vshard.router.bucket_id_strcrc32(key)
 
     local replicaset, err = vshard.router.route(bucket_id)
     if replicaset == nil then
