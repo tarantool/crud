@@ -15,7 +15,6 @@ across the cluster.
 **Notes:**
 
 * A space should have a format.
-* All non-TREE indexes will be ignored.
 * `bucket_id` is computed as `vshard.router.bucket_id_mpcrc32(key)`,
   where `key` is the primary key value.
 
@@ -131,6 +130,14 @@ crud.delete('customers', 1)
 ```
 
 ### Select
+
+`CRUD` performs select across a distributed space with a conditions.
+Condition can use field names, field numbers or index name as an operand.
+The first condition that uses index name or matches first parts of any index is
+used to select an index to iterate over.
+If no such index found, the primary index is used.
+
+**Note**, that non-TREE indexes are ignored!
 
 ```lua
 local objects, err = crud.select(space_name, conditions, opts)
