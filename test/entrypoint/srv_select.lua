@@ -8,6 +8,7 @@ local errors = require('errors')
 local cartridge = require('cartridge')
 
 package.preload['customers-storage'] = function()
+    local engine = os.getenv('ENGINE') or 'memtx'
     return {
         role_name = 'customers-storage',
         init = function()
@@ -21,6 +22,7 @@ package.preload['customers-storage'] = function()
                     {name = 'city', type = 'string'},
                 },
                 if_not_exists = true,
+                engine = engine,
             })
             customers_space:create_index('id', {
                 parts = { {field = 'id'} },
