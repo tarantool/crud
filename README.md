@@ -131,13 +131,10 @@ crud.delete('customers', 1)
 
 ### Select
 
-`CRUD` performs select across a distributed space with a conditions.
-Condition can use field names, field numbers or index name as an operand.
-The first condition that uses index name or matches first parts of any index is
-used to select an index to iterate over.
-If no such index found, the primary index is used.
-
-**Note**, that non-TREE indexes are ignored!
+`CRUD` supports multi-conditional selects, treating a cluster as a single space.
+The conditions may include field names or numbers, as well as index names.
+The recommended first condition is a TREE index; this helps reducing the number
+of tuples to scan. Otherwise a full scan is performed.
 
 ```lua
 local objects, err = crud.select(space_name, conditions, opts)
