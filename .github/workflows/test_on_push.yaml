@@ -1,0 +1,46 @@
+name: Run tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  run-tests-ce:
+    strategy:
+      matrix:
+        tarantool-version: ["1.10", "2.3", "2.4", "2.5"]
+      fail-fast: false
+    runs-on: [ubuntu-latest]
+    steps:
+      - uses: actions/checkout@master
+      - name: Install requirements for community
+        run: |
+          curl -L https://tarantool.io/installer.sh | sudo VER=${{ matrix.tarantool-version }} bash
+          sudo apt install -y tarantool-dev
+          ./deps.sh
+      - name: Run linter
+        run: .rocks/bin/luacheck .
+      - name: Run tests
+        run: .rocks/bin/luatest -v
+
+  run-tests-ee:
+    if: ${{ secrets.DOWNLOAD_TOKEN }}
+    strategy:
+      matrix:
+        bundle_version: [ "1.10.6-36-g5c752b1", "2.4.2-17-g5c752b1" ]
+      fail-fast: false
+    runs-on: [ ubuntu-latest ]
+    steps:
+      - uses: actions/checkout@master
+      - name: Install requirements for enterprise
+        run: |
+          curl -O -L https://tarantool:${{ secrets.DOWNLOAD_TOKEN }}@download.tarantool.io/enterprise/tarantool-enterprise-bundle-${{ matrix.bundle_version }}.tar.gz
+          tar -xzf tarantool-enterprise-bundle-${{ matrix.bundle_version }}.tar.gz
+          rm -f tarantool-enterprise-bundle-${{ matrix.bundle_version }}.tar.gz
+          sudo cp tarantool-enterprise/tarantool /usr/bin/tarantool
+          source tarantool-enterprise/env.sh
+          ./deps.sh
+      - name: Run linter
+        run: .rocks/bin/luacheck .
+      - name: Run tests
+        run: .rocks/bin/luatest -v
