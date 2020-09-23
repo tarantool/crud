@@ -6,7 +6,7 @@ It also provides the `crud-storage` role for
 
 ## API
 
-The CRUD operations should be called from storage.
+The CRUD operations should be called from router.
 All storage replica sets should call `crud.init()`
 (or enable the `crud-storage` role)
 first to initialize storage-side functions that are used to manipulate data
