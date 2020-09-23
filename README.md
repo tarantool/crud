@@ -129,6 +129,61 @@ crud.delete('customers', 1)
 ...
 ```
 
+### Replace
+
+```lua
+local object, err = crud.replace(space_name, object, opts)
+```
+
+where:
+
+* `space_name` (`string`) - name of the space
+* `object` (`table`) - object to insert or replace exist one
+* `opts`:
+  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+
+Returns inserted or replaced object, error.
+
+**Example:**
+
+```lua
+crud.replace('customers', {
+    id = 1, name = 'Alice', age = 22,
+})
+---
+- bucket_id: 7614
+  age: 22
+  name: Alice
+  id: 1
+...
+```
+
+### Upsert
+
+```lua
+local object, err = crud.upsert(space_name, object, operations, opts)
+```
+
+where:
+
+* `space_name` (`string`) - name of the space
+* `object` (`table`) - object to insert if there is no existing tuple which matches the key fields
+* `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/#box-space-update) if there is an existing tuple which matches the key fields of tuple
+* `opts`:
+  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+
+Returns nil, error.
+
+**Example:**
+
+```lua
+crud.upsert('customers', {id = 1, name = 'Alice', age = 22,}, {{'+', 'age', 1}})
+---
+- nil
+...
+```
+
+
 ### Select
 
 `CRUD` supports multi-conditional selects, treating a cluster as a single space.

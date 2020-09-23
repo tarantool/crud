@@ -3,6 +3,7 @@ local errors = require('errors')
 
 local FlattenError = errors.new_class("FlattenError", {capture_stack = false})
 local UnflattenError = errors.new_class("UnflattenError", {capture_stack = false})
+local ParseOperationsError = errors.new_class('ParseOperationsError',  {capture_stack = false})
 
 local utils = {}
 
@@ -97,6 +98,58 @@ function utils.merge_primary_key_parts(key_parts, pk_parts)
     end
 
     return merged_parts
+end
+
+local __tarantool_supports_fieldpaths
+local function tarantool_supports_fieldpaths()
+    if __tarantool_supports_fieldpaths ~= nil then
+        return __tarantool_supports_fieldpaths
+    end
+
+    local major_minor_patch = _G._TARANTOOL:split('-', 1)[1]
+    local major_minor_patch_parts = major_minor_patch:split('.', 2)
+
+    local major = tonumber(major_minor_patch_parts[1])
+    local minor = tonumber(major_minor_patch_parts[2])
+    local patch = tonumber(major_minor_patch_parts[3])
+
+    -- since Tarantool 2.3
+    __tarantool_supports_fieldpaths = major >= 2 and (minor > 3 or minor == 3 and patch >= 1)
+
+    return __tarantool_supports_fieldpaths
+end
+
+function utils.convert_operations(user_operations, space_format)
+    if tarantool_supports_fieldpaths() then
+        return user_operations
+    end
+
+    local converted_operations = {}
+
+    for _, operation in ipairs(user_operations) do
+        if type(operation[2]) == 'string' then
+            local field_id
+            for fieldno, field_format in ipairs(space_format) do
+                if field_format.name == operation[2] then
+                    field_id = fieldno
+                    break
+                end
+            end
+
+            if field_id == nil then
+                return nil, ParseOperationsError:new(
+                        "Space format doesn't contain field named %q", operation[2])
+            end
+
+            table.insert(converted_operations, {
+                operation[1], field_id, operation[3]
+            })
+        else
+            table.insert(converted_operations, operation)
+        end
+    end
+
+    return converted_operations
 end
 
 return utils

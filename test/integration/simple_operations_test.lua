@@ -258,3 +258,77 @@ g.test_delete = function()
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type:")
 end
 
+g.test_replace = function()
+    -- get
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.get('customers', 44)
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert_equals(obj, nil)
+
+    -- insert tuple
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.replace('customers', {id = 44, name = 'John Doe', age = 25})
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert_covers(obj, {id = 44, name = 'John Doe', age = 25})
+    t.assert(type(obj.bucket_id) == 'number')
+
+    -- replace tuple
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.replace('customers', {id = 44, name = 'Jane Doe', age = 18})
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert_covers(obj, {id = 44, name = 'Jane Doe', age = 18})
+    t.assert(type(obj.bucket_id) == 'number')
+end
+
+g.test_upsert = function()
+    -- upsert tuple not exist
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.upsert('customers', {id = 66, name = 'Jack Sparrow', age = 25}, {
+            {'+', 'age', 25},
+            {'=', 'name', 'Leo Tolstoy'}
+        })
+    ]])
+
+    t.assert_equals(obj, nil)
+    t.assert_equals(err, nil)
+
+    -- get
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.get('customers', 66)
+    ]])
+    t.assert_equals(err, nil)
+    t.assert_covers(obj, {id = 66, name = 'Jack Sparrow', age = 25})
+    t.assert(type(obj.bucket_id) == 'number')
+
+    -- upsert same query second time tuple exist
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.upsert('customers', {id = 66, name = 'Jack Sparrow', age = 25}, {
+            {'+', 'age', 25},
+            {'=', 'name', 'Leo Tolstoy'}
+        })
+    ]])
+
+    t.assert_equals(obj, nil)
+    t.assert_equals(err, nil)
+
+    -- get
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.get('customers', 66)
+    ]])
+    t.assert_equals(err, nil)
+    t.assert_covers(obj, {id = 66, name = 'Leo Tolstoy', age = 50})
+    t.assert(type(obj.bucket_id) == 'number')
+end
