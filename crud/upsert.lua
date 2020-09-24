@@ -83,10 +83,7 @@ function upsert.call(space_name, obj, user_operations, opts)
         return nil, UpsertError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
     end
 
-    obj = table.copy(obj)
-    obj.bucket_id = bucket_id
-
-    local tuple, err = utils.flatten(obj, space:format())
+    local tuple, err = utils.flatten(obj, space:format(), bucket_id)
     if err ~= nil then
         return nil, UpsertError:new("Object is specified in bad format: %s", err)
     end

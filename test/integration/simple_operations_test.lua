@@ -1,13 +1,15 @@
 local fio = require('fio')
 
 local t = require('luatest')
+local g_memtx = t.group('simple_operations_memtx')
+local g_vinyl = t.group('simple_operations_vinyl')
 local g = t.group('simple_operations')
 
 local helpers = require('test.helper')
 
 math.randomseed(os.time())
 
-g.before_all = function()
+local function before_all(g, engine)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_simple_operations'),
@@ -40,16 +42,26 @@ g.before_all = function()
                 },
             }
         },
+        env = {
+            ['ENGINE'] = engine,
+        },
     })
+    g.engine = engine
     g.cluster:start()
 end
 
-g.after_all = function()
+g_memtx.before_all = function() before_all(g_memtx, 'memtx') end
+g_vinyl.before_all = function() before_all(g_vinyl, 'vinyl') end
+
+local function after_all(g)
     g.cluster:stop()
     fio.rmtree(g.cluster.datadir)
 end
 
-g.before_each(function()
+g_memtx.after_all = function() after_all(g_memtx) end
+g_vinyl.after_all = function() after_all(g_vinyl) end
+
+local function before_each(g)
     for _, server in ipairs(g.cluster.servers) do
         server.net_box:eval([[
             local space = box.space.customers
@@ -58,11 +70,20 @@ g.before_each(function()
             end
         ]])
     end
-end)
+end
 
-g.test_non_existent_space = function()
+g_memtx.before_each(function() before_each(g_memtx) end)
+g_vinyl.before_each(function() before_each(g_vinyl) end)
+
+local function add(name, fn)
+    g_memtx[name] = fn
+    g_vinyl[name] = fn
+end
+
+add('test_non_existent_space', function(g)
     -- insert
     local obj, err = g.cluster.main_server.net_box:eval([[
+        local space_name = ...
         local crud = require('crud')
         return crud.insert('non_existent_space', {id = 0, name = 'Fedor', age = 59})
     ]])
@@ -96,9 +117,27 @@ g.test_non_existent_space = function()
 
     t.assert_equals(obj, nil)
     t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exists')
-end
 
-g.test_insert_get = function()
+    -- replace
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.replace('non_existent_space', {id = 0, name = 'Fedor', age = 59})
+    ]])
+
+    t.assert_equals(obj, nil)
+    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exists')
+
+    -- upsert
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        return crud.upsert('non_existent_space', {id = 0, name = 'Fedor', age = 59}, {{'+', 'age', 1}})
+    ]])
+
+    t.assert_equals(obj, nil)
+    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exists')
+end)
+
+add('test_insert_get', function(g)
     -- insert
     local obj, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
@@ -147,9 +186,9 @@ g.test_insert_get = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(obj, nil)
-end
+end)
 
-g.test_update = function()
+add('test_update', function(g)
     -- insert tuple
     local obj, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
@@ -215,9 +254,9 @@ g.test_update = function()
     t.assert_equals(err, nil)
     t.assert_covers(obj, {id = 22, name = 'Leo', age = 72})
     t.assert(type(obj.bucket_id) == 'number')
-end
+end)
 
-g.test_delete = function()
+add('test_delete', function(g)
     -- insert tuple
     local obj, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
@@ -235,8 +274,12 @@ g.test_delete = function()
     ]])
 
     t.assert_equals(err, nil)
-    t.assert_covers(obj, {id = 33, name = 'Mayakovsky', age = 36})
-    t.assert(type(obj.bucket_id) == 'number')
+    if g.engine == 'memtx' then
+        t.assert_covers(obj, {id = 33, name = 'Mayakovsky', age = 36})
+        t.assert(type(obj.bucket_id) == 'number')
+    else
+        t.assert_equals(obj, nil)
+    end
 
     -- get
     local obj, err = g.cluster.main_server.net_box:eval([[
@@ -256,9 +299,9 @@ g.test_delete = function()
     t.assert_equals(obj, nil)
     t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type:")
-end
+end)
 
-g.test_replace = function()
+add('test_replace', function(g)
     -- get
     local obj, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
@@ -287,9 +330,9 @@ g.test_replace = function()
     t.assert_equals(err, nil)
     t.assert_covers(obj, {id = 44, name = 'Jane Doe', age = 18})
     t.assert(type(obj.bucket_id) == 'number')
-end
+end)
 
-g.test_upsert = function()
+add('test_upsert', function(g)
     -- upsert tuple not exist
     local obj, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
@@ -331,4 +374,4 @@ g.test_upsert = function()
     t.assert_equals(err, nil)
     t.assert_covers(obj, {id = 66, name = 'Leo Tolstoy', age = 50})
     t.assert(type(obj.bucket_id) == 'number')
-end
+end)

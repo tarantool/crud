@@ -64,7 +64,7 @@ function insert.call(space_name, obj, opts)
     end
 
     -- compute default buckect_id
-    local tuple, err = utils.flatten(obj, space:format(), true)
+    local tuple, err = utils.flatten(obj, space:format())
     if err ~= nil then
         return nil, InsertError:new("Object is specified in bad format: %s", err)
     end
@@ -77,10 +77,7 @@ function insert.call(space_name, obj, opts)
         return nil, InsertError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
     end
 
-    obj = table.copy(obj)
-    obj.bucket_id = bucket_id
-
-    local tuple, err = utils.flatten(obj, space:format())
+    local tuple, err = utils.flatten(obj, space:format(), bucket_id)
     if err ~= nil then
         return nil, InsertError:new("Object is specified in bad format: %s", err)
     end

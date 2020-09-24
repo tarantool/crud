@@ -60,8 +60,9 @@ function replace.call(space_name, obj, opts)
         return nil, ReplaceError:new("Space %q doesn't exists", space_name)
     end
 
+    local space_format = space:format()
     -- compute default buckect_id
-    local tuple, err = utils.flatten(obj, space:format())
+    local tuple, err = utils.flatten(obj, space_format)
     if err ~= nil then
         return nil, ReplaceError:new("Object is specified in bad format: %s", err)
     end
@@ -74,10 +75,7 @@ function replace.call(space_name, obj, opts)
         return nil, ReplaceError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
     end
 
-    obj = table.copy(obj)
-    obj.bucket_id = bucket_id
-
-    local tuple, err = utils.flatten(obj, space:format())
+    local tuple, err = utils.flatten(obj, space_format, bucket_id)
     if err ~= nil then
         return nil, ReplaceError:new("Object is specified in bad format: %s", err)
     end

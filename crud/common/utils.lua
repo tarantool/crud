@@ -36,7 +36,7 @@ end
 
 local system_fields = { bucket_id = true }
 
-function utils.flatten(object, space_format)
+function utils.flatten(object, space_format, bucket_id)
     if object == nil then return nil end
 
     local tuple = {}
@@ -47,6 +47,10 @@ function utils.flatten(object, space_format)
         if not system_fields[field_format.name] then
             if not field_format.is_nullable and value == nil then
                 return nil, FlattenError:new("Field %q isn't nullable", field_format.name)
+            end
+        else
+            if bucket_id ~= nil then
+                value = bucket_id
             end
         end
 
