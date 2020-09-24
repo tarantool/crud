@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+env:
+  ROCK_NAME: "crud"
+
 jobs:
   run-tests-ce:
     strategy:
@@ -24,7 +27,7 @@ jobs:
         run: .rocks/bin/luatest -v
 
   run-tests-ee:
-    if: ${{ secrets.DOWNLOAD_TOKEN }}
+    if: github.event_name == 'push'
     strategy:
       matrix:
         bundle_version: [ "1.10.6-36-g5c752b1", "2.4.2-17-g5c752b1" ]
@@ -44,3 +47,24 @@ jobs:
         run: .rocks/bin/luacheck .
       - name: Run tests
         run: .rocks/bin/luatest -v
+
+  push-rockspec:
+    runs-on: [ ubuntu-latest ]
+    steps:
+      - uses: actions/checkout@master
+      - name: Push scm rockspec
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: |
+          curl --fail -X PUT -F rockspec=@$ROCK_NAME-scm-1.rockspec \
+            https://${{ secrets.ROCKS_USERNAME }}:${{ secrets.ROCKS_PASSWORD }}@${{ secrets.ROCKS_SERVER }}
+      - name: Push release rockspec
+        if: github.event_name == 'push' && github.ref == 'refs/tags/'
+        run: |
+          curl --fail -X PUT -F rockspec=@$ROCK_NAME-scm-1.rockspec \
+            https://${{ secrets.ROCKS_USERNAME }}:${{ secrets.ROCKS_PASSWORD }}@${{ secrets.ROCKS_SERVER }} \
+          cat $ROCK_NAME-scm-1.rockspec |
+              sed -E \
+                -e "s/branch = '.+'/tag = '$GITHUB_REF'/g" \
+                -e "s/version = '.+'/version = '$GITHUB_REF-1'/g" |
+              curl --fail -X PUT -F "rockspec=@-;filename=$ROCK_NAME-$GITHUB_REF-1.rockspec" \
+                https://${{ secrets.ROCKS_USERNAME }}:${{ secrets.ROCKS_PASSWORD }}@rocks.tarantool.org
