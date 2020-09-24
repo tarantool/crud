@@ -62,9 +62,10 @@ function insert.call(space_name, obj, opts)
     if space == nil then
         return nil, InsertError:new("Space %q doesn't exists", space_name)
     end
+    local space_format = space:format()
 
     -- compute default buckect_id
-    local tuple, err = utils.flatten(obj, space:format())
+    local tuple, err = utils.flatten(obj, space_format)
     if err ~= nil then
         return nil, InsertError:new("Object is specified in bad format: %s", err)
     end
@@ -77,7 +78,7 @@ function insert.call(space_name, obj, opts)
         return nil, InsertError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
     end
 
-    local tuple, err = utils.flatten(obj, space:format(), bucket_id)
+    local tuple, err = utils.flatten(obj, space_format, bucket_id)
     if err ~= nil then
         return nil, InsertError:new("Object is specified in bad format: %s", err)
     end
@@ -92,7 +93,7 @@ function insert.call(space_name, obj, opts)
     end
 
     local tuple = results[replicaset.uuid]
-    local object, err = utils.unflatten(tuple, space:format())
+    local object, err = utils.unflatten(tuple, space_format)
     if err ~= nil then
         return nil, InsertError:new("Received tuple that doesn't match space format: %s", err)
     end

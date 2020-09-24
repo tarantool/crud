@@ -64,13 +64,14 @@ function upsert.call(space_name, obj, user_operations, opts)
         return nil, UpsertError:new("Space %q doesn't exists", space_name)
     end
 
-    local operations, err = utils.convert_operations(user_operations, space:format())
+    local space_format = space:format()
+    local operations, err = utils.convert_operations(user_operations, space_format)
     if err ~= nil then
         return nil, UpsertError:new("Wrong operations are specified: %s", err)
     end
 
     -- compute default buckect_id
-    local tuple, err = utils.flatten(obj, space:format())
+    local tuple, err = utils.flatten(obj, space_format)
     if err ~= nil then
         return nil, UpsertError:new("Object is specified in bad format: %s", err)
     end
@@ -83,7 +84,7 @@ function upsert.call(space_name, obj, user_operations, opts)
         return nil, UpsertError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
     end
 
-    local tuple, err = utils.flatten(obj, space:format(), bucket_id)
+    local tuple, err = utils.flatten(obj, space_format, bucket_id)
     if err ~= nil then
         return nil, UpsertError:new("Object is specified in bad format: %s", err)
     end
@@ -98,7 +99,7 @@ function upsert.call(space_name, obj, user_operations, opts)
     end
 
     local tuple = results[replicaset.uuid]
-    local object, err = utils.unflatten(tuple, space:format())
+    local object, err = utils.unflatten(tuple, space_format)
     if err ~= nil then
         return nil, UpsertError:new("Received tuple that doesn't match space format: %s", err)
     end

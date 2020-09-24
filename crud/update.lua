@@ -64,12 +64,13 @@ function update.call(space_name, key, user_operations, opts)
     if space == nil then
         return nil, UpdateError:new("Space %q doesn't exists", space_name)
     end
+    local space_format = space:format()
 
     if box.tuple.is(key) then
         key = key:totable()
     end
 
-    local operations, err = utils.convert_operations(user_operations, space:format())
+    local operations, err = utils.convert_operations(user_operations, space_format)
     if err ~= nil then
         return nil, UpdateError:new("Wrong operations are specified: %s", err)
     end
@@ -90,7 +91,7 @@ function update.call(space_name, key, user_operations, opts)
     end
 
     local tuple = results[replicaset.uuid]
-    local object, err = utils.unflatten(tuple, space:format())
+    local object, err = utils.unflatten(tuple, space_format)
     if err ~= nil then
         return nil, UpdateError:new("Received tuple that doesn't match space format: %s", err)
     end
