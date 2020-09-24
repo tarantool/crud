@@ -98,13 +98,8 @@ function upsert.call(space_name, obj, user_operations, opts)
         return nil, UpsertError:new("Failed to upsert: %s", err)
     end
 
-    local tuple = results[replicaset.uuid]
-    local object, err = utils.unflatten(tuple, space_format)
-    if err ~= nil then
-        return nil, UpsertError:new("Received tuple that doesn't match space format: %s", err)
-    end
-
-    return object
+    --upsert always return nil
+    return results[replicaset.uuid]
 end
 
 return upsert

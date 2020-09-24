@@ -48,10 +48,10 @@ function utils.flatten(object, space_format, bucket_id)
             if not field_format.is_nullable and value == nil then
                 return nil, FlattenError:new("Field %q isn't nullable", field_format.name)
             end
-        else
-            if bucket_id ~= nil then
-                value = bucket_id
-            end
+        end
+
+        if bucket_id ~= nil and field_format.name == 'bucket_id' then
+            value = bucket_id
         end
 
         tuple[fieldno] = value
