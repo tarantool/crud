@@ -77,7 +77,7 @@ function upsert.call(space_name, obj, user_operations, opts)
     end
 
     -- convert input object to tuple if it need
-    local tuple, err = nil, nil
+    local tuple
     if opts.tuples_tomap == false then
         tuple = obj
     else
@@ -96,11 +96,11 @@ function upsert.call(space_name, obj, user_operations, opts)
     end
 
     -- set buckect_id for tuple
-    local tuple, err = nil, nil
+    local tuple
     if opts.tuples_tomap == false then
         local pos, err = utils.get_bucket_id_pos(space_format)
         if err ~= nil then
-            return nil, InsertError:new("%s, %s", err, space_name)
+            return nil, UpsertError:new("%s, %s", err, space_name)
         end
         tuple = obj
         tuple[pos] = bucket_id

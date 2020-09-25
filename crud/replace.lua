@@ -68,13 +68,13 @@ function replace.call(space_name, obj, opts)
     local space_format = space:format()
 
     -- convert input object to tuple if it need
-    local tuple, err = nil, nil
+    local tuple, err
     if opts.tuples_tomap == false then
         tuple = obj
     else
         tuple, err = utils.flatten(obj, space_format)
         if err ~= nil then
-            return nil, InsertError:new("Object is specified in bad format: %s", err)
+            return nil, ReplaceError:new("Object is specified in bad format: %s", err)
         end
     end
 
@@ -87,11 +87,11 @@ function replace.call(space_name, obj, opts)
     end
 
     -- set buckect_id for tuple
-    local tuple, err = nil, nil
+    local tuple
     if opts.tuples_tomap == false then
         local pos, err = utils.get_bucket_id_pos(space_format)
         if err ~= nil then
-            return nil, InsertError:new("%s, %s", err, space_name)
+            return nil, ReplaceError:new("%s, %s", err, space_name)
         end
         tuple = obj
         tuple[pos] = bucket_id
