@@ -1,13 +1,14 @@
 local fio = require('fio')
 
 local t = require('luatest')
-local g = t.group('select')
+local g_memtx = t.group('select_memtx')
+local g_vinyl = t.group('select_vinyl')
 
 local helpers = require('test.helper')
 
 math.randomseed(os.time())
 
-g.before_all = function()
+local function before_all(g, engine)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_select'),
@@ -40,16 +41,25 @@ g.before_all = function()
                 },
             }
         },
+        env = {
+            ['ENGINE'] = engine,
+        },
     })
     g.cluster:start()
 end
 
-g.after_all = function()
+g_memtx.before_all = function() before_all(g_memtx, 'memtx') end
+g_vinyl.before_all = function() before_all(g_vinyl, 'vinyl') end
+
+local function after_all(g)
     g.cluster:stop()
     fio.rmtree(g.cluster.datadir)
 end
 
-g.before_each(function()
+g_memtx.after_all = function() after_all(g_memtx) end
+g_vinyl.after_all = function() after_all(g_vinyl) end
+
+local function before_each(g)
     for _, server in ipairs(g.cluster.servers) do
         server.net_box:eval([[
             local space = box.space.customers
@@ -58,9 +68,12 @@ g.before_each(function()
             end
         ]])
     end
-end)
+end
 
-local function insert_customers(customers)
+g_memtx.before_each(function() before_each(g_memtx) end)
+g_vinyl.before_each(function() before_each(g_vinyl) end)
+
+local function insert_customers(g, customers)
     local inserted_objects = {}
 
     for _, customer in ipairs(customers) do
@@ -77,6 +90,11 @@ local function insert_customers(customers)
     return inserted_objects
 end
 
+local function add(name, fn)
+    g_memtx[name] = fn
+    g_vinyl[name] = fn
+end
+
 local function get_by_ids(customers, ids)
     local results = {}
     for _, id in ipairs(ids) do
@@ -85,7 +103,7 @@ local function get_by_ids(customers, ids)
     return results
 end
 
-g.test_non_existent_space = function()
+add('test_non_existent_space', function(g)
     -- insert
     local obj, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
@@ -94,10 +112,10 @@ g.test_non_existent_space = function()
 
     t.assert_equals(obj, nil)
     t.assert_str_contains(err.err, "Space non_existent_space doesn't exists")
-end
+end)
 
-g.test_select_all = function()
-    local customers = insert_customers({
+add('test_select_all', function(g)
+    local customers = insert_customers(g, {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -153,10 +171,10 @@ g.test_select_all = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(#objects, 0)
-end
+end)
 
-g.test_select_all_with_limit = function()
-    local customers = insert_customers({
+add('test_select_all_with_limit', function(g)
+    local customers = insert_customers(g, {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -199,11 +217,10 @@ g.test_select_all_with_limit = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(#objects, 0)
+end)
 
-end
-
-g.test_select_all_with_batch_size = function()
-    local customers = insert_customers({
+add('test_select_all_with_batch_size', function(g)
+    local customers = insert_customers(g, {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -260,10 +277,10 @@ g.test_select_all_with_batch_size = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, customers)
-end
+end)
 
-g.test_ge_condition_with_index = function()
-    local customers = insert_customers({
+add('test_ge_condition_with_index', function(g)
+    local customers = insert_customers(g, {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -313,10 +330,10 @@ g.test_ge_condition_with_index = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {2, 4})) -- in age order
-end
+end)
 
-g.test_le_condition_with_index = function()
-    local customers = insert_customers({
+add('test_le_condition_with_index',function(g)
+    local customers = insert_customers(g, {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -366,10 +383,10 @@ g.test_le_condition_with_index = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {1})) -- in age order
-end
+end)
 
-g.test_lt_condition_with_index = function()
-    local customers = insert_customers({
+add('test_lt_condition_with_index', function(g)
+    local customers = insert_customers(g, {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -419,10 +436,10 @@ g.test_lt_condition_with_index = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {})) -- in age order
-end
+end)
 
-g.test_multiple_conditions = function()
-    local customers = insert_customers({
+add('test_multiple_conditions', function(g)
+    local customers = insert_customers(g, {
         {
             id = 1, name = "Elizabeth", last_name = "Rodriguez",
             age = 20, city = "Los Angeles",
@@ -477,10 +494,10 @@ g.test_multiple_conditions = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {2})) -- in age order
-end
+end)
 
-g.test_composite_index = function()
-    local customers = insert_customers({
+add('test_composite_index', function(g)
+    local customers = insert_customers(g, {
         {
             id = 1, name = "Elizabeth", last_name = "Rodriguez",
             age = 20, city = "Los Angeles",
@@ -530,10 +547,10 @@ g.test_composite_index = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {1, 4})) -- in full_name order
-end
+end)
 
-g.test_select_with_batch_size_1 = function()
-    local customers = insert_customers({
+add('test_select_with_batch_size_1', function(g)
+    local customers = insert_customers(g,{
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -626,10 +643,10 @@ g.test_select_with_batch_size_1 = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {8, 2, 4}))
-end
+end)
 
-g.test_select_by_full_sharding_key = function()
-    local customers = insert_customers({
+add('test_select_by_full_sharding_key', function(g)
+    local customers = insert_customers(g, {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -656,4 +673,4 @@ g.test_select_by_full_sharding_key = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {3}))
-end
+end)
