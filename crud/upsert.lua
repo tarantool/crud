@@ -19,7 +19,7 @@ local function call_upsert_on_storage(space_name, tuple, operations)
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, UpdateError:new("Space %q doesn't exists", space_name)
+        return nil, UpsertError:new("Space %q doesn't exists", space_name)
     end
 
     return space:upsert(tuple, operations)

@@ -3,7 +3,6 @@ local fio = require('fio')
 local t = require('luatest')
 local g_memtx = t.group('simple_operations_memtx')
 local g_vinyl = t.group('simple_operations_vinyl')
-local g = t.group('simple_operations')
 
 local helpers = require('test.helper')
 
