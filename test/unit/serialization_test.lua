@@ -42,6 +42,18 @@ g.test_flatten = function()
     t.assert(err == nil)
     t.assert_equals(tuple, {1, 1024, 'Marilyn', 50})
 
+
+    -- set bucket_id
+    local object = {
+        id = 1,
+        name = 'Marilyn',
+        age = 50,
+    }
+
+    local tuple, err = utils.flatten(object, space_format, 1025)
+    t.assert(err == nil)
+    t.assert_equals(tuple, {1, 1025, 'Marilyn', 50})
+
     -- non-nullable field name is nil
     local object = {
         id = 1,
@@ -63,7 +75,7 @@ g.test_flatten = function()
         age = 50,
     }
 
-    local tuple, err = utils.flatten(object, space_format, true)
+    local tuple, err = utils.flatten(object, space_format)
     t.assert(err == nil)
     t.assert_equals(tuple, {1, nil, 'Marilyn', 50})
 

@@ -8,38 +8,35 @@ local utils = require('crud.common.utils')
 
 require('crud.common.checkers')
 
-local InsertError = errors.new_class('Insert',  {capture_stack = false})
+local ReplaceError = errors.new_class('Replace', { capture_stack = false })
 
-local insert = {}
+local replace = {}
 
-local INSERT_FUNC_NAME = '__insert'
+local REPLACE_FUNC_NAME = '__replace'
 
-local function call_insert_on_storage(space_name, tuple)
+local function call_replace_on_storage(space_name, tuple)
     checks('string', 'table')
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, InsertError:new("Space %q doesn't exists", space_name)
+        return nil, ReplaceError:new("Space %q doesn't exists", space_name)
     end
 
-    return space:insert(tuple)
+    return space:replace(tuple)
 end
 
-function insert.init()
+function replace.init()
     registry.add({
-        [INSERT_FUNC_NAME] = call_insert_on_storage,
+        [REPLACE_FUNC_NAME] = call_replace_on_storage,
     })
 end
 
---- Inserts tuple to the specifed space
+--- Insert or replace a tuple in the specifed space
 --
 -- @function call
 --
 -- @param string space_name
 --  A space name
---
--- @param table key_parts
---  Primary key fields' names array
 --
 -- @param table obj
 --  Tuple object (according to space format)
@@ -51,7 +48,7 @@ end
 -- @treturn[2] nil
 -- @treturn[2] table Error description
 --
-function insert.call(space_name, obj, opts)
+function replace.call(space_name, obj, opts)
     checks('string', 'table', {
         timeout = '?number',
     })
@@ -60,14 +57,14 @@ function insert.call(space_name, obj, opts)
 
     local space = utils.get_space(space_name, vshard.router.routeall())
     if space == nil then
-        return nil, InsertError:new("Space %q doesn't exists", space_name)
+        return nil, ReplaceError:new("Space %q doesn't exists", space_name)
     end
-    local space_format = space:format()
 
+    local space_format = space:format()
     -- compute default buckect_id
     local tuple, err = utils.flatten(obj, space_format)
     if err ~= nil then
-        return nil, InsertError:new("Object is specified in bad format: %s", err)
+        return nil, ReplaceError:new("Object is specified in bad format: %s", err)
     end
 
     local key = utils.extract_key(tuple, space.index[0].parts)
@@ -75,30 +72,30 @@ function insert.call(space_name, obj, opts)
     local bucket_id = vshard.router.bucket_id_strcrc32(key)
     local replicaset, err = vshard.router.route(bucket_id)
     if replicaset == nil then
-        return nil, InsertError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
+        return nil, ReplaceError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
     end
 
     local tuple, err = utils.flatten(obj, space_format, bucket_id)
     if err ~= nil then
-        return nil, InsertError:new("Object is specified in bad format: %s", err)
+        return nil, ReplaceError:new("Object is specified in bad format: %s", err)
     end
 
-    local results, err = call.rw(INSERT_FUNC_NAME, {space_name, tuple}, {
+    local results, err = call.rw(REPLACE_FUNC_NAME, {space_name, tuple}, {
         replicasets = {replicaset},
         timeout = opts.timeout,
     })
 
     if err ~= nil then
-        return nil, InsertError:new("Failed to insert: %s", err)
+        return nil, ReplaceError:new("Failed to replace: %s", err)
     end
 
     local tuple = results[replicaset.uuid]
     local object, err = utils.unflatten(tuple, space_format)
     if err ~= nil then
-        return nil, InsertError:new("Received tuple that doesn't match space format: %s", err)
+        return nil, ReplaceError:new("Received tuple that doesn't match space format: %s", err)
     end
 
     return object
 end
 
-return insert
+return replace

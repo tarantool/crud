@@ -5,8 +5,10 @@
 local registry = require('crud.common.registry')
 local call = require('crud.common.call')
 local insert = require('crud.insert')
+local replace = require('crud.replace')
 local get = require('crud.get')
 local update = require('crud.update')
+local upsert = require('crud.upsert')
 local delete = require('crud.delete')
 local select = require('crud.select')
 
@@ -30,9 +32,17 @@ crud.insert = insert.call
 -- @function get
 crud.get = get.call
 
+-- @refer replace.call
+-- @function replace
+crud.replace = replace.call
+
 -- @refer update.call
 -- @function update
 crud.update = update.call
+
+-- @refer upsert.call
+-- @function upsert
+crud.upsert = upsert.call
 
 -- @refer delete.call
 -- @function delete
@@ -57,7 +67,9 @@ function crud.init()
     call.init()
     insert.init()
     get.init()
+    replace.init()
     update.init()
+    upsert.init()
     delete.init()
     select.init()
 end

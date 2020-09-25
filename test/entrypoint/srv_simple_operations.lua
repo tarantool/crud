@@ -11,6 +11,7 @@ package.preload['customers-storage'] = function()
     return {
         role_name = 'customers-storage',
         init = function()
+            local engine = os.getenv('ENGINE') or 'memtx'
             local customers_space = box.schema.space.create('customers', {
                 format = {
                     {name = 'id', type = 'unsigned'},
@@ -19,6 +20,7 @@ package.preload['customers-storage'] = function()
                     {name = 'age', type = 'number'},
                 },
                 if_not_exists = true,
+                engine = engine,
             })
             customers_space:create_index('id', {
                 parts = { {field = 'id'} },

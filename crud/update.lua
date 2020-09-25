@@ -9,7 +9,6 @@ local utils = require('crud.common.utils')
 require('crud.common.checkers')
 
 local UpdateError = errors.new_class('Update',  {capture_stack = false})
-local ParseOperationsError = errors.new_class('ParseOperationsError',  {capture_stack = false})
 
 local update = {}
 
@@ -33,58 +32,6 @@ function update.init()
     })
 end
 
-local __tarantool_supports_fieldpaths
-local function tarantool_supports_fieldpaths()
-    if __tarantool_supports_fieldpaths ~= nil then
-        return __tarantool_supports_fieldpaths
-    end
-
-    local major_minor_patch = _G._TARANTOOL:split('-', 1)[1]
-    local major_minor_patch_parts = major_minor_patch:split('.', 2)
-
-    local major = tonumber(major_minor_patch_parts[1])
-    local minor = tonumber(major_minor_patch_parts[2])
-    local patch = tonumber(major_minor_patch_parts[3])
-
-    -- since Tarantool 2.3
-    __tarantool_supports_fieldpaths = major >= 2 and (minor > 3 or minor == 3 and patch >= 1)
-
-    return __tarantool_supports_fieldpaths
-end
-
-local function convert_operations(user_operations, space_format)
-    if tarantool_supports_fieldpaths() then
-        return user_operations
-    end
-
-    local converted_operations = {}
-
-    for _, operation in ipairs(user_operations) do
-        if type(operation[2]) == 'string' then
-            local field_id
-            for fieldno, field_format in ipairs(space_format) do
-                if field_format.name == operation[2] then
-                    field_id = fieldno
-                    break
-                end
-            end
-
-            if field_id == nil then
-                return nil, ParseOperationsError:new(
-                    "Space format doesn't contain field named %q", operation[2])
-            end
-
-            table.insert(converted_operations, {
-                operation[1], field_id, operation[3]
-            })
-        else
-            table.insert(converted_operations, operation)
-        end
-    end
-
-    return converted_operations
-end
-
 --- Updates tuple in the specifed space
 --
 -- @function call
@@ -95,7 +42,7 @@ end
 -- @param key
 --  Primary key value
 --
--- @param table operations
+-- @param table user_operations
 --  Operations to be performed.
 --  See `spaceect:update` operations in Tarantool doc
 --
@@ -117,12 +64,13 @@ function update.call(space_name, key, user_operations, opts)
     if space == nil then
         return nil, UpdateError:new("Space %q doesn't exists", space_name)
     end
+    local space_format = space:format()
 
     if box.tuple.is(key) then
         key = key:totable()
     end
 
-    local operations, err = convert_operations(user_operations, space:format())
+    local operations, err = utils.convert_operations(user_operations, space_format)
     if err ~= nil then
         return nil, UpdateError:new("Wrong operations are specified: %s", err)
     end
@@ -143,7 +91,7 @@ function update.call(space_name, key, user_operations, opts)
     end
 
     local tuple = results[replicaset.uuid]
-    local object, err = utils.unflatten(tuple, space:format())
+    local object, err = utils.unflatten(tuple, space_format)
     if err ~= nil then
         return nil, UpdateError:new("Received tuple that doesn't match space format: %s", err)
     end
