@@ -1,3 +1,4 @@
+local collations = require('crud.common.collations')
 local select_conditions = require('crud.select.conditions')
 
 local function format_value(value)
@@ -88,10 +89,10 @@ local function format_eq(cond)
         end
 
         local func_name
-        if value_opts.collation ~= nil then
-            if value_opts.collation == 'unicode' then
+        if value_opts.collation ~= nil and value_opts.collation ~= collations.NONE then
+            if value_opts.collation == collations.UNICODE then
                 func_name = 'eq_unicode' .. postfix
-            elseif value_opts.collation == 'unicode_ci' then
+            elseif value_opts.collation == collations.UNICODE_CI then
                 func_name = 'eq_unicode_ci' .. postfix
             else
                 error('unknown collation: ' .. tostring(value_opts.collation))
@@ -122,10 +123,10 @@ local function format_lt(cond)
         end
 
         local func_name
-        if value_opts.collation ~= nil then
-            if value_opts.collation == 'unicode' then
+        if value_opts.collation ~= nil and value_opts.collation ~= collations.NONE then
+            if value_opts.collation == collations.UNICODE then
                 func_name = 'lt_unicode' .. postfix
-            elseif value_opts.collation == 'unicode_ci' then
+            elseif value_opts.collation == collations.UNICODE_CI then
                 func_name = 'lt_unicode_ci' .. postfix
             else
                 error('unknown collation: ' .. tostring(value_opts.collation))

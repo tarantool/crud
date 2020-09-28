@@ -1,5 +1,6 @@
 local select_plan = require('crud.select.plan')
 
+local collations = require('crud.common.collations')
 local select_conditions = require('crud.select.conditions')
 local cond_funcs = select_conditions.funcs
 
@@ -228,12 +229,12 @@ g.test_filter_conditions = function()
     -- - name part opts
     local name_opts = full_name_values_opts[1]
     t.assert_equals(name_opts.is_nullable, false)
-    t.assert_equals(name_opts.collation, 'unicode_ci')
+    t.assert_equals(name_opts.collation, collations.UNICODE_CI)
 
     -- - last_name part opts
     local last_name_opts = full_name_values_opts[2]
     t.assert_equals(last_name_opts.is_nullable, true)
-    t.assert_equals(last_name_opts.collation, nil)
+    t.assert_equals(last_name_opts.collation, collations.NONE)
 
     -- has_a_car filter
     local has_a_car_filter_condition = plan.filter_conditions[3]
