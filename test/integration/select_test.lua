@@ -277,6 +277,21 @@ add('test_select_all_with_batch_size', function(g)
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, customers)
+
+    -- batch size 3 and limit 6
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local objects, err = crud.select('customers', nil, {
+            batch_size = 3,
+            limit = 6,
+        })
+
+        return objects, err
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert_equals(objects, get_by_ids(customers, {1, 2, 3, 4, 5, 6}))
 end)
 
 add('test_ge_condition_with_index', function(g)
