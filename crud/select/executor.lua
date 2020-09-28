@@ -3,7 +3,6 @@ local log = require('log')
 
 local select_filters = require('crud.select.filters')
 local select_comparators = require('crud.select.comparators')
-local select_conditions = require('crud.select.conditions')
 
 local utils = require('crud.common.utils')
 
@@ -16,10 +15,10 @@ local function scroll_to_after_tuple(gen, param, state, space, scanner)
     local scan_index = space.index[scanner.index_id]
     local primary_index = space.index[0]
 
-    local scroll_operator = select_conditions.get_scroll_operator(scanner.operator)
     local scroll_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
 
-    local scroll_comparator, err = select_comparators.gen_tuples_comparator(scroll_operator, scroll_key_parts)
+    local cmp_operator = select_comparators.get_cmp_operator(scanner.iter)
+    local scroll_comparator, err = select_comparators.gen_tuples_comparator(cmp_operator, scroll_key_parts)
     if err ~= nil then
         return nil, ScrollToAfterError:new("Failed to generate comparator to scroll: %s", err)
     end
@@ -59,9 +58,10 @@ function executor.execute(plan)
         if scan_value == nil then
             scan_value = scanner.after_tuple
         else
-            local scan_comparator, err = select_comparators.gen_tuples_comparator(scanner.operator, index.parts)
+            local cmp_operator = select_comparators.get_cmp_operator(scanner.iter)
+            local scan_comparator, err = select_comparators.gen_tuples_comparator(cmp_operator, index.parts)
             if err ~= nil then
-                log.warnf("Failed to generate comparator to scan value: %s", err)
+                log.warn("Failed to generate comparator for scan value: %s", err)
             elseif scan_comparator(scanner.after_tuple, scan_value) then
                 local after_tuple_key = utils.extract_key(scanner.after_tuple, index.parts)
                 scan_value = after_tuple_key

@@ -158,9 +158,13 @@ local function build_select_iterator(space_name, user_conditions, opts)
         return nil, SelectError:new("Failed to get replicasets to select from: %s", err)
     end
 
-    local key_parts = space.index[plan.scanner.index_id].parts
+    local scan_index = space.index[plan.scanner.index_id]
+    local primary_index = space.index[0]
+
+    local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
+    local cmp_operator = select_comparators.get_cmp_operator(plan.scanner.iter)
     local tuples_comparator, err = select_comparators.gen_tuples_comparator(
-        plan.scanner.operator, key_parts
+        cmp_operator, cmp_key_parts
     )
     if err ~= nil then
         return nil, SelectError:new("Failed to generate comparator function: %s", err)
@@ -169,7 +173,6 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local iter = Iterator.new({
         space_name = space_name,
         space_format = space_format,
-        key_parts = key_parts,
         iteration_func = select_iteration,
         comparator = tuples_comparator,
 
