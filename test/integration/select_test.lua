@@ -279,6 +279,68 @@ add('test_select_all_with_batch_size', function(g)
     t.assert_equals(objects, customers)
 end)
 
+add('test_eq_condition_with_index', function(g)
+    local customers = insert_customers(g, {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 33, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "Smith",
+            age = 81, city = "Chicago",
+        },{
+            id = 5, name = "Hector", last_name = "Barbossa",
+            age = 33, city = "Chicago",
+        },{
+            id = 6, name = "William", last_name = "White",
+            age = 81, city = "Chicago",
+        },{
+            id = 7, name = "Jack", last_name = "Sparrow",
+            age = 33, city = "Chicago",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    local conditions = {
+        {'==', 'age', 33},
+    }
+
+    -- no after
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions = ...
+
+        local objects, err = crud.select('customers', conditions)
+        return objects, err
+    ]], {conditions})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(objects, get_by_ids(customers, {1, 3, 5, 7})) -- in id order
+
+    -- after obj 3
+    local after = customers[3]
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, after = ...
+
+        local objects, err = crud.select('customers', conditions, {
+            after = after,
+        })
+        return objects, err
+    ]], {conditions, after})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(objects, get_by_ids(customers, {5, 7})) -- in id order
+end)
+
 add('test_ge_condition_with_index', function(g)
     local customers = insert_customers(g, {
         {
