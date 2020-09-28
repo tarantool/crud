@@ -1,6 +1,7 @@
 local errors = require('errors')
 local json = require('json')
 
+local collations = require('crud.common.collations')
 local select_conditions = require('crud.select.conditions')
 
 local select_plan = {}
@@ -180,7 +181,7 @@ local function get_values_opts(index, fieldnos)
             assert(index_part ~= nil)
 
             is_nullable = index_part.is_nullable
-            collation = index_part.collation
+            collation = collations.get(index_part)
         end
 
         table.insert(values_opts, {
