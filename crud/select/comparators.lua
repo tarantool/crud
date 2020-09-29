@@ -150,6 +150,15 @@ local function gen_array_cmp_func(target, key_parts)
     end
 end
 
+local cmp_operators_by_tarantool_iter = {
+    [box.index.GT] = operators.GT,
+    [box.index.GE] = operators.GT,
+    [box.index.EQ] = operators.GT,
+    [box.index.LT] = operators.LT,
+    [box.index.LE] = operators.LT,
+    [box.index.REQ] = operators.LT,
+}
+
 local array_cmp_funcs_by_operators = {
     [operators.EQ] = array_eq,
     [operators.LT] = array_lt,
@@ -158,23 +167,29 @@ local array_cmp_funcs_by_operators = {
     [operators.GE] = array_ge,
 }
 
-function comparators.gen_func(operator, key_parts)
-    local cmp_func = array_cmp_funcs_by_operators[operator]
+function comparators.get_cmp_operator(tarantool_iter)
+    local cmp_operator = cmp_operators_by_tarantool_iter[tarantool_iter]
+    assert(cmp_operator ~= nil, 'Unknown Tarantool iterator %q', tarantool_iter)
 
+    return cmp_operator
+end
+
+function comparators.gen_func(cmp_operator, key_parts)
+    local cmp_func = array_cmp_funcs_by_operators[cmp_operator]
     if cmp_func == nil then
-        return nil, ComparatorsError:new('Unsupported operator %q', operator)
+        return nil, ComparatorsError:new('Unsupported operator %q', cmp_operator)
     end
 
     local func, err = gen_array_cmp_func(cmp_func, key_parts)
     if err ~= nil then
-        return nil, ComparatorsError:new('Failed to generate comparator function %q', operator)
+        return nil, ComparatorsError:new('Failed to generate comparator function %q', cmp_operator)
     end
 
     return func
 end
 
-function comparators.gen_tuples_comparator(operator, key_parts)
-    local keys_comparator, err = comparators.gen_func(operator, key_parts)
+function comparators.gen_tuples_comparator(cmp_operator, key_parts)
+    local keys_comparator, err = comparators.gen_func(cmp_operator, key_parts)
     if err ~= nil then
         return nil, ComparatorsError:new("Failed to generate comparator function: %s", err)
     end

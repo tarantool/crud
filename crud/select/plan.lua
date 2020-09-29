@@ -259,7 +259,11 @@ local function validate_conditions(conditions, space_indexes, space_format)
     return true
 end
 
-local function is_scan_by_full_sharding_key_eq(plan, scan_index_parts, sharding_key_parts)
+local function is_scan_by_full_sharding_key_eq(plan, scan_index, sharding_index)
+    if scan_index.id ~= sharding_index.id then
+        return false
+    end
+
     if plan.scanner.value == nil then
         return false
     end
@@ -269,13 +273,13 @@ local function is_scan_by_full_sharding_key_eq(plan, scan_index_parts, sharding_
     end
 
     local scan_index_fieldnos = {}
-    for _, part in ipairs(scan_index_parts) do
+    for _, part in ipairs(scan_index.parts) do
         scan_index_fieldnos[part.fieldno] = true
     end
 
     -- check that sharding key is included in the scan index fields
-    for part_num, sharding_key_part in ipairs(sharding_key_parts) do
-        local fieldno = sharding_key_part.fieldno
+    for part_num, sharding_index_part in ipairs(sharding_index.parts) do
+        local fieldno = sharding_index_part.fieldno
         if scan_index_fieldnos[fieldno] == nil or plan.scanner.value[part_num] == nil then
             return false
         end
@@ -317,9 +321,9 @@ function select_plan.new(space, conditions, opts)
         filter_conditions = filter_conditions,
     }
 
-    local scan_index_parts = space_indexes[scanner.index_id]
-    local sharding_key_parts = space_indexes[0] -- XXX: only sharding by primary key is supported
-    if is_scan_by_full_sharding_key_eq(plan, scan_index_parts, sharding_key_parts) then
+    local scan_index = space_indexes[scanner.index_id]
+    local sharding_index = space_indexes[0] -- XXX: only sharding by primary key is supported
+    if is_scan_by_full_sharding_key_eq(plan, scan_index, sharding_index) then
         plan.scanner.limit = 1
         plan.is_scan_by_full_sharding_key_eq = true
     end
