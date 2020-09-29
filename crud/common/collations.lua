@@ -5,6 +5,7 @@ local COLLATION_NAME_FN = 2
 local collations = {}
 
 collations.NONE = 'none'
+collations.BINARY = 'binary'
 collations.UNICODE = 'unicode'
 collations.UNICODE_CI = 'unicode_ci'
 
@@ -22,6 +23,26 @@ function collations.get(index_part)
 
     local collation = collation_tuple[COLLATION_NAME_FN]
     return collation
+end
+
+function collations.is_default(collation)
+    if collation == nil then
+        return true
+    end
+
+    if collation == collations.NONE or collation == collations.BINARY then
+        return true
+    end
+
+    return false
+end
+
+function collations.is_unicode(collation)
+    if collation == nil then
+        return false
+    end
+
+    return string.startswith(collation, 'unicode_')
 end
 
 return collations

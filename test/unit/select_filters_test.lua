@@ -311,7 +311,7 @@ g.test_unicode_collation = function()
             types = {'string', 'string', 'string', 'number'},
             early_exit_is_possible = false,
             values_opts = {
-                {collation='unicode_ci'},
+                {collation='unicode'},
                 {collation='unicode_ci'},
                 {collation='unicode_ci'},
             }
@@ -332,7 +332,7 @@ return true, false]]
     local expected_library_code = [[local M = {}
 
 function M.eq_1(field_1, field_2, field_3, field_4)
-    return (eq_unicode_ci(field_1, "A") and eq_unicode_ci(field_2, "Á") and eq_unicode_ci(field_3, "Ä") and eq(field_4, 6))
+    return (eq_unicode(field_1, "A") and eq_unicode_ci(field_2, "Á") and eq_unicode_ci(field_3, "Ä") and eq(field_4, 6))
 end
 
 return M]]
@@ -343,8 +343,9 @@ return M]]
 
     local func = select_filters.compile(filter)
     t.assert_equals(func({'A', 'Á', 'Ä', 6}), true)
-    t.assert_equals(func({'a', 'á', 'ä', 6}), true)
-    t.assert_equals(func({'a', 'V', 'ä', 6}), false)
+    t.assert_equals(func({'A', 'á', 'ä', 6}), true)
+    t.assert_equals(func({'a', 'Á', 'Ä', 6}), false)
+    t.assert_equals(func({'A', 'V', 'ä', 6}), false)
 end
 
 g.test_null_as_last_value_eq = function()

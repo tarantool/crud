@@ -133,7 +133,7 @@ local function gen_array_cmp_func(target, key_parts)
 
     for _, part in ipairs(key_parts) do
         local collation = collations.get(part)
-        if collation == collations.NONE then
+        if collations.is_default(collation) then
             table.insert(lt_funcs, lt)
             table.insert(eq_funcs, eq)
         elseif collation == collations.UNICODE then
