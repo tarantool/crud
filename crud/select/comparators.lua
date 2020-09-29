@@ -167,6 +167,12 @@ local array_cmp_funcs_by_operators = {
     [operators.GE] = array_ge,
 }
 
+--[=[
+    Each tarantool iterator returns tuples in a strictly defined order
+    (scan key merged with primary key is used to guarantee that)
+    GE, GT and EQ interators return tuples in ascending order
+    LE, LT and REQ - in descending
+--]=]
 function comparators.get_cmp_operator(tarantool_iter)
     local cmp_operator = cmp_operators_by_tarantool_iter[tarantool_iter]
     assert(cmp_operator ~= nil, 'Unknown Tarantool iterator %q', tarantool_iter)
