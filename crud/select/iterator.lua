@@ -20,7 +20,6 @@ function Iterator.new(opts)
     checks({
         space_name = 'string',
         space_format = 'table',
-        key_parts = 'table',
         comparator = 'function',
         iteration_func = 'function',
 
