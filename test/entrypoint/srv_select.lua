@@ -41,7 +41,7 @@ package.preload['customers-storage'] = function()
             customers_space:create_index('full_name', {
                 parts = {
                     { field = 'name', collation = 'unicode_ci' },
-                    { field = 'last_name', is_nullable = true },
+                    { field = 'last_name', collation = 'unicode_ci' },
                 },
                 unique = false,
                 if_not_exists = true,
