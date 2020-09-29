@@ -177,7 +177,7 @@ local array_cmp_funcs_by_operators = {
 --]=]
 function comparators.get_cmp_operator(tarantool_iter)
     local cmp_operator = cmp_operators_by_tarantool_iter[tarantool_iter]
-    assert(cmp_operator ~= nil, 'Unknown Tarantool iterator %q', tarantool_iter)
+    assert(cmp_operator ~= nil, 'Unsupported Tarantool iterator %q', tarantool_iter)
 
     return cmp_operator
 end
