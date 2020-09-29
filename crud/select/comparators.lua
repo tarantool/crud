@@ -1,5 +1,6 @@
 local errors = require('errors')
 
+local collations = require('crud.common.collations')
 local select_conditions = require('crud.select.conditions')
 local operators = select_conditions.operators
 
@@ -131,17 +132,18 @@ local function gen_array_cmp_func(target, key_parts)
     local eq_funcs = {}
 
     for _, part in ipairs(key_parts) do
-        if part.collation == nil then
+        local collation = collations.get(part)
+        if collations.is_default(collation) then
             table.insert(lt_funcs, lt)
             table.insert(eq_funcs, eq)
-        elseif part.collation == 'unicode' then
+        elseif collation == collations.UNICODE then
             table.insert(lt_funcs, lt_unicode)
             table.insert(eq_funcs, eq_unicode)
-        elseif part.collation == 'unicode_ci' then
+        elseif collation == collations.UNICODE_CI then
             table.insert(lt_funcs, lt_unicode_ci)
             table.insert(eq_funcs, eq_unicode_ci)
         else
-            return nil, GenFuncError:new('Unsupported tarantool collation %q', part.collation)
+            return nil, GenFuncError:new('Unsupported Tarantool collation %q', collation)
         end
     end
 
@@ -175,7 +177,7 @@ local array_cmp_funcs_by_operators = {
 --]=]
 function comparators.get_cmp_operator(tarantool_iter)
     local cmp_operator = cmp_operators_by_tarantool_iter[tarantool_iter]
-    assert(cmp_operator ~= nil, 'Unknown Tarantool iterator %q', tarantool_iter)
+    assert(cmp_operator ~= nil, 'Unsupported Tarantool iterator %q', tarantool_iter)
 
     return cmp_operator
 end

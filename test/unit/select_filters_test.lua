@@ -311,7 +311,7 @@ g.test_unicode_collation = function()
             types = {'string', 'string', 'string', 'number'},
             early_exit_is_possible = false,
             values_opts = {
-                {collation='unicode_ci'},
+                {collation='unicode'},
                 {collation='unicode_ci'},
                 {collation='unicode_ci'},
             }
@@ -332,7 +332,7 @@ return true, false]]
     local expected_library_code = [[local M = {}
 
 function M.eq_1(field_1, field_2, field_3, field_4)
-    return (eq_unicode_ci(field_1, "A") and eq_unicode_ci(field_2, "Á") and eq_unicode_ci(field_3, "Ä") and eq(field_4, 6))
+    return (eq_unicode(field_1, "A") and eq_unicode_ci(field_2, "Á") and eq_unicode_ci(field_3, "Ä") and eq(field_4, 6))
 end
 
 return M]]
@@ -343,8 +343,54 @@ return M]]
 
     local func = select_filters.compile(filter)
     t.assert_equals(func({'A', 'Á', 'Ä', 6}), true)
-    t.assert_equals(func({'a', 'á', 'ä', 6}), true)
-    t.assert_equals(func({'a', 'V', 'ä', 6}), false)
+    t.assert_equals(func({'A', 'á', 'ä', 6}), true)
+    t.assert_equals(func({'a', 'Á', 'Ä', 6}), false)
+    t.assert_equals(func({'A', 'V', 'ä', 6}), false)
+end
+
+g.test_binary_and_none_collation = function()
+    local filter_conditions = {
+        {
+            fieldnos = {1, 2, 3},
+            operator = select_conditions.operators.EQ,
+            values = {'A', 'B', 'C'},
+            types = {'string', 'string', 'string'},
+            early_exit_is_possible = false,
+            values_opts = {
+                {collation='none'},
+                {collation='binary'},
+                {collation=nil},
+            }
+        },
+    }
+
+    local expected_code = [[local tuple = ...
+
+local field_1 = tuple[1]
+local field_2 = tuple[2]
+local field_3 = tuple[3]
+
+if not eq_1(field_1, field_2, field_3) then return false, false end
+
+return true, false]]
+
+    local expected_library_code = [[local M = {}
+
+function M.eq_1(field_1, field_2, field_3)
+    return (eq(field_1, "A") and eq(field_2, "B") and eq(field_3, "C"))
+end
+
+return M]]
+
+    local filter = select_filters.gen_code(filter_conditions)
+    t.assert_equals(filter.code, expected_code)
+    t.assert_equals(filter.library_code, expected_library_code)
+
+    local func = select_filters.compile(filter)
+    t.assert_equals(func({'A', 'B', 'C'}), true)
+    t.assert_equals(func({'a', 'B', 'C'}), false)
+    t.assert_equals(func({'A', 'b', 'C'}), false)
+    t.assert_equals(func({'A', 'B', 'c'}), false)
 end
 
 g.test_null_as_last_value_eq = function()

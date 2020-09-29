@@ -751,3 +751,57 @@ add('test_select_by_full_sharding_key', function(g)
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {3}))
 end)
+
+add('test_select_with_collations', function(g)
+    local customers = insert_customers(g, {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "Oxford",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "oxford",
+        }, {
+            id = 3, name = "elizabeth", last_name = "brown",
+            age = 46, city = "Oxford",
+        }, {
+            id = 4, name = "Jack", last_name = "Sparrow",
+            age = 35, city = "oxford",
+        }, {
+            id = 5, name = "William", last_name = "Terner",
+            age = 25, city = "Oxford",
+        }, {
+            id = 6, name = "elizabeth", last_name = "Brown",
+            age = 33, city = "Los Angeles",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    -- full name index - unicode ci collation (case-insensitive)
+    local conditions = {{'==', 'name', "Elizabeth"}}
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions = ...
+
+        local objects, err = crud.select('customers', conditions)
+        return objects, err
+    ]], {conditions})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(objects, get_by_ids(customers, {3, 6, 1}))
+
+    -- city - no collation (case-sensitive)
+    local conditions = {{'==', 'city', "oxford"}}
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions = ...
+
+        local objects, err = crud.select('customers', conditions)
+        return objects, err
+    ]], {conditions})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(objects, get_by_ids(customers, {2, 4}))
+end)
