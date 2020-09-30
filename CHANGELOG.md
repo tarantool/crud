@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+* Select with `==` conditions bugs
+* Select with conditions by fields with collations
+
 ### Added
+
 * CRUD operations:
  * replace
  * upsert
