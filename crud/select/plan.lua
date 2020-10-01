@@ -110,10 +110,6 @@ function select_plan.gen_by_conditions(space, conditions)
 end
 
 function select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index, sharding_index)
-    if scan_index.id ~= sharding_index.id then
-        return false
-    end
-
     if plan.scan_value == nil then
         return false
     end

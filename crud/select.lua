@@ -97,8 +97,8 @@ local function select_iteration(space_name, plan, opts)
     return results
 end
 
-local function get_replicaset_by_scan_value(scan_value)
-    local bucket_id = vshard.router.bucket_id_strcrc32(scan_value)
+local function get_replicasets_by_sharding_key(sharding_key_value)
+    local bucket_id = vshard.router.bucket_id_strcrc32(sharding_key_value)
     local replicaset, err = vshard.router.route(bucket_id)
     if replicaset == nil then
         return nil, GetReplicasetsError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
@@ -161,7 +161,10 @@ local function build_select_iterator(space_name, user_conditions, opts)
         limit = 1
         plan.iter = box.index.REQ
 
-        replicasets_to_select = get_replicaset_by_scan_value(plan.scan_value)
+        local sharding_key_value = utils.extract_subkey(
+            plan.scan_value, scan_index.parts, primary_index.parts
+        )
+        replicasets_to_select = get_replicasets_by_sharding_key(sharding_key_value)
     end
 
     -- set after tuple

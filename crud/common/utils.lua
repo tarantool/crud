@@ -104,6 +104,23 @@ function utils.merge_primary_key_parts(key_parts, pk_parts)
     return merged_parts
 end
 
+function utils.extract_subkey(key_value, key_parts, subkey_parts)
+    local value_parts_by_fieldnos = {}
+    for i, part in ipairs(key_parts) do
+        value_parts_by_fieldnos[part.fieldno] = key_value[i]
+    end
+
+    -- check that sharding key is included in the scan index fields
+    local subkey_value = {}
+    for _, subkey_part in ipairs(subkey_parts) do
+        local fieldno = subkey_part.fieldno
+        local field_value = value_parts_by_fieldnos[fieldno]
+        table.insert(subkey_value, field_value)
+    end
+
+    return subkey_value
+end
+
 local __tarantool_supports_fieldpaths
 local function tarantool_supports_fieldpaths()
     if __tarantool_supports_fieldpaths ~= nil then
