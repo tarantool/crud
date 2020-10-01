@@ -2,6 +2,7 @@ local crud = require('crud')
 
 local select_plan = require('crud.select.plan')
 local select_executor = require('crud.select.executor')
+local select_filters = require('crud.select.filters')
 
 local select_conditions = require('crud.select.conditions')
 local cond_funcs = select_conditions.funcs
@@ -85,38 +86,37 @@ g.test_one_condition_no_index = function()
     }
     insert_customers(customers)
 
-    -- no after
-    local plan, err = select_plan.new(box.space.customers, {
-        cond_funcs.eq('city', 'Los Angeles'),
-    })
+    local conditions = { cond_funcs.eq('city', 'Los Angeles') }
+    local space = box.space.customers
 
+    local plan, err = select_plan.gen_by_conditions(space, conditions)
+    t.assert_equals(err, nil)
+    local index = space.index[plan.index_id]
+
+    local filter_func, err = select_filters.gen_func(space, conditions, {
+        iter = plan.iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
     t.assert_equals(err, nil)
 
-    local results = select_executor.execute(plan)
+    -- no after
+    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func)
     t.assert_equals(get_ids(results), {2, 3})
 
     -- after tuple 2
-    local plan, err = select_plan.new(box.space.customers, {
-        cond_funcs.eq('city', 'Los Angeles'),
-    }, {
-        after_tuple = box.space.customers:frommap(customers[2]),
+    local after_tuple = space:frommap(customers[2])
+
+    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
+        after_tuple = after_tuple,
     })
-
-    t.assert_equals(err, nil)
-
-    local results = select_executor.execute(plan)
     t.assert_equals(get_ids(results), {3})
 
     -- after tuple 3
-    local plan, err = select_plan.new(box.space.customers, {
-        cond_funcs.eq('city', 'Los Angeles'),
-    }, {
-        after_tuple = box.space.customers:frommap(customers[3]),
+    local after_tuple = space:frommap(customers[3])
+
+    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
+        after_tuple = after_tuple,
     })
-
-    t.assert_equals(err, nil)
-
-    local results = select_executor.execute(plan)
     t.assert_equals(#results, 0)
 end
 
@@ -138,26 +138,29 @@ g.test_one_condition_with_index = function()
     }
     insert_customers(customers)
 
-    -- no after
-    local plan, err = select_plan.new(box.space.customers, {
-        cond_funcs.ge('age', 33),
-    })
+    local conditions = { cond_funcs.ge('age', 33) }
+    local space = box.space.customers
 
+    local plan, err = select_plan.gen_by_conditions(space, conditions)
+    t.assert_equals(err, nil)
+    local index = space.index[plan.index_id]
+
+    local filter_func, err = select_filters.gen_func(space, conditions, {
+        iter = plan.iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
     t.assert_equals(err, nil)
 
-    local results = select_executor.execute(plan)
+    -- no after
+    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func)
     t.assert_equals(get_ids(results), {3, 2, 4}) -- in age order
 
     -- after tuple 3
-    local plan, err = select_plan.new(box.space.customers, {
-        cond_funcs.ge('age', 33),
-    }, {
-        after_tuple = box.space.customers:frommap(customers[3]),
+    local after_tuple = space:frommap(customers[3])
+
+    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
+        after_tuple = after_tuple,
     })
-
-    t.assert_equals(err, nil)
-
-    local results = select_executor.execute(plan)
     t.assert_equals(get_ids(results), {2, 4}) -- in age order
 end
 
@@ -182,30 +185,33 @@ g.test_multiple_conditions = function()
     }
     insert_customers(customers)
 
-    -- no after
-    local plan, err = select_plan.new(box.space.customers, {
+    local conditions = {
         cond_funcs.gt('age', 20),
         cond_funcs.eq('name', 'Elizabeth'),
         cond_funcs.eq('city', "Chicago"),
-    })
+    }
+    local space = box.space.customers
 
+    local plan, err = select_plan.gen_by_conditions(space, conditions)
+    t.assert_equals(err, nil)
+    local index = space.index[plan.index_id]
+
+    local filter_func, err = select_filters.gen_func(space, conditions, {
+        iter = plan.iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
     t.assert_equals(err, nil)
 
-    local results = select_executor.execute(plan)
+    -- no after
+    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func)
     t.assert_equals(get_ids(results), {5, 2})  -- in age order
 
     -- after tuple 5
-    local plan, err = select_plan.new(box.space.customers, {
-        cond_funcs.gt('age', 20),
-        cond_funcs.eq('name', 'Elizabeth'),
-        cond_funcs.eq('city', "Chicago"),
-    }, {
-        after_tuple = box.space.customers:frommap(customers[5]),
+    local after_tuple = space:frommap(customers[5])
+
+    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
+        after_tuple = after_tuple,
     })
-
-    t.assert_equals(err, nil)
-
-    local results = select_executor.execute(plan)
     t.assert_equals(get_ids(results), {2})
 end
 
@@ -227,26 +233,31 @@ g.test_composite_index = function()
     }
     insert_customers(customers)
 
-    -- no after
-    local plan, err = select_plan.new(box.space.customers, {
+    local conditions = {
         cond_funcs.ge('full_name', {"Elizabeth", "Jo"}),
-    })
+    }
+    local space = box.space.customers
 
+    local plan, err = select_plan.gen_by_conditions(space, conditions)
+    t.assert_equals(err, nil)
+    local index = space.index[plan.index_id]
+
+    local filter_func, err = select_filters.gen_func(space, conditions, {
+        iter = plan.iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
     t.assert_equals(err, nil)
 
-    local results = select_executor.execute(plan)
+    -- no after
+    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func)
     t.assert_equals(get_ids(results), {2, 1, 4}) -- in full_name order
 
     -- after tuple 2
-    local plan, err = select_plan.new(box.space.customers, {
-        cond_funcs.ge('full_name', {"Elizabeth", "Jo"}),
-    }, {
-        after_tuple = box.space.customers:frommap(customers[2]),
+    local after_tuple = space:frommap(customers[2])
+
+    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
+        after_tuple = after_tuple,
     })
-
-    t.assert_equals(err, nil)
-
-    local results = select_executor.execute(plan)
     t.assert_equals(get_ids(results), {1, 4})
 end
 
@@ -265,13 +276,23 @@ g.test_get_by_id = function()
     }
     insert_customers(customers)
 
-    local plan, err = select_plan.new(box.space.customers, {
+    local conditions = {
         cond_funcs.eq('id', 2),
-    })
+    }
+    local space = box.space.customers
 
+    local plan, err = select_plan.gen_by_conditions(space, conditions)
+    t.assert_equals(err, nil)
+    local index = space.index[plan.index_id]
+
+    local filter_func, err = select_filters.gen_func(space, conditions, {
+        iter = plan.iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
     t.assert_equals(err, nil)
 
-    local results = select_executor.execute(plan)
+    -- no after
+    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func)
     t.assert_equals(get_ids(results), {2})
 end
 
@@ -292,15 +313,25 @@ g.test_early_exit = function()
         }
     })
 
-    local plan, err = select_plan.new(box.space.customers, {
+    local conditions = {
         cond_funcs.gt('age', 11),
-        cond_funcs.le('age', 53)
-    })
+        cond_funcs.le('age', 53),
+    }
+    local space = box.space.customers
 
+    local plan, err = select_plan.gen_by_conditions(space, conditions)
+    t.assert_equals(err, nil)
+    local index = space.index[plan.index_id]
+
+    local filter_func, err = select_filters.gen_func(space, conditions, {
+        iter = plan.iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
     t.assert_equals(err, nil)
 
-    local results = select_executor.execute(plan)
-    t.assert_equals(get_ids(results), {4, 2}) -- in age order
+    -- no after
+    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func)
+    t.assert_equals(get_ids(results), {4, 2})
 end
 
 g.test_select_all = function()
@@ -320,15 +351,24 @@ g.test_select_all = function()
         }
     })
 
-    local plan, err = select_plan.new(box.space.customers)
+    local space = box.space.customers
 
+    local plan, err = select_plan.gen_by_conditions(space)
+    t.assert_equals(err, nil)
+    local index = space.index[plan.index_id]
+
+    local filter_func, err = select_filters.gen_func(space, nil, {
+        iter = plan.iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
     t.assert_equals(err, nil)
 
-    local results = select_executor.execute(plan)
+    -- no after
+    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func)
     t.assert_equals(get_ids(results), {1, 2, 3, 4})
 end
 
-g.test_limit = function()
+g.test_batch_size = function()
     insert_customers({
         {
             id = 1, name = "Elizabeth", last_name = "Rodriguez",
@@ -345,23 +385,27 @@ g.test_limit = function()
         }
     })
 
-    -- limit 0
-    local plan, err = select_plan.new(box.space.customers, nil, {
-        limit = 0,
-    })
+    local space = box.space.customers
 
+    local plan, err = select_plan.gen_by_conditions(space)
+    t.assert_equals(err, nil)
+    local index = space.index[plan.index_id]
+
+    local filter_func, err = select_filters.gen_func(space, nil, {
+        iter = plan.iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
     t.assert_equals(err, nil)
 
-    local results = select_executor.execute(plan)
+    -- batch_size 0
+    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
+        batch_size = 0,
+    })
     t.assert_equals(#results, 0)
 
-    -- limit 2
-    local plan, err = select_plan.new(box.space.customers, nil, {
-        limit = 2,
+    -- batch_size 2
+    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
+        batch_size = 2,
     })
-
-    t.assert_equals(err, nil)
-
-    local results = select_executor.execute(plan)
     t.assert_equals(get_ids(results), {1, 2})
 end

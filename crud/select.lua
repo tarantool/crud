@@ -10,6 +10,7 @@ local select_conditions = require('crud.select.conditions')
 local select_plan = require('crud.select.plan')
 local select_executor = require('crud.select.executor')
 local select_comparators = require('crud.select.comparators')
+local select_filters = require('crud.select.filters')
 
 local Iterator = require('crud.select.iterator')
 
@@ -22,10 +23,11 @@ local select_module = {}
 
 local SELECT_FUNC_NAME = '__select'
 
-local function call_select_on_storage(space_name, conditions, opts)
-    checks('string', '?table', {
-        limit = '?number',
+local function call_select_on_storage(space_name, index_id, scan_value, iter, conditions, opts)
+    checks('string', 'number', '?table', 'number', 'table', {
+        scan_condition_num = '?number',
         after_tuple = '?table',
+        batch_size = 'number',
     })
 
     local space = box.space[space_name]
@@ -33,18 +35,24 @@ local function call_select_on_storage(space_name, conditions, opts)
         return nil, SelectError:new("Space %s doesn't exists", space_name)
     end
 
-    -- plan select
-    local plan, err = select_plan.new(space, conditions, {
-        limit = opts.limit,
-        after_tuple = opts.after_tuple,
-    })
+    local index = space.index[index_id]
+    if index == nil then
+        return nil, SelectError:new("Index with ID %s doesn't exists", index_id)
+    end
 
+    local filter_func, err = select_filters.gen_func(space, conditions, {
+        iter = iter,
+        scan_condition_num = opts.scan_condition_num,
+    })
     if err ~= nil then
-        return nil, SelectError:new("Failed to plan select: %s", err)
+        return nil, SelectError:new("Failed to generate tuples filter: %s", err)
     end
 
     -- execute select
-    local tuples, err = select_executor.execute(plan)
+    local tuples, err = select_executor.execute(space, index, scan_value, iter, filter_func, {
+        after_tuple = opts.after_tuple,
+        batch_size = opts.batch_size,
+    })
     if err ~= nil then
         return nil, SelectError:new("Failed to execute select: %s", err)
     end
@@ -58,21 +66,24 @@ function select_module.init()
     })
 end
 
-local function select_iteration(space_name, conditions, opts)
+local function select_iteration(space_name, plan, opts)
     checks('string', '?table', {
         after_tuple = '?table',
         replicasets = 'table',
         timeout = '?number',
-        batch_size = '?number',
+        batch_size = 'number',
     })
 
     -- call select on storages
     local storage_select_opts = {
+        scan_condition_num = plan.scan_condition_num,
         after_tuple = opts.after_tuple,
-        limit = opts.batch_size,
+        batch_size = opts.batch_size,
     }
 
-    local storage_select_args = {space_name, conditions, storage_select_opts}
+    local storage_select_args = {
+        space_name, plan.index_id, plan.scan_value, plan.iter, plan.conditions, storage_select_opts,
+    }
 
     local results, err = call.ro(SELECT_FUNC_NAME, storage_select_args, {
         replicasets = opts.replicasets,
@@ -86,14 +97,8 @@ local function select_iteration(space_name, conditions, opts)
     return results
 end
 
-local function get_replicasets_to_select_from(plan, all_replicasets)
-    if not plan.is_scan_by_full_sharding_key_eq then
-        return all_replicasets
-    end
-
-    plan.scanner.limit = 1
-
-    local bucket_id = vshard.router.bucket_id_strcrc32(plan.scanner.value)
+local function get_replicaset_by_scan_value(scan_value)
+    local bucket_id = vshard.router.bucket_id_strcrc32(scan_value)
     local replicaset, err = vshard.router.route(bucket_id)
     if replicaset == nil then
         return nil, GetReplicasetsError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
@@ -137,32 +142,33 @@ local function build_select_iterator(space_name, user_conditions, opts)
     if space == nil then
         return nil, SelectError:new("Space %s doesn't exists", space_name)
     end
-
     local space_format = space:format()
 
-    local after_tuple = utils.flatten(opts.after, space_format)
-
     -- plan select
-    local plan, err = select_plan.new(space, conditions, {
-        limit = opts.limit,
-        after_tuple = after_tuple
-    })
+    local plan, err = select_plan.gen_by_conditions(space, conditions)
 
     if err ~= nil then
         return nil, SelectError:new("Failed to plan select: %s", err)
     end
 
-    -- get replicasets to select from
-    local replicasets, err = get_replicasets_to_select_from(plan, replicasets)
-    if err ~= nil then
-        return nil, SelectError:new("Failed to get replicasets to select from: %s", err)
+    -- set limit and replicasets to select from
+    local limit = opts.limit
+    local replicasets_to_select = replicasets
+
+    local scan_index = space.index[plan.index_id]
+    local primary_index = space.index[0]
+    if select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index, primary_index) then
+        limit = 1
+        plan.iter = box.index.REQ
+
+        replicasets_to_select = get_replicaset_by_scan_value(plan.scan_value)
     end
 
-    local scan_index = space.index[plan.scanner.index_id]
-    local primary_index = space.index[0]
+    -- set after tuple
+    local after_tuple = utils.flatten(opts.after, space_format)
 
     local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
-    local cmp_operator = select_comparators.get_cmp_operator(plan.scanner.iter)
+    local cmp_operator = select_comparators.get_cmp_operator(plan.iter)
     local tuples_comparator, err = select_comparators.gen_tuples_comparator(
         cmp_operator, cmp_key_parts
     )
@@ -176,12 +182,12 @@ local function build_select_iterator(space_name, user_conditions, opts)
         iteration_func = select_iteration,
         comparator = tuples_comparator,
 
-        conditions = conditions,
+        plan = plan,
         after_tuple = after_tuple,
-        limit = plan.scanner.limit,
+        limit = limit,
 
         batch_size = opts.batch_size,
-        replicasets = replicasets,
+        replicasets = replicasets_to_select,
 
         timeout = opts.timeout,
     })

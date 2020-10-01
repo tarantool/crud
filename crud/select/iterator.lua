@@ -23,7 +23,7 @@ function Iterator.new(opts)
         comparator = 'function',
         iteration_func = 'function',
 
-        conditions = '?table',
+        plan = 'table',
         after_tuple = '?table',
         limit = '?number',
 
@@ -38,7 +38,7 @@ function Iterator.new(opts)
         space_format = opts.space_format,
         iteration_func = opts.iteration_func,
 
-        conditions = opts.conditions,
+        plan = opts.plan,
         after_tuple = opts.after_tuple,
         limit = opts.limit,
         timeout = opts.timeout,
@@ -96,11 +96,16 @@ local function update_replicasets_tuples(iter, after_tuple, replicaset_uuid)
         replicasets[replicaset_uuid] = iter.replicasets[replicaset_uuid]
     end
 
-    local results_map, err = iter.iteration_func(iter.space_name, iter.conditions, {
+    local batch_size = iter.batch_size
+    if iter.limit ~= nil then
+        batch_size = math.min(iter.batch_size, iter.limit - iter.tuples_count)
+    end
+
+    local results_map, err = iter.iteration_func(iter.space_name, iter.plan, {
         after_tuple = after_tuple,
         replicasets = replicasets,
         timeout = iter.timeout,
-        batch_size = iter.batch_size,
+        batch_size = batch_size,
     })
     if err ~= nil then
         return false, UpdateTuplesError:new('Failed to select tuples from storages: %s', err)
