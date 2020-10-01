@@ -39,12 +39,12 @@ end
 function executor.execute(space, index, scan_value, iter, filter_func, opts)
     checks('table', 'table', '?table', 'number', 'function', {
         after_tuple = '?cdata|table',
-        batch_size = '?number',
+        limit = '?number',
     })
 
     opts = opts or {}
 
-    if opts.batch_size == 0 then
+    if opts.limit == 0 then
         return {}
     end
 
@@ -97,7 +97,7 @@ function executor.execute(space, index, scan_value, iter, filter_func, opts)
             table.insert(tuples, tuple)
             tuples_count = tuples_count + 1
 
-            if opts.batch_size ~= nil and tuples_count >= opts.batch_size then
+            if opts.limit ~= nil and tuples_count >= opts.limit then
                 break
             end
         elseif early_exit then

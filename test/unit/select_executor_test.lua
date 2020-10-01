@@ -397,15 +397,15 @@ g.test_batch_size = function()
     })
     t.assert_equals(err, nil)
 
-    -- batch_size 0
+    -- limit 0
     local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
-        batch_size = 0,
+        limit = 0,
     })
     t.assert_equals(#results, 0)
 
-    -- batch_size 2
+    -- limit 2
     local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
-        batch_size = 2,
+        limit = 2,
     })
     t.assert_equals(get_ids(results), {1, 2})
 end

@@ -23,11 +23,13 @@ local select_module = {}
 
 local SELECT_FUNC_NAME = '__select'
 
+local DEFAULT_BATCH_SIZE = 100
+
 local function call_select_on_storage(space_name, index_id, scan_value, iter, conditions, opts)
     checks('string', 'number', '?table', 'number', 'table', {
         scan_condition_num = '?number',
         after_tuple = '?table',
-        batch_size = 'number',
+        limit = 'number',
     })
 
     local space = box.space[space_name]
@@ -51,7 +53,7 @@ local function call_select_on_storage(space_name, index_id, scan_value, iter, co
     -- execute select
     local tuples, err = select_executor.execute(space, index, scan_value, iter, filter_func, {
         after_tuple = opts.after_tuple,
-        batch_size = opts.batch_size,
+        limit = opts.limit,
     })
     if err ~= nil then
         return nil, SelectError:new("Failed to execute select: %s", err)
@@ -71,14 +73,14 @@ local function select_iteration(space_name, plan, opts)
         after_tuple = '?table',
         replicasets = 'table',
         timeout = '?number',
-        batch_size = 'number',
+        limit = 'number',
     })
 
     -- call select on storages
     local storage_select_opts = {
         scan_condition_num = plan.scan_condition_num,
         after_tuple = opts.after_tuple,
-        batch_size = opts.batch_size,
+        limit = opts.limit,
     }
 
     local storage_select_args = {
@@ -123,6 +125,8 @@ local function build_select_iterator(space_name, user_conditions, opts)
         return nil, SelectError:new("batch_size should be > 0")
     end
 
+    local batch_size = opts.batch_size or DEFAULT_BATCH_SIZE
+
     if opts.limit ~= nil and opts.limit < 0 then
         return nil, SelectError:new("limit should be >= 0")
     end
@@ -152,13 +156,13 @@ local function build_select_iterator(space_name, user_conditions, opts)
     end
 
     -- set limit and replicasets to select from
-    local limit = opts.limit
+    local total_tuples_count = opts.limit
     local replicasets_to_select = replicasets
 
     local scan_index = space.index[plan.index_id]
     local primary_index = space.index[0]
     if select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index, primary_index) then
-        limit = 1
+        total_tuples_count = 1
         plan.iter = box.index.REQ
 
         local sharding_key_value = utils.extract_subkey(
@@ -187,9 +191,9 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
         plan = plan,
         after_tuple = after_tuple,
-        limit = limit,
+        total_tuples_count = total_tuples_count,
 
-        batch_size = opts.batch_size,
+        batch_size = batch_size,
         replicasets = replicasets_to_select,
 
         timeout = opts.timeout,
