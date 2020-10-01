@@ -11,7 +11,7 @@ local ExecuteSelectError = errors.new_class('ExecuteSelectError')
 
 local executor = {}
 
-local function scroll_to_after_tuple(gen, param, state, space, scan_index, iter, after_tuple)
+local function scroll_to_after_tuple(gen, space, scan_index, iter, after_tuple)
     local primary_index = space.index[0]
 
     local scroll_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
@@ -24,7 +24,7 @@ local function scroll_to_after_tuple(gen, param, state, space, scan_index, iter,
 
     while true do
         local tuple
-        state, tuple = gen(param, state)
+        gen.state, tuple = gen(gen.param, gen.state)
 
         if tuple == nil then
             return nil
@@ -68,11 +68,11 @@ function executor.execute(space, index, scan_value, iter, filter_func, opts)
     end
 
     local tuple
-    local gen,param,state = index:pairs(value, {iterator = iter})
+    local gen = index:pairs(value, {iterator = iter})
 
     if opts.after_tuple ~= nil then
         local err
-        tuple, err = scroll_to_after_tuple(gen, param, state, space, index, iter, opts.after_tuple)
+        tuple, err = scroll_to_after_tuple(gen, space, index, iter, opts.after_tuple)
         if err ~= nil then
             return nil, ExecuteSelectError:new("Failed to scroll to the after tuple: %s", err)
         end
@@ -83,7 +83,7 @@ function executor.execute(space, index, scan_value, iter, filter_func, opts)
     end
 
     if tuple == nil then
-        state, tuple = gen(param, state)
+        gen.state, tuple = gen(gen.param, gen.state)
     end
 
     while true do
@@ -104,7 +104,7 @@ function executor.execute(space, index, scan_value, iter, filter_func, opts)
             break
         end
 
-        state, tuple = gen(param, state)
+        gen.state, tuple = gen(gen.param, gen.state)
     end
 
     return tuples
