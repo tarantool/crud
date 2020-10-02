@@ -16,7 +16,7 @@ local DEFAULT_BATCH_SIZE = 100
 local Iterator = {}
 Iterator.__index = Iterator
 
-function Iterator.new(opts)
+local function new(opts)
     checks({
         space_name = 'string',
         space_format = 'table',
@@ -200,4 +200,6 @@ function Iterator:get()
     return object
 end
 
-return Iterator
+return {
+    new = new,
+}
