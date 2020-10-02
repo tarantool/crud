@@ -22,7 +22,7 @@ local DEFAULT_VSHARD_CALL_TIMEOUT = 2
 -- @function init
 --
 function call.init()
-    local function elect_call(opts)
+    local function call(opts)
         checks({
             func_name = 'string',
             func_args = '?table',
@@ -38,7 +38,7 @@ function call.init()
     end
 
     -- register global function
-    rawset(_G, CALL_FUNC_NAME, elect_call)
+    rawset(_G, CALL_FUNC_NAME, call)
 end
 
 local function call_on_replicaset(replicaset, channel, vshard_call, func_name, func_args, opts)
