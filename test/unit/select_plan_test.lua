@@ -23,11 +23,11 @@ g.before_all = function()
         if_not_exists = true,
     })
     customers_space:create_index('id', { -- id: 0
-        parts = {'id'},
+        parts = { {field = 'id'} },
         if_not_exists = true,
     })
     customers_space:create_index('age', { -- id: 1
-        parts = {'age'},
+        parts = { {field = 'age'} },
         unique = false,
         if_not_exists = true,
     })
@@ -39,6 +39,11 @@ g.before_all = function()
         unique = false,
         if_not_exists = true,
     })
+    customers_space:create_index('name_id', { -- id: 3
+        parts = { {field = 'name'}, {field = 'id'} },
+        unique = false,
+        if_not_exists = true,
+    })
 end
 
 g.after_all(function()
@@ -46,7 +51,7 @@ g.after_all(function()
 end)
 
 g.test_scanner_bad_operand_name = function()
-    local plan, err = select_plan.gen_by_conditions(box.space.customers, {
+    local plan, err = select_plan.new(box.space.customers, {
         cond_funcs.gt('non-existent-field-index', 20),
     })
 
@@ -59,7 +64,7 @@ g.test_scanner_indexed_field = function()
     -- select by indexed field
     local conditions = { cond_funcs.gt('age', 20) }
 
-    local plan, err = select_plan.gen_by_conditions(box.space.customers, conditions)
+    local plan, err = select_plan.new(box.space.customers, conditions)
 
     t.assert_equals(err, nil)
     t.assert_type(plan, 'table')
@@ -70,11 +75,13 @@ g.test_scanner_indexed_field = function()
     t.assert_equals(plan.scan_value, {20})
     t.assert_equals(plan.scan_condition_num, 1)
     t.assert_equals(plan.iter, box.index.GT)
+    t.assert_equals(plan.total_tuples_count, nil)
+    t.assert_equals(plan.sharding_key, nil)
 end
 
 g.test_scanner_non_indexed_field = function()
     local conditions = { cond_funcs.eq('city', 'Moscow') }
-    local plan, err = select_plan.gen_by_conditions(box.space.customers, conditions)
+    local plan, err = select_plan.new(box.space.customers, conditions)
 
     t.assert_equals(err, nil)
     t.assert_type(plan, 'table')
@@ -85,12 +92,14 @@ g.test_scanner_non_indexed_field = function()
     t.assert_equals(plan.scan_value, {})
     t.assert_equals(plan.scan_condition_num, nil)
     t.assert_equals(plan.iter, box.index.GE)
+    t.assert_equals(plan.total_tuples_count, nil)
+    t.assert_equals(plan.sharding_key, nil)
 end
 
 g.test_scanner_partial_indexed_field = function()
     -- select by first part of the index
     local conditions = { cond_funcs.gt('name', 'A'), }
-    local plan, err = select_plan.gen_by_conditions(box.space.customers, conditions)
+    local plan, err = select_plan.new(box.space.customers, conditions)
 
     t.assert_equals(err, nil)
     t.assert_type(plan, 'table')
@@ -101,10 +110,12 @@ g.test_scanner_partial_indexed_field = function()
     t.assert_equals(plan.scan_value, {'A'})
     t.assert_equals(plan.scan_condition_num, 1)
     t.assert_equals(plan.iter, box.index.GT)
+    t.assert_equals(plan.total_tuples_count, nil)
+    t.assert_equals(plan.sharding_key, nil)
 
     -- select by second part of the index
     local conditions = { cond_funcs.gt('last_name', 'A'), }
-    local plan, err = select_plan.gen_by_conditions(box.space.customers, conditions)
+    local plan, err = select_plan.new(box.space.customers, conditions)
 
     t.assert_equals(err, nil)
     t.assert_type(plan, 'table')
@@ -115,13 +126,13 @@ g.test_scanner_partial_indexed_field = function()
     t.assert_equals(plan.scan_value, {})
     t.assert_equals(plan.scan_condition_num, nil)
     t.assert_equals(plan.iter, box.index.GE)
+    t.assert_equals(plan.total_tuples_count, nil)
+    t.assert_equals(plan.sharding_key, nil)
 end
 
 g.test_is_scan_by_full_sharding_key_eq = function()
-    local space_indexes = box.space.customers.index
-
-    -- eq
-    local plan, err = select_plan.gen_by_conditions(box.space.customers, {
+    -- id eq
+    local plan, err = select_plan.new(box.space.customers, {
         cond_funcs.eq('has_a_car', true),
         cond_funcs.eq('id', 15),
         cond_funcs.eq('full_name', {'Ivan', 'Ivanov'}),
@@ -130,12 +141,25 @@ g.test_is_scan_by_full_sharding_key_eq = function()
 
     t.assert_equals(err, nil)
 
-    local scan_index = space_indexes[plan.index_id]
-    local sharding_index = space_indexes[0]
-    t.assert(select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index, sharding_index))
+    t.assert_equals(plan.total_tuples_count, 1)
+    t.assert_equals(plan.sharding_key, {15})
+
+    -- id is a part of scan index
+    local plan, err = select_plan.new(box.space.customers, {
+        cond_funcs.eq('name_id', {'Ivan', 11}),
+        cond_funcs.gt('id', 15),
+        cond_funcs.gt('age', 20),
+    })
+
+    t.assert_equals(err, nil)
+
+    t.assert_equals(plan.index_id, 3) -- index name_id is used
+    t.assert_equals(plan.scan_value, {'Ivan', 11})
+    t.assert_equals(plan.total_tuples_count, 1)
+    t.assert_equals(plan.sharding_key, {11})
 
     -- other index is first
-    local plan, err = select_plan.gen_by_conditions(box.space.customers, {
+    local plan, err = select_plan.new(box.space.customers, {
         cond_funcs.eq('full_name', {'Ivan', 'Ivanov'}),
         cond_funcs.eq('id', 15),
         cond_funcs.eq('has_a_car', true),
@@ -144,12 +168,11 @@ g.test_is_scan_by_full_sharding_key_eq = function()
 
     t.assert_equals(err, nil)
 
-    local scan_index = space_indexes[plan.index_id]
-    local sharding_index = space_indexes[0]
-    t.assert(not select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index, sharding_index))
+    t.assert_equals(plan.total_tuples_count, nil)
+    t.assert_equals(plan.sharding_key, nil)
 
     -- gt
-    local plan, err = select_plan.gen_by_conditions(box.space.customers, {
+    local plan, err = select_plan.new(box.space.customers, {
         cond_funcs.eq('has_a_car', true),
         cond_funcs.gt('id', 15),
         cond_funcs.eq('full_name', {'Ivan', 'Ivanov'}),
@@ -158,7 +181,6 @@ g.test_is_scan_by_full_sharding_key_eq = function()
 
     t.assert_equals(err, nil)
 
-    local scan_index = space_indexes[plan.index_id]
-    local sharding_index = space_indexes[0]
-    t.assert(not select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index, sharding_index))
+    t.assert_equals(plan.total_tuples_count, nil)
+    t.assert_equals(plan.sharding_key, nil)
 end

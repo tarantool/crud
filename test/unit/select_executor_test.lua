@@ -89,7 +89,7 @@ g.test_one_condition_no_index = function()
     local conditions = { cond_funcs.eq('city', 'Los Angeles') }
     local space = box.space.customers
 
-    local plan, err = select_plan.gen_by_conditions(space, conditions)
+    local plan, err = select_plan.new(space, conditions)
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
@@ -149,7 +149,7 @@ g.test_one_condition_with_index = function()
     local conditions = { cond_funcs.ge('age', 33) }
     local space = box.space.customers
 
-    local plan, err = select_plan.gen_by_conditions(space, conditions)
+    local plan, err = select_plan.new(space, conditions)
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
@@ -205,7 +205,7 @@ g.test_multiple_conditions = function()
     }
     local space = box.space.customers
 
-    local plan, err = select_plan.gen_by_conditions(space, conditions)
+    local plan, err = select_plan.new(space, conditions)
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
@@ -256,7 +256,7 @@ g.test_composite_index = function()
     }
     local space = box.space.customers
 
-    local plan, err = select_plan.gen_by_conditions(space, conditions)
+    local plan, err = select_plan.new(space, conditions)
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
@@ -304,7 +304,7 @@ g.test_get_by_id = function()
     }
     local space = box.space.customers
 
-    local plan, err = select_plan.gen_by_conditions(space, conditions)
+    local plan, err = select_plan.new(space, conditions)
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
@@ -345,7 +345,7 @@ g.test_early_exit = function()
     }
     local space = box.space.customers
 
-    local plan, err = select_plan.gen_by_conditions(space, conditions)
+    local plan, err = select_plan.new(space, conditions)
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
@@ -382,7 +382,7 @@ g.test_select_all = function()
 
     local space = box.space.customers
 
-    local plan, err = select_plan.gen_by_conditions(space)
+    local plan, err = select_plan.new(space)
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
@@ -419,7 +419,7 @@ g.test_limit = function()
 
     local space = box.space.customers
 
-    local plan, err = select_plan.gen_by_conditions(space)
+    local plan, err = select_plan.new(space)
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 

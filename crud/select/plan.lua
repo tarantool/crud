@@ -1,5 +1,8 @@
+local checks = require('checks')
 local errors = require('errors')
+
 local select_conditions = require('crud.select.conditions')
+local utils = require('crud.common.utils')
 
 local select_plan = {}
 
@@ -49,8 +52,37 @@ local function validate_conditions(conditions, space_indexes, space_format)
     return true
 end
 
-function select_plan.gen_by_conditions(space, conditions)
+local function is_scan_by_full_sharding_key_eq(scan_index, scan_value, scan_iter, sharding_index)
+    if scan_value == nil then
+        return false
+    end
+
+    if scan_iter ~= box.index.EQ and scan_iter ~= box.index.REQ then
+        return false
+    end
+
+    local scan_index_fieldnos = {}
+    for _, part in ipairs(scan_index.parts) do
+        scan_index_fieldnos[part.fieldno] = true
+    end
+
+    -- check that sharding key is included in the scan index fields
+    for part_num, sharding_index_part in ipairs(sharding_index.parts) do
+        local fieldno = sharding_index_part.fieldno
+        if scan_index_fieldnos[fieldno] == nil or scan_value[part_num] == nil then
+            return false
+        end
+    end
+
+    return true
+end
+
+function select_plan.new(space, conditions, opts)
+    checks('table', '?table', {
+        limit = '?number',
+    })
     conditions = conditions ~= nil and conditions or {}
+    opts = opts or {}
 
     local space_name = space.name
     local space_indexes = space.index
@@ -65,11 +97,10 @@ function select_plan.gen_by_conditions(space, conditions)
         conditions = {}
     end
 
-    local scan_index = nil
-    local scan_iter = nil
-    local scan_value = nil
-    local scan_condition_num = nil
-
+    local scan_index
+    local scan_iter
+    local scan_value
+    local scan_condition_num
 
     -- search index to iterate over
     for i, condition in ipairs(conditions) do
@@ -84,8 +115,8 @@ function select_plan.gen_by_conditions(space, conditions)
     end
 
     -- default iteration index is primary index
+    local primary_index = space_indexes[0]
     if scan_index == nil then
-        local primary_index = space_indexes[0]
 
         if not index_is_allowed(primary_index) then
             return nil, IndexTypeError:new('An index that matches specified conditions was not found: ' ..
@@ -97,6 +128,21 @@ function select_plan.gen_by_conditions(space, conditions)
         scan_value = {}
     end
 
+    -- set total_tuples_count
+    local total_tuples_count = opts.limit
+
+    -- get sharding key value
+    local sharding_key
+
+    if is_scan_by_full_sharding_key_eq(scan_index, scan_value, scan_iter, primary_index) then
+        total_tuples_count = 1
+        scan_iter = box.index.REQ
+
+        sharding_key = utils.extract_sharding_key_from_scan_key(
+            scan_value, scan_index, primary_index
+        )
+    end
+
     local plan = {
         conditions = conditions,
         space_name = space_name,
@@ -104,34 +150,11 @@ function select_plan.gen_by_conditions(space, conditions)
         scan_value = scan_value,
         scan_condition_num = scan_condition_num,
         iter = scan_iter,
+        total_tuples_count = total_tuples_count,
+        sharding_key = sharding_key,
     }
 
     return plan
-end
-
-function select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index, sharding_index)
-    if plan.scan_value == nil then
-        return false
-    end
-
-    if plan.iter ~= box.index.EQ and plan.iter ~= box.index.REQ then
-        return false
-    end
-
-    local scan_index_fieldnos = {}
-    for _, part in ipairs(scan_index.parts) do
-        scan_index_fieldnos[part.fieldno] = true
-    end
-
-    -- check that sharding key is included in the scan index fields
-    for part_num, sharding_index_part in ipairs(sharding_index.parts) do
-        local fieldno = sharding_index_part.fieldno
-        if scan_index_fieldnos[fieldno] == nil or plan.scan_value[part_num] == nil then
-            return false
-        end
-    end
-
-    return true
 end
 
 return select_plan

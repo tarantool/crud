@@ -69,7 +69,7 @@ g.test_parse = function()
         cond_funcs.eq('has_a_car', true)
     }
 
-    local plan, err = select_plan.gen_by_conditions(box.space.customers, conditions)
+    local plan, err = select_plan.new(box.space.customers, conditions)
     t.assert_equals(err, nil)
 
     local space = box.space.customers

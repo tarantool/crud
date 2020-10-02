@@ -105,8 +105,8 @@ local function select_iteration(space_name, plan, opts)
     return results
 end
 
-local function get_replicasets_by_sharding_key(sharding_key_value)
-    local bucket_id = vshard.router.bucket_id_strcrc32(sharding_key_value)
+local function get_replicasets_by_sharding_key(sharding_key)
+    local bucket_id = vshard.router.bucket_id_strcrc32(sharding_key)
     local replicaset, err = vshard.router.route(bucket_id)
     if replicaset == nil then
         return nil, GetReplicasetsError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
@@ -155,31 +155,27 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local space_format = space:format()
 
     -- plan select
-    local plan, err = select_plan.gen_by_conditions(space, conditions)
+    local plan, err = select_plan.new(space, conditions, {
+        limit = opts.limit,
+    })
 
     if err ~= nil then
         return nil, SelectError:new("Failed to plan select: %s", err)
     end
 
     -- set limit and replicasets to select from
-    local total_tuples_count = opts.limit
     local replicasets_to_select = replicasets
 
-    local scan_index = space.index[plan.index_id]
-    local primary_index = space.index[0]
-    if select_plan.is_scan_by_full_sharding_key_eq(plan, scan_index, primary_index) then
-        total_tuples_count = 1
-        plan.iter = box.index.REQ
-
-        local sharding_key_value = utils.extract_subkey(
-            plan.scan_value, scan_index.parts, primary_index.parts
-        )
-        replicasets_to_select = get_replicasets_by_sharding_key(sharding_key_value)
+    if plan.sharding_key ~= nil then
+        replicasets_to_select = get_replicasets_by_sharding_key(plan.sharding_key)
     end
 
     -- set after tuple
     local after_tuple = utils.flatten(opts.after, space_format)
 
+    -- generate tuples comparator
+    local scan_index = space.index[plan.index_id]
+    local primary_index = space.index[0]
     local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
     local cmp_operator = select_comparators.get_cmp_operator(plan.iter)
     local tuples_comparator, err = select_comparators.gen_tuples_comparator(
@@ -197,7 +193,6 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
         plan = plan,
         after_tuple = after_tuple,
-        total_tuples_count = total_tuples_count,
 
         batch_size = batch_size,
         replicasets = replicasets_to_select,

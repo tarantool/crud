@@ -72,7 +72,7 @@ g.after_all = function()
 end
 
 g.test_select_all_bad_primary = function()
-    local plan, err = select_plan.gen_by_conditions(box.space.customers)
+    local plan, err = select_plan.new(box.space.customers)
 
     t.assert_equals(plan, nil)
     t.assert_str_contains(err.err, NOT_FOUND_INDEX_ERR_MSG)
@@ -80,7 +80,7 @@ end
 
 g.test_cond_with_good_index = function()
     -- check that conditions with bad indexes are just skipped
-    local plan, err = select_plan.gen_by_conditions(box.space.customers, {
+    local plan, err = select_plan.new(box.space.customers, {
         cond_funcs.lt('age_hash', 30),
         cond_funcs.lt('age_tree', 30),
     })
@@ -91,7 +91,7 @@ g.test_cond_with_good_index = function()
 end
 
 g.test_cond_with_hash_index = function()
-    local plan, err = select_plan.gen_by_conditions(box.space.customers, {
+    local plan, err = select_plan.new(box.space.customers, {
         cond_funcs.lt('age_hash', 30),
     })
 
@@ -100,7 +100,7 @@ g.test_cond_with_hash_index = function()
 end
 
 g.test_cond_with_hash_index = function()
-    local plan, err = select_plan.gen_by_conditions(box.space.customers, {
+    local plan, err = select_plan.new(box.space.customers, {
         cond_funcs.lt('age_bitset', 30),
     })
 
@@ -109,7 +109,7 @@ g.test_cond_with_hash_index = function()
 end
 
 g.test_cond_with_bad_composite_index = function()
-    local plan, err = select_plan.gen_by_conditions(box.space.customers, {
+    local plan, err = select_plan.new(box.space.customers, {
         cond_funcs.lt('name', {'John', 'Doe'}),
     })
 
@@ -118,7 +118,7 @@ g.test_cond_with_bad_composite_index = function()
 end
 
 g.test_cond_with_rtree_index = function()
-    local plan, err = select_plan.gen_by_conditions(box.space.customers, {
+    local plan, err = select_plan.new(box.space.customers, {
         cond_funcs.eq('cars', {'Porshe', 'Mercedes', 'Range Rover'}),
     })
 

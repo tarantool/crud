@@ -23,7 +23,6 @@ function Iterator.new(opts)
 
         plan = 'table',
         after_tuple = '?table',
-        total_tuples_count = '?number',
 
         batch_size = 'number',
         replicasets = 'table',
@@ -38,7 +37,6 @@ function Iterator.new(opts)
 
         plan = opts.plan,
         after_tuple = opts.after_tuple,
-        total_tuples_count = opts.total_tuples_count,
         timeout = opts.timeout,
 
         replicasets = table.copy(opts.replicasets),
@@ -70,7 +68,7 @@ function Iterator:has_next()
         return false
     end
 
-    if self.total_tuples_count ~= nil and self.tuples_count >= self.total_tuples_count then
+    if self.plan.total_tuples_count ~= nil and self.tuples_count >= self.plan.total_tuples_count then
         return false
     end
 
@@ -177,7 +175,7 @@ function Iterator:get()
 
     self.tuples_count = self.tuples_count + 1
 
-    if self.total_tuples_count == nil or self.tuples_count < self.total_tuples_count then
+    if self.plan.total_tuples_count == nil or self.tuples_count < self.plan.total_tuples_count then
         local replicaset_tuples_count = #self.tuples_by_replicasets[last_tuple_replicaset_uuid]
         local next_tuple_index = self.next_tuple_indexes[last_tuple_replicaset_uuid]
 
