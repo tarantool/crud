@@ -76,7 +76,7 @@ function executor.execute(space, index, filter_func, opts)
         local err
         tuple, err = scroll_to_after_tuple(gen, space, index, opts.iter, opts.after_tuple)
         if err ~= nil then
-            return nil, ExecuteSelectError:new("Failed to scroll to the after tuple: %s", err)
+            return nil, ExecuteSelectError:new("Failed to scroll to the after_tuple: %s", err)
         end
 
         if tuple == nil then
