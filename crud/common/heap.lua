@@ -1,7 +1,5 @@
 local checks = require('checks')
 
-require('crud.common.checkers')
-
 local Heap = {}
 Heap.__index = Heap
 

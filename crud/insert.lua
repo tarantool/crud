@@ -6,8 +6,6 @@ local call = require('crud.common.call')
 local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
 
-require('crud.common.checkers')
-
 local InsertError = errors.new_class('Insert',  {capture_stack = false})
 
 local insert = {}
@@ -15,7 +13,7 @@ local insert = {}
 local INSERT_FUNC_NAME = '__insert'
 
 local function call_insert_on_storage(space_name, tuple)
-    checks('string', 'table')
+    checks('string', 'tuple')
 
     local space = box.space[space_name]
     if space == nil then

@@ -1,7 +1,4 @@
-local checks = require('checks')
 local errors = require('errors')
-
-require('crud.common.checkers')
 
 local registry = {}
 
@@ -17,8 +14,6 @@ local RegisterError = errors.new_class('Register')
 -- Should be passed as a {string: function} map.
 --
 function registry.add(funcs)
-    checks('funcs_map')
-
     for func_name in pairs(funcs) do
         if registry.is_registered(func_name) then
             return nil, RegisterError:new("Function %s is already registered", func_name)

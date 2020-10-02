@@ -14,8 +14,6 @@ local select_filters = require('crud.select.filters')
 
 local Iterator = require('crud.select.iterator')
 
-require('crud.common.checkers')
-
 local SelectError = errors.new_class('SelectError')
 local GetReplicasetsError = errors.new_class('GetReplicasetsError')
 
@@ -28,7 +26,7 @@ local DEFAULT_BATCH_SIZE = 100
 local function call_select_on_storage(space_name, index_id, conditions, opts)
     checks('string', 'number', '?table', {
         scan_value = 'table',
-        after_tuple = '?table',
+        after_tuple = '?tuple',
         iter = 'number',
         limit = 'number',
         scan_condition_num = '?number',
@@ -74,7 +72,7 @@ end
 
 local function select_iteration(space_name, plan, opts)
     checks('string', '?table', {
-        after_tuple = '?table',
+        after_tuple = '?tuple',
         replicasets = 'table',
         timeout = '?number',
         limit = 'number',

@@ -4,8 +4,6 @@ local fiber = require('fiber')
 
 local utils = require('crud.common.utils')
 
-require('crud.common.checkers')
-
 local UpdateTuplesError = errors.new('UpdateTuplesError')
 local GetTupleError = errors.new('GetTupleError')
 

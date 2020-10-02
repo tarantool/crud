@@ -22,19 +22,10 @@ local tarantool_iter_by_cond_operators = {
     [conditions.operators.GE] = box.index.GE,
 }
 
-function _G.checkers.condition_operator(p)
-    for _, op in pairs(conditions.operators) do
-        if op == p then
-            return true
-        end
-    end
-    return false
-end
-
 local function new_condition(opts)
     checks({
-        operator = 'condition_operator',
-        operand = 'string|strings_array',
+        operator = 'string',
+        operand = 'string|table',
         values = '?',
     })
 
@@ -67,7 +58,7 @@ local cond_operators_by_func_names = {
 for func_name, operator in pairs(cond_operators_by_func_names) do
     assert(operator ~= nil)
     conditions.funcs[func_name] = function(operand, values)
-        checks('string|strings_array', '?')
+        checks('string|table', '?')
         return new_condition({
             operator = operator,
             operand = operand,

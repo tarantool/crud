@@ -6,8 +6,6 @@ local call = require('crud.common.call')
 local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
 
-require('crud.common.checkers')
-
 local ReplaceError = errors.new_class('Replace', { capture_stack = false })
 
 local replace = {}
@@ -15,7 +13,7 @@ local replace = {}
 local REPLACE_FUNC_NAME = '__replace'
 
 local function call_replace_on_storage(space_name, tuple)
-    checks('string', 'table')
+    checks('string', 'tuple')
 
     local space = box.space[space_name]
     if space == nil then
