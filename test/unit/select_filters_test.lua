@@ -1,10 +1,53 @@
 -- luacheck: push max_line_length 300
 
+local select_conditions = require('crud.select.conditions')
+local cond_funcs = select_conditions.funcs
+local select_filters = require('crud.select.filters')
+local select_plan = require('crud.select.plan')
+local collations = require('crud.common.collations')
+
 local t = require('luatest')
 local g = t.group('select_filters')
 
-local select_conditions = require('crud.select.conditions')
-local select_filters = require('crud.select.filters')
+local helpers = require('test.helper')
+
+g.before_all = function()
+    helpers.box_cfg()
+
+    local customers_space = box.schema.space.create('customers', {
+        format = {
+            {'id', 'unsigned'},
+            {'bucket_id', 'unsigned'},
+            {'name', 'string'},
+            {'last_name', 'string'},
+            {'age', 'number'},
+            {'city', 'string'},
+            {'has_a_car', 'boolean'},
+        },
+        if_not_exists = true,
+    })
+    customers_space:create_index('id', { -- id: 0
+        parts = {'id'},
+        if_not_exists = true,
+    })
+    customers_space:create_index('age', { -- id: 1
+        parts = {'age'},
+        unique = false,
+        if_not_exists = true,
+    })
+    customers_space:create_index('full_name', { -- id: 2
+        parts = {
+            { field = 'name', collation = 'unicode_ci' },
+            { field = 'last_name', is_nullable = true },
+        },
+        unique = false,
+        if_not_exists = true,
+    })
+end
+
+g.after_all(function()
+    box.space.customers:drop()
+end)
 
 g.test_empty_conditions = function()
     local filter_conditions = {}
@@ -12,9 +55,76 @@ g.test_empty_conditions = function()
     local expected_code = 'return true, false'
     local expected_library_code = 'return {}'
 
-    local filter = select_filters.gen_code(filter_conditions)
-    t.assert_equals(filter.code, expected_code)
-    t.assert_equals(filter.library_code, expected_library_code)
+    local filter_code = select_filters.internal.gen_filter_code(filter_conditions)
+    t.assert_equals(filter_code.code, expected_code)
+    t.assert_equals(filter_code.library, expected_library_code)
+end
+
+g.test_parse = function()
+    -- select by indexed field with conditions by index and field
+    local conditions = {
+        cond_funcs.gt('age', 20),
+        cond_funcs.lt('age', 40),
+        cond_funcs.eq('full_name', {'Ivan', 'Ivanov'}),
+        cond_funcs.eq('has_a_car', true)
+    }
+
+    local plan, err = select_plan.new(box.space.customers, conditions)
+    t.assert_equals(err, nil)
+
+    local space = box.space.customers
+
+    local filter_conditions, err = select_filters.internal.parse(space, conditions, {
+        scan_condition_num = plan.scan_condition_num,
+        iter = plan.iter,
+    })
+    t.assert_equals(err, nil)
+
+    -- age filter (early exit is possible)
+    local age_filter_condition = filter_conditions[1]
+    t.assert_type(age_filter_condition, 'table')
+    t.assert_equals(age_filter_condition.fieldnos, {5})
+    t.assert_equals(age_filter_condition.operator, select_conditions.operators.LT)
+    t.assert_equals(age_filter_condition.values, {40})
+    t.assert_equals(age_filter_condition.types, {'number'})
+    t.assert_equals(age_filter_condition.early_exit_is_possible, true)
+
+    -- full_name filter
+    local full_name_filter_condition = filter_conditions[2]
+    t.assert_type(full_name_filter_condition, 'table')
+    t.assert_equals(full_name_filter_condition.fieldnos, {3, 4})
+    t.assert_equals(full_name_filter_condition.operator, select_conditions.operators.EQ)
+    t.assert_equals(full_name_filter_condition.values, {'Ivan', 'Ivanov'})
+    t.assert_equals(full_name_filter_condition.types, {'string', 'string'})
+    t.assert_equals(full_name_filter_condition.early_exit_is_possible, false)
+
+    local full_name_values_opts = full_name_filter_condition.values_opts
+    t.assert_type(full_name_values_opts, 'table')
+    t.assert_equals(#full_name_values_opts, 2)
+
+    -- - name part opts
+    local name_opts = full_name_values_opts[1]
+    t.assert_equals(name_opts.is_nullable, false)
+    t.assert_equals(name_opts.collation, collations.UNICODE_CI)
+
+    -- - last_name part opts
+    local last_name_opts = full_name_values_opts[2]
+    t.assert_equals(last_name_opts.is_nullable, true)
+    t.assert_equals(last_name_opts.collation, collations.NONE)
+
+    -- has_a_car filter
+    local has_a_car_filter_condition = filter_conditions[3]
+    t.assert_type(has_a_car_filter_condition, 'table')
+    t.assert_equals(has_a_car_filter_condition.fieldnos, {7})
+    t.assert_equals(has_a_car_filter_condition.operator, select_conditions.operators.EQ)
+    t.assert_equals(has_a_car_filter_condition.values, {true})
+    t.assert_equals(has_a_car_filter_condition.types, {'boolean'})
+    t.assert_equals(has_a_car_filter_condition.early_exit_is_possible, false)
+
+    t.assert_equals(#has_a_car_filter_condition.values_opts, 1)
+    local has_a_car_opts = has_a_car_filter_condition.values_opts[1]
+    t.assert_equals(has_a_car_opts.is_nullable, true)
+    t.assert_equals(has_a_car_opts.collation, nil)
 end
 
 g.test_one_condition_number = function()
@@ -44,14 +154,14 @@ end
 
 return M]]
 
-    local filter = select_filters.gen_code(filter_conditions)
-    t.assert_equals(filter.code, expected_code)
-    t.assert_equals(filter.library_code, expected_library_code)
+    local filter_code = select_filters.internal.gen_filter_code(filter_conditions)
+    t.assert_equals(filter_code.code, expected_code)
+    t.assert_equals(filter_code.library, expected_library_code)
 
-    local func = select_filters.compile(filter)
-    t.assert_equals({ func({3, 2, 1}) }, {true, false})
-    t.assert_equals({ func({2, 2, 1}) }, {false, true})
-    t.assert_equals({ func({nil, 2, 1}) }, {false, true})
+    local filter_func = select_filters.internal.compile(filter_code)
+    t.assert_equals({ filter_func({3, 2, 1}) }, {true, false})
+    t.assert_equals({ filter_func({2, 2, 1}) }, {false, true})
+    t.assert_equals({ filter_func({nil, 2, 1}) }, {false, true})
 end
 
 g.test_one_condition_boolean = function()
@@ -84,14 +194,14 @@ end
 
 return M]]
 
-    local filter = select_filters.gen_code(filter_conditions)
-    t.assert_equals(filter.code, expected_code)
-    t.assert_equals(filter.library_code, expected_library_code)
+    local filter_code = select_filters.internal.gen_filter_code(filter_conditions)
+    t.assert_equals(filter_code.code, expected_code)
+    t.assert_equals(filter_code.library, expected_library_code)
 
-    local func = select_filters.compile(filter)
-    t.assert_equals({ func({true, 2, 1}) }, {true, false})
-    t.assert_equals({ func({false, 2, 1}) }, {false, true})
-    t.assert_equals({ func({nil, 2, 1}) }, {false, true})
+    local filter_func = select_filters.internal.compile(filter_code)
+    t.assert_equals({ filter_func({true, 2, 1}) }, {true, false})
+    t.assert_equals({ filter_func({false, 2, 1}) }, {false, true})
+    t.assert_equals({ filter_func({nil, 2, 1}) }, {false, true})
 end
 
 g.test_one_condition_string = function()
@@ -124,15 +234,15 @@ end
 
 return M]]
 
-    local filter = select_filters.gen_code(filter_conditions)
-    t.assert_equals(filter.code, expected_code)
-    t.assert_equals(filter.library_code, expected_library_code)
+    local filter_code = select_filters.internal.gen_filter_code(filter_conditions)
+    t.assert_equals(filter_code.code, expected_code)
+    t.assert_equals(filter_code.library, expected_library_code)
 
-    local func = select_filters.compile(filter)
-    t.assert_equals({ func({3, 'ddddeeee', 1}) }, {true, false})
-    t.assert_equals({ func({3, 'dddddddd', 1}) }, {false, true})
-    t.assert_equals({ func({3, 'aaaaaaaa', 1}) }, {false, true})
-    t.assert_equals({ func({3, nil, 1}) }, {false, true})
+    local filter_func = select_filters.internal.compile(filter_code)
+    t.assert_equals({ filter_func({3, 'ddddeeee', 1}) }, {true, false})
+    t.assert_equals({ filter_func({3, 'dddddddd', 1}) }, {false, true})
+    t.assert_equals({ filter_func({3, 'aaaaaaaa', 1}) }, {false, true})
+    t.assert_equals({ filter_func({3, nil, 1}) }, {false, true})
 end
 
 g.test_two_conditions = function()
@@ -178,17 +288,17 @@ end
 
 return M]]
 
-    local filter = select_filters.gen_code(filter_conditions)
-    t.assert_equals(filter.code, expected_code)
-    t.assert_equals(filter.library_code, expected_library_code)
+    local filter_code = select_filters.internal.gen_filter_code(filter_conditions)
+    t.assert_equals(filter_code.code, expected_code)
+    t.assert_equals(filter_code.library, expected_library_code)
 
-    local func = select_filters.compile(filter)
-    t.assert_equals({ func({4, 'xxx', 'dddddddd'}) }, {true, false})
-    t.assert_equals({ func({5, 'xxx', 'dddddddd'}) }, {false, true})
-    t.assert_equals({ func({4, 'xxx', 'dddddeee'}) }, {true, false})
-    t.assert_equals({ func({4, 'xxx', 'aaaaaaaa'}) }, {false, false})
-    t.assert_equals({ func({nil, 'xxx', 'dddddeee'}) }, {false, true})
-    t.assert_equals({ func({4, 'xxx', nil}) }, {false, false})
+    local filter_func = select_filters.internal.compile(filter_code)
+    t.assert_equals({ filter_func({4, 'xxx', 'dddddddd'}) }, {true, false})
+    t.assert_equals({ filter_func({5, 'xxx', 'dddddddd'}) }, {false, true})
+    t.assert_equals({ filter_func({4, 'xxx', 'dddddeee'}) }, {true, false})
+    t.assert_equals({ filter_func({4, 'xxx', 'aaaaaaaa'}) }, {false, false})
+    t.assert_equals({ filter_func({nil, 'xxx', 'dddddeee'}) }, {false, true})
+    t.assert_equals({ filter_func({4, 'xxx', nil}) }, {false, false})
 end
 
 g.test_two_conditions_non_nullable = function()
@@ -248,15 +358,15 @@ end
 
 return M]]
 
-    local filter = select_filters.gen_code(filter_conditions)
-    t.assert_equals(filter.code, expected_code)
-    t.assert_equals(filter.library_code, expected_library_code)
+    local filter_code = select_filters.internal.gen_filter_code(filter_conditions)
+    t.assert_equals(filter_code.code, expected_code)
+    t.assert_equals(filter_code.library, expected_library_code)
 
-    local func = select_filters.compile(filter)
-    t.assert_equals({ func({2, 'test', 5}) }, {true, false})
-    t.assert_equals({ func({4, 'test', 5}) }, {false, true})
-    t.assert_equals({ func({4, 'test', nil}) }, {false, false})
-    t.assert_equals({ func({5, 'test', nil}) }, {false, false})
+    local filter_func = select_filters.internal.compile(filter_code)
+    t.assert_equals({ filter_func({2, 'test', 5}) }, {true, false})
+    t.assert_equals({ filter_func({4, 'test', 5}) }, {false, true})
+    t.assert_equals({ filter_func({4, 'test', nil}) }, {false, false})
+    t.assert_equals({ filter_func({5, 'test', nil}) }, {false, false})
 end
 
 g.test_one_condition_with_nil_value = function()
@@ -293,13 +403,13 @@ end
 
 return M]]
 
-    local filter = select_filters.gen_code(filter_conditions)
-    t.assert_equals(filter.code, expected_code)
-    t.assert_equals(filter.library_code, expected_library_code)
+    local filter_code = select_filters.internal.gen_filter_code(filter_conditions)
+    t.assert_equals(filter_code.code, expected_code)
+    t.assert_equals(filter_code.library, expected_library_code)
 
-    local func = select_filters.compile(filter)
-    t.assert_equals(func({1, 'test', 3}), true)
-    t.assert_equals(func({1, 'xxx', 1}), true)
+    local filter_func = select_filters.internal.compile(filter_code)
+    t.assert_equals(filter_func({1, 'test', 3}), true)
+    t.assert_equals(filter_func({1, 'xxx', 1}), true)
 end
 
 g.test_unicode_collation = function()
@@ -337,15 +447,15 @@ end
 
 return M]]
 
-    local filter = select_filters.gen_code(filter_conditions)
-    t.assert_equals(filter.code, expected_code)
-    t.assert_equals(filter.library_code, expected_library_code)
+    local filter_code = select_filters.internal.gen_filter_code(filter_conditions)
+    t.assert_equals(filter_code.code, expected_code)
+    t.assert_equals(filter_code.library, expected_library_code)
 
-    local func = select_filters.compile(filter)
-    t.assert_equals(func({'A', 'Á', 'Ä', 6}), true)
-    t.assert_equals(func({'A', 'á', 'ä', 6}), true)
-    t.assert_equals(func({'a', 'Á', 'Ä', 6}), false)
-    t.assert_equals(func({'A', 'V', 'ä', 6}), false)
+    local filter_func = select_filters.internal.compile(filter_code)
+    t.assert_equals(filter_func({'A', 'Á', 'Ä', 6}), true)
+    t.assert_equals(filter_func({'A', 'á', 'ä', 6}), true)
+    t.assert_equals(filter_func({'a', 'Á', 'Ä', 6}), false)
+    t.assert_equals(filter_func({'A', 'V', 'ä', 6}), false)
 end
 
 g.test_binary_and_none_collation = function()
@@ -382,15 +492,15 @@ end
 
 return M]]
 
-    local filter = select_filters.gen_code(filter_conditions)
-    t.assert_equals(filter.code, expected_code)
-    t.assert_equals(filter.library_code, expected_library_code)
+    local filter_code = select_filters.internal.gen_filter_code(filter_conditions)
+    t.assert_equals(filter_code.code, expected_code)
+    t.assert_equals(filter_code.library, expected_library_code)
 
-    local func = select_filters.compile(filter)
-    t.assert_equals(func({'A', 'B', 'C'}), true)
-    t.assert_equals(func({'a', 'B', 'C'}), false)
-    t.assert_equals(func({'A', 'b', 'C'}), false)
-    t.assert_equals(func({'A', 'B', 'c'}), false)
+    local filter_func = select_filters.internal.compile(filter_code)
+    t.assert_equals(filter_func({'A', 'B', 'C'}), true)
+    t.assert_equals(filter_func({'a', 'B', 'C'}), false)
+    t.assert_equals(filter_func({'A', 'b', 'C'}), false)
+    t.assert_equals(filter_func({'A', 'B', 'c'}), false)
 end
 
 g.test_null_as_last_value_eq = function()
@@ -425,13 +535,13 @@ end
 
 return M]]
 
-    local filter = select_filters.gen_code(filter_conditions)
-    t.assert_equals(filter.code, expected_code)
-    t.assert_equals(filter.library_code, expected_library_code)
+    local filter_code = select_filters.internal.gen_filter_code(filter_conditions)
+    t.assert_equals(filter_code.code, expected_code)
+    t.assert_equals(filter_code.library, expected_library_code)
 
-    local func = select_filters.compile(filter)
-    t.assert_equals(func({'a', box.NULL}), true)
-    t.assert_equals(func({'a', 'a'}), false) -- 'a' ~= box.NULL
+    local filter_func = select_filters.internal.compile(filter_code)
+    t.assert_equals(filter_func({'a', box.NULL}), true)
+    t.assert_equals(filter_func({'a', 'a'}), false) -- 'a' ~= box.NULL
 end
 
 g.test_null_as_last_value_gt = function()
@@ -472,13 +582,13 @@ end
 
 return M]]
 
-    local filter = select_filters.gen_code(filter_conditions)
-    t.assert_equals(filter.code, expected_code)
-    t.assert_equals(filter.library_code, expected_library_code)
+    local filter_code = select_filters.internal.gen_filter_code(filter_conditions)
+    t.assert_equals(filter_code.code, expected_code)
+    t.assert_equals(filter_code.library, expected_library_code)
 
-    local func = select_filters.compile(filter)
-    t.assert_equals(func({'a', 'a'}), true)       -- 'a' > box.NULL
-    t.assert_equals(func({'a', box.NULL}), false) -- box.NULL > box.NULL is false
+    local filter_func = select_filters.internal.compile(filter_code)
+    t.assert_equals(filter_func({'a', 'a'}), true)       -- 'a' > box.NULL
+    t.assert_equals(filter_func({'a', box.NULL}), false) -- box.NULL > box.NULL is false
 end
 
 g.test_null_as_last_value_gt_non_nullable = function()
@@ -519,13 +629,13 @@ end
 
 return M]]
 
-    local filter = select_filters.gen_code(filter_conditions)
-    t.assert_equals(filter.code, expected_code)
-    t.assert_equals(filter.library_code, expected_library_code)
+    local filter_code = select_filters.internal.gen_filter_code(filter_conditions)
+    t.assert_equals(filter_code.code, expected_code)
+    t.assert_equals(filter_code.library, expected_library_code)
 
-    local func = select_filters.compile(filter)
-    t.assert_equals(func({'a', 'a'}), true)       -- 'a' > box.NULL
-    t.assert_equals(func({'a', box.NULL}), false) -- box.NULL > box.NULL is false
+    local filter_func = select_filters.internal.compile(filter_code)
+    t.assert_equals(filter_func({'a', 'a'}), true)       -- 'a' > box.NULL
+    t.assert_equals(filter_func({'a', box.NULL}), false) -- box.NULL > box.NULL is false
 end
 
 -- luacheck: pop

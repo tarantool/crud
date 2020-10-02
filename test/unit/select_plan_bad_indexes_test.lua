@@ -86,7 +86,8 @@ g.test_cond_with_good_index = function()
     })
 
     t.assert_equals(err, nil)
-    t.assert_equals(plan.scanner.index_name, 'age_tree')
+    local index = box.space.customers.index[plan.index_id]
+    t.assert_equals(index.name, 'age_tree')
 end
 
 g.test_cond_with_hash_index = function()
