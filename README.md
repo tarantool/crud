@@ -40,10 +40,14 @@ crud.insert('customers', {
     id = 1, name = 'Elizabeth', age = 23,
 })
 ---
-- bucket_id: 7614
-  age: 23
-  name: Elizabeth
-  id: 1
+---
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 477, 'Elizabeth', 23]
 ...
 ```
 
@@ -67,10 +71,13 @@ Returns object, error.
 ```lua
 crud.get('customers', 1)
 ---
-- bucket_id: 7614
-  age: 23
-  name: Elizabeth
-  id: 1
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 477, 'Elizabeth', 23]
 ...
 ```
 
@@ -95,10 +102,13 @@ Returns updated object, error.
 ```lua
 crud.update('customers', 1, {{'+', 'age', 1}})
 ---
-- bucket_id: 7614
-  age: 24
-  name: Elizabeth
-  id: 1
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 477, 'Elizabeth', 24]
 ...
 ```
 
@@ -122,11 +132,13 @@ Returns deleted object, error.
 ```lua
 crud.delete('customers', 1)
 ---
-- bucket_id: 7614
-  age: 24
-  name: Elizabeth
-  id: 1
-...
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 477, 'Elizabeth', 24]
 ```
 
 ### Replace
@@ -151,10 +163,13 @@ crud.replace('customers', {
     id = 1, name = 'Alice', age = 22,
 })
 ---
-- bucket_id: 7614
-  age: 22
-  name: Alice
-  id: 1
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 477, 'Alice', 22]
 ...
 ```
 
@@ -177,9 +192,16 @@ Returns nil, error.
 **Example:**
 
 ```lua
-crud.upsert('customers', {id = 1, name = 'Alice', age = 22,}, {{'+', 'age', 1}})
+crud.upsert('customers',
+    {id = 1, name = 'Alice', age = 22,},
+    {{'+', 'age', 1}})
 ---
-- nil
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows: []
 ...
 ```
 
@@ -222,26 +244,18 @@ Each condition is a table `{operator, field-identifier, value}`:
 ```lua
 crud.select('customers', {{'<=', 'age', 35}})
 ---
-- - bucket_id: 10755
-    age: 35
-    name: Jack
-    id: 5
-  - bucket_id: 8011
-    age: 33
-    name: David
-    id: 3
-  - bucket_id: 16055
-    age: 25
-    name: William
-    id: 6
-  - bucket_id: 2998
-    age: 18
-    name: Elizabeth
-    id: 7
-  - bucket_id: 7614
-    age: 12
-    name: Elizabeth
-    id: 1
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [5, 1172, 'Jack', 35]
+  - [3, 2804, 'David', 33]
+  - [6, 1064, 'William', 25]
+  - [7, 693, 'Elizabeth', 18]
+  - [1, 477, 'Elizabeth', 12]
+...
 ```
 
 ### Pairs

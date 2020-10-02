@@ -3,6 +3,7 @@ local fio = require('fio')
 local t = require('luatest')
 local g_memtx = t.group('simple_operations_memtx')
 local g_vinyl = t.group('simple_operations_vinyl')
+local crud = require('crud')
 
 local helpers = require('test.helper')
 
@@ -138,25 +139,31 @@ end)
 
 add('test_insert_get', function(g)
     -- insert
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.insert('customers', {id = 1, name = 'Fedor', age = 59})
     ]])
 
     t.assert_equals(err, nil)
-    t.assert_covers(obj, {id = 1, name = 'Fedor', age = 59})
-    t.assert(type(obj.bucket_id) == 'number')
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'bucket_id', type = 'unsigned'},
+        {name = 'name', type = 'string'},
+        {name = 'age', type = 'number'},
+    })
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 1, name = 'Fedor', age = 59, bucket_id = 477}})
 
     -- get
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.get('customers', 1)
     ]])
 
     t.assert_equals(err, nil)
-    t.assert(obj ~= nil)
-    t.assert_covers(obj, {id = 1, name = 'Fedor', age = 59})
-    t.assert(type(obj.bucket_id) == 'number')
+    t.assert(result ~= nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 1, name = 'Fedor', age = 59, bucket_id = 477}})
 
     -- insert again
     local obj, err = g.cluster.main_server.net_box:eval([[
@@ -175,31 +182,37 @@ add('test_insert_get', function(g)
     ]])
 
     t.assert_equals(obj, nil)
-    t.assert_str_contains(err.err, " Field \"age\" isn't nullable")
+    t.assert_str_contains(err.err, "Field \"age\" isn't nullable")
 
     -- get non existent
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.get('customers', 100)
     ]])
 
     t.assert_equals(err, nil)
-    t.assert_equals(obj, nil)
+    t.assert_equals(#result.rows, 0)
 end)
 
 add('test_update', function(g)
     -- insert tuple
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.insert('customers', {id = 22, name = 'Leo', age = 72})
     ]])
 
     t.assert_equals(err, nil)
-    t.assert_covers(obj, {id = 22, name = 'Leo', age = 72})
-    t.assert(type(obj.bucket_id) == 'number')
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'bucket_id', type = 'unsigned'},
+        {name = 'name', type = 'string'},
+        {name = 'age', type = 'number'},
+    })
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 22, name = 'Leo', age = 72, bucket_id = 655}})
 
     -- update age and name fields
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.update('customers', 22, {
             {'+', 'age', 10},
@@ -208,31 +221,31 @@ add('test_update', function(g)
     ]])
 
     t.assert_equals(err, nil)
-    t.assert_covers(obj, {id = 22, name = 'Leo Tolstoy', age = 82})
-    t.assert(type(obj.bucket_id) == 'number')
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 22, name = 'Leo Tolstoy', age = 82, bucket_id = 655}})
 
     -- get
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.get('customers', 22)
     ]])
 
     t.assert_equals(err, nil)
-    t.assert_covers(obj, {id = 22, name = 'Leo Tolstoy', age = 82})
-    t.assert(type(obj.bucket_id) == 'number')
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 22, name = 'Leo Tolstoy', age = 82, bucket_id = 655}})
 
     -- bad key
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.update('customers', 'bad-key', {{'+', 'age', 10},})
     ]])
 
-    t.assert_equals(obj, nil)
+    t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type:")
 
     -- update by field numbers
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.update('customers', 22, {
             {'-', 4, 10},
@@ -241,99 +254,111 @@ add('test_update', function(g)
     ]])
 
     t.assert_equals(err, nil)
-    t.assert_covers(obj, {id = 22, name = 'Leo', age = 72})
-    t.assert(type(obj.bucket_id) == 'number')
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 22, name = 'Leo', age = 72, bucket_id = 655}})
 
     -- get
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.get('customers', 22)
     ]])
 
     t.assert_equals(err, nil)
-    t.assert_covers(obj, {id = 22, name = 'Leo', age = 72})
-    t.assert(type(obj.bucket_id) == 'number')
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 22, name = 'Leo', age = 72, bucket_id = 655}})
 end)
 
 add('test_delete', function(g)
     -- insert tuple
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.insert('customers', {id = 33, name = 'Mayakovsky', age = 36})
     ]])
 
     t.assert_equals(err, nil)
-    t.assert_covers(obj, {id = 33, name = 'Mayakovsky', age = 36})
-    t.assert(type(obj.bucket_id) == 'number')
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'bucket_id', type = 'unsigned'},
+        {name = 'name', type = 'string'},
+        {name = 'age', type = 'number'},
+    })
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 33, name = 'Mayakovsky', age = 36, bucket_id = 907}})
 
     -- delete
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.delete('customers', 33)
     ]])
 
     t.assert_equals(err, nil)
     if g.engine == 'memtx' then
-        t.assert_covers(obj, {id = 33, name = 'Mayakovsky', age = 36})
-        t.assert(type(obj.bucket_id) == 'number')
+        local objects = crud.unflatten_rows(result.rows, result.metadata)
+        t.assert_equals(objects, {{id = 33, name = 'Mayakovsky', age = 36, bucket_id = 907}})
     else
-        t.assert_equals(obj, nil)
+        t.assert_equals(#result.rows, 0)
     end
 
     -- get
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.get('customers', 33)
     ]])
 
     t.assert_equals(err, nil)
-    t.assert_equals(obj, nil)
+    t.assert_equals(#result.rows, 0)
 
     -- bad key
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.delete('customers', 'bad-key')
     ]])
 
-    t.assert_equals(obj, nil)
+    t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type:")
 end)
 
 add('test_replace', function(g)
     -- get
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.get('customers', 44)
     ]])
 
     t.assert_equals(err, nil)
-    t.assert_equals(obj, nil)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'bucket_id', type = 'unsigned'},
+        {name = 'name', type = 'string'},
+        {name = 'age', type = 'number'},
+    })
+    t.assert_equals(#result.rows, 0)
 
     -- insert tuple
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.replace('customers', {id = 44, name = 'John Doe', age = 25})
     ]])
 
     t.assert_equals(err, nil)
-    t.assert_covers(obj, {id = 44, name = 'John Doe', age = 25})
-    t.assert(type(obj.bucket_id) == 'number')
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 44, name = 'John Doe', age = 25, bucket_id = 2805}})
 
     -- replace tuple
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.replace('customers', {id = 44, name = 'Jane Doe', age = 18})
     ]])
 
     t.assert_equals(err, nil)
-    t.assert_covers(obj, {id = 44, name = 'Jane Doe', age = 18})
-    t.assert(type(obj.bucket_id) == 'number')
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 44, name = 'Jane Doe', age = 18, bucket_id = 2805}})
 end)
 
 add('test_upsert', function(g)
     -- upsert tuple not exist
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.upsert('customers', {id = 66, name = 'Jack Sparrow', age = 25}, {
             {'+', 'age', 25},
@@ -341,20 +366,26 @@ add('test_upsert', function(g)
         })
     ]])
 
-    t.assert_equals(obj, nil)
+    t.assert_equals(#result.rows, 0)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'bucket_id', type = 'unsigned'},
+        {name = 'name', type = 'string'},
+        {name = 'age', type = 'number'},
+    })
     t.assert_equals(err, nil)
 
     -- get
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.get('customers', 66)
     ]])
     t.assert_equals(err, nil)
-    t.assert_covers(obj, {id = 66, name = 'Jack Sparrow', age = 25})
-    t.assert(type(obj.bucket_id) == 'number')
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 66, name = 'Jack Sparrow', age = 25, bucket_id = 486}})
 
     -- upsert same query second time tuple exist
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.upsert('customers', {id = 66, name = 'Jack Sparrow', age = 25}, {
             {'+', 'age', 25},
@@ -362,15 +393,15 @@ add('test_upsert', function(g)
         })
     ]])
 
-    t.assert_equals(obj, nil)
+    t.assert_equals(#result.rows, 0)
     t.assert_equals(err, nil)
 
     -- get
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         return crud.get('customers', 66)
     ]])
     t.assert_equals(err, nil)
-    t.assert_covers(obj, {id = 66, name = 'Leo Tolstoy', age = 50})
-    t.assert(type(obj.bucket_id) == 'number')
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 66, name = 'Leo Tolstoy', age = 50, bucket_id = 486}})
 end)

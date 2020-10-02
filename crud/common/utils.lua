@@ -157,4 +157,20 @@ function utils.convert_operations(user_operations, space_format)
     return converted_operations
 end
 
+function utils.unflatten_rows(rows, metadata)
+    if metadata == nil then
+        return nil, UnflattenError:new('Metadata is not provided')
+    end
+
+    local result = table.new(#rows, 0)
+    local err
+    for i, row in ipairs(rows) do
+        result[i], err = utils.unflatten(row, metadata)
+        if err ~= nil then
+            return nil, err
+        end
+    end
+    return result
+end
+
 return utils

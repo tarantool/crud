@@ -89,12 +89,10 @@ function replace.call(space_name, obj, opts)
     end
 
     local tuple = results[replicaset.uuid]
-    local object, err = utils.unflatten(tuple, space_format)
-    if err ~= nil then
-        return nil, ReplaceError:new("Received tuple that doesn't match space format: %s", err)
-    end
-
-    return object
+    return {
+        metadata = table.copy(space_format),
+        rows = {tuple},
+    }
 end
 
 return replace
