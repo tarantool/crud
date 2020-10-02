@@ -2,7 +2,6 @@ local checks = require('checks')
 local errors = require('errors')
 
 local select_conditions = require('crud.select.conditions')
-local utils = require('crud.common.utils')
 
 local select_plan = {}
 
@@ -52,29 +51,37 @@ local function validate_conditions(conditions, space_indexes, space_format)
     return true
 end
 
-local function is_scan_by_full_sharding_key_eq(scan_index, scan_value, scan_iter, sharding_index)
-    if scan_value == nil then
-        return false
+local function extract_sharding_key_from_scan_key(scan_key, scan_index, sharding_index)
+    if scan_index.id == sharding_index.id then
+        return scan_key
     end
 
-    if scan_iter ~= box.index.EQ and scan_iter ~= box.index.REQ then
-        return false
-    end
-
-    local scan_index_fieldnos = {}
-    for _, part in ipairs(scan_index.parts) do
-        scan_index_fieldnos[part.fieldno] = true
+    local scan_key_fields_values = {}
+    for i, scan_key_part in ipairs(scan_index.parts) do
+        scan_key_fields_values[scan_key_part.fieldno] = scan_key[i]
     end
 
     -- check that sharding key is included in the scan index fields
-    for part_num, sharding_index_part in ipairs(sharding_index.parts) do
-        local fieldno = sharding_index_part.fieldno
-        if scan_index_fieldnos[fieldno] == nil or scan_value[part_num] == nil then
-            return false
+    local sharding_key = {}
+    for _, sharding_key_part in ipairs(sharding_index.parts) do
+        local fieldno = sharding_key_part.fieldno
+
+        -- sharding key isn't included in scan key
+        if scan_key_fields_values[fieldno] == nil then
+            return nil
         end
+
+        local field_value = scan_key_fields_values[fieldno]
+
+        -- sharding key contains nil values
+        if field_value == nil then
+            return nil
+        end
+
+        table.insert(sharding_key, field_value)
     end
 
-    return true
+    return sharding_key
 end
 
 function select_plan.new(space, conditions, opts)
@@ -131,16 +138,17 @@ function select_plan.new(space, conditions, opts)
     -- set total_tuples_count
     local total_tuples_count = opts.limit
 
+    local sharding_index = primary_index -- XXX: only sharding by primary key is supported
+
     -- get sharding key value
     local sharding_key
+    if scan_value ~= nil and (scan_iter == box.index.EQ or scan_iter == box.index.REQ) then
+        sharding_key = extract_sharding_key_from_scan_key(scan_value, scan_index, sharding_index)
+    end
 
-    if is_scan_by_full_sharding_key_eq(scan_index, scan_value, scan_iter, primary_index) then
+    if sharding_key ~= nil then
         total_tuples_count = 1
         scan_iter = box.index.REQ
-
-        sharding_key = utils.extract_sharding_key_from_scan_key(
-            scan_value, scan_index, primary_index
-        )
     end
 
     local plan = {

@@ -104,27 +104,6 @@ function utils.merge_primary_key_parts(key_parts, pk_parts)
     return merged_parts
 end
 
-function utils.extract_sharding_key_from_scan_key(scan_key, scan_index, sharding_index)
-    if scan_index.id == sharding_index.id then
-        return scan_key
-    end
-
-    local scan_key_parts_by_fieldnos = {}
-    for i, scan_key_part in ipairs(scan_index.parts) do
-        scan_key_parts_by_fieldnos[scan_key_part.fieldno] = scan_key[i]
-    end
-
-    -- check that sharding key is included in the scan index fields
-    local sharding_key = {}
-    for _, sharding_key_part in ipairs(sharding_index.parts) do
-        local fieldno = sharding_key_part.fieldno
-        local field_value = scan_key_parts_by_fieldnos[fieldno]
-        table.insert(sharding_key, field_value)
-    end
-
-    return sharding_key
-end
-
 local __tarantool_supports_fieldpaths
 local function tarantool_supports_fieldpaths()
     if __tarantool_supports_fieldpaths ~= nil then
