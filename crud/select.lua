@@ -2,7 +2,6 @@ local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
 
-local call = require('crud.common.call')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
@@ -10,7 +9,6 @@ local dev_checks = require('crud.common.dev_checks')
 local select_conditions = require('crud.select.conditions')
 local select_plan = require('crud.select.plan')
 local select_executor = require('crud.select.executor')
-local select_comparators = require('crud.select.comparators')
 local select_filters = require('crud.select.filters')
 
 local Iterator = require('crud.select.iterator')
@@ -20,9 +18,15 @@ local GetReplicasetsError = errors.new_class('GetReplicasetsError')
 
 local select_module = {}
 
-local SELECT_FUNC_NAME = '_crud.select_on_storage'
-
 local DEFAULT_BATCH_SIZE = 100
+
+local function make_cursor(data)
+    local last_tuple = data[#data]
+
+    return {
+        after_tuple = last_tuple,
+    }
+end
 
 local function select_on_storage(space_name, index_id, conditions, opts)
     dev_checks('string', 'number', '?table', {
@@ -62,44 +66,18 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         return nil, SelectError:new("Failed to execute select: %s", err)
     end
 
-    return tuples
+    local cursor
+    if #tuples < opts.limit or opts.limit == 0 then
+        cursor = {is_end = true}
+    else
+        cursor = make_cursor(tuples)
+    end
+
+    return cursor, tuples
 end
 
 function select_module.init()
    _G._crud.select_on_storage = select_on_storage
-end
-
-local function select_iteration(space_name, plan, opts)
-    dev_checks('string', '?table', {
-        after_tuple = '?table',
-        replicasets = 'table',
-        timeout = '?number',
-        limit = 'number',
-    })
-
-    -- call select on storages
-    local storage_select_opts = {
-        scan_value = plan.scan_value,
-        after_tuple = opts.after_tuple,
-        iter = plan.iter,
-        limit = opts.limit,
-        scan_condition_num = plan.scan_condition_num,
-    }
-
-    local storage_select_args = {
-        space_name, plan.index_id, plan.conditions, storage_select_opts,
-    }
-
-    local results, err = call.ro(SELECT_FUNC_NAME, storage_select_args, {
-        replicasets = opts.replicasets,
-        timeout = opts.timeout,
-    })
-
-    if err ~= nil then
-        return nil, err
-    end
-
-    return results
 end
 
 local function get_replicasets_by_sharding_key(bucket_id)
@@ -127,8 +105,6 @@ local function build_select_iterator(space_name, user_conditions, opts)
     if opts.batch_size ~= nil and opts.batch_size < 1 then
         return nil, SelectError:new("batch_size should be > 0")
     end
-
-    local batch_size = opts.batch_size or DEFAULT_BATCH_SIZE
 
     -- check conditions
     local conditions, err = select_conditions.parse(user_conditions)
@@ -165,33 +141,33 @@ local function build_select_iterator(space_name, user_conditions, opts)
         replicasets_to_select = get_replicasets_by_sharding_key(bucket_id)
     end
 
-    -- generate tuples comparator
-    local scan_index = space.index[plan.index_id]
-    local primary_index = space.index[0]
-    local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
-    local cmp_operator = select_comparators.get_cmp_operator(plan.iter)
-    local tuples_comparator, err = select_comparators.gen_tuples_comparator(
-        cmp_operator, cmp_key_parts
-    )
-    if err ~= nil then
-        return nil, SelectError:new("Failed to generate comparator function: %s", err)
+    -- If opts.batch_size is missed we should specify it to min(first, DEFAULT_BATCH_SIZE)
+    local batch_size
+    if opts.batch_size == nil then
+        if opts.first ~= nil and opts.first < DEFAULT_BATCH_SIZE then
+            batch_size = opts.first
+        else
+            batch_size = DEFAULT_BATCH_SIZE
+        end
+    else
+        batch_size = opts.batch_size
     end
 
-    local iter = Iterator.new({
-        space_name = space_name,
+    local select_opts = {
+        scan_value = plan.scan_value,
+        after_tuple = plan.after_tuple,
+        iter = plan.iter,
+        limit = batch_size,
+        scan_condition_num = plan.scan_condition_num,
+    }
+
+    local iter = Iterator.new(replicasets_to_select,
+            space_name, plan.index_id, plan.conditions, select_opts)
+
+    return {
+        iter = iter,
         space_format = space_format,
-        iteration_func = select_iteration,
-        comparator = tuples_comparator,
-
-        plan = plan,
-
-        batch_size = batch_size,
-        replicasets = replicasets_to_select,
-
-        timeout = opts.timeout,
-    })
-
-    return iter
+    }
 end
 
 function select_module.pairs(space_name, user_conditions, opts)
@@ -222,31 +198,32 @@ function select_module.pairs(space_name, user_conditions, opts)
         error(string.format("Failed to generate iterator: %s", err))
     end
 
-    local gen = function(_, iter)
-        if not iter:has_next() then
+    local tuple, _
+
+    if opts.use_tomap ~= true then
+        return iter.iter:pairs()
+    end
+
+    local merger_gen = iter.iter:pairs()
+    local gen = function()
+        _, tuple = merger_gen.gen(nil, merger_gen.state)
+        if tuple == nil then
             return nil
         end
 
-        local tuple, err = iter:get()
+        local result
+        result, err = utils.unflatten(tuple, iter.space_format)
         if err ~= nil then
-            error(string.format("Failed to get next object: %s", err))
-        end
-
-        local result = tuple
-        if opts.use_tomap == true then
-            result, err = utils.unflatten(tuple, iter.space_format)
-            if err ~= nil then
-                error(string.format("Failed to unflatten next object: %s", err))
-            end
+            error(string.format("Failed to unflatten next object: %s", err))
         end
 
         return iter, result
     end
 
-    return gen, nil, iter
+    return gen
 end
 
-function select_module.call(space_name, user_conditions, opts)
+local function select_module_call_xc(space_name, user_conditions, opts)
     checks('string', '?table', {
         after = '?table',
         first = '?number',
@@ -277,17 +254,15 @@ function select_module.call(space_name, user_conditions, opts)
 
     local tuples = {}
 
-    while iter:has_next() do
-        local tuple, err = iter:get()
-        if err ~= nil then
-            return nil, SelectError:new("Failed to get next object: %s", err)
-        end
-
-        if tuple == nil then
+    local count = 0
+    local first = opts.first and math.abs(opts.first)
+    for _, tuple in iter.iter:pairs() do
+        if first ~= nil and count >= first then
             break
         end
 
         table.insert(tuples, tuple)
+        count = count + 1
     end
 
     if opts.first ~= nil and opts.first < 0 then
@@ -298,6 +273,10 @@ function select_module.call(space_name, user_conditions, opts)
         metadata = table.copy(iter.space_format),
         rows = tuples,
     }
+end
+
+function select_module.call(space_name, user_conditions, opts)
+    return SelectError:pcall(select_module_call_xc, space_name, user_conditions, opts)
 end
 
 return select_module

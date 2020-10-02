@@ -21,6 +21,7 @@ jobs:
         run: |
           curl -L https://tarantool.io/installer.sh | sudo VER=${{ matrix.tarantool-version }} bash
           sudo apt install -y tarantool-dev
+          tarantool --version
           ./deps.sh
 
       - name: Run linter
@@ -46,6 +47,7 @@ jobs:
           rm -f tarantool-enterprise-bundle-${{ matrix.bundle_version }}.tar.gz
           sudo cp tarantool-enterprise/tarantool /usr/bin/tarantool
           source tarantool-enterprise/env.sh
+          tarantool --version
           ./deps.sh
 
       - name: Run linter
