@@ -25,11 +25,13 @@ local SELECT_FUNC_NAME = '__select'
 
 local DEFAULT_BATCH_SIZE = 100
 
-local function call_select_on_storage(space_name, index_id, scan_value, iter, conditions, opts)
-    checks('string', 'number', '?table', 'number', 'table', {
-        scan_condition_num = '?number',
+local function call_select_on_storage(space_name, index_id, conditions, opts)
+    checks('string', 'number', '?table', {
+        scan_value = 'table',
         after_tuple = '?table',
+        iter = 'number',
         limit = 'number',
+        scan_condition_num = '?number',
     })
 
     local space = box.space[space_name]
@@ -43,7 +45,7 @@ local function call_select_on_storage(space_name, index_id, scan_value, iter, co
     end
 
     local filter_func, err = select_filters.gen_func(space, conditions, {
-        iter = iter,
+        iter = opts.iter,
         scan_condition_num = opts.scan_condition_num,
     })
     if err ~= nil then
@@ -51,8 +53,10 @@ local function call_select_on_storage(space_name, index_id, scan_value, iter, co
     end
 
     -- execute select
-    local tuples, err = select_executor.execute(space, index, scan_value, iter, filter_func, {
+    local tuples, err = select_executor.execute(space, index, filter_func, {
+        scan_value = opts.scan_value,
         after_tuple = opts.after_tuple,
+        iter = opts.iter,
         limit = opts.limit,
     })
     if err ~= nil then
@@ -78,13 +82,15 @@ local function select_iteration(space_name, plan, opts)
 
     -- call select on storages
     local storage_select_opts = {
-        scan_condition_num = plan.scan_condition_num,
+        scan_value = plan.scan_value,
         after_tuple = opts.after_tuple,
+        iter = plan.iter,
         limit = opts.limit,
+        scan_condition_num = plan.scan_condition_num,
     }
 
     local storage_select_args = {
-        space_name, plan.index_id, plan.scan_value, plan.iter, plan.conditions, storage_select_opts,
+        space_name, plan.index_id, plan.conditions, storage_select_opts,
     }
 
     local results, err = call.ro(SELECT_FUNC_NAME, storage_select_args, {

@@ -36,9 +36,11 @@ local function scroll_to_after_tuple(gen, space, scan_index, iter, after_tuple)
     end
 end
 
-function executor.execute(space, index, scan_value, iter, filter_func, opts)
-    checks('table', 'table', '?table', 'number', 'function', {
+function executor.execute(space, index, filter_func, opts)
+    checks('table', 'table', 'function', {
+        scan_value = 'table',
         after_tuple = '?cdata|table',
+        iter = 'number',
         limit = '?number',
     })
 
@@ -51,16 +53,16 @@ function executor.execute(space, index, scan_value, iter, filter_func, opts)
     local tuples = {}
     local tuples_count = 0
 
-    local value = scan_value
+    local value = opts.scan_value
     if opts.after_tuple ~= nil then
         if value == nil then
             value = opts.after_tuple
         else
-            local cmp_operator = select_comparators.get_cmp_operator(iter)
+            local cmp_operator = select_comparators.get_cmp_operator(opts.iter)
             local scan_comparator, err = select_comparators.gen_tuples_comparator(cmp_operator, index.parts)
             if err ~= nil then
                 log.warn("Failed to generate comparator for scan value: %s", err)
-            elseif scan_comparator(opts.after_tuple, scan_value) then
+            elseif scan_comparator(opts.after_tuple, opts.scan_value) then
                 local after_tuple_key = utils.extract_key(opts.after_tuple, index.parts)
                 value = after_tuple_key
             end
@@ -68,11 +70,11 @@ function executor.execute(space, index, scan_value, iter, filter_func, opts)
     end
 
     local tuple
-    local gen = index:pairs(value, {iterator = iter})
+    local gen = index:pairs(value, {iterator = opts.iter})
 
     if opts.after_tuple ~= nil then
         local err
-        tuple, err = scroll_to_after_tuple(gen, space, index, iter, opts.after_tuple)
+        tuple, err = scroll_to_after_tuple(gen, space, index, opts.iter, opts.after_tuple)
         if err ~= nil then
             return nil, ExecuteSelectError:new("Failed to scroll to the after tuple: %s", err)
         end

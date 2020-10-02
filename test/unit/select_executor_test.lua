@@ -100,22 +100,30 @@ g.test_one_condition_no_index = function()
     t.assert_equals(err, nil)
 
     -- no after
-    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func)
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        iter = plan.iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
     t.assert_equals(get_ids(results), {2, 3})
 
     -- after tuple 2
     local after_tuple = space:frommap(customers[2])
 
-    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
         after_tuple = after_tuple,
+        iter = plan.iter,
     })
     t.assert_equals(get_ids(results), {3})
 
     -- after tuple 3
     local after_tuple = space:frommap(customers[3])
 
-    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
         after_tuple = after_tuple,
+        iter = plan.iter,
     })
     t.assert_equals(#results, 0)
 end
@@ -152,14 +160,19 @@ g.test_one_condition_with_index = function()
     t.assert_equals(err, nil)
 
     -- no after
-    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func)
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        iter = plan.iter,
+    })
     t.assert_equals(get_ids(results), {3, 2, 4}) -- in age order
 
     -- after tuple 3
     local after_tuple = space:frommap(customers[3])
 
-    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
         after_tuple = after_tuple,
+        iter = plan.iter,
     })
     t.assert_equals(get_ids(results), {2, 4}) -- in age order
 end
@@ -203,14 +216,19 @@ g.test_multiple_conditions = function()
     t.assert_equals(err, nil)
 
     -- no after
-    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func)
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        iter = plan.iter,
+    })
     t.assert_equals(get_ids(results), {5, 2})  -- in age order
 
     -- after tuple 5
     local after_tuple = space:frommap(customers[5])
 
-    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
         after_tuple = after_tuple,
+        iter = plan.iter,
     })
     t.assert_equals(get_ids(results), {2})
 end
@@ -249,14 +267,19 @@ g.test_composite_index = function()
     t.assert_equals(err, nil)
 
     -- no after
-    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func)
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        iter = plan.iter,
+    })
     t.assert_equals(get_ids(results), {2, 1, 4}) -- in full_name order
 
     -- after tuple 2
     local after_tuple = space:frommap(customers[2])
 
-    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
         after_tuple = after_tuple,
+        iter = plan.iter,
     })
     t.assert_equals(get_ids(results), {1, 4})
 end
@@ -292,7 +315,10 @@ g.test_get_by_id = function()
     t.assert_equals(err, nil)
 
     -- no after
-    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func)
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        iter = plan.iter,
+    })
     t.assert_equals(get_ids(results), {2})
 end
 
@@ -330,7 +356,10 @@ g.test_early_exit = function()
     t.assert_equals(err, nil)
 
     -- no after
-    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func)
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        iter = plan.iter,
+    })
     t.assert_equals(get_ids(results), {4, 2})
 end
 
@@ -364,11 +393,14 @@ g.test_select_all = function()
     t.assert_equals(err, nil)
 
     -- no after
-    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func)
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        iter = plan.iter,
+    })
     t.assert_equals(get_ids(results), {1, 2, 3, 4})
 end
 
-g.test_batch_size = function()
+g.test_limit = function()
     insert_customers({
         {
             id = 1, name = "Elizabeth", last_name = "Rodriguez",
@@ -398,13 +430,17 @@ g.test_batch_size = function()
     t.assert_equals(err, nil)
 
     -- limit 0
-    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        iter = plan.iter,
         limit = 0,
     })
     t.assert_equals(#results, 0)
 
     -- limit 2
-    local results = select_executor.execute(space, index, plan.scan_value, plan.iter, filter_func, {
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        iter = plan.iter,
         limit = 2,
     })
     t.assert_equals(get_ids(results), {1, 2})
