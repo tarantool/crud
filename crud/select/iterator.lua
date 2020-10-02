@@ -11,8 +11,6 @@ local GetTupleError = errors.new('GetTupleError')
 
 local Heap = require('crud.common.heap')
 
-local DEFAULT_BATCH_SIZE = 100
-
 local Iterator = {}
 Iterator.__index = Iterator
 
@@ -23,11 +21,10 @@ function Iterator.new(opts)
         comparator = 'function',
         iteration_func = 'function',
 
-        conditions = '?table',
+        plan = 'table',
         after_tuple = '?table',
-        limit = '?number',
 
-        batch_size = '?number',
+        batch_size = 'number',
         replicasets = 'table',
 
         timeout = '?number',
@@ -38,9 +35,8 @@ function Iterator.new(opts)
         space_format = opts.space_format,
         iteration_func = opts.iteration_func,
 
-        conditions = opts.conditions,
+        plan = opts.plan,
         after_tuple = opts.after_tuple,
-        limit = opts.limit,
         timeout = opts.timeout,
 
         replicasets = table.copy(opts.replicasets),
@@ -48,7 +44,7 @@ function Iterator.new(opts)
         empty_replicasets = {},
         empty_replicasets_count = 0,
 
-        batch_size = opts.batch_size or DEFAULT_BATCH_SIZE,
+        batch_size = opts.batch_size,
 
         tuples_by_replicasets = {},
         next_tuple_indexes = {},
@@ -72,7 +68,7 @@ function Iterator:has_next()
         return false
     end
 
-    if self.limit ~= nil and self.tuples_count >= self.limit then
+    if self.plan.total_tuples_count ~= nil and self.tuples_count >= self.plan.total_tuples_count then
         return false
     end
 
@@ -96,18 +92,23 @@ local function update_replicasets_tuples(iter, after_tuple, replicaset_uuid)
         replicasets[replicaset_uuid] = iter.replicasets[replicaset_uuid]
     end
 
-    local results_map, err = iter.iteration_func(iter.space_name, iter.conditions, {
+    local limit_per_storage_call = iter.batch_size
+    if iter.total_tuples_count ~= nil then
+        limit_per_storage_call = math.min(iter.batch_size, iter.total_tuples_count - iter.tuples_count)
+    end
+
+    local results_map, err = iter.iteration_func(iter.space_name, iter.plan, {
         after_tuple = after_tuple,
         replicasets = replicasets,
         timeout = iter.timeout,
-        batch_size = iter.batch_size,
+        limit = limit_per_storage_call,
     })
     if err ~= nil then
         return false, UpdateTuplesError:new('Failed to select tuples from storages: %s', err)
     end
 
     for replicaset_uuid, tuples in pairs(results_map) do
-        if #tuples == 0 or (iter.batch_size ~= nil and #tuples < iter.batch_size) then
+        if #tuples == 0 or #tuples < limit_per_storage_call then
             iter.empty_replicasets[replicaset_uuid] = true
             iter.empty_replicasets_count = iter.empty_replicasets_count + 1
         end
@@ -174,7 +175,7 @@ function Iterator:get()
 
     self.tuples_count = self.tuples_count + 1
 
-    if self.limit == nil or self.tuples_count < self.limit then
+    if self.plan.total_tuples_count == nil or self.tuples_count < self.plan.total_tuples_count then
         local replicaset_tuples_count = #self.tuples_by_replicasets[last_tuple_replicaset_uuid]
         local next_tuple_index = self.next_tuple_indexes[last_tuple_replicaset_uuid]
 

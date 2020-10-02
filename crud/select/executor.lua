@@ -1,7 +1,7 @@
+local checks = require('checks')
 local errors = require('errors')
 local log = require('log')
 
-local select_filters = require('crud.select.filters')
 local select_comparators = require('crud.select.comparators')
 
 local utils = require('crud.common.utils')
@@ -11,13 +11,12 @@ local ExecuteSelectError = errors.new_class('ExecuteSelectError')
 
 local executor = {}
 
-local function scroll_to_after_tuple(gen, param, state, space, scanner)
-    local scan_index = space.index[scanner.index_id]
+local function scroll_to_after_tuple(gen, space, scan_index, iter, after_tuple)
     local primary_index = space.index[0]
 
     local scroll_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
 
-    local cmp_operator = select_comparators.get_cmp_operator(scanner.iter)
+    local cmp_operator = select_comparators.get_cmp_operator(iter)
     local scroll_comparator, err = select_comparators.gen_tuples_comparator(cmp_operator, scroll_key_parts)
     if err ~= nil then
         return nil, ScrollToAfterError:new("Failed to generate comparator to scroll: %s", err)
@@ -25,58 +24,59 @@ local function scroll_to_after_tuple(gen, param, state, space, scanner)
 
     while true do
         local tuple
-        state, tuple = gen(param, state)
+        gen.state, tuple = gen(gen.param, gen.state)
 
         if tuple == nil then
             return nil
         end
 
-        if scroll_comparator(tuple, scanner.after_tuple) then
+        if scroll_comparator(tuple, after_tuple) then
             return tuple
         end
     end
 end
 
-function executor.execute(plan)
-    local scanner = plan.scanner
+function executor.execute(space, index, filter_func, opts)
+    checks('table', 'table', 'function', {
+        scan_value = 'table',
+        after_tuple = '?cdata|table',
+        iter = 'number',
+        limit = '?number',
+    })
 
-    if scanner.limit == 0 then
+    opts = opts or {}
+
+    if opts.limit == 0 then
         return {}
     end
-
-    local filter = select_filters.gen_code(plan.filter_conditions)
-    local filer_func = select_filters.compile(filter)
 
     local tuples = {}
     local tuples_count = 0
 
-    local space = box.space[scanner.space_name]
-    local index = space.index[scanner.index_id]
-
-    local scan_value = scanner.value
-    if scanner.after_tuple ~= nil then
-        if scan_value == nil then
-            scan_value = scanner.after_tuple
+    local value = opts.scan_value
+    if opts.after_tuple ~= nil then
+        if value == nil then
+            value = opts.after_tuple
         else
-            local cmp_operator = select_comparators.get_cmp_operator(scanner.iter)
+            local cmp_operator = select_comparators.get_cmp_operator(opts.iter)
             local scan_comparator, err = select_comparators.gen_tuples_comparator(cmp_operator, index.parts)
             if err ~= nil then
                 log.warn("Failed to generate comparator for scan value: %s", err)
-            elseif scan_comparator(scanner.after_tuple, scan_value) then
-                local after_tuple_key = utils.extract_key(scanner.after_tuple, index.parts)
-                scan_value = after_tuple_key
+            elseif scan_comparator(opts.after_tuple, opts.scan_value) then
+                local after_tuple_key = utils.extract_key(opts.after_tuple, index.parts)
+                value = after_tuple_key
             end
         end
     end
 
     local tuple
-    local gen,param,state = index:pairs(scan_value, {iterator = scanner.iter})
+    local gen = index:pairs(value, {iterator = opts.iter})
 
-    if scanner.after_tuple ~= nil then
+    if opts.after_tuple ~= nil then
         local err
-        tuple, err = scroll_to_after_tuple(gen, param, state, space, scanner)
+        tuple, err = scroll_to_after_tuple(gen, space, index, opts.iter, opts.after_tuple)
         if err ~= nil then
-            return nil, ExecuteSelectError:new("Failed to scroll to the last tuple: %s", err)
+            return nil, ExecuteSelectError:new("Failed to scroll to the after_tuple: %s", err)
         end
 
         if tuple == nil then
@@ -85,7 +85,7 @@ function executor.execute(plan)
     end
 
     if tuple == nil then
-        state, tuple = gen(param, state)
+        gen.state, tuple = gen(gen.param, gen.state)
     end
 
     while true do
@@ -93,20 +93,20 @@ function executor.execute(plan)
             break
         end
 
-        local matched, early_exit = filer_func(tuple)
+        local matched, early_exit = filter_func(tuple)
 
         if matched then
             table.insert(tuples, tuple)
             tuples_count = tuples_count + 1
 
-            if scanner.limit ~= nil and tuples_count >= scanner.limit then
+            if opts.limit ~= nil and tuples_count >= opts.limit then
                 break
             end
         elseif early_exit then
             break
         end
 
-        state, tuple = gen(param, state)
+        gen.state, tuple = gen(gen.param, gen.state)
     end
 
     return tuples

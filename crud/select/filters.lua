@@ -1,5 +1,157 @@
+local checks = require('checks')
+local json = require('json')
+local errors = require('errors')
+
+local ParseConditionsError = errors.new_class('ParseConditionsError', {capture_stack = false})
+local GenFiltersError = errors.new_class('GenFiltersError', {capture_stack = false})
+
 local collations = require('crud.common.collations')
 local select_conditions = require('crud.select.conditions')
+
+local filters = {}
+
+--[[
+    Function returns true if main query iteration can be stopped by fired opposite condition.
+
+    For e.g.
+    - iteration goes using `'id' > 10`
+    - opposite condition `'id' < 100` becomes false
+    - in such case we can exit from iteration
+]]
+local function is_early_exit_possible(index, iter, condition)
+    if index == nil then
+        return false
+    end
+
+    if index.name ~= condition.operand then
+        return false
+    end
+
+    local condition_iter = select_conditions.get_tarantool_iter(condition)
+    if iter == box.index.REQ or iter == box.index.LT or iter == box.index.LE then
+        if condition_iter == box.index.GT or condition_iter == box.index.GE then
+            return true
+        end
+    elseif iter == box.index.EQ or iter == box.index.GT or iter == box.index.GE then
+        if condition_iter == box.index.LT or condition_iter == box.index.LE then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function get_index_fieldnos(index)
+    local index_fieldnos = {}
+
+    for _, part in ipairs(index.parts) do
+        table.insert(index_fieldnos, part.fieldno)
+    end
+
+    return index_fieldnos
+end
+
+local function get_values_types(space_format, fieldnos)
+    local values_types = {}
+
+    for _, fieldno in ipairs(fieldnos) do
+        local field_format = space_format[fieldno]
+        assert(field_format ~= nil)
+
+        table.insert(values_types, field_format.type)
+    end
+
+    return values_types
+end
+
+local function get_values_opts(index, fieldnos)
+    local values_opts = {}
+    for _, fieldno in ipairs(fieldnos) do
+        local is_nullable = true
+        local collation
+
+        if index ~= nil then
+            local index_part
+
+            for _, part in ipairs(index.parts) do
+                if part.fieldno == fieldno then
+                    index_part = part
+                    break
+                end
+            end
+
+            assert(index_part ~= nil)
+
+            is_nullable = index_part.is_nullable
+            collation = collations.get(index_part)
+        end
+
+        table.insert(values_opts, {
+            is_nullable = is_nullable,
+            collation = collation,
+        })
+    end
+
+    return values_opts
+end
+
+local function get_index_by_name(space_indexes, index_name)
+    for _, index in ipairs(space_indexes) do
+        if index.name == index_name then
+            return index
+        end
+    end
+end
+
+local function parse(space, conditions, opts)
+    checks('table', '?table', {
+        scan_condition_num = '?number',
+        iter = 'number',
+    })
+
+    conditions = conditions ~= nil and conditions or {}
+
+    local space_format = space:format()
+    local space_indexes = space.index
+
+    local fieldnos_by_names = {}
+
+    for i, field_format in ipairs(space_format) do
+        fieldnos_by_names[field_format.name] = i
+    end
+
+    local filter_conditions = {}
+
+    for i, condition in ipairs(conditions) do
+        if i ~= opts.scan_condition_num then
+            -- Index check (including one and multicolumn)
+            local fieldnos
+
+            local index = get_index_by_name(space_indexes, condition.operand)
+
+            if index ~= nil then
+                fieldnos = get_index_fieldnos(index)
+            elseif fieldnos_by_names[condition.operand] ~= nil then
+                fieldnos = {
+                    fieldnos_by_names[condition.operand],
+                }
+            else
+                return nil, ParseConditionsError('No field or index is found for condition %s', json.encode(condition))
+            end
+
+            table.insert(filter_conditions, {
+                fieldnos = fieldnos,
+                operator = condition.operator,
+                values = condition.values,
+                types = get_values_types(space_format, fieldnos),
+                early_exit_is_possible = is_early_exit_possible(index, opts.iter, condition),
+                values_opts = get_values_opts(index, fieldnos)
+            })
+        end
+    end
+
+    return filter_conditions
+end
 
 local function format_value(value)
     if type(value) == 'nil' then
@@ -243,9 +395,9 @@ local function gen_library_func(id, cond, func_args_code)
     return library_func_name, library_func_code
 end
 
-local function gen_code(filter_conditions)
+local function gen_filter_code(filter_conditions)
     if #filter_conditions == 0 then
-        return { code = 'return true, false', library_code = 'return {}' }
+        return { code = 'return true, false', library = 'return {}' }
     end
 
     local library_funcs_code_parts = {}
@@ -286,7 +438,7 @@ local function gen_code(filter_conditions)
 
     return {
         code = table.concat(filter_code_parts, '\n'),
-        library_code = library_code,
+        library = library_code,
     }
 end
 
@@ -418,8 +570,8 @@ local library = {
     NULL = box.NULL,
 }
 
-local function compile(filter)
-    local lib, err = load(filter.library_code, 'library', 'bt', library)
+local function compile(filter_code)
+    local lib, err = load(filter_code.library, 'library', 'bt', library)
     assert(lib, err)
     lib = lib()
 
@@ -427,12 +579,35 @@ local function compile(filter)
         lib[name] = f
     end
 
-    local func, err = load(filter.code, 'code', 'bt', lib)
+    local func, err = load(filter_code.code, 'code', 'bt', lib)
     assert(func, err)
     return func
 end
 
-return {
-    gen_code = gen_code,
+function filters.gen_func(space, conditions, opts)
+    checks('table', '?table', {
+        iter = 'number',
+        scan_condition_num = '?number',
+    })
+
+    local filter_conditions, err = parse(space, conditions, {
+        scan_condition_num = opts.scan_condition_num,
+        iter = opts.iter,
+    })
+    if err ~= nil then
+        return nil, GenFiltersError:new("Failed to generate filters for specified conditions: %s", err)
+    end
+
+    local filter_code = gen_filter_code(filter_conditions)
+    local filter_func = compile(filter_code)
+
+    return filter_func
+end
+
+filters.internal = {
+    parse = parse,
+    gen_filter_code = gen_filter_code,
     compile = compile,
 }
+
+return filters
