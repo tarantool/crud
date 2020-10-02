@@ -3,8 +3,12 @@ require('strict').on()
 local log = require('log')
 local checks = require('checks')
 local digest = require('digest')
-
 local fio = require('fio')
+
+if os.getenv('DEV') == nil then
+    os.setenv('DEV', 'ON')
+end
+
 local ok, cartridge_helpers = pcall(require, 'cartridge.test-helpers')
 if not ok then
     log.error('Please, install cartridge rock to run tests')

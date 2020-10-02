@@ -5,6 +5,7 @@ local vshard = require('vshard')
 local call = require('crud.common.call')
 local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
+local dev_checks = require('crud.common.dev_checks')
 
 local UpsertError = errors.new_class('UpsertError',  { capture_stack = false})
 
@@ -13,7 +14,7 @@ local upsert = {}
 local UPSERT_FUNC_NAME = '__upsert'
 
 local function call_upsert_on_storage(space_name, tuple, operations)
-    checks('string', 'table', 'table')
+    dev_checks('string', 'table', 'table')
 
     local space = box.space[space_name]
     if space == nil then

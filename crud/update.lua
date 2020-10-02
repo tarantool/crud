@@ -5,6 +5,7 @@ local vshard = require('vshard')
 local call = require('crud.common.call')
 local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
+local dev_checks = require('crud.common.dev_checks')
 
 local UpdateError = errors.new_class('Update',  {capture_stack = false})
 
@@ -13,7 +14,7 @@ local update = {}
 local UPDATE_FUNC_NAME = '__update'
 
 local function call_update_on_storage(space_name, key, operations)
-    checks('string', '?', 'table')
+    dev_checks('string', '?', 'table')
 
     local space = box.space[space_name]
     if space == nil then

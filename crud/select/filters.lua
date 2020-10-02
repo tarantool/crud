@@ -1,12 +1,12 @@
-local checks = require('checks')
 local json = require('json')
 local errors = require('errors')
 
-local ParseConditionsError = errors.new_class('ParseConditionsError', {capture_stack = false})
-local GenFiltersError = errors.new_class('GenFiltersError', {capture_stack = false})
-
+local dev_checks = require('crud.common.dev_checks')
 local collations = require('crud.common.collations')
 local select_conditions = require('crud.select.conditions')
+
+local ParseConditionsError = errors.new_class('ParseConditionsError', {capture_stack = false})
+local GenFiltersError = errors.new_class('GenFiltersError', {capture_stack = false})
 
 local filters = {}
 
@@ -104,7 +104,7 @@ local function get_index_by_name(space_indexes, index_name)
 end
 
 local function parse(space, conditions, opts)
-    checks('table', '?table', {
+    dev_checks('table', '?table', {
         scan_condition_num = '?number',
         iter = 'number',
     })
@@ -585,7 +585,7 @@ local function compile(filter_code)
 end
 
 function filters.gen_func(space, conditions, opts)
-    checks('table', '?table', {
+    dev_checks('table', '?table', {
         iter = 'number',
         scan_condition_num = '?number',
     })

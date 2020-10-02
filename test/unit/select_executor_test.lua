@@ -108,7 +108,7 @@ g.test_one_condition_no_index = function()
     t.assert_equals(get_ids(results), {2, 3})
 
     -- after tuple 2
-    local after_tuple = space:frommap(customers[2])
+    local after_tuple = space:frommap(customers[2]):totable()
 
     local results = select_executor.execute(space, index, filter_func, {
         scan_value = plan.scan_value,
@@ -118,7 +118,7 @@ g.test_one_condition_no_index = function()
     t.assert_equals(get_ids(results), {3})
 
     -- after tuple 3
-    local after_tuple = space:frommap(customers[3])
+    local after_tuple = space:frommap(customers[3]):totable()
 
     local results = select_executor.execute(space, index, filter_func, {
         scan_value = plan.scan_value,
@@ -167,7 +167,7 @@ g.test_one_condition_with_index = function()
     t.assert_equals(get_ids(results), {3, 2, 4}) -- in age order
 
     -- after tuple 3
-    local after_tuple = space:frommap(customers[3])
+    local after_tuple = space:frommap(customers[3]):totable()
 
     local results = select_executor.execute(space, index, filter_func, {
         scan_value = plan.scan_value,
@@ -223,7 +223,7 @@ g.test_multiple_conditions = function()
     t.assert_equals(get_ids(results), {5, 2})  -- in age order
 
     -- after tuple 5
-    local after_tuple = space:frommap(customers[5])
+    local after_tuple = space:frommap(customers[5]):totable()
 
     local results = select_executor.execute(space, index, filter_func, {
         scan_value = plan.scan_value,
@@ -274,7 +274,7 @@ g.test_composite_index = function()
     t.assert_equals(get_ids(results), {2, 1, 4}) -- in full_name order
 
     -- after tuple 2
-    local after_tuple = space:frommap(customers[2])
+    local after_tuple = space:frommap(customers[2]):totable()
 
     local results = select_executor.execute(space, index, filter_func, {
         scan_value = plan.scan_value,

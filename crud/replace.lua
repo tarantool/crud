@@ -5,6 +5,7 @@ local vshard = require('vshard')
 local call = require('crud.common.call')
 local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
+local dev_checks = require('crud.common.dev_checks')
 
 local ReplaceError = errors.new_class('Replace', { capture_stack = false })
 
@@ -13,7 +14,7 @@ local replace = {}
 local REPLACE_FUNC_NAME = '__replace'
 
 local function call_replace_on_storage(space_name, tuple)
-    checks('string', 'tuple')
+    dev_checks('string', 'table')
 
     local space = box.space[space_name]
     if space == nil then

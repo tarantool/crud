@@ -5,6 +5,7 @@ local vshard = require('vshard')
 local call = require('crud.common.call')
 local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
+local dev_checks = require('crud.common.dev_checks')
 
 local select_conditions = require('crud.select.conditions')
 local select_plan = require('crud.select.plan')
@@ -24,9 +25,9 @@ local SELECT_FUNC_NAME = '__select'
 local DEFAULT_BATCH_SIZE = 100
 
 local function call_select_on_storage(space_name, index_id, conditions, opts)
-    checks('string', 'number', '?table', {
+    dev_checks('string', 'number', '?table', {
         scan_value = 'table',
-        after_tuple = '?tuple',
+        after_tuple = '?table',
         iter = 'number',
         limit = 'number',
         scan_condition_num = '?number',
@@ -71,8 +72,8 @@ function select_module.init()
 end
 
 local function select_iteration(space_name, plan, opts)
-    checks('string', '?table', {
-        after_tuple = '?tuple',
+    dev_checks('string', '?table', {
+        after_tuple = '?table',
         replicasets = 'table',
         timeout = '?number',
         limit = 'number',
@@ -116,8 +117,8 @@ local function get_replicasets_by_sharding_key(sharding_key)
 end
 
 local function build_select_iterator(space_name, user_conditions, opts)
-    checks('string', '?table', {
-        after = '?',
+    dev_checks('string', '?table', {
+        after = '?table',
         limit = '?number',
         timeout = '?number',
         batch_size = '?number',
@@ -203,7 +204,7 @@ end
 
 function select_module.pairs(space_name, user_conditions, opts)
     checks('string', '?table', {
-        after = '?',
+        after = '?table',
         limit = '?number',
         timeout = '?number',
         batch_size = '?number',
@@ -240,7 +241,7 @@ end
 
 function select_module.call(space_name, user_conditions, opts)
     checks('string', '?table', {
-        after = '?',
+        after = '?table',
         limit = '?number',
         timeout = '?number',
         batch_size = '?number',

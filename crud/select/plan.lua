@@ -1,7 +1,7 @@
-local checks = require('checks')
 local errors = require('errors')
 
 local select_conditions = require('crud.select.conditions')
+local dev_checks = require('crud.common.dev_checks')
 
 local select_plan = {}
 
@@ -85,7 +85,7 @@ local function extract_sharding_key_from_scan_key(scan_key, scan_index, sharding
 end
 
 function select_plan.new(space, conditions, opts)
-    checks('table', '?table', {
+    dev_checks('table', '?table', {
         limit = '?number',
     })
     conditions = conditions ~= nil and conditions or {}

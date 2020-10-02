@@ -1,8 +1,8 @@
-local checks = require('checks')
 local fiber = require('fiber')
 local vshard = require('vshard')
 local errors = require('errors')
 
+local dev_checks = require('crud.common.dev_checks')
 local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
 
@@ -23,7 +23,7 @@ local DEFAULT_VSHARD_CALL_TIMEOUT = 2
 --
 function call.init()
     local function call(opts)
-        checks({
+        dev_checks({
             func_name = 'string',
             func_args = '?table',
         })
@@ -63,7 +63,7 @@ local function call_on_replicaset(replicaset, channel, vshard_call, func_name, f
 end
 
 local function call_impl(vshard_call, func_name, func_args, opts)
-    checks('string', 'string', '?table', {
+    dev_checks('string', 'string', '?table', {
         timeout = '?number',
         replicasets = '?table',
     })

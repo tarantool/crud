@@ -1,5 +1,6 @@
-local checks = require('checks')
 local errors = require('errors')
+
+local dev_checks = require('crud.common.dev_checks')
 
 local FlattenError = errors.new_class("FlattenError", {capture_stack = false})
 local UnflattenError = errors.new_class("UnflattenError", {capture_stack = false})
@@ -8,7 +9,7 @@ local ParseOperationsError = errors.new_class('ParseOperationsError',  {capture_
 local utils = {}
 
 function utils.table_count(table)
-    checks("table")
+    dev_checks("table")
 
     local cnt = 0
     for _, _ in pairs(table) do
@@ -19,7 +20,7 @@ function utils.table_count(table)
 end
 
 function utils.format_replicaset_error(replicaset_uuid, msg, ...)
-    checks("string", "string")
+    dev_checks("string", "string")
 
     return string.format(
         "Failed for %s: %s",
