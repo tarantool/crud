@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  * replace
  * upsert
 
+* Output format for CRUD operations changed to set of rows and metadata
+
 ### Changed
 
 * `checks` is disabled for internal functions by default

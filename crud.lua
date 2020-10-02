@@ -11,6 +11,7 @@ local update = require('crud.update')
 local upsert = require('crud.upsert')
 local delete = require('crud.delete')
 local select = require('crud.select')
+local utils = require('crud.common.utils')
 
 local crud = {}
 
@@ -55,6 +56,10 @@ crud.select = select.call
 -- @refer select.pairs
 -- @function pairs
 crud.pairs = select.pairs
+
+-- @refer utils.unflatten_rows
+-- @function unflatten_rows
+crud.unflatten_rows = utils.unflatten_rows
 
 --- Initializes crud on node
 --

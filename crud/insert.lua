@@ -63,7 +63,7 @@ function insert.call(space_name, obj, opts)
     end
     local space_format = space:format()
 
-    -- compute default buckect_id
+    -- compute default bucket_id
     local tuple, err = utils.flatten(obj, space_format)
     if err ~= nil then
         return nil, InsertError:new("Object is specified in bad format: %s", err)
@@ -92,12 +92,10 @@ function insert.call(space_name, obj, opts)
     end
 
     local tuple = results[replicaset.uuid]
-    local object, err = utils.unflatten(tuple, space_format)
-    if err ~= nil then
-        return nil, InsertError:new("Received tuple that doesn't match space format: %s", err)
-    end
-
-    return object
+    return {
+        metadata = table.copy(space_format),
+        rows = {tuple},
+    }
 end
 
 return insert

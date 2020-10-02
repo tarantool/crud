@@ -1,13 +1,15 @@
 local fio = require('fio')
 
 local t = require('luatest')
-local g = t.group('pairs')
+local g_memtx = t.group('pairs_memtx')
+local g_vinyl = t.group('pairs_vinyl')
+local crud = require('crud')
 
 local helpers = require('test.helper')
 
 math.randomseed(os.time())
 
-g.before_all = function()
+local function before_all(g, engine)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_select'),
@@ -40,16 +42,20 @@ g.before_all = function()
                 },
             }
         },
+        env = {
+            ['ENGINE'] = engine,
+        },
     })
+    g.engine = engine
     g.cluster:start()
 end
 
-g.after_all = function()
+local function after_all(g)
     g.cluster:stop()
     fio.rmtree(g.cluster.datadir)
 end
 
-g.before_each(function()
+local function before_each(g)
     for _, server in ipairs(g.cluster.servers) do
         server.net_box:eval([[
             local space = box.space.customers
@@ -58,20 +64,37 @@ g.before_each(function()
             end
         ]])
     end
-end)
+end
 
-local function insert_customers(customers)
+g_memtx.before_all = function() before_all(g_memtx, 'memtx') end
+g_vinyl.before_all = function() before_all(g_vinyl, 'vinyl') end
+
+g_memtx.after_all = function() after_all(g_memtx) end
+g_vinyl.after_all = function() after_all(g_vinyl) end
+
+g_memtx.before_each(function() before_each(g_memtx) end)
+g_vinyl.before_each(function() before_each(g_vinyl) end)
+
+local function add(name, fn)
+    g_memtx[name] = fn
+    g_vinyl[name] = fn
+end
+
+local function insert_customers(g, customers)
     local inserted_objects = {}
 
     for _, customer in ipairs(customers) do
-        local obj, err = g.cluster.main_server.net_box:eval([[
+        local result, err = g.cluster.main_server.net_box:eval([[
             local crud = require('crud')
             return crud.insert('customers', ...)
         ]],{customer})
 
         t.assert_equals(err, nil)
 
-        table.insert(inserted_objects, obj)
+        local objects, err = crud.unflatten_rows(result.rows, result.metadata)
+        t.assert_equals(err, nil)
+        t.assert_equals(#objects, 1)
+        table.insert(inserted_objects, objects[1])
     end
 
     return inserted_objects
@@ -85,8 +108,8 @@ local function get_by_ids(customers, ids)
     return results
 end
 
-g.test_pairs_no_conditions = function()
-    local customers = insert_customers({
+add('test_pairs_no_conditions', function(g)
+    local customers = insert_customers(g, {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -154,10 +177,10 @@ g.test_pairs_no_conditions = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(#objects, 0)
-end
+end)
 
-g.test_ge_condition_with_index = function()
-    local customers = insert_customers({
+add('test_ge_condition_with_index', function(g)
+    local customers = insert_customers(g, {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -213,10 +236,10 @@ g.test_ge_condition_with_index = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {2, 4})) -- in age order
-end
+end)
 
-g.test_le_condition_with_index = function()
-    local customers = insert_customers({
+add('test_le_condition_with_index', function(g)
+    local customers = insert_customers(g, {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -272,4 +295,4 @@ g.test_le_condition_with_index = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, get_by_ids(customers, {1})) -- in age order
-end
+end)

@@ -31,7 +31,7 @@ function delete.init()
     })
 end
 
---- Deletes tuple from the specifed space by key
+--- Deletes tuple from the specified space by key
 --
 -- @function call
 --
@@ -81,12 +81,10 @@ function delete.call(space_name, key, opts)
     end
 
     local tuple = results[replicaset.uuid]
-    local object, err = utils.unflatten(tuple, space:format())
-    if err ~= nil then
-        return nil, DeleteError:new("Received tuple that doesn't match space format: %s", err)
-    end
-
-    return object
+    return {
+        metadata = table.copy(space:format()),
+        rows = {tuple},
+    }
 end
 
 return delete

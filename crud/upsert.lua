@@ -88,7 +88,7 @@ function upsert.call(space_name, obj, user_operations, opts)
         return nil, UpsertError:new("Object is specified in bad format: %s", err)
     end
 
-    local results, err = call.rw(UPSERT_FUNC_NAME, {space_name, tuple, operations}, {
+    local _, err = call.rw(UPSERT_FUNC_NAME, {space_name, tuple, operations}, {
         replicasets = {replicaset},
         timeout = opts.timeout,
     })
@@ -97,8 +97,11 @@ function upsert.call(space_name, obj, user_operations, opts)
         return nil, UpsertError:new("Failed to upsert: %s", err)
     end
 
-    --upsert always return nil
-    return results[replicaset.uuid]
+    -- upsert always returns nil
+    return {
+        metadata = table.copy(space_format),
+        rows = {},
+    }
 end
 
 return upsert

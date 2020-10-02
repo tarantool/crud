@@ -228,9 +228,14 @@ function select_module.pairs(space_name, user_conditions, opts)
             return nil
         end
 
-        local obj, err = iter:get()
+        local tuple, err = iter:get()
         if err ~= nil then
             error(string.format("Failed to get next object: %s", err))
+        end
+
+        local obj, err = utils.unflatten(tuple, iter.space_format)
+        if err ~= nil then
+            error(string.format("Failed to unflatten next object: %s", err))
         end
 
         return iter, obj
@@ -260,7 +265,7 @@ function select_module.call(space_name, user_conditions, opts)
         return nil, err
     end
 
-    local objects = {}
+    local tuples = {}
 
     while iter:has_next() do
         local obj, err = iter:get()
@@ -272,10 +277,13 @@ function select_module.call(space_name, user_conditions, opts)
             break
         end
 
-        table.insert(objects, obj)
+        table.insert(tuples, obj)
     end
 
-    return objects
+    return {
+        metadata = table.copy(iter.space_format),
+        rows = tuples,
+    }
 end
 
 return select_module

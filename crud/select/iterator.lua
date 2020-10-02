@@ -191,12 +191,7 @@ function Iterator:get()
         end
     end
 
-    local object, err = utils.unflatten(tuple, self.space_format)
-    if err ~= nil then
-        return nil, GetTupleError:new("Received tuple that doesn't match space format: %s", err)
-    end
-
-    return object
+    return tuple
 end
 
 return Iterator
