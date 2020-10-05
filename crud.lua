@@ -25,25 +25,25 @@ crud.register = registry.add
 --- CRUD operations.
 -- @section crud
 
--- @refer insert.call
+-- @refer insert.object
 -- @function insert
-crud.insert = insert.call
+crud.insert = insert.object
 
 -- @refer get.call
 -- @function get
 crud.get = get.call
 
--- @refer replace.call
+-- @refer replace.object
 -- @function replace
-crud.replace = replace.call
+crud.replace = replace.object
 
 -- @refer update.call
 -- @function update
 crud.update = update.call
 
--- @refer upsert.call
+-- @refer upsert.object
 -- @function upsert
-crud.upsert = upsert.call
+crud.upsert = upsert.object
 
 -- @refer delete.call
 -- @function delete

@@ -5,6 +5,7 @@ local dev_checks = require('crud.common.dev_checks')
 local FlattenError = errors.new_class("FlattenError", {capture_stack = false})
 local UnflattenError = errors.new_class("UnflattenError", {capture_stack = false})
 local ParseOperationsError = errors.new_class('ParseOperationsError',  {capture_stack = false})
+local ShardingError = errors.new_class('ShardingError',  {capture_stack = false})
 
 local utils = {}
 
@@ -193,6 +194,16 @@ function utils.reverse_inplace(t)
         t[i], t[#t - i + 1] = t[#t - i + 1], t[i]
     end
     return t
+end
+
+function utils.get_bucket_id_fieldno(space, shard_index_name)
+    shard_index_name = shard_index_name or 'bucket_id'
+    local bucket_id_index = space.index[shard_index_name]
+    if bucket_id_index == nil then
+        return nil, ShardingError:new('%q index is not found', shard_index_name)
+    end
+
+    return bucket_id_index.parts[1].fieldno
 end
 
 return utils

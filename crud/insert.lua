@@ -30,27 +30,24 @@ function insert.init()
     })
 end
 
---- Inserts tuple to the specified space
+--- Inserts a tuple to the specified space
 --
--- @function call
+-- @function tuple
 --
 -- @param string space_name
 --  A space name
 --
--- @param table key_parts
---  Primary key fields' names array
---
--- @param table obj
---  Tuple object (according to space format)
+-- @param table tuple
+--  Tuple
 --
 -- @tparam ?number opts.timeout
 --  Function call timeout
 --
--- @return[1] object
+-- @return[1] tuple
 -- @treturn[2] nil
 -- @treturn[2] table Error description
 --
-function insert.call(space_name, obj, opts)
+function insert.tuple(space_name, tuple, opts)
     checks('string', 'table', {
         timeout = '?number',
     })
@@ -63,25 +60,24 @@ function insert.call(space_name, obj, opts)
     end
     local space_format = space:format()
 
-    -- compute default bucket_id
-    local tuple, err = utils.flatten(obj, space_format)
-    if err ~= nil then
-        return nil, InsertError:new("Object is specified in bad format: %s", err)
-    end
-
     local key = utils.extract_key(tuple, space.index[0].parts)
-
     local bucket_id = vshard.router.bucket_id_strcrc32(key)
     local replicaset, err = vshard.router.route(bucket_id)
     if replicaset == nil then
         return nil, InsertError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
     end
 
-    local tuple, err = utils.flatten(obj, space_format, bucket_id)
+    local bucket_id_fieldno, err = utils.get_bucket_id_fieldno(space)
     if err ~= nil then
-        return nil, InsertError:new("Object is specified in bad format: %s", err)
+        return nil, err
     end
 
+    if tuple[bucket_id_fieldno] ~= nil then
+        return nil, InsertError:new("Unexpected value (%s) at field %s (sharding key)",
+                tuple[bucket_id_fieldno], bucket_id_fieldno)
+    end
+
+    tuple[bucket_id_fieldno] = bucket_id
     local results, err = call.rw(INSERT_FUNC_NAME, {space_name, tuple}, {
         replicasets = {replicaset},
         timeout = opts.timeout,
@@ -96,6 +92,44 @@ function insert.call(space_name, obj, opts)
         metadata = table.copy(space_format),
         rows = {tuple},
     }
+end
+
+--- Inserts an object to the specified space
+--
+-- @function object
+--
+-- @param string space_name
+--  A space name
+--
+-- @param table obj
+--  Object
+--
+-- @tparam ?number opts.timeout
+--  Function call timeout
+--
+-- @return[1] object
+-- @treturn[2] nil
+-- @treturn[2] table Error description
+--
+function insert.object(space_name, obj, opts)
+    checks('string', 'table', {
+        timeout = '?number',
+    })
+
+    opts = opts or {}
+
+    local space = utils.get_space(space_name, vshard.router.routeall())
+    if space == nil then
+        return nil, InsertError:new("Space %q doesn't exists", space_name)
+    end
+    local space_format = space:format()
+
+    local tuple, err = utils.flatten(obj, space_format)
+    if err ~= nil then
+        return nil, InsertError:new("Object is specified in bad format: %s", err)
+    end
+
+    return insert.tuple(space_name, tuple, opts)
 end
 
 return insert
