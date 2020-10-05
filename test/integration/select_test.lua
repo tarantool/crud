@@ -258,6 +258,54 @@ add('test_select_all_with_first', function(g)
     t.assert_equals(#objects, 0)
 end)
 
+add('test_negative_first', function(g)
+    local customers = insert_customers(g,{
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 81, city = "Chicago",
+        }, {
+            id = 5, name = "Jack", last_name = "Sparrow",
+            age = 35, city = "London",
+        }, {
+            id = 6, name = "William", last_name = "Terner",
+            age = 25, city = "Oxford",
+        }, {
+            id = 7, name = "Elizabeth", last_name = "Swan",
+            age = 18, city = "Cambridge",
+        }, {
+            id = 8, name = "Hector", last_name = "Barbossa",
+            age = 45, city = "London",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    -- negative first w/o after
+    local first = -10
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local first = ...
+
+        local objects, err = crud.select('customers', nil, {
+            first = first,
+        })
+        return objects, err
+    ]], {first})
+
+    t.assert_equals(objects, nil)
+    t.assert_str_contains(err.err, "Negative first should be specified only with after option")
+end)
+
 add('test_select_all_with_batch_size', function(g)
     local customers = insert_customers(g, {
         {

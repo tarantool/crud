@@ -208,7 +208,9 @@ function select_module.pairs(space_name, user_conditions, opts)
 
     opts = opts or {}
 
-    -- XXX: deny negative first
+    if opts.first ~= nil and opts.first < 0 then
+        error(string.format("Negative first isn't allowed for pairs"))
+    end
 
     local iter, err = build_select_iterator(space_name, user_conditions, {
         after = opts.after,
@@ -251,6 +253,12 @@ function select_module.call(space_name, user_conditions, opts)
     })
 
     opts = opts or {}
+
+    if opts.first ~= nil and opts.first < 0 then
+        if opts.after == nil then
+            return nil, SelectError:new("Negative first should be specified only with after option")
+        end
+    end
 
     local iter, err = build_select_iterator(space_name, user_conditions, {
         after = opts.after,
