@@ -86,7 +86,7 @@ end
 
 function select_plan.new(space, conditions, opts)
     dev_checks('table', '?table', {
-        limit = '?number',
+        first = '?number',
     })
     conditions = conditions ~= nil and conditions or {}
     opts = opts or {}
@@ -136,7 +136,10 @@ function select_plan.new(space, conditions, opts)
     end
 
     -- set total_tuples_count
-    local total_tuples_count = opts.limit
+    local total_tuples_count
+    if opts.first ~= nil then
+        total_tuples_count = math.abs(opts.first)
+    end
 
     local sharding_index = primary_index -- XXX: only sharding by primary key is supported
 

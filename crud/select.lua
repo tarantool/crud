@@ -119,7 +119,7 @@ end
 local function build_select_iterator(space_name, user_conditions, opts)
     dev_checks('string', '?table', {
         after = '?table',
-        limit = '?number',
+        first = '?number',
         timeout = '?number',
         batch_size = '?number',
     })
@@ -131,10 +131,6 @@ local function build_select_iterator(space_name, user_conditions, opts)
     end
 
     local batch_size = opts.batch_size or DEFAULT_BATCH_SIZE
-
-    if opts.limit ~= nil and opts.limit < 0 then
-        return nil, SelectError:new("limit should be >= 0")
-    end
 
     -- check conditions
     local conditions, err = select_conditions.parse(user_conditions)
@@ -155,14 +151,14 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
     -- plan select
     local plan, err = select_plan.new(space, conditions, {
-        limit = opts.limit,
+        first = opts.first,
     })
 
     if err ~= nil then
         return nil, SelectError:new("Failed to plan select: %s", err)
     end
 
-    -- set limit and replicasets to select from
+    -- set replicasets to select from
     local replicasets_to_select = replicasets
 
     if plan.sharding_key ~= nil then
@@ -205,16 +201,18 @@ end
 function select_module.pairs(space_name, user_conditions, opts)
     checks('string', '?table', {
         after = '?table',
-        limit = '?number',
+        first = '?number',
         timeout = '?number',
         batch_size = '?number',
     })
 
     opts = opts or {}
 
+    -- XXX: deny negative first
+
     local iter, err = build_select_iterator(space_name, user_conditions, {
         after = opts.after,
-        limit = opts.limit,
+        first = opts.first,
         timeout = opts.timeout,
         batch_size = opts.batch_size,
     })
@@ -247,7 +245,7 @@ end
 function select_module.call(space_name, user_conditions, opts)
     checks('string', '?table', {
         after = '?table',
-        limit = '?number',
+        first = '?number',
         timeout = '?number',
         batch_size = '?number',
     })
@@ -256,7 +254,7 @@ function select_module.call(space_name, user_conditions, opts)
 
     local iter, err = build_select_iterator(space_name, user_conditions, {
         after = opts.after,
-        limit = opts.limit,
+        first = opts.first,
         timeout = opts.timeout,
         batch_size = opts.batch_size,
     })

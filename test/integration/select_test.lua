@@ -204,7 +204,7 @@ add('test_select_all', function(g)
     t.assert_equals(#objects, 0)
 end)
 
-add('test_select_all_with_limit', function(g)
+add('test_select_all_with_first', function(g)
     local customers = insert_customers(g, {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -223,29 +223,35 @@ add('test_select_all_with_limit', function(g)
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
-    -- limit 2
+    -- first 2
+    local first = 2
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
+        local first = ...
+
         local result, err = crud.select('customers', nil, {
-            limit = 2,
+            first = first,
         })
         return result, err
-    ]])
+    ]], {first})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, get_by_ids(customers, {1, 2}))
 
-    -- limit 0
+    -- first 0
+    local first = 0
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
+        local first = ...
+
         local result, err = crud.select('customers', nil, {
-            limit = 0,
+            first = first,
         })
         return result, err
-    ]])
+    ]], {first})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -313,13 +319,13 @@ add('test_select_all_with_batch_size', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, customers)
 
-    -- batch size 3 and limit 6
+    -- batch size 3 and first 6
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
         local result, err = crud.select('customers', nil, {
             batch_size = 3,
-            limit = 6,
+            first = 6,
         })
         return result, err
     ]])

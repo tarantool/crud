@@ -50,7 +50,7 @@ g.after_all(function()
     box.space.customers:drop()
 end)
 
-g.test_scanner_bad_operand_name = function()
+g.test_bad_operand_name = function()
     local plan, err = select_plan.new(box.space.customers, {
         cond_funcs.gt('non-existent-field-index', 20),
     })
@@ -60,7 +60,7 @@ g.test_scanner_bad_operand_name = function()
     t.assert_str_contains(err.err, 'No field or index "non-existent-field-index" found')
 end
 
-g.test_scanner_indexed_field = function()
+g.test_indexed_field = function()
     -- select by indexed field
     local conditions = { cond_funcs.gt('age', 20) }
 
@@ -79,7 +79,7 @@ g.test_scanner_indexed_field = function()
     t.assert_equals(plan.sharding_key, nil)
 end
 
-g.test_scanner_non_indexed_field = function()
+g.test_non_indexed_field = function()
     local conditions = { cond_funcs.eq('city', 'Moscow') }
     local plan, err = select_plan.new(box.space.customers, conditions)
 
@@ -96,7 +96,7 @@ g.test_scanner_non_indexed_field = function()
     t.assert_equals(plan.sharding_key, nil)
 end
 
-g.test_scanner_partial_indexed_field = function()
+g.test_partial_indexed_field = function()
     -- select by first part of the index
     local conditions = { cond_funcs.gt('name', 'A'), }
     local plan, err = select_plan.new(box.space.customers, conditions)
@@ -183,4 +183,26 @@ g.test_is_scan_by_full_sharding_key_eq = function()
 
     t.assert_equals(plan.total_tuples_count, nil)
     t.assert_equals(plan.sharding_key, nil)
+end
+
+g.test_first = function()
+    -- positive first
+    local plan, err = select_plan.new(box.space.customers, nil, {
+        first = 10,
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_type(plan, 'table')
+
+    t.assert_equals(plan.total_tuples_count, 10)
+
+    -- negative first
+    local plan, err = select_plan.new(box.space.customers, nil, {
+        first = -10,
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_type(plan, 'table')
+
+    t.assert_equals(plan.total_tuples_count, 10)
 end
