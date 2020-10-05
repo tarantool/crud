@@ -5,6 +5,7 @@ local vshard = require('vshard')
 local call = require('crud.common.call')
 local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
+local dev_checks = require('crud.common.dev_checks')
 
 local GetError = errors.new_class('Get',  {capture_stack = false})
 
@@ -13,7 +14,7 @@ local get = {}
 local GET_FUNC_NAME = '__get'
 
 local function call_get_on_storage(space_name, key)
-    checks('string', '?')
+    dev_checks('string', '?')
 
     local space = box.space[space_name]
     if space == nil then

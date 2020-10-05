@@ -1,10 +1,8 @@
-local checks = require('checks')
 local errors = require('errors')
 local fiber = require('fiber')
 
+local dev_checks = require('crud.common.dev_checks')
 local utils = require('crud.common.utils')
-
-require('crud.common.checkers')
 
 local UpdateTuplesError = errors.new('UpdateTuplesError')
 local GetTupleError = errors.new('GetTupleError')
@@ -15,7 +13,7 @@ local Iterator = {}
 Iterator.__index = Iterator
 
 function Iterator.new(opts)
-    checks({
+    dev_checks({
         space_name = 'string',
         space_format = 'table',
         comparator = 'function',

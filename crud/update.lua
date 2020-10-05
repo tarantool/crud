@@ -5,8 +5,7 @@ local vshard = require('vshard')
 local call = require('crud.common.call')
 local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
-
-require('crud.common.checkers')
+local dev_checks = require('crud.common.dev_checks')
 
 local UpdateError = errors.new_class('Update',  {capture_stack = false})
 
@@ -15,7 +14,7 @@ local update = {}
 local UPDATE_FUNC_NAME = '__update'
 
 local function call_update_on_storage(space_name, key, operations)
-    checks('string', '?', 'update_operations')
+    dev_checks('string', '?', 'table')
 
     local space = box.space[space_name]
     if space == nil then
@@ -44,7 +43,7 @@ end
 --
 -- @param table user_operations
 --  Operations to be performed.
---  See `spaceect:update` operations in Tarantool doc
+--  See `space:update` operations in Tarantool doc
 --
 -- @tparam ?number opts.timeout
 --  Function call timeout
@@ -54,7 +53,7 @@ end
 -- @treturn[2] table Error description
 --
 function update.call(space_name, key, user_operations, opts)
-    checks('string', '?', 'update_operations', {
+    checks('string', '?', 'table', {
         timeout = '?number',
     })
 

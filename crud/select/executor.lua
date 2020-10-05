@@ -1,7 +1,7 @@
-local checks = require('checks')
 local errors = require('errors')
 local log = require('log')
 
+local dev_checks = require('crud.common.dev_checks')
 local select_comparators = require('crud.select.comparators')
 
 local utils = require('crud.common.utils')
@@ -37,9 +37,9 @@ local function scroll_to_after_tuple(gen, space, scan_index, iter, after_tuple)
 end
 
 function executor.execute(space, index, filter_func, opts)
-    checks('table', 'table', 'function', {
+    dev_checks('table', 'table', 'function', {
         scan_value = 'table',
-        after_tuple = '?cdata|table',
+        after_tuple = '?table',
         iter = 'number',
         limit = '?number',
     })

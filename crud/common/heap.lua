@@ -1,12 +1,10 @@
-local checks = require('checks')
-
-require('crud.common.checkers')
+local dev_checks = require('crud.common.dev_checks')
 
 local Heap = {}
 Heap.__index = Heap
 
 function Heap.new(opts)
-    checks({
+    dev_checks({
         comparator = 'function',
     })
 
@@ -45,7 +43,7 @@ function Heap:_ok(child_idx, parent_idx)
 end
 
 function Heap:add(obj, meta)
-    checks('table', '?', '?')
+    dev_checks('table', '?', '?')
 
     local node = {
         obj = obj,

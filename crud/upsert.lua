@@ -5,8 +5,7 @@ local vshard = require('vshard')
 local call = require('crud.common.call')
 local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
-
-require('crud.common.checkers')
+local dev_checks = require('crud.common.dev_checks')
 
 local UpsertError = errors.new_class('UpsertError',  { capture_stack = false})
 
@@ -15,7 +14,7 @@ local upsert = {}
 local UPSERT_FUNC_NAME = '__upsert'
 
 local function call_upsert_on_storage(space_name, tuple, operations)
-    checks('string', 'table', 'update_operations')
+    dev_checks('string', 'table', 'table')
 
     local space = box.space[space_name]
     if space == nil then
@@ -43,7 +42,7 @@ end
 --
 -- @param table user_operations
 --  user_operations to be performed.
---  See `space_object:update` operations in Tarantool doc
+--  See `space:update` operations in Tarantool doc
 --
 -- @tparam ?number opts.timeout
 --  Function call timeout
@@ -53,7 +52,7 @@ end
 -- @treturn[2] table Error description
 --
 function upsert.call(space_name, obj, user_operations, opts)
-    checks('string', '?', 'update_operations', {
+    checks('string', '?', 'table', {
         timeout = '?number',
     })
 
