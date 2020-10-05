@@ -20,7 +20,6 @@ function Iterator.new(opts)
         iteration_func = 'function',
 
         plan = 'table',
-        after_tuple = '?table',
 
         batch_size = 'number',
         replicasets = 'table',
@@ -34,7 +33,8 @@ function Iterator.new(opts)
         iteration_func = opts.iteration_func,
 
         plan = opts.plan,
-        after_tuple = opts.after_tuple,
+        reversed = opts.plan.reversed,
+
         timeout = opts.timeout,
 
         replicasets = table.copy(opts.replicasets),
@@ -56,7 +56,7 @@ function Iterator.new(opts)
 
     setmetatable(iter, Iterator)
 
-    iter:_update_replicasets_tuples(iter.after_tuple)
+    iter:_update_replicasets_tuples(iter.plan.after_tuple)
 
     return iter
 end

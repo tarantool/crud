@@ -1,6 +1,7 @@
 local errors = require('errors')
 
 local select_conditions = require('crud.select.conditions')
+local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
 local select_plan = {}
@@ -87,7 +88,9 @@ end
 function select_plan.new(space, conditions, opts)
     dev_checks('table', '?table', {
         first = '?number',
+        after_tuple = '?table',
     })
+
     conditions = conditions ~= nil and conditions or {}
     opts = opts or {}
 
@@ -135,10 +138,28 @@ function select_plan.new(space, conditions, opts)
         scan_value = {}
     end
 
-    -- set total_tuples_count
+    -- handle opts.first
     local total_tuples_count
+    local reversed = false
+    local scan_after_tuple = opts.after_tuple
+
     if opts.first ~= nil then
         total_tuples_count = math.abs(opts.first)
+
+        if opts.first < 0 then
+            reversed = true
+            scan_iter = utils.invert_tarantool_iter(scan_iter)
+
+            -- scan condition becomes border consition
+            scan_condition_num = nil
+
+            if scan_after_tuple ~= nil then
+                scan_value = utils.extract_key(scan_after_tuple, scan_index.parts)
+            else
+                scan_value = nil
+            end
+
+        end
     end
 
     local sharding_index = primary_index -- XXX: only sharding by primary key is supported
@@ -159,10 +180,12 @@ function select_plan.new(space, conditions, opts)
         space_name = space_name,
         index_id = scan_index.id,
         scan_value = scan_value,
+        after_tuple = scan_after_tuple,
         scan_condition_num = scan_condition_num,
         iter = scan_iter,
         total_tuples_count = total_tuples_count,
         sharding_key = sharding_key,
+        reversed = reversed,
     }
 
     return plan

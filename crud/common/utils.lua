@@ -173,4 +173,26 @@ function utils.unflatten_rows(rows, metadata)
     return result
 end
 
+local inverted_tarantool_iters = {
+    [box.index.EQ] = box.index.REQ,
+    [box.index.GT] = box.index.LT,
+    [box.index.GE] = box.index.LE,
+    [box.index.LT] = box.index.GT,
+    [box.index.LE] = box.index.GE,
+    [box.index.REQ] = box.index.EQ,
+}
+
+function utils.invert_tarantool_iter(iter)
+    local inverted_iter = inverted_tarantool_iters[iter]
+    assert(inverted_iter ~= nil, "Unsupported Tarantool iterator: " .. tostring(iter))
+    return inverted_iter
+end
+
+function utils.reverse_inplace(t)
+    for i = 1,#t - 1 do
+        t[i], t[#t - i + 1] = t[#t - i + 1], t[i]
+    end
+    return t
+end
+
 return utils

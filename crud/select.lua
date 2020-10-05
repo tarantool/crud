@@ -149,9 +149,13 @@ local function build_select_iterator(space_name, user_conditions, opts)
     end
     local space_format = space:format()
 
+    -- set after tuple
+    local after_tuple = utils.flatten(opts.after, space_format)
+
     -- plan select
     local plan, err = select_plan.new(space, conditions, {
         first = opts.first,
+        after_tuple = after_tuple,
     })
 
     if err ~= nil then
@@ -164,9 +168,6 @@ local function build_select_iterator(space_name, user_conditions, opts)
     if plan.sharding_key ~= nil then
         replicasets_to_select = get_replicasets_by_sharding_key(plan.sharding_key)
     end
-
-    -- set after tuple
-    local after_tuple = utils.flatten(opts.after, space_format)
 
     -- generate tuples comparator
     local scan_index = space.index[plan.index_id]
@@ -187,7 +188,6 @@ local function build_select_iterator(space_name, user_conditions, opts)
         comparator = tuples_comparator,
 
         plan = plan,
-        after_tuple = after_tuple,
 
         batch_size = batch_size,
         replicasets = replicasets_to_select,
@@ -274,16 +274,20 @@ function select_module.call(space_name, user_conditions, opts)
     local tuples = {}
 
     while iter:has_next() do
-        local obj, err = iter:get()
+        local tuple, err = iter:get()
         if err ~= nil then
             return nil, SelectError:new("Failed to get next object: %s", err)
         end
 
-        if obj == nil then
+        if tuple == nil then
             break
         end
 
-        table.insert(tuples, obj)
+        table.insert(tuples, tuple)
+    end
+
+    if iter.reversed then
+        utils.reverse_inplace(tuples)
     end
 
     return {
