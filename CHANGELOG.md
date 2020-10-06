@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 * Output format for CRUD operations changed to set of rows and metadata
 
+* Insert/replace/upsert methods now accept tuples.
+  To process unflattened objects *_object methods are introduced.
+
 ### Changed
 
 * `checks` is disabled for internal functions by default
