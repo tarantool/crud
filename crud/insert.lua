@@ -18,7 +18,7 @@ local function call_insert_on_storage(space_name, tuple)
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, InsertError:new("Space %q doesn't exists", space_name)
+        return nil, InsertError:new("Space %q doesn't exist", space_name)
     end
 
     return space:insert(tuple)
@@ -30,7 +30,7 @@ function insert.init()
     })
 end
 
---- Inserts tuple to the specifed space
+--- Inserts tuple to the specified space
 --
 -- @function call
 --
@@ -59,7 +59,7 @@ function insert.call(space_name, obj, opts)
 
     local space = utils.get_space(space_name, vshard.router.routeall())
     if space == nil then
-        return nil, InsertError:new("Space %q doesn't exists", space_name)
+        return nil, InsertError:new("Space %q doesn't exist", space_name)
     end
     local space_format = space:format()
 

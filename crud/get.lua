@@ -18,7 +18,7 @@ local function call_get_on_storage(space_name, key)
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, GetError:new("Space %q doesn't exists", space_name)
+        return nil, GetError:new("Space %q doesn't exist", space_name)
     end
 
     local tuple = space:get(key)
@@ -31,7 +31,7 @@ function get.init()
     })
 end
 
---- Get tuple from the specifed space by key
+--- Get tuple from the specified space by key
 --
 -- @function call
 --
@@ -57,7 +57,7 @@ function get.call(space_name, key, opts)
 
     local space = utils.get_space(space_name, vshard.router.routeall())
     if space == nil then
-        return nil, GetError:new("Space %q doesn't exists", space_name)
+        return nil, GetError:new("Space %q doesn't exist", space_name)
     end
 
     if box.tuple.is(key) then

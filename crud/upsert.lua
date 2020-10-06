@@ -18,7 +18,7 @@ local function call_upsert_on_storage(space_name, tuple, operations)
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, UpsertError:new("Space %q doesn't exists", space_name)
+        return nil, UpsertError:new("Space %q doesn't exist", space_name)
     end
 
     return space:upsert(tuple, operations)
@@ -60,7 +60,7 @@ function upsert.call(space_name, obj, user_operations, opts)
 
     local space = utils.get_space(space_name, vshard.router.routeall())
     if space == nil then
-        return nil, UpsertError:new("Space %q doesn't exists", space_name)
+        return nil, UpsertError:new("Space %q doesn't exist", space_name)
     end
 
     local space_format = space:format()
@@ -69,7 +69,7 @@ function upsert.call(space_name, obj, user_operations, opts)
         return nil, UpsertError:new("Wrong operations are specified: %s", err)
     end
 
-    -- compute default buckect_id
+    -- compute default bucket_id
     local tuple, err = utils.flatten(obj, space_format)
     if err ~= nil then
         return nil, UpsertError:new("Object is specified in bad format: %s", err)
