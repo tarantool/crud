@@ -46,6 +46,8 @@ end
 --
 -- @tparam ?number opts.timeout
 --  Function call timeout
+-- @tparam ?number opts.show_bucket_id
+--  Flag indicating whether to add bucket_id into return dataset or not (default is false)
 --
 -- @return[1] tuple
 -- @treturn[2] nil
@@ -54,6 +56,7 @@ end
 function upsert.tuple(space_name, tuple, user_operations, opts)
     checks('string', '?', 'table', {
         timeout = '?number',
+        show_bucket_id = '?boolean',
     })
 
     opts = opts or {}
@@ -97,9 +100,18 @@ function upsert.tuple(space_name, tuple, user_operations, opts)
         return nil, UpsertError:new("Failed to upsert: %s", err)
     end
 
+    local metadata = table.copy(space_format)
+
+    if not opts.show_bucket_id then
+        if tuple then
+            table.remove(tuple, bucket_id_fieldno)
+        end
+        table.remove(metadata, bucket_id_fieldno)
+    end
+
     -- upsert always returns nil
     return {
-        metadata = table.copy(space_format),
+        metadata = metadata,
         rows = {},
     }
 end
@@ -128,6 +140,7 @@ end
 function upsert.object(space_name, obj, user_operations, opts)
     checks('string', '?', 'table', {
         timeout = '?number',
+        show_bucket_id = '?boolean',
     })
 
     opts = opts or {}

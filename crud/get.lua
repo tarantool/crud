@@ -43,6 +43,8 @@ end
 --
 -- @tparam ?number opts.timeout
 --  Function call timeout
+-- @tparam ?number opts.show_bucket_id
+--  Flag indicating whether to add bucket_id into return dataset or not (default is false)
 --
 -- @return[1] object
 -- @treturn[2] nil
@@ -51,6 +53,7 @@ end
 function get.call(space_name, key, opts)
     checks('string', '?', {
         timeout = '?number',
+        show_bucket_id = '?boolean',
     })
 
     opts = opts or {}
@@ -81,8 +84,21 @@ function get.call(space_name, key, opts)
     end
 
     local tuple = results[replicaset.uuid]
+    local metadata = table.copy(space:format())
+
+    if not opts.show_bucket_id then
+        local bucket_id_fieldno, err = utils.get_bucket_id_fieldno(space)
+        if err ~= nil then
+            return nil, err
+        end
+            if tuple then
+                table.remove(tuple, bucket_id_fieldno)
+            end
+            table.remove(metadata, bucket_id_fieldno)
+    end
+
     return {
-        metadata = table.copy(space:format()),
+        metadata = metadata,
         rows = {tuple},
     }
 end

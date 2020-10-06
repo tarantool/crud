@@ -3,3 +3,5 @@ build.luarocks/
 myapp/
 **.snap
 **.xlog
+.vscode
+.history

@@ -42,6 +42,8 @@ end
 --
 -- @tparam ?number opts.timeout
 --  Function call timeout
+-- @tparam ?number opts.show_bucket_id
+--  Flag indicating whether to add bucket_id into return dataset or not (default is false)
 --
 -- @return[1] object
 -- @treturn[2] nil
@@ -50,6 +52,7 @@ end
 function replace.tuple(space_name, tuple, opts)
     checks('string', 'table', {
         timeout = '?number',
+        show_bucket_id = '?boolean',
     })
 
     opts = opts or {}
@@ -88,8 +91,17 @@ function replace.tuple(space_name, tuple, opts)
     end
 
     local tuple = results[replicaset.uuid]
+    local metadata = table.copy(space:format())
+
+    if not opts.show_bucket_id then
+        if tuple then
+            table.remove(tuple, bucket_id_fieldno)
+        end
+        table.remove(metadata, bucket_id_fieldno)
+    end
+    
     return {
-        metadata = table.copy(space:format()),
+        metadata = metadata,
         rows = {tuple},
     }
 end
@@ -114,6 +126,7 @@ end
 function replace.object(space_name, obj, opts)
     checks('string', 'table', {
         timeout = '?number',
+        show_bucket_id = '?boolean',
     })
 
     opts = opts or {}
