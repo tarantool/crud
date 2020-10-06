@@ -82,7 +82,7 @@ local function insert_customers(g, customers)
         local result, err = g.cluster.main_server.net_box:eval([[
             local crud = require('crud')
             return crud.insert_object('customers', ...)
-        ]],{customer})
+        ]],{customer, {show_bucket_id = true}})
 
         t.assert_equals(err, nil)
 
