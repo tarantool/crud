@@ -286,7 +286,7 @@ function select_module.call(space_name, user_conditions, opts)
         table.insert(tuples, tuple)
     end
 
-    if iter.reversed then
+    if opts.first ~= nil and opts.first < 0 then
         utils.reverse_inplace(tuples)
     end
 

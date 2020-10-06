@@ -78,7 +78,6 @@ g.test_indexed_field = function()
     t.assert_equals(plan.iter, box.index.GT)
     t.assert_equals(plan.total_tuples_count, nil)
     t.assert_equals(plan.sharding_key, nil)
-    t.assert_equals(plan.reversed, false)
 end
 
 g.test_non_indexed_field = function()

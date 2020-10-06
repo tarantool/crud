@@ -33,7 +33,6 @@ function Iterator.new(opts)
         iteration_func = opts.iteration_func,
 
         plan = opts.plan,
-        reversed = opts.plan.reversed,
 
         timeout = opts.timeout,
 

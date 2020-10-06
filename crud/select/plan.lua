@@ -140,14 +140,12 @@ function select_plan.new(space, conditions, opts)
 
     -- handle opts.first
     local total_tuples_count
-    local reversed = false
     local scan_after_tuple = opts.after_tuple
 
     if opts.first ~= nil then
         total_tuples_count = math.abs(opts.first)
 
         if opts.first < 0 then
-            reversed = true
             scan_iter = utils.invert_tarantool_iter(scan_iter)
 
             -- scan condition becomes border consition
@@ -185,7 +183,6 @@ function select_plan.new(space, conditions, opts)
         iter = scan_iter,
         total_tuples_count = total_tuples_count,
         sharding_key = sharding_key,
-        reversed = reversed,
     }
 
     return plan
