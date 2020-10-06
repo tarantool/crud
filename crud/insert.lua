@@ -120,7 +120,7 @@ function insert.object(space_name, obj, opts)
 
     local space = utils.get_space(space_name, vshard.router.routeall())
     if space == nil then
-        return nil, InsertError:new("Space %q doesn't exists", space_name)
+        return nil, InsertError:new("Space %q doesn't exist", space_name)
     end
     local space_format = space:format()
 

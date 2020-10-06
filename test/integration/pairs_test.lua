@@ -86,7 +86,7 @@ local function insert_customers(g, customers)
     for _, customer in ipairs(customers) do
         local result, err = g.cluster.main_server.net_box:eval([[
             local crud = require('crud')
-            return crud.insert('customers', ...)
+            return crud.insert_object('customers', ...)
         ]],{customer})
 
         t.assert_equals(err, nil)

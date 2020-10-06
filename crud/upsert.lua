@@ -134,7 +134,7 @@ function upsert.object(space_name, obj, user_operations, opts)
 
     local space = utils.get_space(space_name, vshard.router.routeall())
     if space == nil then
-        return nil, UpsertError:new("Space %q doesn't exists", space_name)
+        return nil, UpsertError:new("Space %q doesn't exist", space_name)
     end
 
     local space_format = space:format()

@@ -21,25 +21,25 @@ across the cluster.
 ### Insert
 
 ```lua
-local object, err = crud.insert(space_name, object, opts)
+-- Insert tuple
+local result, err = crud.insert(space_name, tuple, opts)
+-- Insert object
+local result, err = crud.insert_object(space_name, object, opts)
 ```
 
 where:
 
 * `space_name` (`string`) - name of the space to insert an object
-* `object` (`table`) - object to insert
+* `tuple` / `object` (`table`) - tuple/object to insert
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
 
-Returns inserted object, error.
+Returns inserted rows and metadata or nil with error.
 
 **Example:**
 
 ```lua
-crud.insert('customers', {
-    id = 1, name = 'Elizabeth', age = 23,
-})
----
+crud.insert('customers', {1, box.NULL, 'Elizabeth', 23})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
@@ -48,6 +48,18 @@ crud.insert('customers', {
   - {'name': 'age', 'type': 'number'}
   rows:
   - [1, 477, 'Elizabeth', 23]
+...
+crud.insert_object('customers', {
+    id = 2, name = 'Elizabeth', age = 24,
+})
+---
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [2, 401, 'Elizabeth', 24]
 ...
 ```
 
@@ -144,22 +156,35 @@ crud.delete('customers', 1)
 ### Replace
 
 ```lua
-local object, err = crud.replace(space_name, object, opts)
+-- Replace tuple
+local result, err = crud.replace(space_name, tuple, opts)
+-- Replace object
+local result, err = crud.replace_object(space_name, object, opts)
 ```
 
 where:
 
 * `space_name` (`string`) - name of the space
-* `object` (`table`) - object to insert or replace exist one
+* `tuple` / `object` (`table`) - tuple/object to insert or replace exist one
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
 
-Returns inserted or replaced object, error.
+Returns inserted or replaced rows and metadata or nil with error.
 
 **Example:**
 
 ```lua
-crud.replace('customers', {
+crud.replace('customers', {1, box.NULL, 'Alice', 22})
+---
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 477, 'Alice', 22]
+...
+crud.replace_object('customers', {
     id = 1, name = 'Alice', age = 22,
 })
 ---
@@ -176,24 +201,38 @@ crud.replace('customers', {
 ### Upsert
 
 ```lua
-local object, err = crud.upsert(space_name, object, operations, opts)
+-- Upsert tuple
+local result, err = crud.upsert(space_name, tuple, operations, opts)
+-- Upsert object
+local result, err = crud.upsert_object(space_name, tuple, operations, opts)
 ```
 
 where:
 
 * `space_name` (`string`) - name of the space
-* `object` (`table`) - object to insert if there is no existing tuple which matches the key fields
+* `tuple` / `object` (`table`) - tuple/object to insert if there is no existing tuple which matches the key fields
 * `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/#box-space-update) if there is an existing tuple which matches the key fields of tuple
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
 
-Returns nil, error.
+Returns metadata and empty array of rows or nil, error.
 
 **Example:**
 
 ```lua
 crud.upsert('customers',
-    {id = 1, name = 'Alice', age = 22,},
+    {1, box.NULL, 'Alice', 22},
+    {{'+', 'age', 1}})
+---
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows: []
+...
+crud.upsert_object('customers',
+    {id = 1, name = 'Alice', age = 22},
     {{'+', 'age', 1}})
 ---
 - metadata:
