@@ -297,7 +297,7 @@ add('test_le_condition_with_index', function(g)
     t.assert_equals(objects, get_by_ids(customers, {1})) -- in age order
 end)
 
-add('test_negative_forst', function(g)
+add('test_negative_first', function(g)
     local customers = insert_customers(g,{
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -314,19 +314,10 @@ add('test_negative_forst', function(g)
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
     -- negative first
-    local first = -10
     t.assert_error_msg_contains("Negative first isn't allowed for pairs", function()
         g.cluster.main_server.net_box:eval([[
             local crud = require('crud')
-
-            local first = ...
-
-            local objects = {}
-            for _, object in crud.pairs('customers', nil, {first = first}) do
-                table.insert(objects, object)
-            end
-
-            return objects
-        ]], {first})
+            crud.pairs('customers', nil, {first = -10})
+        ]])
     end)
 end)
