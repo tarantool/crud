@@ -149,7 +149,11 @@ add('test_non_existent_space', function(g)
     -- upsert
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
-        return crud.upsert_object('non_existent_space', {0, box.NULL, 'Fedor', 59}, {{'+', 'age', 1}}, {show_bucket_id = true})
+        return crud.upsert_object(
+            'non_existent_space', 
+            {0, box.NULL, 'Fedor', 59}, {{'+', 'age', 1}}, 
+            {show_bucket_id = true}
+        )
     ]])
 
     t.assert_equals(result, nil)
@@ -158,7 +162,11 @@ add('test_non_existent_space', function(g)
     -- upsert_object
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
-        return crud.upsert_object('non_existent_space', {id = 0, name = 'Fedor', age = 59}, {{'+', 'age', 1}}, {show_bucket_id = true})
+        return crud.upsert_object(
+            'non_existent_space', 
+            {id = 0, name = 'Fedor', age = 59}, {{'+', 'age', 1}}, 
+            {show_bucket_id = true}
+        )
     ]])
 
     t.assert_equals(result, nil)

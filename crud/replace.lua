@@ -99,7 +99,7 @@ function replace.tuple(space_name, tuple, opts)
         end
         table.remove(metadata, bucket_id_fieldno)
     end
-    
+
     return {
         metadata = metadata,
         rows = {tuple},
