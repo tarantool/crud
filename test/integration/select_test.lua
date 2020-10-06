@@ -204,7 +204,7 @@ add('test_select_all', function(g)
     t.assert_equals(#objects, 0)
 end)
 
-add('test_select_all_with_limit', function(g)
+add('test_select_all_with_first', function(g)
     local customers = insert_customers(g, {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -223,33 +223,209 @@ add('test_select_all_with_limit', function(g)
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
-    -- limit 2
+    -- first 2
+    local first = 2
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
+        local first = ...
+
         local result, err = crud.select('customers', nil, {
-            limit = 2,
+            first = first,
         })
         return result, err
-    ]])
+    ]], {first})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, get_by_ids(customers, {1, 2}))
 
-    -- limit 0
+    -- first 0
+    local first = 0
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
+        local first = ...
+
         local result, err = crud.select('customers', nil, {
-            limit = 0,
+            first = first,
         })
         return result, err
-    ]])
+    ]], {first})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(#objects, 0)
+end)
+
+add('test_negative_first', function(g)
+    local customers = insert_customers(g, {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 11, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 22, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 44, city = "Chicago",
+        }, {
+            id = 5, name = "Jack", last_name = "Sparrow",
+            age = 55, city = "London",
+        }, {
+            id = 6, name = "William", last_name = "Terner",
+            age = 66, city = "Oxford",
+        }, {
+            id = 7, name = "Elizabeth", last_name = "Swan",
+            age = 77, city = "Cambridge",
+        }, {
+            id = 8, name = "Hector", last_name = "Barbossa",
+            age = 88, city = "London",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    -- negative first w/o after
+    local first = -10
+    local result, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local first = ...
+
+        local objects, err = crud.select('customers', nil, {
+            first = first,
+        })
+        return objects, err
+    ]], {first})
+
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, "Negative first should be specified only with after option")
+
+    -- no conditions
+    -- first -3 after 5 (batch_size is 1)
+    local first = -3
+    local after = customers[5]
+    local batch_size = 1
+    local result, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local first, after, batch_size = ...
+
+        local objects, err = crud.select('customers', nil, {
+            first = first,
+            after = after,
+            batch_size = batch_size,
+        })
+        return objects, err
+    ]], {first, after, batch_size})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, get_by_ids(customers, {2, 3, 4}))
+
+    -- id >= 2
+    -- first -2 after 5 (batch_size is 1)
+    local conditions = {
+        {'>=', 'id', 2},
+    }
+    local first = -2
+    local after = customers[5]
+    local batch_size = 1
+    local result, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, first, after, batch_size = ...
+
+        local objects, err = crud.select('customers', conditions, {
+            first = first,
+            after = after,
+            batch_size = batch_size,
+        })
+        return objects, err
+    ]], {conditions, first, after, batch_size})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, get_by_ids(customers, {3, 4}))
+
+    -- age >= 22
+    -- first -2 after 5 (batch_size is 1)
+    local conditions = {
+        {'>=', 'age', 22},
+    }
+    local first = -2
+    local after = customers[5]
+    local batch_size = 1
+    local result, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, first, after, batch_size = ...
+
+        local objects, err = crud.select('customers', conditions, {
+            first = first,
+            after = after,
+            batch_size = batch_size,
+        })
+        return objects, err
+    ]], {conditions, first, after, batch_size})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, get_by_ids(customers, {3, 4}))
+
+    -- id <= 6
+    -- first -2 after 5 (batch_size is 1)
+    local conditions = {
+        {'<=', 'id', 6},
+    }
+    local first = -2
+    local after = customers[5]
+    local batch_size = 1
+    local result, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, first, after, batch_size = ...
+
+        local objects, err = crud.select('customers', conditions, {
+            first = first,
+            after = after,
+            batch_size = batch_size,
+        })
+        return objects, err
+    ]], {conditions, first, after, batch_size})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, get_by_ids(customers, {6}))
+
+    -- age <= 66
+    -- first -2 after 5 (batch_size is 1)
+    local conditions = {
+        {'<=', 'age', 66},
+    }
+    local first = -2
+    local after = customers[5]
+    local batch_size = 1
+    local result, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, first, after, batch_size = ...
+
+        local objects, err = crud.select('customers', conditions, {
+            first = first,
+            after = after,
+            batch_size = batch_size,
+        })
+        return objects, err
+    ]], {conditions, first, after, batch_size})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, get_by_ids(customers, {6}))
 end)
 
 add('test_select_all_with_batch_size', function(g)
@@ -313,13 +489,13 @@ add('test_select_all_with_batch_size', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, customers)
 
-    -- batch size 3 and limit 6
+    -- batch size 3 and first 6
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
         local result, err = crud.select('customers', nil, {
             batch_size = 3,
-            limit = 6,
+            first = 6,
         })
         return result, err
     ]])

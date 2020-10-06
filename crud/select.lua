@@ -119,7 +119,7 @@ end
 local function build_select_iterator(space_name, user_conditions, opts)
     dev_checks('string', '?table', {
         after = '?table',
-        limit = '?number',
+        first = '?number',
         timeout = '?number',
         batch_size = '?number',
     })
@@ -131,10 +131,6 @@ local function build_select_iterator(space_name, user_conditions, opts)
     end
 
     local batch_size = opts.batch_size or DEFAULT_BATCH_SIZE
-
-    if opts.limit ~= nil and opts.limit < 0 then
-        return nil, SelectError:new("limit should be >= 0")
-    end
 
     -- check conditions
     local conditions, err = select_conditions.parse(user_conditions)
@@ -153,24 +149,25 @@ local function build_select_iterator(space_name, user_conditions, opts)
     end
     local space_format = space:format()
 
+    -- set after tuple
+    local after_tuple = utils.flatten(opts.after, space_format)
+
     -- plan select
     local plan, err = select_plan.new(space, conditions, {
-        limit = opts.limit,
+        first = opts.first,
+        after_tuple = after_tuple,
     })
 
     if err ~= nil then
         return nil, SelectError:new("Failed to plan select: %s", err)
     end
 
-    -- set limit and replicasets to select from
+    -- set replicasets to select from
     local replicasets_to_select = replicasets
 
     if plan.sharding_key ~= nil then
         replicasets_to_select = get_replicasets_by_sharding_key(plan.sharding_key)
     end
-
-    -- set after tuple
-    local after_tuple = utils.flatten(opts.after, space_format)
 
     -- generate tuples comparator
     local scan_index = space.index[plan.index_id]
@@ -191,7 +188,6 @@ local function build_select_iterator(space_name, user_conditions, opts)
         comparator = tuples_comparator,
 
         plan = plan,
-        after_tuple = after_tuple,
 
         batch_size = batch_size,
         replicasets = replicasets_to_select,
@@ -205,16 +201,20 @@ end
 function select_module.pairs(space_name, user_conditions, opts)
     checks('string', '?table', {
         after = '?table',
-        limit = '?number',
+        first = '?number',
         timeout = '?number',
         batch_size = '?number',
     })
 
     opts = opts or {}
 
+    if opts.first ~= nil and opts.first < 0 then
+        error(string.format("Negative first isn't allowed for pairs"))
+    end
+
     local iter, err = build_select_iterator(space_name, user_conditions, {
         after = opts.after,
-        limit = opts.limit,
+        first = opts.first,
         timeout = opts.timeout,
         batch_size = opts.batch_size,
     })
@@ -247,16 +247,22 @@ end
 function select_module.call(space_name, user_conditions, opts)
     checks('string', '?table', {
         after = '?table',
-        limit = '?number',
+        first = '?number',
         timeout = '?number',
         batch_size = '?number',
     })
 
     opts = opts or {}
 
+    if opts.first ~= nil and opts.first < 0 then
+        if opts.after == nil then
+            return nil, SelectError:new("Negative first should be specified only with after option")
+        end
+    end
+
     local iter, err = build_select_iterator(space_name, user_conditions, {
         after = opts.after,
-        limit = opts.limit,
+        first = opts.first,
         timeout = opts.timeout,
         batch_size = opts.batch_size,
     })
@@ -268,16 +274,20 @@ function select_module.call(space_name, user_conditions, opts)
     local tuples = {}
 
     while iter:has_next() do
-        local obj, err = iter:get()
+        local tuple, err = iter:get()
         if err ~= nil then
             return nil, SelectError:new("Failed to get next object: %s", err)
         end
 
-        if obj == nil then
+        if tuple == nil then
             break
         end
 
-        table.insert(tuples, obj)
+        table.insert(tuples, tuple)
+    end
+
+    if opts.first ~= nil and opts.first < 0 then
+        utils.reverse_inplace(tuples)
     end
 
     return {
