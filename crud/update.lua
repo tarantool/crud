@@ -18,7 +18,7 @@ local function call_update_on_storage(space_name, key, operations)
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, UpdateError:new("Space %q doesn't exists", space_name)
+        return nil, UpdateError:new("Space %q doesn't exist", space_name)
     end
 
     local tuple = space:update(key, operations)
@@ -31,7 +31,7 @@ function update.init()
     })
 end
 
---- Updates tuple in the specifed space
+--- Updates tuple in the specified space
 --
 -- @function call
 --
@@ -61,7 +61,7 @@ function update.call(space_name, key, user_operations, opts)
 
     local space = utils.get_space(space_name, vshard.router.routeall())
     if space == nil then
-        return nil, UpdateError:new("Space %q doesn't exists", space_name)
+        return nil, UpdateError:new("Space %q doesn't exist", space_name)
     end
     local space_format = space:format()
 

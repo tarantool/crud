@@ -35,12 +35,12 @@ local function call_select_on_storage(space_name, index_id, conditions, opts)
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, SelectError:new("Space %s doesn't exists", space_name)
+        return nil, SelectError:new("Space %s doesn't exist", space_name)
     end
 
     local index = space.index[index_id]
     if index == nil then
-        return nil, SelectError:new("Index with ID %s doesn't exists", index_id)
+        return nil, SelectError:new("Index with ID %s doesn't exist", index_id)
     end
 
     local filter_func, err = select_filters.gen_func(space, conditions, {
@@ -149,7 +149,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
     local space = utils.get_space(space_name, replicasets)
     if space == nil then
-        return nil, SelectError:new("Space %s doesn't exists", space_name)
+        return nil, SelectError:new("Space %s doesn't exist", space_name)
     end
     local space_format = space:format()
 

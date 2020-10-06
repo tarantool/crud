@@ -18,7 +18,7 @@ local function call_delete_on_storage(space_name, key)
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, DeleteError:new("Space %q doesn't exists", space_name)
+        return nil, DeleteError:new("Space %q doesn't exist", space_name)
     end
 
     local tuple = space:delete(key)
@@ -58,7 +58,7 @@ function delete.call(space_name, key, opts)
 
     local space = utils.get_space(space_name, vshard.router.routeall())
     if space == nil then
-        return nil, DeleteError:new("Space %q doesn't exists", space_name)
+        return nil, DeleteError:new("Space %q doesn't exist", space_name)
     end
 
     if box.tuple.is(key) then

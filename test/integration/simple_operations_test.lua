@@ -89,7 +89,7 @@ add('test_non_existent_space', function(g)
     ]])
 
     t.assert_equals(obj, nil)
-    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exists')
+    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 
     -- get
     local obj, err = g.cluster.main_server.net_box:eval([[
@@ -98,7 +98,7 @@ add('test_non_existent_space', function(g)
     ]])
 
     t.assert_equals(obj, nil)
-    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exists')
+    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 
     -- update
     local obj, err = g.cluster.main_server.net_box:eval([[
@@ -107,7 +107,7 @@ add('test_non_existent_space', function(g)
     ]])
 
     t.assert_equals(obj, nil)
-    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exists')
+    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 
     -- delete
     local obj, err = g.cluster.main_server.net_box:eval([[
@@ -116,7 +116,7 @@ add('test_non_existent_space', function(g)
     ]])
 
     t.assert_equals(obj, nil)
-    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exists')
+    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 
     -- replace
     local obj, err = g.cluster.main_server.net_box:eval([[
@@ -125,7 +125,7 @@ add('test_non_existent_space', function(g)
     ]])
 
     t.assert_equals(obj, nil)
-    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exists')
+    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 
     -- upsert
     local obj, err = g.cluster.main_server.net_box:eval([[
@@ -134,7 +134,7 @@ add('test_non_existent_space', function(g)
     ]])
 
     t.assert_equals(obj, nil)
-    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exists')
+    t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 end)
 
 add('test_insert_get', function(g)

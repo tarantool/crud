@@ -18,7 +18,7 @@ local function call_replace_on_storage(space_name, tuple)
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, ReplaceError:new("Space %q doesn't exists", space_name)
+        return nil, ReplaceError:new("Space %q doesn't exist", space_name)
     end
 
     return space:replace(tuple)
@@ -30,7 +30,7 @@ function replace.init()
     })
 end
 
---- Insert or replace a tuple in the specifed space
+--- Insert or replace a tuple in the specified space
 --
 -- @function call
 --
@@ -56,11 +56,11 @@ function replace.call(space_name, obj, opts)
 
     local space = utils.get_space(space_name, vshard.router.routeall())
     if space == nil then
-        return nil, ReplaceError:new("Space %q doesn't exists", space_name)
+        return nil, ReplaceError:new("Space %q doesn't exist", space_name)
     end
 
     local space_format = space:format()
-    -- compute default buckect_id
+    -- compute default bucket_id
     local tuple, err = utils.flatten(obj, space_format)
     if err ~= nil then
         return nil, ReplaceError:new("Object is specified in bad format: %s", err)
