@@ -156,7 +156,6 @@ function select_plan.new(space, conditions, opts)
             else
                 scan_value = nil
             end
-
         end
     end
 
