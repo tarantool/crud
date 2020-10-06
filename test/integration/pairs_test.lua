@@ -127,8 +127,15 @@ add('test_pairs_no_conditions', function(g)
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
-    -- no after
-    local objects, err = g.cluster.main_server.net_box:eval([[
+    local raw_rows = {
+        {1, 477, 'Elizabeth', 'Jackson', 12, 'New York'},
+        {2, 401, 'Mary', 'Brown', 46, 'Los Angeles'},
+        {3, 2804, 'David', 'Smith', 33, 'Los Angeles'},
+        {4, 1161, 'William', 'White', 81, 'Chicago'},
+    }
+
+    -- without conditions and options
+    local objects = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
         local objects = {}
@@ -138,8 +145,33 @@ add('test_pairs_no_conditions', function(g)
 
         return objects
     ]])
+    t.assert_equals(objects, raw_rows)
 
-    t.assert_equals(err, nil)
+    -- with use_tomap=false (the raw tuples returned)
+    local objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local objects = {}
+        for _, object in crud.pairs('customers', nil, {use_tomap = false}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]])
+    t.assert_equals(objects, raw_rows)
+
+    -- no after
+    local objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local objects = {}
+        for _, object in crud.pairs('customers', nil, {use_tomap = true}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]])
+
     t.assert_equals(objects, customers)
 
     -- after obj 2
@@ -150,7 +182,7 @@ add('test_pairs_no_conditions', function(g)
         local after = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', nil, {after = after}) do
+        for _, object in crud.pairs('customers', nil, {after = after, use_tomap = true}) do
             table.insert(objects, object)
         end
 
@@ -168,7 +200,7 @@ add('test_pairs_no_conditions', function(g)
         local after = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', nil, {after = after}) do
+        for _, object in crud.pairs('customers', nil, {after = after, use_tomap = true}) do
             table.insert(objects, object)
         end
 
@@ -209,7 +241,7 @@ add('test_ge_condition_with_index', function(g)
         local conditions = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true}) do
             table.insert(objects, object)
         end
 
@@ -227,7 +259,7 @@ add('test_ge_condition_with_index', function(g)
         local conditions, after = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {after = after}) do
+        for _, object in crud.pairs('customers', conditions, {after = after, use_tomap = true}) do
             table.insert(objects, object)
         end
 
@@ -268,7 +300,7 @@ add('test_le_condition_with_index', function(g)
         local conditions = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true}) do
             table.insert(objects, object)
         end
 
@@ -286,7 +318,7 @@ add('test_le_condition_with_index', function(g)
         local conditions, after = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {after = after}) do
+        for _, object in crud.pairs('customers', conditions, {after = after, use_tomap = true}) do
             table.insert(objects, object)
         end
 

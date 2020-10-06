@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Insert/replace/upsert methods now accept tuples.
   To process unflattened objects *_object methods are introduced.
 
+* `pairs` accepts `use_tomap` flag to return tuples or objects
+
 ### Changed
 
 * `checks` is disabled for internal functions by default

@@ -204,6 +204,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         first = '?number',
         timeout = '?number',
         batch_size = '?number',
+        use_tomap = '?boolean',
     })
 
     opts = opts or {}
@@ -233,12 +234,15 @@ function select_module.pairs(space_name, user_conditions, opts)
             error(string.format("Failed to get next object: %s", err))
         end
 
-        local obj, err = utils.unflatten(tuple, iter.space_format)
-        if err ~= nil then
-            error(string.format("Failed to unflatten next object: %s", err))
+        local result = tuple
+        if opts.use_tomap == true then
+            result, err = utils.unflatten(tuple, iter.space_format)
+            if err ~= nil then
+                error(string.format("Failed to unflatten next object: %s", err))
+            end
         end
 
-        return iter, obj
+        return iter, result
     end
 
     return gen, nil, iter

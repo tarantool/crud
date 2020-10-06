@@ -304,12 +304,17 @@ crud.select('customers', {{'<=', 'age', 35}})
 You can iterate across a distributed space using the `crud.pairs` function.
 Its arguments are the same as [`crud.select`](#select) arguments,
 but negative `first` values aren't allowed.
+User could pass use_tomap flag (false by default) to iterate over flat tuples or objects.
 
 **Example:**
 
 ```lua
-for _, obj in crud.pairs('customers', {{'<=', 'age', 35}}) do
-    -- do smth with the object
+for _, tuple in crud.pairs('customers', {{'<=', 'age', 35}}, {use_tomap = false}) do
+    print(json.encode(tuple)) -- {5, 1172, 'Jack', 35}
+end
+
+for _, object in crud.pairs('customers', {{'<=', 'age', 35}}, {use_tomap = true}) do
+    print(json.encode(object)) -- {id = 5, name = 'Jack', bucket_id = 1172, age = 35}
 end
 ```
 
