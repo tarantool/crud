@@ -222,7 +222,9 @@ where:
 * `space_name` (`string`) - name of the space
 * `conditions` (`?table`) - array of [select conditions](#select-conditions)
 * `opts`:
-  * `limit` (`?number`) - the maximum limit of the objects to return
+  * `first` (`?number`) - the maximum count of the objects to return.
+     If negative value is specified, the last objects are returned
+     (`after` option is required in this case).
   * `after` (`?table`) - object after which objects should be selected
   * `batch_size` (`?number`) - number of tuples to process per one request to storage
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
@@ -261,7 +263,8 @@ crud.select('customers', {{'<=', 'age', 35}})
 ### Pairs
 
 You can iterate across a distributed space using the `crud.pairs` function.
-Its arguments are the same as [`crud.select`](#select) arguments.
+Its arguments are the same as [`crud.select`](#select) arguments,
+but negative `first` values aren't allowed.
 
 **Example:**
 
