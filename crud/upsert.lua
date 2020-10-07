@@ -83,7 +83,7 @@ function upsert.tuple(space_name, tuple, user_operations, opts)
     end
 
     if tuple[bucket_id_fieldno] ~= nil then
-        return nil, UpsertError:new("Unexpected value (%s) at field %s (sharding key)",
+        return nil, UpsertError:new("Unexpected value (%s) at field %s (bucket_id)",
                 tuple[bucket_id_fieldno], bucket_id_fieldno)
     end
 
