@@ -73,7 +73,7 @@ function replace.tuple(space_name, tuple, opts)
     end
 
     if tuple[bucket_id_fieldno] ~= nil then
-        return nil, ReplaceError:new("Unexpected value (%s) at field %s (sharding key)",
+        return nil, ReplaceError:new("Unexpected value (%s) at field %s (bucket_id)",
                 tuple[bucket_id_fieldno], bucket_id_fieldno)
     end
 
