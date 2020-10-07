@@ -332,7 +332,7 @@ are used on the storage side to perform CRUD operations.
 -- <project-name>-scm-1.rockspec
 dependencies = {
     ...
-    'crud >= 0.1.0-1',
+    'crud >= 0.2.0-1',
     ...
 }
 ```

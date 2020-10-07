@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.2.0] - 2020-10-07
+
 ### Fixed
 
 * Select with `==` conditions bugs
@@ -17,12 +19,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * CRUD operations:
  * replace
  * upsert
-
 * Output format for CRUD operations changed to set of rows and metadata
-
 * Insert/replace/upsert methods now accept tuples.
   To process unflattened objects *_object methods are introduced.
-
 * `pairs` accepts `use_tomap` flag to return tuples or objects
 
 ### Changed
