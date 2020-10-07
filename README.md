@@ -137,7 +137,7 @@ where:
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
 
-Returns metadata and array contains one deleted row, error.
+Returns metadata and array contains one deleted row (empty for vinyl), error.
 
 **Example:**
 
