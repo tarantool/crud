@@ -3,7 +3,9 @@ local fio = require('fio')
 local t = require('luatest')
 local g_memtx = t.group('pairs_memtx')
 local g_vinyl = t.group('pairs_vinyl')
+
 local crud = require('crud')
+local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
 
@@ -48,6 +50,8 @@ local function before_all(g, engine)
     })
     g.engine = engine
     g.cluster:start()
+
+    g.space_format = g.cluster.servers[2].net_box.space.customers:format()
 end
 
 local function after_all(g)
@@ -175,7 +179,7 @@ add('test_pairs_no_conditions', function(g)
     t.assert_equals(objects, customers)
 
     -- after obj 2
-    local after = customers[2]
+    local after = crud_utils.flatten(customers[2], g.space_format)
     local objects, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
@@ -193,7 +197,7 @@ add('test_pairs_no_conditions', function(g)
     t.assert_equals(objects, get_by_ids(customers, {3, 4}))
 
     -- after obj 4 (last)
-    local after = customers[4]
+    local after = crud_utils.flatten(customers[4], g.space_format)
     local objects, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
@@ -252,7 +256,7 @@ add('test_ge_condition_with_index', function(g)
     t.assert_equals(objects, get_by_ids(customers, {3, 2, 4})) -- in age order
 
     -- after obj 3
-    local after = customers[3]
+    local after = crud_utils.flatten(customers[3], g.space_format)
     local objects, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
@@ -311,7 +315,7 @@ add('test_le_condition_with_index', function(g)
     t.assert_equals(objects, get_by_ids(customers, {3, 1})) -- in age order
 
     -- after obj 3
-    local after = customers[3]
+    local after = crud_utils.flatten(customers[3], g.space_format)
     local objects, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
