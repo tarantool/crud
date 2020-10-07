@@ -149,13 +149,10 @@ local function build_select_iterator(space_name, user_conditions, opts)
     end
     local space_format = space:format()
 
-    -- set after tuple
-    local after_tuple = utils.flatten(opts.after, space_format)
-
     -- plan select
     local plan, err = select_plan.new(space, conditions, {
         first = opts.first,
-        after_tuple = after_tuple,
+        after_tuple = opts.after,
     })
 
     if err ~= nil then

@@ -3,7 +3,9 @@ local fio = require('fio')
 local t = require('luatest')
 local g_memtx = t.group('select_memtx')
 local g_vinyl = t.group('select_vinyl')
+
 local crud = require('crud')
+local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
 
@@ -48,6 +50,8 @@ local function before_all(g, engine)
     })
     g.engine = engine
     g.cluster:start()
+
+    g.space_format = g.cluster.servers[2].net_box.space.customers:format()
 end
 
 g_memtx.before_all = function() before_all(g_memtx, 'memtx') end
@@ -174,7 +178,7 @@ add('test_select_all', function(g)
     t.assert_equals(objects, customers)
 
     -- after obj 2
-    local after = customers[2]
+    local after = crud_utils.flatten(customers[2], g.space_format)
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
@@ -189,7 +193,7 @@ add('test_select_all', function(g)
     t.assert_equals(objects, get_by_ids(customers, {3, 4}))
 
     -- after obj 4 (last)
-    local after = customers[4]
+    local after = crud_utils.flatten(customers[4], g.space_format)
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
@@ -308,7 +312,7 @@ add('test_negative_first', function(g)
     -- no conditions
     -- first -3 after 5 (batch_size is 1)
     local first = -3
-    local after = customers[5]
+    local after = crud_utils.flatten(customers[5], g.space_format)
     local batch_size = 1
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
@@ -333,7 +337,7 @@ add('test_negative_first', function(g)
         {'>=', 'id', 2},
     }
     local first = -2
-    local after = customers[5]
+    local after = crud_utils.flatten(customers[5], g.space_format)
     local batch_size = 1
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
@@ -358,7 +362,7 @@ add('test_negative_first', function(g)
         {'>=', 'age', 22},
     }
     local first = -2
-    local after = customers[5]
+    local after = crud_utils.flatten(customers[5], g.space_format)
     local batch_size = 1
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
@@ -383,7 +387,7 @@ add('test_negative_first', function(g)
         {'<=', 'id', 6},
     }
     local first = -2
-    local after = customers[5]
+    local after = crud_utils.flatten(customers[5], g.space_format)
     local batch_size = 1
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
@@ -408,7 +412,7 @@ add('test_negative_first', function(g)
         {'<=', 'age', 66},
     }
     local first = -2
-    local after = customers[5]
+    local after = crud_utils.flatten(customers[5], g.space_format)
     local batch_size = 1
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
@@ -552,7 +556,7 @@ add('test_eq_condition_with_index', function(g)
     t.assert_equals(objects, get_by_ids(customers, {1, 3, 5, 7})) -- in id order
 
     -- after obj 3
-    local after = customers[3]
+    local after = crud_utils.flatten(customers[3], g.space_format)
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
@@ -607,7 +611,7 @@ add('test_ge_condition_with_index', function(g)
     t.assert_equals(objects, get_by_ids(customers, {3, 2, 4})) -- in age order
 
     -- after obj 3
-    local after = customers[3]
+    local after = crud_utils.flatten(customers[3], g.space_format)
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
@@ -662,7 +666,7 @@ add('test_le_condition_with_index',function(g)
     t.assert_equals(objects, get_by_ids(customers, {3, 1})) -- in age order
 
     -- after obj 3
-    local after = customers[3]
+    local after = crud_utils.flatten(customers[3], g.space_format)
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
@@ -717,7 +721,7 @@ add('test_lt_condition_with_index', function(g)
     t.assert_equals(objects, get_by_ids(customers, {1})) -- in age order
 
     -- after obj 1
-    local after = customers[1]
+    local after = crud_utils.flatten(customers[1], g.space_format)
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
@@ -777,7 +781,7 @@ add('test_multiple_conditions', function(g)
     t.assert_equals(objects, get_by_ids(customers, {5, 2})) -- in age order
 
     -- after obj 5
-    local after = customers[5]
+    local after = crud_utils.flatten(customers[5], g.space_format)
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
@@ -832,7 +836,7 @@ add('test_composite_index', function(g)
     t.assert_equals(objects, get_by_ids(customers, {2, 1, 4})) -- in full_name order
 
     -- after obj 2
-    local after = customers[2]
+    local after = crud_utils.flatten(customers[2], g.space_format)
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 

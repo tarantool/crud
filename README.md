@@ -34,7 +34,7 @@ where:
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
 
-Returns inserted rows and metadata or nil with error.
+Returns metadata and array contains one inserted row, error.
 
 **Example:**
 
@@ -76,7 +76,7 @@ where:
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
 
-Returns object, error.
+Returns metadata and array contains one row, error.
 
 **Example:**
 
@@ -107,7 +107,7 @@ where:
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
 
-Returns updated object, error.
+Returns metadata and array contains one updated row, error.
 
 **Example:**
 
@@ -137,7 +137,7 @@ where:
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
 
-Returns deleted object, error.
+Returns metadata and array contains one deleted row (empty for vinyl), error.
 
 **Example:**
 
@@ -264,11 +264,11 @@ where:
   * `first` (`?number`) - the maximum count of the objects to return.
      If negative value is specified, the last objects are returned
      (`after` option is required in this case).
-  * `after` (`?table`) - object after which objects should be selected
+  * `after` (`?table`) - tuple after which objects should be selected
   * `batch_size` (`?number`) - number of tuples to process per one request to storage
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
 
-Returns selected objects, error.
+Returns metadata and array of rows, error.
 
 #### Select conditions
 

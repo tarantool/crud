@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * `checks` is disabled for internal functions by default
 * `limit` option is renamed to `first`
 * Reverse pagination (negative `first`) is supported
+* `after` option accepts a tuple
 
 ## [0.1.0] - 2020-09-23
 
