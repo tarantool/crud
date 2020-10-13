@@ -10,16 +10,9 @@ local NotInitializedError = errors.new_class('NotInitialized')
 
 local call = {}
 
-local CALL_FUNC_NAME = '_crud.call_on_storage'
-
 local DEFAULT_VSHARD_CALL_TIMEOUT = 2
 
 local function call_on_replicaset(replicaset, channel, vshard_call, func_name, func_args, opts)
-    local elect_call_arg = {
-        func_name = func_name,
-        func_args = func_args,
-    }
-
     -- replicaset:<vshard_call>(func_name,...)
     local func_ret, err = replicaset[vshard_call](replicaset, func_name, func_args, opts)
     if type(err) == 'table' and err.type == 'ClientError' and type(err.message) == 'string' then
@@ -156,7 +149,7 @@ function call.rw_single(bucket_id, function_name, argument_list, options)
 
         local replicaset, err2 = vshard.router.route(bucket_id)
         if replicaset == nil then
-            return nil, UpdateError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err2)
+            return nil, CallError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err2)
         end
 
         return nil, CallError:new(utils.format_replicaset_error(

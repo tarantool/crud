@@ -8,7 +8,6 @@ local errors = require('errors')
 local cartridge = require('cartridge')
 local membership = require('membership')
 local fiber = require('fiber')
-local crud = require('crud')
 
 local ok, err
 
@@ -29,19 +28,19 @@ if not ok then
 end
 
 
-say_hi_politely = function(to_name)
+rawset(_G, 'say_hi_politely', function (to_name)
    to_name = to_name or "handsome"
    local my_alias = membership.myself().payload.alias
    return string.format("HI, %s! I am %s", to_name, my_alias)
-end
+end)
 
-say_hi_sleepily = function(time_to_sleep)
+rawset(_G, 'say_hi_sleepily', function (time_to_sleep)
    if time_to_sleep ~= nil then
       fiber.sleep(time_to_sleep)
    end
 
    return "HI"
-end
+end)
 
 if not ok then
     log.error('%s', err)

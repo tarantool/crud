@@ -2,7 +2,6 @@
 --
 -- @module crud
 
-local call = require('crud.common.call')
 local insert = require('crud.insert')
 local replace = require('crud.replace')
 local get = require('crud.get')
