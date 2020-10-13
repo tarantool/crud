@@ -88,11 +88,7 @@ local function insert_customers(g, customers)
     local inserted_objects = {}
 
     for _, customer in ipairs(customers) do
-        local result, err = g.cluster.main_server.net_box:eval([[
-            local crud = require('crud')
-            return crud.insert_object('customers', ...)
-        ]],{customer})
-
+        local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {'customers', customer})
         t.assert_equals(err, nil)
 
         local objects, err = crud.unflatten_rows(result.rows, result.metadata)
