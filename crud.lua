@@ -91,4 +91,6 @@ function crud.init()
     select.init()
 end
 
+_G.crud = crud
+
 return crud
