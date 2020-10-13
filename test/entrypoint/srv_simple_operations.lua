@@ -36,7 +36,6 @@ package.preload['customers-storage'] = function()
     }
 end
 package.preload['customers-router'] = function()
-    local engine = os.getenv('ENGINE') or 'memtx'
     return {
         role_name = 'customers-router',
         init = function()
