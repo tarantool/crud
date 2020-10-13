@@ -52,13 +52,6 @@ end
 
 -- crud.init() isn't called
 
-ok, err = crud.register({
-    say_hi = function() return "Hi" end,
-})
-
-if not ok then
-    log.error('%s', err)
-    os.exit(1)
-end
+say_hi = function() return "Hi" end
 
 _G.is_initialized = cartridge.is_healthy

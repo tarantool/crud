@@ -3,7 +3,6 @@ local errors = require('errors')
 local vshard = require('vshard')
 
 local call = require('crud.common.call')
-local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
@@ -20,11 +19,11 @@ local GetReplicasetsError = errors.new_class('GetReplicasetsError')
 
 local select_module = {}
 
-local SELECT_FUNC_NAME = '__select'
+local SELECT_FUNC_NAME = '_crud.select_on_storage'
 
 local DEFAULT_BATCH_SIZE = 100
 
-local function call_select_on_storage(space_name, index_id, conditions, opts)
+local function select_on_storage(space_name, index_id, conditions, opts)
     dev_checks('string', 'number', '?table', {
         scan_value = 'table',
         after_tuple = '?table',
@@ -66,9 +65,7 @@ local function call_select_on_storage(space_name, index_id, conditions, opts)
 end
 
 function select_module.init()
-    registry.add({
-        [SELECT_FUNC_NAME] = call_select_on_storage,
-    })
+   _G._crud.select_on_storage = select_on_storage
 end
 
 local function select_iteration(space_name, plan, opts)

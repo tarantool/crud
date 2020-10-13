@@ -20,7 +20,7 @@ local function before_all(g, engine)
             {
                 uuid = helpers.uuid('a'),
                 alias = 'router',
-                roles = { 'vshard-router' },
+                roles = { 'customers-router' },
                 servers = {
                     { instance_uuid = helpers.uuid('a', 1), alias = 'router' },
                 },

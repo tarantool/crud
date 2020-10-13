@@ -3,7 +3,6 @@ local errors = require('errors')
 local vshard = require('vshard')
 
 local call = require('crud.common.call')
-local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
@@ -11,9 +10,9 @@ local InsertError = errors.new_class('Insert',  {capture_stack = false})
 
 local insert = {}
 
-local INSERT_FUNC_NAME = '__insert'
+local INSERT_FUNC_NAME = '_crud.insert_on_storage'
 
-local function call_insert_on_storage(space_name, tuple)
+local function insert_on_storage(space_name, tuple)
     dev_checks('string', 'table')
 
     local space = box.space[space_name]
@@ -25,9 +24,7 @@ local function call_insert_on_storage(space_name, tuple)
 end
 
 function insert.init()
-    registry.add({
-        [INSERT_FUNC_NAME] = call_insert_on_storage,
-    })
+   _G._crud.insert_on_storage = insert_on_storage
 end
 
 --- Inserts a tuple to the specified space
@@ -62,11 +59,6 @@ function insert.tuple(space_name, tuple, opts)
 
     local key = utils.extract_key(tuple, space.index[0].parts)
     local bucket_id = vshard.router.bucket_id_strcrc32(key)
-    local replicaset, err = vshard.router.route(bucket_id)
-    if replicaset == nil then
-        return nil, InsertError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
-    end
-
     local bucket_id_fieldno, err = utils.get_bucket_id_fieldno(space)
     if err ~= nil then
         return nil, err
@@ -78,19 +70,17 @@ function insert.tuple(space_name, tuple, opts)
     end
 
     tuple[bucket_id_fieldno] = bucket_id
-    local results, err = call.rw(INSERT_FUNC_NAME, {space_name, tuple}, {
-        replicasets = {replicaset},
-        timeout = opts.timeout,
-    })
+    local results, err = call.rw_single(
+        bucket_id, INSERT_FUNC_NAME,
+        {space_name, tuple}, {timeout=opts.timeout})
 
     if err ~= nil then
         return nil, InsertError:new("Failed to insert: %s", err)
     end
 
-    local tuple = results[replicaset.uuid]
     return {
         metadata = table.copy(space_format),
-        rows = {tuple},
+        rows = {results},
     }
 end
 

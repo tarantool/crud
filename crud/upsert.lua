@@ -3,7 +3,6 @@ local errors = require('errors')
 local vshard = require('vshard')
 
 local call = require('crud.common.call')
-local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
@@ -11,9 +10,9 @@ local UpsertError = errors.new_class('UpsertError',  { capture_stack = false})
 
 local upsert = {}
 
-local UPSERT_FUNC_NAME = '__upsert'
+local UPSERT_FUNC_NAME = '_crud.upsert_on_storage'
 
-local function call_upsert_on_storage(space_name, tuple, operations)
+local function upsert_on_storage(space_name, tuple, operations)
     dev_checks('string', 'table', 'table')
 
     local space = box.space[space_name]
@@ -25,9 +24,7 @@ local function call_upsert_on_storage(space_name, tuple, operations)
 end
 
 function upsert.init()
-    registry.add({
-        [UPSERT_FUNC_NAME] = call_upsert_on_storage,
-    })
+   _G._crud.upsert_on_storage = upsert_on_storage
 end
 
 --- Update or insert a tuple in the specified space
@@ -72,11 +69,6 @@ function upsert.tuple(space_name, tuple, user_operations, opts)
     local key = utils.extract_key(tuple, space.index[0].parts)
 
     local bucket_id = vshard.router.bucket_id_strcrc32(key)
-    local replicaset, err = vshard.router.route(bucket_id)
-    if replicaset == nil then
-        return nil, UpsertError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
-    end
-
     local bucket_id_fieldno, err = utils.get_bucket_id_fieldno(space)
     if err ~= nil then
         return nil, err
@@ -88,10 +80,9 @@ function upsert.tuple(space_name, tuple, user_operations, opts)
     end
 
     tuple[bucket_id_fieldno] = bucket_id
-    local _, err = call.rw(UPSERT_FUNC_NAME, {space_name, tuple, operations}, {
-        replicasets = {replicaset},
-        timeout = opts.timeout,
-    })
+    local _, err = call.rw_single(
+        bucket_id, UPSERT_FUNC_NAME,
+        {space_name, tuple, operations}, {timeout=opts.timeout})
 
     if err ~= nil then
         return nil, UpsertError:new("Failed to upsert: %s", err)
