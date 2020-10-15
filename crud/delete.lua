@@ -63,9 +63,9 @@ function delete.call(space_name, key, opts)
     end
 
     local bucket_id = vshard.router.bucket_id_strcrc32(key)
-    local results, err = call.rw_single(
+    local result, err = call.rw_single(
         bucket_id, DELETE_FUNC_NAME,
-        {space_name, key}, {timeout=opts.timeout})
+        {space_name, key}, {timeout = opts.timeout})
 
     if err ~= nil then
         return nil, DeleteError:new("Failed to delete: %s", err)
@@ -73,7 +73,7 @@ function delete.call(space_name, key, opts)
 
     return {
         metadata = table.copy(space:format()),
-        rows = {results},
+        rows = {result},
     }
 end
 

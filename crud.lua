@@ -72,9 +72,9 @@ crud.unflatten_rows = utils.unflatten_rows
 -- @function init
 --
 function crud.init_storage()
-   if rawget(_G, '_crud') == nil then
-      rawset(_G, '_crud', {})
-   end
+    if rawget(_G, '_crud') == nil then
+        rawset(_G, '_crud', {})
+    end
 
     insert.init()
     get.init()
@@ -87,11 +87,6 @@ end
 
 function crud.init_router()
    rawset(_G, 'crud', crud)
-end
-
-function crud.init()
-   crud.init_storage()
-   crud.init_router()
 end
 
 return crud

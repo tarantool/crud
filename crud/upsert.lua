@@ -80,9 +80,9 @@ function upsert.tuple(space_name, tuple, user_operations, opts)
     end
 
     tuple[bucket_id_fieldno] = bucket_id
-    local _, err = call.rw_single(
-        bucket_id, UPSERT_FUNC_NAME,
-        {space_name, tuple, operations}, {timeout=opts.timeout})
+    local _, err = call.rw_single(bucket_id, UPSERT_FUNC_NAME, {space_name, tuple, operations}, {
+         timeout = opts.timeout
+    })
 
     if err ~= nil then
         return nil, UpsertError:new("Failed to upsert: %s", err)

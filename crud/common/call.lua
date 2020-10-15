@@ -135,21 +135,28 @@ function call.ro(func_name, func_args, opts)
     return call_impl('callro', func_name, func_args, opts)
 end
 
-function call.rw_single(bucket_id, function_name, argument_list, options)
-    local res, err = vshard.router.callrw(bucket_id, function_name, argument_list, options)
+--- Calls specified function on a node according to bucket_id.
+--
+-- Exactly mimics the contract of vshard.router.callrw, but adds
+-- better error hangling
+--
+-- @function rw_single
+--
+function call.rw_single(bucket_id, func_name, func_args, options)
+    local res, err = vshard.router.callrw(bucket_id, func_name, func_args, options)
 
     -- This is a workaround, until vshard supports telling us where the error happened
     if err ~= nil then
         if type(err) == 'table' and err.type == 'ClientError' and type(err.message) == 'string' then
-            if err.message == string.format("Procedure '%s' is not defined", function_name) then
+            if err.message == string.format("Procedure '%s' is not defined", func_name) then
                err = NotInitializedError:new("crud isn't initialized on replicaset")
             end
         end
 
-
-        local replicaset, err2 = vshard.router.route(bucket_id)
+        local replicaset, route_err = vshard.router.route(bucket_id)
         if replicaset == nil then
-            return nil, CallError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err2)
+            return nil, CallError:new("Function returned an error, but we couldn't figure out the replicaset: %s",
+                                      err)
         end
 
         return nil, CallError:new(utils.format_replicaset_error(

@@ -72,7 +72,7 @@ function update.call(space_name, key, user_operations, opts)
     end
 
     local bucket_id = vshard.router.bucket_id_strcrc32(key)
-    local results, err = call.rw_single(
+    local result, err = call.rw_single(
         bucket_id, UPDATE_FUNC_NAME, {space_name, key, operations},
         {timeout=opts.timeout})
 
@@ -82,7 +82,7 @@ function update.call(space_name, key, user_operations, opts)
 
     return {
         metadata = table.copy(space_format),
-        rows = {results},
+        rows = {result},
     }
 end
 

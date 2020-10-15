@@ -65,8 +65,7 @@ end
 package.preload['customers-router'] = function()
     return {
         role_name = 'customers-router',
-        init = function()
-        end,
+        init = function() end,
         dependencies = {'cartridge.roles.crud-router'},
     }
 end

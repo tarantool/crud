@@ -49,7 +49,7 @@ if not ok then
     os.exit(1)
 end
 
--- crud.init() isn't called
+-- crud.init_storage() isn't called
 
 rawset(_G, 'say_hi', function() return "Hi" end)
 

@@ -62,7 +62,7 @@ function get.call(space_name, key, opts)
     end
 
     local bucket_id = vshard.router.bucket_id_strcrc32(key)
-    local results, err = call.rw_single(
+    local result, err = call.rw_single(
         bucket_id, GET_FUNC_NAME,
         {space_name, key}, {timeout=opts.timeout})
 
@@ -70,7 +70,8 @@ function get.call(space_name, key, opts)
         return nil, GetError:new("Failed to get: %s", err)
     end
 
-    if results == nil then
+    -- result can be box.NULL
+    if result == nil then
         return {
             metadata = table.copy(space:format()),
             rows = {},
@@ -78,7 +79,7 @@ function get.call(space_name, key, opts)
     else
         return {
            metadata = table.copy(space:format()),
-           rows = {results},
+           rows = {result},
         }
     end
 end

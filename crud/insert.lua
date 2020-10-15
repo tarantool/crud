@@ -70,7 +70,7 @@ function insert.tuple(space_name, tuple, opts)
     end
 
     tuple[bucket_id_fieldno] = bucket_id
-    local results, err = call.rw_single(
+    local result, err = call.rw_single(
         bucket_id, INSERT_FUNC_NAME,
         {space_name, tuple}, {timeout=opts.timeout})
 
@@ -80,7 +80,7 @@ function insert.tuple(space_name, tuple, opts)
 
     return {
         metadata = table.copy(space_format),
-        rows = {results},
+        rows = {result},
     }
 end
 
