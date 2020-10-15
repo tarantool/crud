@@ -509,6 +509,37 @@ add('test_select_all_with_batch_size', function(g)
     t.assert_equals(objects, get_by_ids(customers, {1, 2, 3, 4, 5, 6}))
 end)
 
+add('test_select_by_primary_index', function(g)
+    local customers = insert_customers(g, {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    local conditions = {{'==', 'id_index', 3}}
+    local result, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions = ...
+
+        local result, err = crud.select('customers', conditions)
+        return result, err
+    ]], {conditions})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, get_by_ids(customers, {3}))
+end)
+
 add('test_eq_condition_with_index', function(g)
     local customers = insert_customers(g, {
         {
@@ -538,7 +569,7 @@ add('test_eq_condition_with_index', function(g)
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
     local conditions = {
-        {'==', 'age', 33},
+        {'==', 'age_index', 33},
     }
 
     -- no after
@@ -593,7 +624,7 @@ add('test_ge_condition_with_index', function(g)
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
     local conditions = {
-        {'>=', 'age', 33},
+        {'>=', 'age_index', 33},
     }
 
     -- no after
@@ -648,7 +679,7 @@ add('test_le_condition_with_index',function(g)
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
     local conditions = {
-        {'<=', 'age', 33},
+        {'<=', 'age_index', 33},
     }
 
     -- no after
@@ -703,7 +734,7 @@ add('test_lt_condition_with_index', function(g)
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
     local conditions = {
-        {'<', 'age', 33},
+        {'<', 'age_index', 33},
     }
 
     -- no after

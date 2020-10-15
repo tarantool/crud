@@ -24,7 +24,7 @@ package.preload['customers-storage'] = function()
                 if_not_exists = true,
                 engine = engine,
             })
-            customers_space:create_index('id', {
+            customers_space:create_index('id_index', {
                 parts = { {field = 'id'} },
                 if_not_exists = true,
             })
@@ -33,7 +33,7 @@ package.preload['customers-storage'] = function()
                 unique = false,
                 if_not_exists = true,
             })
-            customers_space:create_index('age', {
+            customers_space:create_index('age_index', {
                 parts = { {field = 'age'} },
                 unique = false,
                 if_not_exists = true,
