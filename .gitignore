@@ -3,3 +3,6 @@ build.luarocks/
 myapp/
 **.snap
 **.xlog
+.tarantool.cookie
+CMakeCache.txt
+CMakeFiles/
