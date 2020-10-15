@@ -153,7 +153,7 @@ function call.rw_single(bucket_id, func_name, func_args, options)
             end
         end
 
-        local replicaset, route_err = vshard.router.route(bucket_id)
+        local replicaset, _ = vshard.router.route(bucket_id)
         if replicaset == nil then
             return nil, CallError:new("Function returned an error, but we couldn't figure out the replicaset: %s",
                                       err)
