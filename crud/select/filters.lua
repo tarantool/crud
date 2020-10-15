@@ -96,7 +96,8 @@ local function get_values_opts(index, fieldnos)
 end
 
 local function get_index_by_name(space_indexes, index_name)
-    for _, index in ipairs(space_indexes) do
+    for i = 0, #space_indexes do
+       local index = space_indexes[i]
         if index.name == index_name then
             return index
         end
@@ -608,6 +609,7 @@ filters.internal = {
     parse = parse,
     gen_filter_code = gen_filter_code,
     compile = compile,
+    get_index_by_name = get_index_by_name,
 }
 
 return filters

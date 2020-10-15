@@ -638,4 +638,21 @@ return M]]
     t.assert_equals(filter_func({'a', box.NULL}), false) -- box.NULL > box.NULL is false
 end
 
+g.test_select_filter_get_index_by_name = function()
+    local space_indexes = {
+        [0] = {name = 'primary'},
+        [1] = {name = 'second'},
+        [2] = {name = 'third'}
+    }
+
+    local index = select_filters.internal.get_index_by_name(space_indexes, "primary");
+    t.assert_equals(index, space_indexes[0]);
+
+    local index = select_filters.internal.get_index_by_name(space_indexes, "third");
+    t.assert_equals(index, space_indexes[2]);
+
+    local index = select_filters.internal.get_index_by_name(space_indexes, "not_exist_index");
+    t.assert_equals(index, nil)
+end
+
 -- luacheck: pop

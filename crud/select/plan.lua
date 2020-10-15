@@ -39,7 +39,8 @@ local function validate_conditions(conditions, space_indexes, space_format)
     end
 
     local index_names = {}
-    for _, index in ipairs(space_indexes) do
+    for i = 0, #space_indexes do
+        local index = space_indexes[i]
         index_names[index.name] = true
     end
 
