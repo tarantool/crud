@@ -609,6 +609,7 @@ filters.internal = {
     parse = parse,
     gen_filter_code = gen_filter_code,
     compile = compile,
+    get_index_by_name = get_index_by_name,
 }
 
 return filters
