@@ -4,6 +4,7 @@ local vshard = require('vshard')
 
 local call = require('crud.common.call')
 local utils = require('crud.common.utils')
+local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 
 local InsertError = errors.new_class('Insert',  {capture_stack = false})
@@ -40,6 +41,10 @@ end
 -- @tparam ?number opts.timeout
 --  Function call timeout
 --
+-- @tparam ?number opts.bucket_id
+--  Bucket ID
+--  (by default, it's vshard.router.bucket_id_strcrc32 of primary key)
+--
 -- @return[1] tuple
 -- @treturn[2] nil
 -- @treturn[2] table Error description
@@ -47,6 +52,7 @@ end
 function insert.tuple(space_name, tuple, opts)
     checks('string', 'table', {
         timeout = '?number',
+        bucket_id = '?number|cdata',
     })
 
     opts = opts or {}
@@ -57,19 +63,11 @@ function insert.tuple(space_name, tuple, opts)
     end
     local space_format = space:format()
 
-    local key = utils.extract_key(tuple, space.index[0].parts)
-    local bucket_id = vshard.router.bucket_id_strcrc32(key)
-    local bucket_id_fieldno, err = utils.get_bucket_id_fieldno(space)
+    local bucket_id, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
     if err ~= nil then
-        return nil, err
+        return nil, InsertError:new("Failed to get bucket ID: %s", err)
     end
 
-    if tuple[bucket_id_fieldno] ~= nil then
-        return nil, InsertError:new("Unexpected value (%s) at field %s (bucket_id)",
-                tuple[bucket_id_fieldno], bucket_id_fieldno)
-    end
-
-    tuple[bucket_id_fieldno] = bucket_id
     local result, err = call.rw_single(
         bucket_id, INSERT_FUNC_NAME,
         {space_name, tuple}, {timeout=opts.timeout})
@@ -94,17 +92,15 @@ end
 -- @param table obj
 --  Object
 --
--- @tparam ?number opts.timeout
---  Function call timeout
+-- @tparam ?table opts
+--  Options of insert.tuple
 --
 -- @return[1] object
 -- @treturn[2] nil
 -- @treturn[2] table Error description
 --
 function insert.object(space_name, obj, opts)
-    checks('string', 'table', {
-        timeout = '?number',
-    })
+    checks('string', 'table', '?table')
 
     opts = opts or {}
 

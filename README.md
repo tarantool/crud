@@ -17,8 +17,11 @@ to make `crud` functions callable via `net.box`.
 **Notes:**
 
 * A space should have a format.
-* `bucket_id` is computed as `vshard.router.bucket_id_strcrc32(key)`,
+* By default, `bucket_id` is computed as `vshard.router.bucket_id_strcrc32(key)`,
   where `key` is the primary key value.
+  Custom bucket ID can be specified as `opts.bucket_id` for each operation.
+  For operations that accepts tuple/object bucket ID can be specified as
+  tuple/object field as well as `opts.bucket_id` value.
 
 ### Insert
 
@@ -35,6 +38,7 @@ where:
 * `tuple` / `object` (`table`) - tuple/object to insert
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `bucket_id` (`?number|cdata`) - bucket ID
 
 Returns metadata and array contains one inserted row, error.
 
@@ -77,6 +81,7 @@ where:
 * `key` (`any`) - primary key value
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `bucket_id` (`?number|cdata`) - bucket ID
 
 Returns metadata and array contains one row, error.
 
@@ -108,6 +113,7 @@ where:
 * `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/#box-space-update)
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `bucket_id` (`?number|cdata`) - bucket ID
 
 Returns metadata and array contains one updated row, error.
 
@@ -138,6 +144,7 @@ where:
 * `key` (`any`) - primary key value
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `bucket_id` (`?number|cdata`) - bucket ID
 
 Returns metadata and array contains one deleted row (empty for vinyl), error.
 
@@ -170,6 +177,7 @@ where:
 * `tuple` / `object` (`table`) - tuple/object to insert or replace exist one
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `bucket_id` (`?number|cdata`) - bucket ID
 
 Returns inserted or replaced rows and metadata or nil with error.
 
@@ -216,6 +224,7 @@ where:
 * `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/#box-space-update) if there is an existing tuple which matches the key fields of tuple
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `bucket_id` (`?number|cdata`) - bucket ID
 
 Returns metadata and empty array of rows or nil, error.
 
@@ -269,6 +278,8 @@ where:
   * `after` (`?table`) - tuple after which objects should be selected
   * `batch_size` (`?number`) - number of tuples to process per one request to storage
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `bucket_id` (`?number|cdata`) - bucket ID
+    (is used when select by full primary key is performed)
 
 Returns metadata and array of rows, error.
 

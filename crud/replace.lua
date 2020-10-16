@@ -4,6 +4,7 @@ local vshard = require('vshard')
 
 local call = require('crud.common.call')
 local utils = require('crud.common.utils')
+local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 
 local ReplaceError = errors.new_class('Replace', { capture_stack = false })
@@ -40,6 +41,10 @@ end
 -- @tparam ?number opts.timeout
 --  Function call timeout
 --
+-- @tparam ?number opts.bucket_id
+--  Bucket ID
+--  (by default, it's vshard.router.bucket_id_strcrc32 of primary key)
+--
 -- @return[1] object
 -- @treturn[2] nil
 -- @treturn[2] table Error description
@@ -47,6 +52,7 @@ end
 function replace.tuple(space_name, tuple, opts)
     checks('string', 'table', {
         timeout = '?number',
+        bucket_id = '?number|cdata',
     })
 
     opts = opts or {}
@@ -56,20 +62,11 @@ function replace.tuple(space_name, tuple, opts)
         return nil, ReplaceError:new("Space %q doesn't exist", space_name)
     end
 
-    local key = utils.extract_key(tuple, space.index[0].parts)
-
-    local bucket_id = vshard.router.bucket_id_strcrc32(key)
-    local bucket_id_fieldno, err = utils.get_bucket_id_fieldno(space)
+    local bucket_id, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
     if err ~= nil then
-        return nil, err
+        return nil, ReplaceError:new("Failed to get bucket ID: %s", err)
     end
 
-    if tuple[bucket_id_fieldno] ~= nil then
-        return nil, ReplaceError:new("Unexpected value (%s) at field %s (bucket_id)",
-                tuple[bucket_id_fieldno], bucket_id_fieldno)
-    end
-
-    tuple[bucket_id_fieldno] = bucket_id
     local result, err = call.rw_single(
         bucket_id, REPLACE_FUNC_NAME,
         {space_name, tuple}, {timeout=opts.timeout})
@@ -95,17 +92,15 @@ end
 -- @param table obj
 --  Object
 --
--- @tparam ?number opts.timeout
---  Function call timeout
+-- @tparam ?table opts
+--  Options of replace.tuple
 --
 -- @return[1] object
 -- @treturn[2] nil
 -- @treturn[2] table Error description
 --
 function replace.object(space_name, obj, opts)
-    checks('string', 'table', {
-        timeout = '?number',
-    })
+    checks('string', 'table', '?table')
 
     opts = opts or {}
 
