@@ -62,6 +62,10 @@ function get.call(space_name, key, opts)
     end
 
     local bucket_id = vshard.router.bucket_id_strcrc32(key)
+    -- We don't use callro() here, because if the replication is
+    -- async, there could be a lag between master and replica, so a
+    -- connector which sequentially calls put() and then get() may get
+    -- a stale result.
     local result, err = call.rw_single(
         bucket_id, GET_FUNC_NAME,
         {space_name, key}, {timeout=opts.timeout})
@@ -70,18 +74,15 @@ function get.call(space_name, key, opts)
         return nil, GetError:new("Failed to get: %s", err)
     end
 
-    -- result can be box.NULL
+    -- protect against box.NULL
     if result == nil then
-        return {
-            metadata = table.copy(space:format()),
-            rows = {},
-        }
-    else
-        return {
-           metadata = table.copy(space:format()),
-           rows = {result},
-        }
+       result = nil
     end
+
+    return {
+       metadata = table.copy(space:format()),
+       rows = {result},
+    }
 end
 
 return get
