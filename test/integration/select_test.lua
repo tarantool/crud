@@ -123,6 +123,23 @@ add('test_non_existent_space', function(g)
     t.assert_str_contains(err.err, "Space non_existent_space doesn't exist")
 end)
 
+add('test_not_valid_value_type', function(g)
+    local conditions = {
+        {'=', 'id', 'not_number'}
+    }
+
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        local conditions = ...
+
+        local result, err = crud.select('customers', conditions)
+        return result, err
+    ]], {conditions})
+
+    t.assert_equals(obj, nil)
+    t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type: expected unsigned")
+end)
+
 add('test_select_all', function(g)
     local customers = insert_customers(g, {
         {
