@@ -3,9 +3,8 @@ name: Run tests
 on:
   push:
   pull_request:
-
-env:
-  ROCK_NAME: "crud"
+    branches-ignore:
+      - '*'
 
 jobs:
   run-tests-ce:
@@ -16,13 +15,16 @@ jobs:
     runs-on: [ubuntu-latest]
     steps:
       - uses: actions/checkout@master
+
       - name: Install requirements for community
         run: |
           curl -L https://tarantool.io/installer.sh | sudo VER=${{ matrix.tarantool-version }} bash
           sudo apt install -y tarantool-dev
           ./deps.sh
+
       - name: Run linter
         run: .rocks/bin/luacheck .
+
       - name: Run tests
         run: .rocks/bin/luatest -v
 
@@ -35,6 +37,7 @@ jobs:
     runs-on: [ ubuntu-latest ]
     steps:
       - uses: actions/checkout@master
+
       - name: Install requirements for enterprise
         run: |
           curl -O -L https://tarantool:${{ secrets.DOWNLOAD_TOKEN }}@download.tarantool.io/enterprise/tarantool-enterprise-bundle-${{ matrix.bundle_version }}.tar.gz
@@ -43,31 +46,9 @@ jobs:
           sudo cp tarantool-enterprise/tarantool /usr/bin/tarantool
           source tarantool-enterprise/env.sh
           ./deps.sh
+
       - name: Run linter
         run: .rocks/bin/luacheck .
+
       - name: Run tests
         run: .rocks/bin/luatest -v
-
-  push-rockspec:
-    runs-on: [ ubuntu-latest ]
-    steps:
-      - uses: actions/checkout@master
-      # https://stackoverflow.com/questions/58177786/get-the-current-pushed-tag-in-github-actions
-      - name: Set env
-        run: echo "GIT_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
-      - name: Push scm rockspec
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        run: |
-          curl --fail -X PUT -F rockspec=@$ROCK_NAME-scm-1.rockspec \
-            https://${{ secrets.ROCKS_USERNAME }}:${{ secrets.ROCKS_PASSWORD }}@${{ secrets.ROCKS_SERVER }}
-      - name: Push release rockspec
-        if: startsWith(github.ref, 'refs/tags')
-        run: |
-          curl --fail -X PUT -F rockspec=@$ROCK_NAME-scm-1.rockspec \
-            https://${{ secrets.ROCKS_USERNAME }}:${{ secrets.ROCKS_PASSWORD }}@${{ secrets.ROCKS_SERVER }} \
-          cat $ROCK_NAME-scm-1.rockspec |
-              sed -E \
-                -e "s/branch = '.+'/tag = '${GIT_TAG}'/g" \
-                -e "s/version = '.+'/version = '${GIT_TAG}-1'/g" |
-              curl --fail -X PUT -F "rockspec=@-;filename=$ROCK_NAME-${GIT_TAG}-1.rockspec" \
-                https://${{ secrets.ROCKS_USERNAME }}:${{ secrets.ROCKS_PASSWORD }}@rocks.tarantool.org
