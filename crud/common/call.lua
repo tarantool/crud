@@ -3,7 +3,6 @@ local vshard = require('vshard')
 local errors = require('errors')
 
 local dev_checks = require('crud.common.dev_checks')
-local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
 
 local CallError = errors.new_class('Call')
@@ -11,47 +10,18 @@ local NotInitializedError = errors.new_class('NotInitialized')
 
 local call = {}
 
-local CALL_FUNC_NAME = '__call'
-
 local DEFAULT_VSHARD_CALL_TIMEOUT = 2
 
---- Initializes call on node
---
--- Wrapper function is registered to call functions remotely.
---
--- @function init
---
-function call.init()
-    local function call(opts)
-        dev_checks({
-            func_name = 'string',
-            func_args = '?table',
-        })
-
-        local func = registry.get(opts.func_name) or rawget(_G, opts.func_name)
-
-        if type(func) ~= 'function' then
-            return nil, CallError:new('Function %s is not registered', opts.func_name)
-        end
-
-        return func(unpack(opts.func_args or {}))
-    end
-
-    -- register global function
-    rawset(_G, CALL_FUNC_NAME, call)
-end
-
 local function call_on_replicaset(replicaset, channel, vshard_call, func_name, func_args, opts)
-    local elect_call_arg = {
-        func_name = func_name,
-        func_args = func_args,
-    }
-
     -- replicaset:<vshard_call>(func_name,...)
-    local func_ret, err = replicaset[vshard_call](replicaset, CALL_FUNC_NAME, {elect_call_arg}, opts)
+    local func_ret, err = replicaset[vshard_call](replicaset, func_name, func_args, opts)
     if type(err) == 'table' and err.type == 'ClientError' and type(err.message) == 'string' then
-        if err.message == string.format("Procedure '%s' is not defined", CALL_FUNC_NAME) then
-            err = NotInitializedError:new("crud isn't initialized on replicaset")
+        if err.message == string.format("Procedure '%s' is not defined", func_name) then
+            if func_name:startswith('_crud.') then
+                err = NotInitializedError:new("crud isn't initialized on replicaset")
+            else
+                err = NotInitializedError:new("Function %s is not registered", func_name)
+            end
         end
     end
 
@@ -163,6 +133,43 @@ end
 --
 function call.ro(func_name, func_args, opts)
     return call_impl('callro', func_name, func_args, opts)
+end
+
+--- Calls specified function on a node according to bucket_id.
+--
+-- Exactly mimics the contract of vshard.router.callrw, but adds
+-- better error hangling
+--
+-- @function rw_single
+--
+function call.rw_single(bucket_id, func_name, func_args, options)
+    local res, err = vshard.router.callrw(bucket_id, func_name, func_args, options)
+
+    -- This is a workaround, until vshard supports telling us where the error happened
+    if err ~= nil then
+        if type(err) == 'table' and err.type == 'ClientError' and type(err.message) == 'string' then
+            if err.message == string.format("Procedure '%s' is not defined", func_name) then
+               err = NotInitializedError:new("crud isn't initialized on replicaset")
+            end
+        end
+
+        local replicaset, _ = vshard.router.route(bucket_id)
+        if replicaset == nil then
+            return nil, CallError:new(
+                "Function returned an error, but we couldn't figure out the replicaset: %s", err
+            )
+        end
+
+        return nil, CallError:new(utils.format_replicaset_error(
+             replicaset.uuid, "Function returned an error: %s", err
+        ))
+    end
+
+    if res == box.NULL then
+        return nil
+    end
+
+    return res
 end
 
 return call

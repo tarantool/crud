@@ -3,7 +3,6 @@ local errors = require('errors')
 local vshard = require('vshard')
 
 local call = require('crud.common.call')
-local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
@@ -11,9 +10,9 @@ local UpdateError = errors.new_class('Update',  {capture_stack = false})
 
 local update = {}
 
-local UPDATE_FUNC_NAME = '__update'
+local UPDATE_FUNC_NAME = '_crud.update_on_storage'
 
-local function call_update_on_storage(space_name, key, operations)
+local function update_on_storage(space_name, key, operations)
     dev_checks('string', '?', 'table')
 
     local space = box.space[space_name]
@@ -26,9 +25,7 @@ local function call_update_on_storage(space_name, key, operations)
 end
 
 function update.init()
-    registry.add({
-        [UPDATE_FUNC_NAME] = call_update_on_storage,
-    })
+   _G._crud.update_on_storage = update_on_storage
 end
 
 --- Updates tuple in the specified space
@@ -75,24 +72,17 @@ function update.call(space_name, key, user_operations, opts)
     end
 
     local bucket_id = vshard.router.bucket_id_strcrc32(key)
-    local replicaset, err = vshard.router.route(bucket_id)
-    if replicaset == nil then
-        return nil, UpdateError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
-    end
-
-    local results, err = call.rw(UPDATE_FUNC_NAME, {space_name, key, operations}, {
-        replicasets = {replicaset},
-        timeout = opts.timeout,
-    })
+    local result, err = call.rw_single(
+        bucket_id, UPDATE_FUNC_NAME, {space_name, key, operations},
+        {timeout=opts.timeout})
 
     if err ~= nil then
         return nil, UpdateError:new("Failed to update: %s", err)
     end
 
-    local tuple = results[replicaset.uuid]
     return {
         metadata = table.copy(space_format),
-        rows = {tuple},
+        rows = {result},
     }
 end
 

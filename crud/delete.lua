@@ -3,7 +3,6 @@ local errors = require('errors')
 local vshard = require('vshard')
 
 local call = require('crud.common.call')
-local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
@@ -11,9 +10,9 @@ local DeleteError = errors.new_class('Delete',  {capture_stack = false})
 
 local delete = {}
 
-local DELETE_FUNC_NAME = '__delete'
+local DELETE_FUNC_NAME = '_crud.delete_on_storage'
 
-local function call_delete_on_storage(space_name, key)
+local function delete_on_storage(space_name, key)
     dev_checks('string', '?')
 
     local space = box.space[space_name]
@@ -26,9 +25,7 @@ local function call_delete_on_storage(space_name, key)
 end
 
 function delete.init()
-    registry.add({
-        [DELETE_FUNC_NAME] = call_delete_on_storage,
-    })
+   _G._crud.delete_on_storage = delete_on_storage
 end
 
 --- Deletes tuple from the specified space by key
@@ -66,24 +63,18 @@ function delete.call(space_name, key, opts)
     end
 
     local bucket_id = vshard.router.bucket_id_strcrc32(key)
-    local replicaset, err = vshard.router.route(bucket_id)
-    if replicaset == nil then
-        return nil, DeleteError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
-    end
-
-    local results, err = call.rw(DELETE_FUNC_NAME, {space_name, key}, {
-        replicasets = {replicaset},
-        timeout = opts.timeout,
-    })
+    local result, err = call.rw_single(
+        bucket_id, DELETE_FUNC_NAME,
+        {space_name, key}, {timeout = opts.timeout}
+    )
 
     if err ~= nil then
         return nil, DeleteError:new("Failed to delete: %s", err)
     end
 
-    local tuple = results[replicaset.uuid]
     return {
         metadata = table.copy(space:format()),
-        rows = {tuple},
+        rows = {result},
     }
 end
 

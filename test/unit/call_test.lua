@@ -13,7 +13,7 @@ g.before_all = function()
             {
                 uuid = helpers.uuid('a'),
                 alias = 'router',
-                roles = { 'vshard-router' },
+                roles = { 'crud-router' },
                 servers = {
                     { instance_uuid = helpers.uuid('a', 1), alias = 'router' },
                 },

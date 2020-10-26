@@ -57,7 +57,7 @@ g.before_all = function()
         if_not_exists = true,
     })
 
-    crud.init()
+    crud.init_storage()
 end
 
 g.after_each(function()

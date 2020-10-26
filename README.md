@@ -7,10 +7,12 @@ It also provides the `crud-storage` role for
 ## API
 
 The CRUD operations should be called from router.
-All storage replica sets should call `crud.init()`
+All storage replica sets should call `crud.init_storage()`
 (or enable the `crud-storage` role)
 first to initialize storage-side functions that are used to manipulate data
 across the cluster.
+All routers should call `crud.init_router()` (or enable the `crud-router` role)
+to make `crud` functions callable via `net.box`.
 
 **Notes:**
 
@@ -318,11 +320,16 @@ for _, object in crud.pairs('customers', {{'<=', 'age', 35}}, {use_tomap = true}
 end
 ```
 
-## Cartridge role
+## Cartridge roles
 
 `cartridge.roles.crud-storage` is a Tarantool Cartridge role that depends on the
 `vshard-storage` role, but also initializes functions that
 are used on the storage side to perform CRUD operations.
+
+`cartridge.roles.crud-router` is a role that depends on the
+`vshard-router` role, but also exposes public `crud` functions in the global
+scope, so that you can call them via `net.box`.
+
 
 ### Usage
 
@@ -373,8 +380,17 @@ return {
     }
 ```
 
+```lua
+-- app.roles.customers-router.lua
+local cartridge = require('cartridge')
+return {
+        role_name = 'customers-router',
+        dependencies = {'cartridge.roles.crud-router'},
+    }
+```
+
 3. Start the application and create `customers-storage` and
-   `vshard-router` replica sets.
+   `customers-router` replica sets.
 
 4. Don't forget to bootstrap vshard.
 

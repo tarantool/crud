@@ -3,7 +3,6 @@ local errors = require('errors')
 local vshard = require('vshard')
 
 local call = require('crud.common.call')
-local registry = require('crud.common.registry')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
@@ -11,9 +10,9 @@ local ReplaceError = errors.new_class('Replace', { capture_stack = false })
 
 local replace = {}
 
-local REPLACE_FUNC_NAME = '__replace'
+local REPLACE_FUNC_NAME = '_crud.replace_on_storage'
 
-local function call_replace_on_storage(space_name, tuple)
+local function replace_on_storage(space_name, tuple)
     dev_checks('string', 'table')
 
     local space = box.space[space_name]
@@ -25,9 +24,7 @@ local function call_replace_on_storage(space_name, tuple)
 end
 
 function replace.init()
-    registry.add({
-        [REPLACE_FUNC_NAME] = call_replace_on_storage,
-    })
+   _G._crud.replace_on_storage = replace_on_storage
 end
 
 --- Insert or replace a tuple in the specified space
@@ -62,11 +59,6 @@ function replace.tuple(space_name, tuple, opts)
     local key = utils.extract_key(tuple, space.index[0].parts)
 
     local bucket_id = vshard.router.bucket_id_strcrc32(key)
-    local replicaset, err = vshard.router.route(bucket_id)
-    if replicaset == nil then
-        return nil, ReplaceError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
-    end
-
     local bucket_id_fieldno, err = utils.get_bucket_id_fieldno(space)
     if err ~= nil then
         return nil, err
@@ -78,19 +70,18 @@ function replace.tuple(space_name, tuple, opts)
     end
 
     tuple[bucket_id_fieldno] = bucket_id
-    local results, err = call.rw(REPLACE_FUNC_NAME, {space_name, tuple}, {
-        replicasets = {replicaset},
-        timeout = opts.timeout,
-    })
+    local result, err = call.rw_single(
+        bucket_id, REPLACE_FUNC_NAME,
+        {space_name, tuple}, {timeout=opts.timeout})
+
 
     if err ~= nil then
         return nil, ReplaceError:new("Failed to replace: %s", err)
     end
 
-    local tuple = results[replicaset.uuid]
-    return {
+     return {
         metadata = table.copy(space:format()),
-        rows = {tuple},
+        rows = {result},
     }
 end
 

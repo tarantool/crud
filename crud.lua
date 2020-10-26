@@ -2,8 +2,6 @@
 --
 -- @module crud
 
-local registry = require('crud.common.registry')
-local call = require('crud.common.call')
 local insert = require('crud.insert')
 local replace = require('crud.replace')
 local get = require('crud.get')
@@ -14,13 +12,6 @@ local select = require('crud.select')
 local utils = require('crud.common.utils')
 
 local crud = {}
-
---- Functions registry
--- @section registry
-
--- @refer registry.add
--- @function register
-crud.register = registry.add
 
 --- CRUD operations.
 -- @section crud
@@ -80,8 +71,11 @@ crud.unflatten_rows = utils.unflatten_rows
 --
 -- @function init
 --
-function crud.init()
-    call.init()
+function crud.init_storage()
+    if rawget(_G, '_crud') == nil then
+        rawset(_G, '_crud', {})
+    end
+
     insert.init()
     get.init()
     replace.init()
@@ -89,6 +83,10 @@ function crud.init()
     upsert.init()
     delete.init()
     select.init()
+end
+
+function crud.init_router()
+   rawset(_G, 'crud', crud)
 end
 
 return crud
