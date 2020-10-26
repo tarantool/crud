@@ -9,12 +9,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.3.0] - 2020-10-26
 
-### Added
-
-* `bucket_id` option for all operations to specify custom bucket ID.
-  For operations that accepts tuple/object bucket ID can be specified as
-  tuple/object field as well as `opts.bucket_id` value.
-
 ### Fixed
 
 * Select by primary index name
@@ -24,6 +18,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 * `crud-router` Cartridge role
+* `bucket_id` option for all operations to specify custom bucket ID.
+  For operations that accepts tuple/object bucket ID can be specified as
+  tuple/object field as well as `opts.bucket_id` value.
 
 ### Changed
 
