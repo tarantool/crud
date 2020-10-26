@@ -8,8 +8,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Fixed
+
 * Select by primary index name
-* Fix error handling select with invalid type value 
+* Fix error handling select with invalid type value
+* Get rid of performing map-reduce for single-replicaset operations
+
+### Added
+
+* `crud-router` Cartridge role
+
+### Changed
+
+* CRUD-router functions are exposed to the global scope, so it's possible to call
+  crud-operations via `net.box.call`
+* `crud.init` is removed in favor to `crud.init_storage` and `crud.init_router`
 
 ## [0.2.0] - 2020-10-07
 
