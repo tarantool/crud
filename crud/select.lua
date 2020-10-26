@@ -4,6 +4,7 @@ local vshard = require('vshard')
 
 local call = require('crud.common.call')
 local utils = require('crud.common.utils')
+local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 
 local select_conditions = require('crud.select.conditions')
@@ -101,8 +102,7 @@ local function select_iteration(space_name, plan, opts)
     return results
 end
 
-local function get_replicasets_by_sharding_key(sharding_key)
-    local bucket_id = vshard.router.bucket_id_strcrc32(sharding_key)
+local function get_replicasets_by_sharding_key(bucket_id)
     local replicaset, err = vshard.router.route(bucket_id)
     if replicaset == nil then
         return nil, GetReplicasetsError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
@@ -119,6 +119,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         first = '?number',
         timeout = '?number',
         batch_size = '?number',
+        bucket_id = '?number|cdata',
     })
 
     opts = opts or {}
@@ -160,7 +161,8 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local replicasets_to_select = replicasets
 
     if plan.sharding_key ~= nil then
-        replicasets_to_select = get_replicasets_by_sharding_key(plan.sharding_key)
+        local bucket_id = sharding.key_get_bucket_id(plan.sharding_key, opts.bucket_id)
+        replicasets_to_select = get_replicasets_by_sharding_key(bucket_id)
     end
 
     -- generate tuples comparator
@@ -199,6 +201,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         timeout = '?number',
         batch_size = '?number',
         use_tomap = '?boolean',
+        bucket_id = '?number|cdata',
     })
 
     opts = opts or {}
@@ -212,6 +215,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         first = opts.first,
         timeout = opts.timeout,
         batch_size = opts.batch_size,
+        bucket_id = opts.bucket_id,
     })
 
     if err ~= nil then
@@ -248,6 +252,7 @@ function select_module.call(space_name, user_conditions, opts)
         first = '?number',
         timeout = '?number',
         batch_size = '?number',
+        bucket_id = '?number|cdata',
     })
 
     opts = opts or {}
@@ -263,6 +268,7 @@ function select_module.call(space_name, user_conditions, opts)
         first = opts.first,
         timeout = opts.timeout,
         batch_size = opts.batch_size,
+        bucket_id = opts.bucket_id,
     })
 
     if err ~= nil then

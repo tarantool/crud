@@ -4,6 +4,7 @@ local vshard = require('vshard')
 
 local call = require('crud.common.call')
 local utils = require('crud.common.utils')
+local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 
 local GetError = errors.new_class('Get',  {capture_stack = false})
@@ -41,6 +42,10 @@ end
 -- @tparam ?number opts.timeout
 --  Function call timeout
 --
+-- @tparam ?number opts.bucket_id
+--  Bucket ID
+--  (by default, it's vshard.router.bucket_id_strcrc32 of primary key)
+--
 -- @return[1] object
 -- @treturn[2] nil
 -- @treturn[2] table Error description
@@ -48,6 +53,7 @@ end
 function get.call(space_name, key, opts)
     checks('string', '?', {
         timeout = '?number',
+        bucket_id = '?number|cdata',
     })
 
     opts = opts or {}
@@ -61,7 +67,7 @@ function get.call(space_name, key, opts)
         key = key:totable()
     end
 
-    local bucket_id = vshard.router.bucket_id_strcrc32(key)
+    local bucket_id = sharding.key_get_bucket_id(key, opts.bucket_id)
     -- We don't use callro() here, because if the replication is
     -- async, there could be a lag between master and replica, so a
     -- connector which sequentially calls put() and then get() may get

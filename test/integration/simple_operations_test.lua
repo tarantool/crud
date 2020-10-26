@@ -7,8 +7,6 @@ local crud = require('crud')
 
 local helpers = require('test.helper')
 
-math.randomseed(os.time())
-
 local function before_all(g, engine)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
@@ -409,7 +407,6 @@ add('test_upsert_object', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {{id = 66, name = 'Leo Tolstoy', age = 50, bucket_id = 486}})
-
 end)
 
 add('test_upsert', function(g)
