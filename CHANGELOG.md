@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [0.3.0] - 2020-10-26
+### Fixed
 
 * Fix typo in error format. Now returned error contains parent error
+
+## [0.3.0] - 2020-10-26
 
 ### Fixed
 
