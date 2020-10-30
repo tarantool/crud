@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+* Fixed typo in error for case when failed to get `bucket_id`
+
 ## [0.3.0] - 2020-10-26
 
 ### Fixed
