@@ -9,12 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.3.0] - 2020-10-26
 
+* Fix typo in error format. Now returned error contains parent error
+
 ### Fixed
 
 * Select by primary index name
 * Fix error handling select with invalid type value
 * Get rid of performing map-reduce for single-replicaset operations
-* Fix typo in error format. Now returned error contains parent error
 
 ### Added
 
