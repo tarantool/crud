@@ -350,11 +350,14 @@ scope, so that you can call them via `net.box`.
 
 1. Add `crud` to dependencies in the project rockspec.
 
+**Note**: it's better to use tagged version than `scm-1`.
+Check the latest available [release](https://github.com/tarantool/crud/releases) tag and use it.
+
 ```lua
 -- <project-name>-scm-1.rockspec
 dependencies = {
     ...
-    'crud >= 0.2.0-1',
+    'crud == <the-latest-tag>-1',
     ...
 }
 ```
