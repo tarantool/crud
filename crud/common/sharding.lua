@@ -27,7 +27,7 @@ end
 function sharding.tuple_set_and_return_bucket_id(tuple, space, specified_bucket_id)
     local bucket_id_fieldno, err = utils.get_bucket_id_fieldno(space)
     if err ~= nil then
-        return nil, BucketIDError:new("Failed to get bucket ID fielno:", err)
+        return nil, BucketIDError:new("Failed to get bucket ID fielno: %s", err)
     end
 
     if specified_bucket_id ~= nil then
