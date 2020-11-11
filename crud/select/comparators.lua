@@ -1,74 +1,14 @@
 local errors = require('errors')
 
-local collations = require('crud.common.collations')
 local select_conditions = require('crud.select.conditions')
 local operators = select_conditions.operators
 
 local utils = require('crud.common.utils')
 local types = require('crud.common.types')
 
-local LessThenError = errors.new_class('LessThenError')
-local GenFuncError = errors.new_class('GenFuncError')
 local ComparatorsError = errors.new_class('ComparatorsError')
 
 local comparators = {}
-
-local function eq(lhs, rhs)
-    return lhs == rhs
-end
-
-local function eq_unicode(lhs, rhs)
-    if type(lhs) == 'string' and type(rhs) == 'string' then
-        return utf8.cmp(lhs, rhs) == 0
-    end
-
-    return eq(lhs)
-end
-
-local function eq_unicode_ci(lhs, rhs)
-    if type(lhs) == 'string' and type(rhs) == 'string' then
-        return utf8.casecmp(lhs, rhs) == 0
-    end
-
-    return lhs == rhs
-end
-
-local function lt(lhs, rhs)
-    if lhs == nil and rhs ~= nil then
-        return true
-    elseif rhs == nil then
-        return false
-    end
-
-    -- boolean compare
-    local lhs_is_boolean = type(lhs) == 'boolean'
-    local rhs_is_boolean = type(rhs) == 'boolean'
-
-    if lhs_is_boolean and rhs_is_boolean then
-        return (not lhs) and rhs
-    elseif lhs_is_boolean or rhs_is_boolean then
-        LessThenError:assert(false, 'Could not compare boolean and not boolean')
-    end
-
-    -- general compare
-    return lhs < rhs
-end
-
-local function lt_unicode(lhs, rhs)
-    if type(lhs) == 'string' and type(rhs) == 'string' then
-        return utf8.cmp(lhs, rhs) == -1
-    end
-
-    return lt(lhs, rhs)
-end
-
-local function lt_unicode_ci(lhs, rhs)
-    if type(lhs) == 'string' and type(rhs) == 'string' then
-        return utf8.casecmp(lhs, rhs) == -1
-    end
-
-    return lt(lhs, rhs)
-end
 
 local function array_eq(lhs, rhs, len, _, eq_funcs)
     for i = 1, len do
@@ -128,26 +68,12 @@ local function array_ge(lhs, rhs, len, lt_funcs, eq_funcs)
     return true
 end
 
-local function get_cmp_func_by_key_part(key_part)
-    local lt_special, eq_special = types.lt(key_part), types.eq(key_part)
-    local collation = collations.get(key_part)
-    if collations.is_default(collation) then
-        return lt_special or lt, eq_special or eq
-    elseif collation == collations.UNICODE then
-        return lt_unicode, eq_unicode
-    elseif collation == collations.UNICODE_CI then
-        return lt_unicode_ci, eq_unicode_ci
-    else
-        return nil, GenFuncError:new('Unsupported Tarantool collation %q', collation)
-    end
-end
-
 local function gen_array_cmp_func(target, key_parts)
     local lt_funcs = {}
     local eq_funcs = {}
 
     for _, part in ipairs(key_parts) do
-        local lt_func, eq_func = get_cmp_func_by_key_part(part)
+        local lt_func, eq_func = types.comparators(part)
         table.insert(lt_funcs, lt_func)
         table.insert(eq_funcs, eq_func)
     end
