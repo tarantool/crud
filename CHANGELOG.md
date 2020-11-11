@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 * Fixed typo in error for case when failed to get `bucket_id`
 
+### Added
+
+* Support for UUID field types and UUID values
+
 ## [0.3.0] - 2020-10-26
 
 ### Fixed
