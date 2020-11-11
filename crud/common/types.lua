@@ -2,7 +2,9 @@ local types = {}
 
 local lt_by_key_type = {
     uuid = function (lhs, rhs)
-        return lhs:str() < rhs:str()
+        if lhs == nil and rhs ~= nil then return lhs end
+        if lhs ~= nil and rhs == nil then return rhs end
+        return lhs and rhs and lhs:str() < rhs:str()
     end
 }
 

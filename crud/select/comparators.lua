@@ -128,10 +128,11 @@ local function array_ge(lhs, rhs, len, lt_funcs, eq_funcs)
     return true
 end
 
-local function cmp_funcs_by_key_type(key_part)
+local function get_cmp_func_by_key_part(key_part)
+    local lt_special, eq_special = types.lt(key_part), types.eq(key_part)
     local collation = collations.get(key_part)
     if collations.is_default(collation) then
-        return types.lt(key_part) or lt, types.eq(key_part) or eq
+        return lt_special or lt, eq_special or eq
     elseif collation == collations.UNICODE then
         return lt_unicode, eq_unicode
     elseif collation == collations.UNICODE_CI then
@@ -146,7 +147,7 @@ local function gen_array_cmp_func(target, key_parts)
     local eq_funcs = {}
 
     for _, part in ipairs(key_parts) do
-        local lt_func, eq_func = cmp_funcs_by_key_type(part)
+        local lt_func, eq_func = get_cmp_func_by_key_part(part)
         table.insert(lt_funcs, lt_func)
         table.insert(eq_funcs, eq_func)
     end

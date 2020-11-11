@@ -80,28 +80,11 @@ end
 g_memtx.before_each(function() before_each(g_memtx) end)
 g_vinyl.before_each(function() before_each(g_vinyl) end)
 
-local function insert_customers(g, customers)
+local function insert_objects(g, space_name, objects)
     local inserted_objects = {}
 
-    for _, customer in ipairs(customers) do
-        local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {'customers', customer})
-
-        t.assert_equals(err, nil)
-
-        local objects, err = crud.unflatten_rows(result.rows, result.metadata)
-        t.assert_equals(err, nil)
-        t.assert_equals(#objects, 1)
-        table.insert(inserted_objects, objects[1])
-    end
-
-    return inserted_objects
-end
-
-local function insert_goods(g, skus)
-    local inserted_objects = {}
-
-    for _, sku in ipairs(skus) do
-        local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {'goods', sku})
+    for _, customer in ipairs(objects) do
+        local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {space_name, customer})
 
         t.assert_equals(err, nil)
 
@@ -155,7 +138,7 @@ add('test_not_valid_value_type', function(g)
 end)
 
 add('test_select_all', function(g)
-    local customers = insert_customers(g, {
+    local customers = insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -216,7 +199,7 @@ add('test_select_all', function(g)
 end)
 
 add('test_select_all_with_first', function(g)
-    local customers = insert_customers(g, {
+    local customers = insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -252,7 +235,7 @@ add('test_select_all_with_first', function(g)
 end)
 
 add('test_negative_first', function(g)
-    local customers = insert_customers(g, {
+    local customers = insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 11, city = "New York",
@@ -363,7 +346,7 @@ add('test_negative_first', function(g)
 end)
 
 add('test_select_all_with_batch_size', function(g)
-    local customers = insert_customers(g, {
+    local customers = insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -416,7 +399,7 @@ add('test_select_all_with_batch_size', function(g)
 end)
 
 add('test_select_by_primary_index', function(g)
-    local customers = insert_customers(g, {
+    local customers = insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -447,7 +430,7 @@ add('test_select_by_primary_index', function(g)
 end)
 
 add('test_eq_condition_with_index', function(g)
-    local customers = insert_customers(g, {
+    local customers = insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 33, city = "New York",
@@ -495,7 +478,7 @@ add('test_eq_condition_with_index', function(g)
 end)
 
 add('test_ge_condition_with_index', function(g)
-    local customers = insert_customers(g, {
+    local customers = insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -534,7 +517,7 @@ add('test_ge_condition_with_index', function(g)
 end)
 
 add('test_le_condition_with_index',function(g)
-    local customers = insert_customers(g, {
+    local customers = insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -573,7 +556,7 @@ add('test_le_condition_with_index',function(g)
 end)
 
 add('test_lt_condition_with_index', function(g)
-    local customers = insert_customers(g, {
+    local customers = insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -612,7 +595,7 @@ add('test_lt_condition_with_index', function(g)
 end)
 
 add('test_multiple_conditions', function(g)
-    local customers = insert_customers(g, {
+    local customers = insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Rodriguez",
             age = 20, city = "Los Angeles",
@@ -656,7 +639,7 @@ add('test_multiple_conditions', function(g)
 end)
 
 add('test_composite_index', function(g)
-    local customers = insert_customers(g, {
+    local customers = insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Rodriguez",
             age = 20, city = "Los Angeles",
@@ -695,7 +678,7 @@ add('test_composite_index', function(g)
 end)
 
 add('test_select_with_batch_size_1', function(g)
-    local customers = insert_customers(g,{
+    local customers = insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -759,7 +742,7 @@ add('test_select_with_batch_size_1', function(g)
 end)
 
 add('test_select_by_full_sharding_key', function(g)
-    local customers = insert_customers(g, {
+    local customers = insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -783,7 +766,7 @@ add('test_select_by_full_sharding_key', function(g)
 end)
 
 add('test_select_with_collations', function(g)
-    local customers = insert_customers(g, {
+    local customers = insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "Oxford",
@@ -826,7 +809,7 @@ end)
 
 if crud_utils.tarantool_supports_uuids() then
     add('test_select_from_space_with_uuid_pk', function(g)
-        local goods = insert_goods(g, {
+        local goods = insert_objects(g, 'goods', {
             {
                 uuid = uuid:new(), name = "IPhone 12"
             },
