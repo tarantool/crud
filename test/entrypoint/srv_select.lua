@@ -65,6 +65,7 @@ package.preload['customers-storage'] = function()
                         {name = 'uuid', type = 'uuid'},
                         {name = 'bucket_id', type = 'unsigned'},
                         {name = 'name', type = 'string'},
+                        {name = 'category_id', type = 'uuid'},
                     },
                     if_not_exists = true,
                     engine = engine,

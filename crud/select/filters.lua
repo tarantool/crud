@@ -154,7 +154,13 @@ local function parse(space, conditions, opts)
     return filter_conditions
 end
 
-local function format_value(value)
+local cdata_formats = {
+    uuid = function (value)
+        return ("'%s'"):format(tostring(value))
+    end
+}
+
+local function format_value(value, value_type)
     if type(value) == 'nil' then
         return 'nil'
     elseif value == nil then
@@ -164,7 +170,7 @@ local function format_value(value)
     elseif type(value) == 'number' then
         return tostring(value)
     elseif type(value) == 'cdata' then
-        return tostring(value)
+        return cdata_formats[value_type] and cdata_formats[value_type](value) or tostring(value)
     elseif type(value) == 'boolean' then
         return tostring(value)
     end
@@ -218,12 +224,12 @@ local function gen_tuple_fields_def_code(filter_conditions)
     return table.concat(fields_def_parts, '\n')
 end
 
-local function format_comp_with_value(fieldno, func_name, value)
+local function format_comp_with_value(fieldno, func_name, value, value_type)
     return string.format(
         '%s(%s, %s)',
         func_name,
         get_field_variable_name(fieldno),
-        format_value(value)
+        format_value(value, value_type)
     )
 end
 
@@ -251,29 +257,36 @@ local function add_collation_postfix(func_name, value_opts)
     error('Unsupported collation: ' .. tostring(value_opts.collation))
 end
 
-local function format_eq(cond)
-    local cond_strings = {}
-    local values_opts = cond.values_opts or {}
+local function get_lt_function_name_by_type(value_type, value_opts)
+    local func_name = 'lt'
 
-    for j = 1, #cond.values do
-        local fieldno = cond.fieldnos[j]
-        local value = cond.values[j]
-        local value_opts = values_opts[j] or {}
+    if value_type == 'boolean' then
+        func_name = 'lt_boolean'
+    elseif value_type == 'string' then
+        func_name = add_collation_postfix('lt', value_opts)
+    elseif value_type == 'uuid' then
+        func_name = 'lt_uuid'
+    end
 
-        local func_name = 'eq'
-        func_name = add_collation_postfix(func_name, value_opts)
+    return add_strict_postfix(func_name, value_opts)
+end
 
+local function get_eq_function_name_by_type(value_type, value_opts)
+    local func_name = 'eq'
+
+    if value_type == 'string' then
+        func_name = add_collation_postfix('eq', value_opts)
         if collations.is_unicode(value_opts.collation) then
             func_name = add_strict_postfix(func_name, value_opts)
         end
-
-        table.insert(cond_strings, format_comp_with_value(fieldno, func_name, value))
+    elseif value_type == 'uuid' then
+        func_name = 'eq_uuid'
     end
 
-    return cond_strings
+    return func_name
 end
 
-local function format_lt(cond)
+local function format_func(func_name_getter, cond)
     local cond_strings = {}
     local values_opts = cond.values_opts or {}
 
@@ -283,14 +296,20 @@ local function format_lt(cond)
         local value_type = cond.types[j]
         local value_opts = values_opts[j] or {}
 
-        local func_name = value_type ~= 'boolean' and 'lt' or 'lt_boolean'
-        func_name = add_collation_postfix(func_name, value_opts)
-        func_name = add_strict_postfix(func_name, value_opts)
+        local func_name = func_name_getter(value_type, value_opts)
 
-        table.insert(cond_strings, format_comp_with_value(fieldno, func_name, value))
+        table.insert(cond_strings, format_comp_with_value(fieldno, func_name, value, value_type))
     end
 
     return cond_strings
+end
+
+local function format_eq(cond)
+    return format_func(get_eq_function_name_by_type, cond)
+end
+
+local function format_lt(cond)
+    return format_func(get_lt_function_name_by_type, cond)
 end
 
 local function gen_eq_func_code(func_name, cond, func_args_code)
@@ -491,6 +510,22 @@ local function lt_boolean_strict(lhs, rhs)
     return (not lhs) and rhs
 end
 
+local function lt_uuid_nullable(lhs, rhs)
+    if lhs == nil and rhs ~= nil then
+        return true
+    elseif rhs == nil then
+        return false
+    end
+    return lhs:str() < rhs
+end
+
+local function lt_uuid_strict(lhs, rhs)
+    if rhs == nil then
+        return false
+    end
+    return lhs:str() < rhs
+end
+
 local function lt_unicode_ci_nullable(lhs, rhs)
     if lhs == nil and rhs ~= nil then
         return true
@@ -509,6 +544,10 @@ end
 
 local function eq(lhs, rhs)
     return lhs == rhs
+end
+
+local function eq_uuid(lhs, rhs)
+    return lhs:str() == rhs
 end
 
 local function eq_unicode_nullable(lhs, rhs)
@@ -546,6 +585,7 @@ end
 local library = {
     -- EQ
     eq = eq,
+    eq_uuid = eq_uuid,
     -- nullable
     eq_unicode = eq_unicode_nullable,
     eq_unicode_ci = eq_unicode_ci_nullable,
@@ -559,11 +599,13 @@ local library = {
     lt_unicode = lt_unicode_nullable,
     lt_unicode_ci = lt_unicode_ci_nullable,
     lt_boolean = lt_boolean_nullable,
+    lt_uuid = lt_uuid_nullable,
     -- strict
     lt_strict = lt_strict,
     lt_unicode_strict = lt_unicode_strict,
     lt_unicode_ci_strict = lt_unicode_ci_strict,
     lt_boolean_strict = lt_boolean_strict,
+    lt_uuid_strict = lt_uuid_strict,
 
     utf8 = utf8,
 
