@@ -1,4 +1,5 @@
 local fio = require('fio')
+local uuid = require('uuid')
 
 local t = require('luatest')
 local g_memtx = t.group('select_memtx')
@@ -84,6 +85,23 @@ local function insert_customers(g, customers)
 
     for _, customer in ipairs(customers) do
         local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {'customers', customer})
+
+        t.assert_equals(err, nil)
+
+        local objects, err = crud.unflatten_rows(result.rows, result.metadata)
+        t.assert_equals(err, nil)
+        t.assert_equals(#objects, 1)
+        table.insert(inserted_objects, objects[1])
+    end
+
+    return inserted_objects
+end
+
+local function insert_goods(g, skus)
+    local inserted_objects = {}
+
+    for _, sku in ipairs(skus) do
+        local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {'goods', sku})
 
         t.assert_equals(err, nil)
 
@@ -804,4 +822,35 @@ add('test_select_with_collations', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, get_by_ids(customers, {2, 4}))
+end)
+
+add('test_select_from_space_with_uuid_pk', function(g)
+    local goods = insert_goods(g, {
+        {
+            uuid = uuid:new(), name = "IPhone 12"
+        },
+        {
+            uuid = uuid:new(), name = "Samsung S11"
+        },
+        {
+            uuid = uuid:new(), name = "Nubia Z11"
+        },
+        {
+            uuid = uuid:new(), name = "Google Pixel 3"
+        },
+    })
+
+    table.sort(goods, function(obj1, obj2) return obj1.uuid:str() < obj2.uuid:str() end)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'goods', nil})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(#objects, 4)
+
+    local conditions = {{'>', 'uuid', goods[3].uuid}}
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'goods', conditions})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(#objects, 1)
+    t.assert_equals(objects, get_by_ids(goods, {4}))
 end)

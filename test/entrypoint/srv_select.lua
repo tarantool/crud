@@ -57,6 +57,26 @@ package.preload['customers-storage'] = function()
                 unique = false,
                 if_not_exists = true,
             })
+
+            local goods_space = box.schema.space.create('goods', {
+                format = {
+                    {name = 'uuid', type = 'uuid'},
+                    {name = 'bucket_id', type = 'unsigned'},
+                    {name = 'name', type = 'string'},
+                },
+                if_not_exists = true,
+                engine = engine,
+            })
+            --primary index
+            goods_space:create_index('uuid', {
+                parts = { {field = 'uuid'} },
+                if_not_exists = true,
+            })
+            goods_space:create_index('bucket_id', {
+                parts = { {field = 'bucket_id'} },
+                unique = false,
+                if_not_exists = true,
+            })
         end,
         dependencies = {'cartridge.roles.crud-storage'},
     }

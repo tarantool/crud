@@ -5,6 +5,7 @@ local select_conditions = require('crud.select.conditions')
 local operators = select_conditions.operators
 
 local utils = require('crud.common.utils')
+local types = require('crud.common.types')
 
 local LessThenError = errors.new_class('LessThenError')
 local GenFuncError = errors.new_class('GenFuncError')
@@ -127,24 +128,27 @@ local function array_ge(lhs, rhs, len, lt_funcs, eq_funcs)
     return true
 end
 
+local function cmp_funcs_by_key_type(key_part)
+    local collation = collations.get(key_part)
+    if collations.is_default(collation) then
+        return types.lt(key_part) or lt, types.eq(key_part) or eq
+    elseif collation == collations.UNICODE then
+        return lt_unicode, eq_unicode
+    elseif collation == collations.UNICODE_CI then
+        return lt_unicode_ci, eq_unicode_ci
+    else
+        return nil, GenFuncError:new('Unsupported Tarantool collation %q', collation)
+    end
+end
+
 local function gen_array_cmp_func(target, key_parts)
     local lt_funcs = {}
     local eq_funcs = {}
 
     for _, part in ipairs(key_parts) do
-        local collation = collations.get(part)
-        if collations.is_default(collation) then
-            table.insert(lt_funcs, lt)
-            table.insert(eq_funcs, eq)
-        elseif collation == collations.UNICODE then
-            table.insert(lt_funcs, lt_unicode)
-            table.insert(eq_funcs, eq_unicode)
-        elseif collation == collations.UNICODE_CI then
-            table.insert(lt_funcs, lt_unicode_ci)
-            table.insert(eq_funcs, eq_unicode_ci)
-        else
-            return nil, GenFuncError:new('Unsupported Tarantool collation %q', collation)
-        end
+        local lt_func, eq_func = cmp_funcs_by_key_type(part)
+        table.insert(lt_funcs, lt_func)
+        table.insert(eq_funcs, eq_func)
     end
 
     return function(lhs, rhs)
