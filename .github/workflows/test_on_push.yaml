@@ -33,7 +33,7 @@ jobs:
     if: github.event_name == 'push'
     strategy:
       matrix:
-        bundle_version: [ "1.10.8-0-g2f18757b7-r356", "2.6.1-0-gcfe0d1a55-r356" ]
+        bundle_version: [ "1.10.8-0-g2f18757-r357", "2.6.1-0-gcfe0d1a-r357" ]
       fail-fast: false
     runs-on: [ ubuntu-latest ]
     steps:
