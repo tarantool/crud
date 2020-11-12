@@ -18,12 +18,12 @@ local function comparing_nil(cmp)
     end
 end
 
-local function lt(lhs, rhs)
+local function lt_default(lhs, rhs)
     return lhs < rhs
 end
 
-local function lt_default(lhs, rhs)
-    return comparing_nil(lt)(lhs, rhs)
+local function lt(lhs, rhs)
+    return comparing_nil(lt_default)(lhs, rhs)
 end
 
 local function eq(lhs, rhs)
@@ -46,7 +46,7 @@ local function lt_unicode(lhs, rhs)
         return utf8.cmp(lhs, rhs) == -1
     end
 
-    return lt_default(lhs, rhs)
+    return lt(lhs, rhs)
 end
 
 local function lt_unicode_ci(lhs, rhs)
@@ -54,7 +54,7 @@ local function lt_unicode_ci(lhs, rhs)
         return utf8.casecmp(lhs, rhs) == -1
     end
 
-    return lt_default(lhs, rhs)
+    return lt(lhs, rhs)
 end
 
 local function eq_unicode(lhs, rhs)
@@ -84,7 +84,7 @@ local functions_by_key_type = {
     string = function (key_part)
         local collation = collations.get(key_part)
         if collations.is_default(collation) then
-            return lt_default, eq
+            return lt, eq
         elseif collation == collations.UNICODE then
             return lt_unicode, eq_unicode
         elseif collation == collations.UNICODE_CI then
@@ -98,11 +98,11 @@ local functions_by_key_type = {
     end
 }
 
-function types.comparators(key_part)
-    if key_part and key_part.type and functions_by_key_type[key_part.type] then
+function types.get_comparators_by_type(key_part)
+    if functions_by_key_type[key_part.type] then
         return functions_by_key_type[key_part.type](key_part)
     else
-        return lt_default, eq
+        return lt, eq
     end
 end
 

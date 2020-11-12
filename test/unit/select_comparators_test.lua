@@ -102,14 +102,14 @@ end
 
 g.test_unicode_collations = function()
     local unicode_parts = {
-        {collation='unicode', type = 'string'},
-        {collation='unicode', type = 'string'},
-        {collation='unicode', type = 'string'},
+        { collation = 'unicode', type = 'string' },
+        { collation = 'unicode', type = 'string' },
+        { collation = 'unicode', type = 'string' },
     }
     local unicode_ci_parts = {
-        {collation='unicode_ci', type = 'string'},
-        {collation='unicode_ci', type = 'string'},
-        {collation='unicode_ci', type = 'string'},
+        { collation = 'unicode_ci', type = 'string' },
+        { collation = 'unicode_ci', type = 'string' },
+        { collation = 'unicode_ci', type = 'string' },
     }
 
     local func_eq_unicode, err = select_comparators.gen_func(operators.GE, unicode_parts)

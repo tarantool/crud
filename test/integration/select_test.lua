@@ -807,54 +807,55 @@ add('test_select_with_collations', function(g)
     t.assert_equals(objects, get_by_ids(customers, {2, 4}))
 end)
 
-if crud_utils.tarantool_supports_uuids() then
-    add('test_select_from_space_with_uuid_pk', function(g)
-        local category_1 = uuid.fromstr('c74871e0-2441-11eb-8d27-0800200c9a66')
-        local category_2 = uuid.fromstr('d0b2b920-2441-11eb-8d27-0800200c9a66')
 
-        local goods = insert_objects(g, 'goods', {
-            {
-                uuid = uuid.fromstr('f1e29620-2459-11eb-8d27-000000000000'),
-                name = "IPhone 12", category_id = category_1
-            },
-            {
-                uuid = uuid.fromstr('f1e29620-2459-11eb-8d27-111111111111'),
-                name = "Samsung S11", category_id = category_1
-            },
-            {
-                uuid = uuid.fromstr('f1e29620-2459-11eb-8d27-222222222222'),
-                name = "Nubia Z11", category_id = category_2
-            },
-            {
-                uuid = uuid.fromstr('f1e29620-2459-11eb-8d27-333333333333'),
-                name = "Google Pixel 3", category_id = category_2
-            },
-        })
+add('test_select_from_space_with_uuid_pk', function(g)
+    t.skip_if(not crud_utils.tarantool_supports_uuids(), "UUIDs are not supported on Tarantool <= 2.4.1")
 
-        local result, err = g.cluster.main_server.net_box:call('crud.select', {'goods', nil})
-        t.assert_equals(err, nil)
-        local objects = crud.unflatten_rows(result.rows, result.metadata)
-        t.assert_equals(#objects, 4)
+    local category_1 = uuid.fromstr('c74871e0-2441-11eb-8d27-0800200c9a66')
+    local category_2 = uuid.fromstr('d0b2b920-2441-11eb-8d27-0800200c9a66')
 
-        local conditions = {{'>', 'uuid', goods[3].uuid}}
-        local result, err = g.cluster.main_server.net_box:call('crud.select', {'goods', conditions})
-        t.assert_equals(err, nil)
-        local objects = crud.unflatten_rows(result.rows, result.metadata)
-        t.assert_equals(#objects, 1)
-        t.assert_equals(objects, get_by_ids(goods, {4}))
+    local goods = insert_objects(g, 'goods', {
+        {
+            uuid = uuid.fromstr('f1e29620-2459-11eb-8d27-000000000000'),
+            name = "IPhone 12", category_id = category_1
+        },
+        {
+            uuid = uuid.fromstr('f1e29620-2459-11eb-8d27-111111111111'),
+            name = "Samsung S11", category_id = category_1
+        },
+        {
+            uuid = uuid.fromstr('f1e29620-2459-11eb-8d27-222222222222'),
+            name = "Nubia Z11", category_id = category_2
+        },
+        {
+            uuid = uuid.fromstr('f1e29620-2459-11eb-8d27-333333333333'),
+            name = "Google Pixel 3", category_id = category_2
+        },
+    })
 
-        local conditions = {{'=', 'category_id', category_2}}
-        local result, err = g.cluster.main_server.net_box:call('crud.select', {'goods', conditions})
-        t.assert_equals(err, nil)
-        local objects = crud.unflatten_rows(result.rows, result.metadata)
-        t.assert_equals(#objects, 2)
-        t.assert_equals(objects, get_by_ids(goods, {3, 4}))
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'goods', nil})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(#objects, 4)
 
-        local conditions = {{'>', 'category_id', category_1}}
-        local result, err = g.cluster.main_server.net_box:call('crud.select', {'goods', conditions})
-        t.assert_equals(err, nil)
-        local objects = crud.unflatten_rows(result.rows, result.metadata)
-        t.assert_equals(#objects, 2)
-        t.assert_equals(objects, get_by_ids(goods, {3, 4}))
-    end)
-end
+    local conditions = {{'>', 'uuid', goods[3].uuid}}
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'goods', conditions})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(#objects, 1)
+    t.assert_equals(objects, get_by_ids(goods, {4}))
+
+    local conditions = {{'=', 'category_id', category_2}}
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'goods', conditions})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(#objects, 2)
+    t.assert_equals(objects, get_by_ids(goods, {3, 4}))
+
+    local conditions = {{'>', 'category_id', category_1}}
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'goods', conditions})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(#objects, 2)
+    t.assert_equals(objects, get_by_ids(goods, {3, 4}))
+end)

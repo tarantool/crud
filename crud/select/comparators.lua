@@ -1,10 +1,10 @@
 local errors = require('errors')
 
 local select_conditions = require('crud.select.conditions')
+local type_comparators = require('crud.select.type_comparators')
 local operators = select_conditions.operators
 
 local utils = require('crud.common.utils')
-local types = require('crud.common.types')
 
 local ComparatorsError = errors.new_class('ComparatorsError')
 
@@ -73,7 +73,7 @@ local function gen_array_cmp_func(target, key_parts)
     local eq_funcs = {}
 
     for _, part in ipairs(key_parts) do
-        local lt_func, eq_func = types.comparators(part)
+        local lt_func, eq_func = type_comparators.get_comparators_by_type(part)
         table.insert(lt_funcs, lt_func)
         table.insert(eq_funcs, eq_func)
     end

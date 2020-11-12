@@ -1,6 +1,7 @@
 local json = require('json')
 local errors = require('errors')
 
+local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 local collations = require('crud.common.collations')
 local select_conditions = require('crud.select.conditions')
@@ -154,13 +155,7 @@ local function parse(space, conditions, opts)
     return filter_conditions
 end
 
-local cdata_formats = {
-    uuid = function (value)
-        return ("'%s'"):format(tostring(value))
-    end
-}
-
-local function format_value(value, value_type)
+local function format_value(value)
     if type(value) == 'nil' then
         return 'nil'
     elseif value == nil then
@@ -169,9 +164,12 @@ local function format_value(value, value_type)
         return ("%q"):format(value)
     elseif type(value) == 'number' then
         return tostring(value)
-    elseif type(value) == 'cdata' then
-        return cdata_formats[value_type] and cdata_formats[value_type](value) or tostring(value)
     elseif type(value) == 'boolean' then
+        return tostring(value)
+    elseif type(value) == 'cdata' then
+        if utils.is_uuid(value) then
+            return ("%q"):format(value)
+        end
         return tostring(value)
     end
     assert(false, ('Unexpected value %s (type %s)'):format(value, type(value)))
@@ -224,12 +222,12 @@ local function gen_tuple_fields_def_code(filter_conditions)
     return table.concat(fields_def_parts, '\n')
 end
 
-local function format_comp_with_value(fieldno, func_name, value, value_type)
+local function format_comp_with_value(fieldno, func_name, value)
     return string.format(
         '%s(%s, %s)',
         func_name,
         get_field_variable_name(fieldno),
-        format_value(value, value_type)
+        format_value(value)
     )
 end
 
@@ -298,7 +296,7 @@ local function format_func(func_name_getter, cond)
 
         local func_name = func_name_getter(value_type, value_opts)
 
-        table.insert(cond_strings, format_comp_with_value(fieldno, func_name, value, value_type))
+        table.insert(cond_strings, format_comp_with_value(fieldno, func_name, value))
     end
 
     return cond_strings
@@ -510,20 +508,20 @@ local function lt_boolean_strict(lhs, rhs)
     return (not lhs) and rhs
 end
 
-local function lt_uuid_nullable(lhs, rhs)
-    if lhs == nil and rhs ~= nil then
+local function lt_uuid_nullable(lhs, rhs_str)
+    if lhs == nil and rhs_str ~= nil then
         return true
-    elseif rhs == nil then
+    elseif rhs_str == nil then
         return false
     end
-    return lhs:str() < rhs
+    return lhs:str() < rhs_str
 end
 
-local function lt_uuid_strict(lhs, rhs)
-    if rhs == nil then
+local function lt_uuid_strict(lhs, rhs_str)
+    if rhs_str == nil then
         return false
     end
-    return lhs:str() < rhs
+    return lhs:str() < rhs_str
 end
 
 local function lt_unicode_ci_nullable(lhs, rhs)
@@ -546,8 +544,18 @@ local function eq(lhs, rhs)
     return lhs == rhs
 end
 
-local function eq_uuid(lhs, rhs)
-    return lhs:str() == rhs
+local function eq_uuid(lhs, rhs_str)
+    if lhs == nil then
+        return rhs_str == nil
+    end
+    return lhs:str() == rhs_str
+end
+
+local function eq_uuid_strict(lhs, rhs_str)
+    if rhs_str == nil then
+        return false
+    end
+    return lhs:str() == rhs_str
 end
 
 local function eq_unicode_nullable(lhs, rhs)
@@ -586,6 +594,7 @@ local library = {
     -- EQ
     eq = eq,
     eq_uuid = eq_uuid,
+    eq_uuid_strict = eq_uuid_strict,
     -- nullable
     eq_unicode = eq_unicode_nullable,
     eq_unicode_ci = eq_unicode_ci_nullable,
