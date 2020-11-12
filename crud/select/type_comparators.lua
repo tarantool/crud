@@ -6,7 +6,7 @@ local UnsupportedCollationError = errors.new_class('UnsupportedCollationError')
 
 local types = {}
 
-local function comparing_nil(cmp)
+local function comparing_nullable(cmp)
     return function(lhs, rhs)
         if lhs == nil and rhs ~= nil then
             return true
@@ -22,15 +22,13 @@ local function lt_default(lhs, rhs)
     return lhs < rhs
 end
 
-local function lt(lhs, rhs)
-    return comparing_nil(lt_default)(lhs, rhs)
-end
+local lt = comparing_nullable(lt_default)
 
 local function eq(lhs, rhs)
     return lhs == rhs
 end
 
-local function lt_boolean(lhs, rhs)
+local function lt_boolean_default(lhs, rhs)
     local lhs_is_boolean = type(lhs) == 'boolean'
     local rhs_is_boolean = type(rhs) == 'boolean'
 
@@ -40,6 +38,8 @@ local function lt_boolean(lhs, rhs)
         TypeMismatchError:assert(false, 'Could not compare boolean and not boolean')
     end
 end
+
+local lt_boolean = comparing_nullable(lt_boolean_default)
 
 local function lt_unicode(lhs, rhs)
     if type(lhs) == 'string' and type(rhs) == 'string' then
@@ -73,13 +73,15 @@ local function eq_unicode_ci(lhs, rhs)
     return lhs == rhs
 end
 
-local function lt_uuid(lhs, rhs)
-    return lhs:str() < rhs:str()
+local function lt_uuid_default(lhs, rhs)
+    return tostring(lhs) < tostring(rhs)
 end
 
-local functions_by_key_type = {
+local lt_uuid = comparing_nullable(lt_uuid_default)
+
+local comparators_by_type = {
     boolean = function ()
-        return comparing_nil(lt_boolean), eq
+        return lt_boolean, eq
     end,
     string = function (key_part)
         local collation = collations.get(key_part)
@@ -94,13 +96,13 @@ local functions_by_key_type = {
         end
     end,
     uuid = function ()
-        return comparing_nil(lt_uuid), eq
+        return lt_uuid, eq
     end
 }
 
 function types.get_comparators_by_type(key_part)
-    if functions_by_key_type[key_part.type] then
-        return functions_by_key_type[key_part.type](key_part)
+    if comparators_by_type[key_part.type] then
+        return comparators_by_type[key_part.type](key_part)
     else
         return lt, eq
     end

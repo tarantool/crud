@@ -508,20 +508,20 @@ local function lt_boolean_strict(lhs, rhs)
     return (not lhs) and rhs
 end
 
-local function lt_uuid_nullable(lhs, rhs_str)
-    if lhs == nil and rhs_str ~= nil then
+local function lt_uuid_nullable(lhs, rhs)
+    if lhs == nil and rhs ~= nil then
         return true
-    elseif rhs_str == nil then
+    elseif rhs == nil then
         return false
     end
-    return lhs:str() < rhs_str
+    return tostring(lhs) < tostring(rhs)
 end
 
-local function lt_uuid_strict(lhs, rhs_str)
-    if rhs_str == nil then
+local function lt_uuid_strict(lhs, rhs)
+    if rhs == nil then
         return false
     end
-    return lhs:str() < rhs_str
+    return tostring(lhs) < tostring(rhs)
 end
 
 local function lt_unicode_ci_nullable(lhs, rhs)
@@ -544,18 +544,18 @@ local function eq(lhs, rhs)
     return lhs == rhs
 end
 
-local function eq_uuid(lhs, rhs_str)
+local function eq_uuid(lhs, rhs)
     if lhs == nil then
-        return rhs_str == nil
+        return rhs == nil
     end
-    return lhs:str() == rhs_str
+    return tostring(lhs) == tostring(rhs)
 end
 
-local function eq_uuid_strict(lhs, rhs_str)
-    if rhs_str == nil then
+local function eq_uuid_strict(lhs, rhs)
+    if rhs == nil then
         return false
     end
-    return lhs:str() == rhs_str
+    return tostring(lhs) == tostring(rhs)
 end
 
 local function eq_unicode_nullable(lhs, rhs)
