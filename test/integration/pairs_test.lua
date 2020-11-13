@@ -340,3 +340,32 @@ add('test_empty_space', function(g)
     ]])
     t.assert_equals(count, 0)
 end)
+
+add('test_luafun_compatipility', function(g)
+    helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        },
+    })
+    local count = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        local count = crud.pairs('customers'):map(function() return 1 end):sum()
+        return count
+    ]])
+    t.assert_equals(count, 3)
+
+    count = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        local count = crud.pairs('customers',
+            {use_tomap = true}):map(function() return 1 end):sum()
+        return count
+    ]])
+    t.assert_equals(count, 3)
+end)
