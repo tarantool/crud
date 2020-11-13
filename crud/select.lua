@@ -18,6 +18,8 @@ local GetReplicasetsError = errors.new_class('GetReplicasetsError')
 
 local select_module = {}
 
+local SELECT_FUNC_NAME = '_crud.select_on_storage'
+
 local DEFAULT_BATCH_SIZE = 100
 
 local function make_cursor(data)
@@ -161,8 +163,11 @@ local function build_select_iterator(space_name, user_conditions, opts)
         scan_condition_num = plan.scan_condition_num,
     }
 
-    local merger = Merger.new(replicasets_to_select,
-            space_name, plan.index_id, plan.conditions, select_opts)
+    local merger = Merger.new(replicasets_to_select, space_name, plan.index_id,
+            SELECT_FUNC_NAME,
+            {space_name, plan.index_id, plan.conditions, select_opts},
+            {tarantool_iter = plan.tarantool_iter}
+        )
 
     return {
         merger = merger,
