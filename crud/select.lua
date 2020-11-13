@@ -203,29 +203,18 @@ function select_module.pairs(space_name, user_conditions, opts)
         error(string.format("Failed to generate iterator: %s", err))
     end
 
-    local tuple, _
-
     if opts.use_tomap ~= true then
         return iter.merger:pairs()
     end
 
-    local merger_gen = iter.merger:pairs()
-    local gen = function()
-        _, tuple = merger_gen.gen(nil, merger_gen.state)
-        if tuple == nil then
-            return nil
-        end
-
+    return iter.merger:pairs():map(function(tuple)
         local result
         result, err = utils.unflatten(tuple, iter.space_format)
         if err ~= nil then
             error(string.format("Failed to unflatten next object: %s", err))
         end
-
-        return iter, result
-    end
-
-    return gen
+        return result
+    end)
 end
 
 local function select_module_call_xc(space_name, user_conditions, opts)
