@@ -11,12 +11,12 @@ local ExecuteSelectError = errors.new_class('ExecuteSelectError')
 
 local executor = {}
 
-local function scroll_to_after_tuple(gen, space, scan_index, iter, after_tuple)
+local function scroll_to_after_tuple(gen, space, scan_index, tarantool_iter, after_tuple)
     local primary_index = space.index[0]
 
     local scroll_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
 
-    local cmp_operator = select_comparators.get_cmp_operator(iter)
+    local cmp_operator = select_comparators.get_cmp_operator(tarantool_iter)
     local scroll_comparator, err = select_comparators.gen_tuples_comparator(cmp_operator, scroll_key_parts)
     if err ~= nil then
         return nil, ScrollToAfterError:new("Failed to generate comparator to scroll: %s", err)
@@ -40,7 +40,7 @@ function executor.execute(space, index, filter_func, opts)
     dev_checks('table', 'table', 'function', {
         scan_value = 'table',
         after_tuple = '?table',
-        iter = 'number',
+        tarantool_iter = 'number',
         limit = '?number',
     })
 
@@ -58,7 +58,7 @@ function executor.execute(space, index, filter_func, opts)
         if value == nil then
             value = opts.after_tuple
         else
-            local cmp_operator = select_comparators.get_cmp_operator(opts.iter)
+            local cmp_operator = select_comparators.get_cmp_operator(opts.tarantool_iter)
             local scan_comparator, err = select_comparators.gen_tuples_comparator(cmp_operator, index.parts)
             if err ~= nil then
                 log.warn("Failed to generate comparator for scan value: %s", err)
@@ -70,11 +70,11 @@ function executor.execute(space, index, filter_func, opts)
     end
 
     local tuple
-    local gen = index:pairs(value, {iterator = opts.iter})
+    local gen = index:pairs(value, {iterator = opts.tarantool_iter})
 
     if opts.after_tuple ~= nil then
         local err
-        tuple, err = scroll_to_after_tuple(gen, space, index, opts.iter, opts.after_tuple)
+        tuple, err = scroll_to_after_tuple(gen, space, index, opts.tarantool_iter, opts.after_tuple)
         if err ~= nil then
             return nil, ExecuteSelectError:new("Failed to scroll to the after_tuple: %s", err)
         end

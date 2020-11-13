@@ -75,7 +75,7 @@ g.test_indexed_field = function()
     t.assert_equals(plan.scan_value, {20})
     t.assert_equals(plan.after_tuple, nil)
     t.assert_equals(plan.scan_condition_num, 1)
-    t.assert_equals(plan.iter, box.index.GT)
+    t.assert_equals(plan.tarantool_iter, box.index.GT)
     t.assert_equals(plan.total_tuples_count, nil)
     t.assert_equals(plan.sharding_key, nil)
 end
@@ -93,7 +93,7 @@ g.test_non_indexed_field = function()
     t.assert_equals(plan.scan_value, {})
     t.assert_equals(plan.after_tuple, nil)
     t.assert_equals(plan.scan_condition_num, nil)
-    t.assert_equals(plan.iter, box.index.GE)
+    t.assert_equals(plan.tarantool_iter, box.index.GE)
     t.assert_equals(plan.total_tuples_count, nil)
     t.assert_equals(plan.sharding_key, nil)
 end
@@ -112,7 +112,7 @@ g.test_partial_indexed_field = function()
     t.assert_equals(plan.scan_value, {'A'})
     t.assert_equals(plan.after_tuple, nil)
     t.assert_equals(plan.scan_condition_num, 1)
-    t.assert_equals(plan.iter, box.index.GT)
+    t.assert_equals(plan.tarantool_iter, box.index.GT)
     t.assert_equals(plan.total_tuples_count, nil)
     t.assert_equals(plan.sharding_key, nil)
 
@@ -129,7 +129,7 @@ g.test_partial_indexed_field = function()
     t.assert_equals(plan.scan_value, {})
     t.assert_equals(plan.after_tuple, nil)
     t.assert_equals(plan.scan_condition_num, nil)
-    t.assert_equals(plan.iter, box.index.GE)
+    t.assert_equals(plan.tarantool_iter, box.index.GE)
     t.assert_equals(plan.total_tuples_count, nil)
     t.assert_equals(plan.sharding_key, nil)
 end
@@ -221,7 +221,7 @@ g.test_first = function()
     t.assert_equals(plan.scan_value, {777}) -- after_tuple id
     t.assert_equals(plan.after_tuple, after_tuple)
     t.assert_equals(plan.scan_condition_num, nil)
-    t.assert_equals(plan.iter, box.index.LE) -- inverted iterator
+    t.assert_equals(plan.tarantool_iter, box.index.LE) -- inverted iterator
     t.assert_equals(plan.total_tuples_count, 10)
     t.assert_equals(plan.sharding_key, nil)
 
@@ -242,7 +242,7 @@ g.test_first = function()
     t.assert_equals(plan.scan_value, {76})  -- after_tuple age value
     t.assert_equals(plan.after_tuple, after_tuple) -- after_tuple key
     t.assert_equals(plan.scan_condition_num, nil)
-    t.assert_equals(plan.iter, box.index.GT) -- inverted iterator
+    t.assert_equals(plan.tarantool_iter, box.index.GT) -- inverted iterator
     t.assert_equals(plan.total_tuples_count, 10)
     t.assert_equals(plan.sharding_key, nil)
 end

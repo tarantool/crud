@@ -11,7 +11,7 @@ local select_plan = require('crud.select.plan')
 local select_executor = require('crud.select.executor')
 local select_filters = require('crud.select.filters')
 
-local Iterator = require('crud.select.iterator')
+local Merger = require('crud.select.merger')
 
 local SelectError = errors.new_class('SelectError')
 local GetReplicasetsError = errors.new_class('GetReplicasetsError')
@@ -32,7 +32,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
     dev_checks('string', 'number', '?table', {
         scan_value = 'table',
         after_tuple = '?table',
-        iter = 'number',
+        tarantool_iter = 'number',
         limit = 'number',
         scan_condition_num = '?number',
     })
@@ -48,7 +48,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
     end
 
     local filter_func, err = select_filters.gen_func(space, conditions, {
-        iter = opts.iter,
+        tarantool_iter = opts.tarantool_iter,
         scan_condition_num = opts.scan_condition_num,
     })
     if err ~= nil then
@@ -59,7 +59,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
     local tuples, err = select_executor.execute(space, index, filter_func, {
         scan_value = opts.scan_value,
         after_tuple = opts.after_tuple,
-        iter = opts.iter,
+        tarantool_iter = opts.tarantool_iter,
         limit = opts.limit,
     })
     if err ~= nil then
@@ -156,16 +156,16 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local select_opts = {
         scan_value = plan.scan_value,
         after_tuple = plan.after_tuple,
-        iter = plan.iter,
+        tarantool_iter = plan.tarantool_iter,
         limit = batch_size,
         scan_condition_num = plan.scan_condition_num,
     }
 
-    local iter = Iterator.new(replicasets_to_select,
+    local merger = Merger.new(replicasets_to_select,
             space_name, plan.index_id, plan.conditions, select_opts)
 
     return {
-        iter = iter,
+        merger = merger,
         space_format = space_format,
     }
 end
@@ -201,10 +201,10 @@ function select_module.pairs(space_name, user_conditions, opts)
     local tuple, _
 
     if opts.use_tomap ~= true then
-        return iter.iter:pairs()
+        return iter.merger:pairs()
     end
 
-    local merger_gen = iter.iter:pairs()
+    local merger_gen = iter.merger:pairs()
     local gen = function()
         _, tuple = merger_gen.gen(nil, merger_gen.state)
         if tuple == nil then
@@ -256,7 +256,7 @@ local function select_module_call_xc(space_name, user_conditions, opts)
 
     local count = 0
     local first = opts.first and math.abs(opts.first)
-    for _, tuple in iter.iter:pairs() do
+    for _, tuple in iter.merger:pairs() do
         if first ~= nil and count >= first then
             break
         end

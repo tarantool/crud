@@ -76,7 +76,7 @@ g.test_parse = function()
 
     local filter_conditions, err = select_filters.internal.parse(space, conditions, {
         scan_condition_num = plan.scan_condition_num,
-        iter = plan.iter,
+        tarantool_iter = plan.tarantool_iter,
     })
     t.assert_equals(err, nil)
 

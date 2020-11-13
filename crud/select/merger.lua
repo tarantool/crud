@@ -215,6 +215,7 @@ local function new(replicasets, space_name, index_id, conditions, opts)
     local merger = merger_lib.new(key_def, merger_sources, {
         reverse = reverse_iterators[opts.iter],
     })
+
     return merger
 end
 
