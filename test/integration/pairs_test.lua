@@ -353,3 +353,15 @@ add('test_negative_first', function(g)
         ]])
     end)
 end)
+
+add('test_empty_space', function(g)
+    local count = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        local count = 0
+        for _, object in crud.pairs('customers') do
+            count = count + 1
+        end
+        return count
+    ]])
+    t.assert_equals(count, 0)
+end)
