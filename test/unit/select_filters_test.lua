@@ -37,8 +37,8 @@ g.before_all = function()
     })
     customers_space:create_index('full_name', { -- id: 2
         parts = {
-            { field = 'name', collation = 'unicode_ci' },
-            { field = 'last_name', is_nullable = true },
+            {field = 'name', collation = 'unicode_ci'},
+            {field = 'last_name', is_nullable = true},
         },
         unique = false,
         if_not_exists = true,

@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 * Fixed typo in error for case when failed to get `bucket_id`
+* Fixed select by part of sharding key equal. Before this patch
+  selecting by equality of partially specified multipart primary index
+  value was misinterpreted as a selecting by fully specified key value.
 
 ## [0.3.0] - 2020-10-26
 

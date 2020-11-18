@@ -33,8 +33,8 @@ g.before_all = function()
     })
     customers_space:create_index('full_name', { -- id: 2
         parts = {
-            { field = 'name', collation = 'unicode_ci' },
-            { field = 'last_name', is_nullable = true },
+            {field = 'name', collation = 'unicode_ci'},
+            {field = 'last_name', is_nullable = true},
         },
         unique = false,
         if_not_exists = true,
@@ -42,6 +42,25 @@ g.before_all = function()
     customers_space:create_index('name_id', { -- id: 3
         parts = { {field = 'name'}, {field = 'id'} },
         unique = false,
+        if_not_exists = true,
+    })
+
+    -- is used for multipart primary index tests
+    local coord_space = box.schema.space.create('coord', {
+        format = {
+              {name = 'x', type = 'unsigned'},
+              {name = 'y', type = 'unsigned'},
+              {name = 'bucket_id', type = 'unsigned'},
+        },
+        if_not_exists = true,
+    })
+     -- primary index
+    coord_space:create_index('primary', {
+        parts = { {field = 'x'}, {field = 'y'} },
+        if_not_exists = true,
+    })
+    coord_space:create_index('bucket_id', {
+        parts = { {field = 'bucket_id'} },
         if_not_exists = true,
     })
 end
@@ -187,6 +206,28 @@ g.test_is_scan_by_full_sharding_key_eq = function()
 
     t.assert_equals(plan.total_tuples_count, nil)
     t.assert_equals(plan.sharding_key, nil)
+
+    -- multipart primary index
+
+    -- specified only first part
+    local plan, err = select_plan.new(box.space.coord, {
+        cond_funcs.eq('primary', 0),
+    })
+
+    t.assert_equals(err, nil)
+
+    t.assert_equals(plan.total_tuples_count, nil)
+    t.assert_equals(plan.sharding_key, nil)
+
+    -- specified both parts
+    local plan, err = select_plan.new(box.space.coord, {
+        cond_funcs.eq('primary', {1, 0}),
+    })
+
+    t.assert_equals(err, nil)
+
+    t.assert_equals(plan.total_tuples_count, 1)
+    t.assert_equals(plan.sharding_key, {1, 0})
 end
 
 g.test_first = function()
