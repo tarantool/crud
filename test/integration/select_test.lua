@@ -96,6 +96,23 @@ local function insert_customers(g, customers)
     return inserted_objects
 end
 
+local function insert_coords(g, coords)
+    local inserted_objects = {}
+
+    for _, coord in ipairs(coords) do
+        local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {'coord', coord})
+
+        t.assert_equals(err, nil)
+
+        local objects, err = crud.unflatten_rows(result.rows, result.metadata)
+        t.assert_equals(err, nil)
+        t.assert_equals(#objects, 1)
+        table.insert(inserted_objects, objects[1])
+    end
+
+    return inserted_objects
+end
+
 local function add(name, fn)
     g_memtx[name] = fn
     g_vinyl[name] = fn
@@ -804,4 +821,16 @@ add('test_select_with_collations', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, get_by_ids(customers, {2, 4}))
+end)
+
+add('test_select_coords', function(g)
+    local coords = insert_coords(g, {
+                                        { x=0, y=0,},
+                                        { x=0, y=1,},
+                                        { x=0, y=2 },
+                                        { x=1, y=3 },
+                                        { x=1, y=4},})
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', {{'=', 'primary', {0}}}})
+    t.assert_equals(#result.rows, 3, "Result set length mismatch")
 end)
