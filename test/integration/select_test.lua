@@ -791,3 +791,25 @@ add('test_select_with_collations', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 4}))
 end)
+
+add('test_multipart_primary_index', function(g)
+    local coords = helpers.insert_objects(g, 'coord', {
+        { x = 0, y = 0 }, -- 1
+        { x = 0, y = 1 }, -- 2
+        { x = 0, y = 2 }, -- 3
+        { x = 1, y = 3 }, -- 4
+        { x = 1, y = 4 }, -- 5
+    })
+
+    local conditions = {{'=', 'primary', 0}}
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {1, 2, 3}))
+
+    local conditions = {{'=', 'primary', {0, 2}}}
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {3}))
+end)

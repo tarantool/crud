@@ -54,8 +54,8 @@ g.before_all = function()
     customers_space:create_index('full_name_hash', {
         type = 'HASH',
         parts = {
-            { field = 'name', collation = 'unicode_ci' },
-            { field = 'last_name'},
+            {field = 'name', collation = 'unicode_ci'},
+            {field = 'last_name'},
         },
         if_not_exists = true,
     })
