@@ -1,9 +1,13 @@
 require('strict').on()
 
+local t = require('luatest')
+
 local log = require('log')
 local checks = require('checks')
 local digest = require('digest')
 local fio = require('fio')
+
+local crud = require('crud')
 
 if os.getenv('DEV') == nil then
     os.setenv('DEV', 'ON')
@@ -74,6 +78,31 @@ function helpers.box_cfg()
         wal_mode = 'none',
     })
     fio.rmtree(tempdir)
+end
+
+function helpers.insert_objects(g, space_name, objects)
+    local inserted_objects = {}
+
+    for _, obj in ipairs(objects) do
+        local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {space_name, obj})
+
+        t.assert_equals(err, nil)
+
+        local objects, err = crud.unflatten_rows(result.rows, result.metadata)
+        t.assert_equals(err, nil)
+        t.assert_equals(#objects, 1)
+        table.insert(inserted_objects, objects[1])
+    end
+
+    return inserted_objects
+end
+
+function helpers.get_objects_by_idxs(objects, idxs)
+    local results = {}
+    for _, idx in ipairs(idxs) do
+        table.insert(results, objects[idx])
+    end
+    return results
 end
 
 return helpers
