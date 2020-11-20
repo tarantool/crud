@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   selecting by equality of partially specified multipart primary index
   value was misinterpreted as a selecting by fully specified key value.
 
+### Added
+
+* `truncate` operation
+
 ## [0.3.0] - 2020-10-26
 
 ### Fixed
