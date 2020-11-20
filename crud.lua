@@ -9,6 +9,7 @@ local update = require('crud.update')
 local upsert = require('crud.upsert')
 local delete = require('crud.delete')
 local select = require('crud.select')
+local truncate = require('crud.truncate')
 local utils = require('crud.common.utils')
 
 local crud = {}
@@ -64,6 +65,10 @@ crud.pairs = select.pairs
 -- @function unflatten_rows
 crud.unflatten_rows = utils.unflatten_rows
 
+-- @refer truncate.call
+-- @function truncate
+crud.truncate = truncate.call
+
 --- Initializes crud on node
 --
 -- Exports all functions that are used for calls
@@ -83,6 +88,7 @@ function crud.init_storage()
     upsert.init()
     delete.init()
     select.init()
+    truncate.init()
 end
 
 function crud.init_router()

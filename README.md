@@ -335,6 +335,38 @@ for _, object in crud.pairs('customers', {{'<=', 'age', 35}}, {use_tomap = true}
 end
 ```
 
+### Truncate
+
+```lua
+-- Truncate space
+local result, err = crud.truncate(space_name, opts)
+```
+
+where:
+
+* `space_name` (`string`) - name of the space
+* `opts`:
+  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+
+Returns true or nil with error.
+
+**Example:**
+
+```lua
+#crud.select('customers', {{'<=', 'age', 35}})
+---
+- 1
+...
+crud.truncate('customers', {timeout = 2})
+---
+- true
+...
+#crud.select('customers', {{'<=', 'age', 35}})
+---
+- 0
+...
+```
+
 ## Cartridge roles
 
 `cartridge.roles.crud-storage` is a Tarantool Cartridge role that depends on the
