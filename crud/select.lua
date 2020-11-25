@@ -1,6 +1,7 @@
 local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
+local fun = require('fun')
 
 local call = require('crud.common.call')
 local utils = require('crud.common.utils')
@@ -243,7 +244,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         return iter, result
     end
 
-    return gen, nil, iter
+    return fun.iter(gen, nil, iter)
 end
 
 function select_module.call(space_name, user_conditions, opts)
