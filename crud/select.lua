@@ -223,11 +223,11 @@ function select_module.pairs(space_name, user_conditions, opts)
     end
 
     local gen = function(_, iter)
-        if not iter:has_next() then
+        local tuple, err = iter:get()
+        if tuple == nil then
             return nil
         end
 
-        local tuple, err = iter:get()
         if err ~= nil then
             error(string.format("Failed to get next object: %s", err))
         end
