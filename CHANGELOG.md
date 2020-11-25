@@ -13,10 +13,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Fixed select by part of sharding key equal. Before this patch
   selecting by equality of partially specified multipart primary index
   value was misinterpreted as a selecting by fully specified key value.
+* Fixed iteration with `pairs` through empty space returned `nil`.
 
 ### Added
 
 * `truncate` operation
+* iterator returned by `pairs` is compatible with luafun
 
 ## [0.3.0] - 2020-10-26
 
