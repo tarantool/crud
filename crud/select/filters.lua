@@ -166,10 +166,9 @@ local function format_value(value)
         return tostring(value)
     elseif type(value) == 'boolean' then
         return tostring(value)
+    elseif utils.is_uuid(value) then
+        return ("%q"):format(value)
     elseif type(value) == 'cdata' then
-        if utils.is_uuid(value) then
-            return ("%q"):format(value)
-        end
         return tostring(value)
     end
     assert(false, ('Unexpected value %s (type %s)'):format(value, type(value)))
