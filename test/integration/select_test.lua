@@ -1,5 +1,4 @@
 local fio = require('fio')
-local uuid = require('uuid')
 
 local t = require('luatest')
 local g_memtx = t.group('select_memtx')
@@ -80,34 +79,9 @@ end
 g_memtx.before_each(function() before_each(g_memtx) end)
 g_vinyl.before_each(function() before_each(g_vinyl) end)
 
-local function insert_objects(g, space_name, objects)
-    local inserted_objects = {}
-
-    for _, customer in ipairs(objects) do
-        local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {space_name, customer})
-
-        t.assert_equals(err, nil)
-
-        local objects, err = crud.unflatten_rows(result.rows, result.metadata)
-        t.assert_equals(err, nil)
-        t.assert_equals(#objects, 1)
-        table.insert(inserted_objects, objects[1])
-    end
-
-    return inserted_objects
-end
-
 local function add(name, fn)
     g_memtx[name] = fn
     g_vinyl[name] = fn
-end
-
-local function get_by_ids(customers, ids)
-    local results = {}
-    for _, id in ipairs(ids) do
-        table.insert(results, customers[id])
-    end
-    return results
 end
 
 add('test_non_existent_space', function(g)
@@ -138,7 +112,7 @@ add('test_not_valid_value_type', function(g)
 end)
 
 add('test_select_all', function(g)
-    local customers = insert_objects(g, 'customers', {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -187,7 +161,7 @@ add('test_select_all', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {3, 4}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3, 4}))
 
     -- after obj 4 (last)
     local after = crud_utils.flatten(customers[4], g.space_format)
@@ -199,7 +173,7 @@ add('test_select_all', function(g)
 end)
 
 add('test_select_all_with_first', function(g)
-    local customers = insert_objects(g, 'customers', {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -223,7 +197,7 @@ add('test_select_all_with_first', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {1, 2}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1, 2}))
 
     -- first 0
     local first = 0
@@ -235,7 +209,7 @@ add('test_select_all_with_first', function(g)
 end)
 
 add('test_negative_first', function(g)
-    local customers = insert_objects(g, 'customers', {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 11, city = "New York",
@@ -282,7 +256,7 @@ add('test_negative_first', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {2, 3, 4}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 3, 4}))
 
     -- id >= 2
     -- first -2 after 5 (batch_size is 1)
@@ -297,7 +271,7 @@ add('test_negative_first', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {3, 4}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3, 4}))
 
     -- age >= 22
     -- first -2 after 5 (batch_size is 1)
@@ -312,7 +286,7 @@ add('test_negative_first', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {3, 4}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3, 4}))
 
     -- id <= 6
     -- first -2 after 5 (batch_size is 1)
@@ -327,7 +301,7 @@ add('test_negative_first', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {6}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {6}))
 
     -- age <= 66
     -- first -2 after 5 (batch_size is 1)
@@ -342,11 +316,11 @@ add('test_negative_first', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {6}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {6}))
 end)
 
 add('test_select_all_with_batch_size', function(g)
-    local customers = insert_objects(g, 'customers', {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -395,11 +369,11 @@ add('test_select_all_with_batch_size', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {1, 2, 3, 4, 5, 6}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1, 2, 3, 4, 5, 6}))
 end)
 
 add('test_select_by_primary_index', function(g)
-    local customers = insert_objects(g, 'customers', {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -426,11 +400,11 @@ add('test_select_by_primary_index', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {3}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3}))
 end)
 
 add('test_eq_condition_with_index', function(g)
-    local customers = insert_objects(g, 'customers', {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 33, city = "New York",
@@ -466,7 +440,7 @@ add('test_eq_condition_with_index', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {1, 3, 5, 7})) -- in id order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1, 3, 5, 7})) -- in id order
 
     -- after obj 3
     local after = crud_utils.flatten(customers[3], g.space_format)
@@ -474,11 +448,11 @@ add('test_eq_condition_with_index', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {5, 7})) -- in id order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {5, 7})) -- in id order
 end)
 
 add('test_ge_condition_with_index', function(g)
-    local customers = insert_objects(g, 'customers', {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -505,7 +479,7 @@ add('test_ge_condition_with_index', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {3, 2, 4})) -- in age order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3, 2, 4})) -- in age order
 
     -- after obj 3
     local after = crud_utils.flatten(customers[3], g.space_format)
@@ -513,11 +487,11 @@ add('test_ge_condition_with_index', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {2, 4})) -- in age order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 4})) -- in age order
 end)
 
 add('test_le_condition_with_index',function(g)
-    local customers = insert_objects(g, 'customers', {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -544,7 +518,7 @@ add('test_le_condition_with_index',function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {3, 1})) -- in age order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3, 1})) -- in age order
 
     -- after obj 3
     local after = crud_utils.flatten(customers[3], g.space_format)
@@ -552,11 +526,11 @@ add('test_le_condition_with_index',function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {1})) -- in age order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1})) -- in age order
 end)
 
 add('test_lt_condition_with_index', function(g)
-    local customers = insert_objects(g, 'customers', {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -583,7 +557,7 @@ add('test_lt_condition_with_index', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {1})) -- in age order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1})) -- in age order
 
     -- after obj 1
     local after = crud_utils.flatten(customers[1], g.space_format)
@@ -591,11 +565,11 @@ add('test_lt_condition_with_index', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {})) -- in age order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {})) -- in age order
 end)
 
 add('test_multiple_conditions', function(g)
-    local customers = insert_objects(g, 'customers', {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Rodriguez",
             age = 20, city = "Los Angeles",
@@ -627,7 +601,7 @@ add('test_multiple_conditions', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {5, 2})) -- in age order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {5, 2})) -- in age order
 
     -- after obj 5
     local after = crud_utils.flatten(customers[5], g.space_format)
@@ -635,11 +609,11 @@ add('test_multiple_conditions', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {2})) -- in age order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2})) -- in age order
 end)
 
 add('test_composite_index', function(g)
-    local customers = insert_objects(g, 'customers', {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Rodriguez",
             age = 20, city = "Los Angeles",
@@ -666,7 +640,7 @@ add('test_composite_index', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {2, 1, 4})) -- in full_name order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 1, 4})) -- in full_name order
 
     -- after obj 2
     local after = crud_utils.flatten(customers[2], g.space_format)
@@ -674,11 +648,22 @@ add('test_composite_index', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {1, 4})) -- in full_name order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1, 4})) -- in full_name order
+
+    -- partial value in conditions
+    local conditions = {
+        {'==', 'full_name', "Elizabeth"},
+    }
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 1})) -- in full_name order
 end)
 
 add('test_select_with_batch_size_1', function(g)
-    local customers = insert_objects(g, 'customers', {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -714,7 +699,7 @@ add('test_select_with_batch_size_1', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {5, 3, 6, 7, 1}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {5, 3, 6, 7, 1}))
 
     -- LT
     local conditions = {{'<', 'age', 35}}
@@ -722,7 +707,7 @@ add('test_select_with_batch_size_1', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {3, 6, 7, 1}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3, 6, 7, 1}))
 
     -- GE
     local conditions = {{'>=', 'age', 35}}
@@ -730,7 +715,7 @@ add('test_select_with_batch_size_1', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {5, 8, 2, 4}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {5, 8, 2, 4}))
 
     -- GT
     local conditions = {{'>', 'age', 35}}
@@ -738,11 +723,11 @@ add('test_select_with_batch_size_1', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {8, 2, 4}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {8, 2, 4}))
 end)
 
 add('test_select_by_full_sharding_key', function(g)
-    local customers = insert_objects(g, 'customers', {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -762,11 +747,11 @@ add('test_select_by_full_sharding_key', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {3}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3}))
 end)
 
 add('test_select_with_collations', function(g)
-    local customers = insert_objects(g, 'customers', {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "Oxford",
@@ -796,7 +781,7 @@ add('test_select_with_collations', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {3, 6, 1}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3, 6, 1}))
 
     -- city - no collation (case-sensitive)
     local conditions = {{'==', 'city', "oxford"}}
@@ -804,58 +789,27 @@ add('test_select_with_collations', function(g)
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, get_by_ids(customers, {2, 4}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 4}))
 end)
 
-
-add('test_select_from_space_with_uuid_pk', function(g)
-    t.skip_if(not crud_utils.tarantool_supports_uuids(), "UUIDs are not supported on Tarantool <= 2.4.1")
-
-    local category_1 = uuid.fromstr('c74871e0-2441-11eb-8d27-0800200c9a66')
-    local category_2 = uuid.fromstr('d0b2b920-2441-11eb-8d27-0800200c9a66')
-
-    local goods = insert_objects(g, 'goods', {
-        {
-            uuid = uuid.fromstr('f1e29620-2459-11eb-8d27-000000000000'),
-            name = "IPhone 12", category_id = category_1
-        },
-        {
-            uuid = uuid.fromstr('f1e29620-2459-11eb-8d27-111111111111'),
-            name = "Samsung S11", category_id = category_1
-        },
-        {
-            uuid = uuid.fromstr('f1e29620-2459-11eb-8d27-222222222222'),
-            name = "Nubia Z11", category_id = category_2
-        },
-        {
-            uuid = uuid.fromstr('f1e29620-2459-11eb-8d27-333333333333'),
-            name = "Google Pixel 3", category_id = category_2
-        },
+add('test_multipart_primary_index', function(g)
+    local coords = helpers.insert_objects(g, 'coord', {
+        { x = 0, y = 0 }, -- 1
+        { x = 0, y = 1 }, -- 2
+        { x = 0, y = 2 }, -- 3
+        { x = 1, y = 3 }, -- 4
+        { x = 1, y = 4 }, -- 5
     })
 
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'goods', nil})
+    local conditions = {{'=', 'primary', 0}}
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(#objects, 4)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {1, 2, 3}))
 
-    local conditions = {{'>', 'uuid', goods[3].uuid}}
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'goods', conditions})
+    local conditions = {{'=', 'primary', {0, 2}}}
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(#objects, 1)
-    t.assert_equals(objects, get_by_ids(goods, {4}))
-
-    local conditions = {{'=', 'category_id', category_2}}
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'goods', conditions})
-    t.assert_equals(err, nil)
-    local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(#objects, 2)
-    t.assert_equals(objects, get_by_ids(goods, {3, 4}))
-
-    local conditions = {{'>', 'category_id', category_1}}
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'goods', conditions})
-    t.assert_equals(err, nil)
-    local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(#objects, 2)
-    t.assert_equals(objects, get_by_ids(goods, {3, 4}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {3}))
 end)

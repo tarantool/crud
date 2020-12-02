@@ -1,6 +1,7 @@
 local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
+local fun = require('fun')
 
 local call = require('crud.common.call')
 local utils = require('crud.common.utils')
@@ -223,11 +224,11 @@ function select_module.pairs(space_name, user_conditions, opts)
     end
 
     local gen = function(_, iter)
-        if not iter:has_next() then
+        local tuple, err = iter:get()
+        if tuple == nil then
             return nil
         end
 
-        local tuple, err = iter:get()
         if err ~= nil then
             error(string.format("Failed to get next object: %s", err))
         end
@@ -243,7 +244,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         return iter, result
     end
 
-    return gen, nil, iter
+    return fun.iter(gen, nil, iter)
 end
 
 function select_module.call(space_name, user_conditions, opts)

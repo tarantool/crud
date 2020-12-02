@@ -25,7 +25,7 @@ package.preload['customers-storage'] = function()
                 if_not_exists = true,
                 engine = engine,
             })
-            --primary index
+            -- primary index
             customers_space:create_index('id_index', {
                 parts = { {field = 'id'} },
                 if_not_exists = true,
@@ -40,7 +40,7 @@ package.preload['customers-storage'] = function()
                 unique = false,
                 if_not_exists = true,
             })
-            --indexes with same names as fields
+            -- indexes with same names as fields
             customers_space:create_index('age', {
                 parts = { {field = 'age'} },
                 unique = false,
@@ -52,8 +52,8 @@ package.preload['customers-storage'] = function()
             })
             customers_space:create_index('full_name', {
                 parts = {
-                    { field = 'name', collation = 'unicode_ci' },
-                    { field = 'last_name', collation = 'unicode_ci' },
+                    {field = 'name', collation = 'unicode_ci'},
+                    {field = 'last_name', collation = 'unicode_ci'} ,
                 },
                 unique = false,
                 if_not_exists = true,
@@ -81,6 +81,29 @@ package.preload['customers-storage'] = function()
                     if_not_exists = true,
                 })
             end
+
+            local coord_space = box.schema.space.create('coord', {
+                format = {
+                      {name = 'x', type = 'unsigned'},
+                      {name = 'y', type = 'unsigned'},
+                      {name = 'bucket_id', type = 'unsigned'},
+                },
+                if_not_exists = true,
+                engine = engine,
+            })
+            -- primary index
+            coord_space:create_index('primary', {
+                parts = {
+                    {field = 'x'},
+                    {field = 'y'},
+                },
+                if_not_exists = true,
+            })
+            coord_space:create_index('bucket_id', {
+                parts = { {field = 'bucket_id'} },
+                if_not_exists = true,
+            })
+
         end,
         dependencies = {'cartridge.roles.crud-storage'},
     }

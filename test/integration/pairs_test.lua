@@ -4,7 +4,6 @@ local t = require('luatest')
 local g_memtx = t.group('pairs_memtx')
 local g_vinyl = t.group('pairs_vinyl')
 
-local crud = require('crud')
 local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
@@ -84,32 +83,8 @@ local function add(name, fn)
     g_vinyl[name] = fn
 end
 
-local function insert_customers(g, customers)
-    local inserted_objects = {}
-
-    for _, customer in ipairs(customers) do
-        local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {'customers', customer})
-        t.assert_equals(err, nil)
-
-        local objects, err = crud.unflatten_rows(result.rows, result.metadata)
-        t.assert_equals(err, nil)
-        t.assert_equals(#objects, 1)
-        table.insert(inserted_objects, objects[1])
-    end
-
-    return inserted_objects
-end
-
-local function get_by_ids(customers, ids)
-    local results = {}
-    for _, id in ipairs(ids) do
-        table.insert(results, customers[id])
-    end
-    return results
-end
-
 add('test_pairs_no_conditions', function(g)
-    local customers = insert_customers(g, {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -190,7 +165,7 @@ add('test_pairs_no_conditions', function(g)
     ]], {after})
 
     t.assert_equals(err, nil)
-    t.assert_equals(objects, get_by_ids(customers, {3, 4}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3, 4}))
 
     -- after obj 4 (last)
     local after = crud_utils.flatten(customers[4], g.space_format)
@@ -212,7 +187,7 @@ add('test_pairs_no_conditions', function(g)
 end)
 
 add('test_ge_condition_with_index', function(g)
-    local customers = insert_customers(g, {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -249,7 +224,7 @@ add('test_ge_condition_with_index', function(g)
     ]], {conditions})
 
     t.assert_equals(err, nil)
-    t.assert_equals(objects, get_by_ids(customers, {3, 2, 4})) -- in age order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3, 2, 4})) -- in age order
 
     -- after obj 3
     local after = crud_utils.flatten(customers[3], g.space_format)
@@ -267,11 +242,11 @@ add('test_ge_condition_with_index', function(g)
     ]], {conditions, after})
 
     t.assert_equals(err, nil)
-    t.assert_equals(objects, get_by_ids(customers, {2, 4})) -- in age order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 4})) -- in age order
 end)
 
 add('test_le_condition_with_index', function(g)
-    local customers = insert_customers(g, {
+    local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -308,7 +283,7 @@ add('test_le_condition_with_index', function(g)
     ]], {conditions})
 
     t.assert_equals(err, nil)
-    t.assert_equals(objects, get_by_ids(customers, {3, 1})) -- in age order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3, 1})) -- in age order
 
     -- after obj 3
     local after = crud_utils.flatten(customers[3], g.space_format)
@@ -326,11 +301,11 @@ add('test_le_condition_with_index', function(g)
     ]], {conditions, after})
 
     t.assert_equals(err, nil)
-    t.assert_equals(objects, get_by_ids(customers, {1})) -- in age order
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1})) -- in age order
 end)
 
 add('test_negative_first', function(g)
-    local customers = insert_customers(g,{
+    local customers = helpers.insert_objects(g, 'customers',{
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -352,4 +327,45 @@ add('test_negative_first', function(g)
             crud.pairs('customers', nil, {first = -10})
         ]])
     end)
+end)
+
+add('test_empty_space', function(g)
+    local count = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        local count = 0
+        for _, object in crud.pairs('customers') do
+            count = count + 1
+        end
+        return count
+    ]])
+    t.assert_equals(count, 0)
+end)
+
+add('test_luafun_compatipility', function(g)
+    helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        },
+    })
+    local count = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        local count = crud.pairs('customers'):map(function() return 1 end):sum()
+        return count
+    ]])
+    t.assert_equals(count, 3)
+
+    count = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        local count = crud.pairs('customers',
+            {use_tomap = true}):map(function() return 1 end):sum()
+        return count
+    ]])
+    t.assert_equals(count, 3)
 end)

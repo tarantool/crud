@@ -53,14 +53,18 @@ local function validate_conditions(conditions, space_indexes, space_format)
     return true
 end
 
-local function extract_sharding_key_from_scan_key(scan_key, scan_index, sharding_index)
-    if scan_index.id == sharding_index.id then
-        return scan_key
+local function extract_sharding_key_from_scan_value(scan_value, scan_index, sharding_index)
+    if #scan_value < #sharding_index.parts then
+        return nil
     end
 
-    local scan_key_fields_values = {}
-    for i, scan_key_part in ipairs(scan_index.parts) do
-        scan_key_fields_values[scan_key_part.fieldno] = scan_key[i]
+    if scan_index.id == sharding_index.id then
+        return scan_value
+    end
+
+    local scan_value_fields_values = {}
+    for i, scan_index_part in ipairs(scan_index.parts) do
+        scan_value_fields_values[scan_index_part.fieldno] = scan_value[i]
     end
 
     -- check that sharding key is included in the scan index fields
@@ -69,11 +73,11 @@ local function extract_sharding_key_from_scan_key(scan_key, scan_index, sharding
         local fieldno = sharding_key_part.fieldno
 
         -- sharding key isn't included in scan key
-        if scan_key_fields_values[fieldno] == nil then
+        if scan_value_fields_values[fieldno] == nil then
             return nil
         end
 
-        local field_value = scan_key_fields_values[fieldno]
+        local field_value = scan_value_fields_values[fieldno]
 
         -- sharding key contains nil values
         if field_value == nil then
@@ -165,7 +169,7 @@ function select_plan.new(space, conditions, opts)
     -- get sharding key value
     local sharding_key
     if scan_value ~= nil and (scan_iter == box.index.EQ or scan_iter == box.index.REQ) then
-        sharding_key = extract_sharding_key_from_scan_key(scan_value, scan_index, sharding_index)
+        sharding_key = extract_sharding_key_from_scan_value(scan_value, scan_index, sharding_index)
     end
 
     if sharding_key ~= nil then
