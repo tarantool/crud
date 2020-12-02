@@ -6,7 +6,7 @@ local UnsupportedCollationError = errors.new_class('UnsupportedCollationError')
 
 local types = {}
 
-local function comparing_nullable(cmp)
+local function lt_nullable(cmp)
     return function(lhs, rhs)
         if lhs == nil and rhs ~= nil then
             return true
@@ -22,7 +22,7 @@ local function lt_default(lhs, rhs)
     return lhs < rhs
 end
 
-local lt = comparing_nullable(lt_default)
+local lt = lt_nullable(lt_default)
 
 local function eq(lhs, rhs)
     return lhs == rhs
@@ -39,7 +39,7 @@ local function lt_boolean_default(lhs, rhs)
     end
 end
 
-local lt_boolean = comparing_nullable(lt_boolean_default)
+local lt_boolean = lt_nullable(lt_boolean_default)
 
 local function lt_unicode(lhs, rhs)
     if type(lhs) == 'string' and type(rhs) == 'string' then
@@ -77,7 +77,7 @@ local function lt_uuid_default(lhs, rhs)
     return tostring(lhs) < tostring(rhs)
 end
 
-local lt_uuid = comparing_nullable(lt_uuid_default)
+local lt_uuid = lt_nullable(lt_uuid_default)
 
 local comparators_by_type = {
     boolean = function ()

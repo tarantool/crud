@@ -255,36 +255,7 @@ local function add_collation_postfix(func_name, value_opts)
     error('Unsupported collation: ' .. tostring(value_opts.collation))
 end
 
-local function get_lt_function_name_by_type(value_type, value_opts)
-    local func_name = 'lt'
-
-    if value_type == 'boolean' then
-        func_name = 'lt_boolean'
-    elseif value_type == 'string' then
-        func_name = add_collation_postfix('lt', value_opts)
-    elseif value_type == 'uuid' then
-        func_name = 'lt_uuid'
-    end
-
-    return add_strict_postfix(func_name, value_opts)
-end
-
-local function get_eq_function_name_by_type(value_type, value_opts)
-    local func_name = 'eq'
-
-    if value_type == 'string' then
-        func_name = add_collation_postfix('eq', value_opts)
-        if collations.is_unicode(value_opts.collation) then
-            func_name = add_strict_postfix(func_name, value_opts)
-        end
-    elseif value_type == 'uuid' then
-        func_name = 'eq_uuid'
-    end
-
-    return func_name
-end
-
-local function format_func(func_name_getter, cond)
+local function format_eq(cond)
     local cond_strings = {}
     local values_opts = cond.values_opts or {}
 
@@ -294,7 +265,16 @@ local function format_func(func_name_getter, cond)
         local value_type = cond.types[j]
         local value_opts = values_opts[j] or {}
 
-        local func_name = func_name_getter(value_type, value_opts)
+        local func_name = 'eq'
+
+        if value_type == 'string' then
+            func_name = add_collation_postfix('eq', value_opts)
+            if collations.is_unicode(value_opts.collation) then
+                func_name = add_strict_postfix(func_name, value_opts)
+            end
+        elseif value_type == 'uuid' then
+            func_name = 'eq_uuid'
+        end
 
         table.insert(cond_strings, format_comp_with_value(fieldno, func_name, value))
     end
@@ -302,12 +282,31 @@ local function format_func(func_name_getter, cond)
     return cond_strings
 end
 
-local function format_eq(cond)
-    return format_func(get_eq_function_name_by_type, cond)
-end
-
 local function format_lt(cond)
-    return format_func(get_lt_function_name_by_type, cond)
+    local cond_strings = {}
+    local values_opts = cond.values_opts or {}
+
+    for j = 1, #cond.values do
+        local fieldno = cond.fieldnos[j]
+        local value = cond.values[j]
+        local value_type = cond.types[j]
+        local value_opts = values_opts[j] or {}
+
+        local func_name = 'lt'
+
+        if value_type == 'boolean' then
+            func_name = 'lt_boolean'
+        elseif value_type == 'string' then
+            func_name = add_collation_postfix('lt', value_opts)
+        elseif value_type == 'uuid' then
+            func_name = 'lt_uuid'
+        end
+        func_name = add_strict_postfix(func_name, value_opts)
+
+        table.insert(cond_strings, format_comp_with_value(fieldno, func_name, value))
+    end
+
+    return cond_strings
 end
 
 local function gen_eq_func_code(func_name, cond, func_args_code)
