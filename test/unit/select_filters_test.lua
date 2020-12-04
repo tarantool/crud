@@ -123,7 +123,7 @@ g.test_parse = function()
 
     t.assert_equals(#has_a_car_filter_condition.values_opts, 1)
     local has_a_car_opts = has_a_car_filter_condition.values_opts[1]
-    t.assert_equals(has_a_car_opts.is_nullable, true)
+    t.assert_equals(has_a_car_opts.is_nullable, false)
     t.assert_equals(has_a_car_opts.collation, nil)
 end
 
@@ -636,23 +636,6 @@ return M]]
     local filter_func = select_filters.internal.compile(filter_code)
     t.assert_equals(filter_func({'a', 'a'}), true)       -- 'a' > box.NULL
     t.assert_equals(filter_func({'a', box.NULL}), false) -- box.NULL > box.NULL is false
-end
-
-g.test_select_filter_get_index_by_name = function()
-    local space_indexes = {
-        [0] = {name = 'primary'},
-        [1] = {name = 'second'},
-        [2] = {name = 'third'}
-    }
-
-    local index = select_filters.internal.get_index_by_name(space_indexes, "primary");
-    t.assert_equals(index, space_indexes[0]);
-
-    local index = select_filters.internal.get_index_by_name(space_indexes, "third");
-    t.assert_equals(index, space_indexes[2]);
-
-    local index = select_filters.internal.get_index_by_name(space_indexes, "not_exist_index");
-    t.assert_equals(index, nil)
 end
 
 -- luacheck: pop
