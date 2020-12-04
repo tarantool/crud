@@ -52,57 +52,27 @@ local function get_index_fieldnos(index)
     return index_fieldnos
 end
 
-local function get_values_types(space_format, fieldnos)
-    local values_types = {}
+local function get_index_fields_types(index)
+    local index_fields_types = {}
 
-    for _, fieldno in ipairs(fieldnos) do
-        local field_format = space_format[fieldno]
-        assert(field_format ~= nil)
-
-        table.insert(values_types, field_format.type)
+    for _, part in ipairs(index.parts) do
+        table.insert(index_fields_types, part.type)
     end
 
-    return values_types
+    return index_fields_types
 end
 
-local function get_values_opts(index, fieldnos)
-    local values_opts = {}
-    for _, fieldno in ipairs(fieldnos) do
-        local is_nullable = true
-        local collation
+local function get_values_opts(index)
+    local index_field_opts = {}
 
-        if index ~= nil then
-            local index_part
-
-            for _, part in ipairs(index.parts) do
-                if part.fieldno == fieldno then
-                    index_part = part
-                    break
-                end
-            end
-
-            assert(index_part ~= nil)
-
-            is_nullable = index_part.is_nullable
-            collation = collations.get(index_part)
-        end
-
-        table.insert(values_opts, {
-            is_nullable = is_nullable,
-            collation = collation,
+    for _, part in ipairs(index.parts) do
+        table.insert(index_field_opts, {
+            is_nullable = part.is_nullable == true,
+            collation = collations.get(part)
         })
     end
 
-    return values_opts
-end
-
-local function get_index_by_name(space_indexes, index_name)
-    for i = 0, #space_indexes do
-       local index = space_indexes[i]
-        if index.name == index_name then
-            return index
-        end
-    end
+    return index_field_opts
 end
 
 local function parse(space, conditions, opts)
@@ -128,14 +98,23 @@ local function parse(space, conditions, opts)
         if i ~= opts.scan_condition_num then
             -- Index check (including one and multicolumn)
             local fieldnos
+            local fields_types
+            local values_opts
 
-            local index = get_index_by_name(space_indexes, condition.operand)
+            local index = space_indexes[condition.operand]
 
             if index ~= nil then
                 fieldnos = get_index_fieldnos(index)
+                fields_types = get_index_fields_types(index)
+                values_opts = get_values_opts(index)
             elseif fieldnos_by_names[condition.operand] ~= nil then
-                fieldnos = {
-                    fieldnos_by_names[condition.operand],
+                local fiendno = fieldnos_by_names[condition.operand]
+                fieldnos = {fiendno}
+                local field_format = space_format[fiendno]
+                fields_types = {field_format.type}
+                local is_nullable = field_format.is_nullable == true
+                values_opts = {
+                    {is_nullable = is_nullable, collation = nil},
                 }
             else
                 return nil, ParseConditionsError('No field or index is found for condition %s', json.encode(condition))
@@ -145,9 +124,9 @@ local function parse(space, conditions, opts)
                 fieldnos = fieldnos,
                 operator = condition.operator,
                 values = condition.values,
-                types = get_values_types(space_format, fieldnos),
+                types = fields_types,
                 early_exit_is_possible = is_early_exit_possible(index, opts.iter, condition),
-                values_opts = get_values_opts(index, fieldnos)
+                values_opts = values_opts,
             })
         end
     end
@@ -345,7 +324,7 @@ local results_by_operators = {
     This function generates code of function that compares arrays of values.
     All conditions are presented using `lt`, `eq` and `not` operations.
 
-    Values are compared one by one, for each value two checkes are performed:
+    Values are compared one by one, for each value two checkers are performed:
       - le:     field_N < value_N
       - not_eq: field_N != value_N
 
@@ -658,7 +637,6 @@ filters.internal = {
     parse = parse,
     gen_filter_code = gen_filter_code,
     compile = compile,
-    get_index_by_name = get_index_by_name,
 }
 
 return filters
