@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+* Support for UUID field types and UUID values
+
 ## [0.4.0] - 2020-12-02
 
 ### Fixed

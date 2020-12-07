@@ -1,4 +1,5 @@
 local errors = require('errors')
+local ffi = require('ffi')
 
 local dev_checks = require('crud.common.dev_checks')
 
@@ -106,12 +107,9 @@ function utils.merge_primary_key_parts(key_parts, pk_parts)
     return merged_parts
 end
 
-local __tarantool_supports_fieldpaths
-local function tarantool_supports_fieldpaths()
-    if __tarantool_supports_fieldpaths ~= nil then
-        return __tarantool_supports_fieldpaths
-    end
+local enabled_tarantool_features = {}
 
+local function determine_enabled_features()
     local major_minor_patch = _G._TARANTOOL:split('-', 1)[1]
     local major_minor_patch_parts = major_minor_patch:split('.', 2)
 
@@ -120,9 +118,26 @@ local function tarantool_supports_fieldpaths()
     local patch = tonumber(major_minor_patch_parts[3])
 
     -- since Tarantool 2.3
-    __tarantool_supports_fieldpaths = major >= 2 and (minor > 3 or minor == 3 and patch >= 1)
+    enabled_tarantool_features.fieldpaths = major >= 2 and (minor > 3 or minor == 3 and patch >= 1)
 
-    return __tarantool_supports_fieldpaths
+    -- since Tarantool 2.4
+    enabled_tarantool_features.uuids = major >= 2 and (minor > 4 or minor == 4 and patch >= 1)
+end
+
+local function tarantool_supports_fieldpaths()
+    if enabled_tarantool_features.fieldpaths == nil then
+        determine_enabled_features()
+    end
+
+    return enabled_tarantool_features.fieldpaths
+end
+
+function utils.tarantool_supports_uuids()
+    if enabled_tarantool_features.uuids == nil then
+        determine_enabled_features()
+    end
+
+    return enabled_tarantool_features.uuids
 end
 
 function utils.convert_operations(user_operations, space_format)
@@ -204,6 +219,11 @@ function utils.get_bucket_id_fieldno(space, shard_index_name)
     end
 
     return bucket_id_index.parts[1].fieldno
+end
+
+local uuid_t = ffi.typeof('struct tt_uuid')
+function utils.is_uuid(value)
+    return ffi.istype(uuid_t, value)
 end
 
 return utils

@@ -1,6 +1,7 @@
 local json = require('json')
 local errors = require('errors')
 
+local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 local collations = require('crud.common.collations')
 local select_conditions = require('crud.select.conditions')
@@ -163,9 +164,11 @@ local function format_value(value)
         return ("%q"):format(value)
     elseif type(value) == 'number' then
         return tostring(value)
-    elseif type(value) == 'cdata' then
-        return tostring(value)
     elseif type(value) == 'boolean' then
+        return tostring(value)
+    elseif utils.is_uuid(value) then
+        return ("%q"):format(value)
+    elseif type(value) == 'cdata' then
         return tostring(value)
     end
     assert(false, ('Unexpected value %s (type %s)'):format(value, type(value)))
@@ -258,13 +261,18 @@ local function format_eq(cond)
     for j = 1, #cond.values do
         local fieldno = cond.fieldnos[j]
         local value = cond.values[j]
+        local value_type = cond.types[j]
         local value_opts = values_opts[j] or {}
 
         local func_name = 'eq'
-        func_name = add_collation_postfix(func_name, value_opts)
 
-        if collations.is_unicode(value_opts.collation) then
-            func_name = add_strict_postfix(func_name, value_opts)
+        if value_type == 'string' then
+            func_name = add_collation_postfix('eq', value_opts)
+            if collations.is_unicode(value_opts.collation) then
+                func_name = add_strict_postfix(func_name, value_opts)
+            end
+        elseif value_type == 'uuid' then
+            func_name = 'eq_uuid'
         end
 
         table.insert(cond_strings, format_comp_with_value(fieldno, func_name, value))
@@ -283,8 +291,15 @@ local function format_lt(cond)
         local value_type = cond.types[j]
         local value_opts = values_opts[j] or {}
 
-        local func_name = value_type ~= 'boolean' and 'lt' or 'lt_boolean'
-        func_name = add_collation_postfix(func_name, value_opts)
+        local func_name = 'lt'
+
+        if value_type == 'boolean' then
+            func_name = 'lt_boolean'
+        elseif value_type == 'string' then
+            func_name = add_collation_postfix('lt', value_opts)
+        elseif value_type == 'uuid' then
+            func_name = 'lt_uuid'
+        end
         func_name = add_strict_postfix(func_name, value_opts)
 
         table.insert(cond_strings, format_comp_with_value(fieldno, func_name, value))
@@ -491,6 +506,22 @@ local function lt_boolean_strict(lhs, rhs)
     return (not lhs) and rhs
 end
 
+local function lt_uuid_nullable(lhs, rhs)
+    if lhs == nil and rhs ~= nil then
+        return true
+    elseif rhs == nil then
+        return false
+    end
+    return tostring(lhs) < tostring(rhs)
+end
+
+local function lt_uuid_strict(lhs, rhs)
+    if rhs == nil then
+        return false
+    end
+    return tostring(lhs) < tostring(rhs)
+end
+
 local function lt_unicode_ci_nullable(lhs, rhs)
     if lhs == nil and rhs ~= nil then
         return true
@@ -509,6 +540,20 @@ end
 
 local function eq(lhs, rhs)
     return lhs == rhs
+end
+
+local function eq_uuid(lhs, rhs)
+    if lhs == nil then
+        return rhs == nil
+    end
+    return tostring(lhs) == tostring(rhs)
+end
+
+local function eq_uuid_strict(lhs, rhs)
+    if rhs == nil then
+        return false
+    end
+    return tostring(lhs) == tostring(rhs)
 end
 
 local function eq_unicode_nullable(lhs, rhs)
@@ -546,6 +591,8 @@ end
 local library = {
     -- EQ
     eq = eq,
+    eq_uuid = eq_uuid,
+    eq_uuid_strict = eq_uuid_strict,
     -- nullable
     eq_unicode = eq_unicode_nullable,
     eq_unicode_ci = eq_unicode_ci_nullable,
@@ -559,11 +606,13 @@ local library = {
     lt_unicode = lt_unicode_nullable,
     lt_unicode_ci = lt_unicode_ci_nullable,
     lt_boolean = lt_boolean_nullable,
+    lt_uuid = lt_uuid_nullable,
     -- strict
     lt_strict = lt_strict,
     lt_unicode_strict = lt_unicode_strict,
     lt_unicode_ci_strict = lt_unicode_ci_strict,
     lt_boolean_strict = lt_boolean_strict,
+    lt_uuid_strict = lt_uuid_strict,
 
     utf8 = utf8,
 

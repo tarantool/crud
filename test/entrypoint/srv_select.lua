@@ -6,6 +6,7 @@ _G.is_initialized = function() return false end
 local log = require('log')
 local errors = require('errors')
 local cartridge = require('cartridge')
+local crud_utils = require('crud.common.utils')
 
 package.preload['customers-storage'] = function()
     local engine = os.getenv('ENGINE') or 'memtx'
@@ -58,6 +59,29 @@ package.preload['customers-storage'] = function()
                 if_not_exists = true,
             })
 
+            if crud_utils.tarantool_supports_uuids() then
+                local goods_space = box.schema.space.create('goods', {
+                    format = {
+                        {name = 'uuid', type = 'uuid'},
+                        {name = 'bucket_id', type = 'unsigned'},
+                        {name = 'name', type = 'string'},
+                        {name = 'category_id', type = 'uuid'},
+                    },
+                    if_not_exists = true,
+                    engine = engine,
+                })
+                --primary index
+                goods_space:create_index('uuid', {
+                    parts = { {field = 'uuid'} },
+                    if_not_exists = true,
+                })
+                goods_space:create_index('bucket_id', {
+                    parts = { {field = 'bucket_id'} },
+                    unique = false,
+                    if_not_exists = true,
+                })
+            end
+
             local coord_space = box.schema.space.create('coord', {
                 format = {
                       {name = 'x', type = 'unsigned'},
@@ -79,6 +103,7 @@ package.preload['customers-storage'] = function()
                 parts = { {field = 'bucket_id'} },
                 if_not_exists = true,
             })
+
         end,
         dependencies = {'cartridge.roles.crud-storage'},
     }

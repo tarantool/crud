@@ -1,3 +1,5 @@
+local uuid = require('uuid')
+
 local select_comparators = require('crud.select.comparators')
 local select_conditions = require('crud.select.conditions')
 local operators = select_conditions.operators
@@ -100,10 +102,14 @@ end
 
 g.test_unicode_collations = function()
     local unicode_parts = {
-        {collation='unicode'}, {collation='unicode'}, {collation='unicode'},
+        { collation = 'unicode', type = 'string' },
+        { collation = 'unicode', type = 'string' },
+        { collation = 'unicode', type = 'string' },
     }
     local unicode_ci_parts = {
-        {collation='unicode_ci'}, {collation='unicode_ci'}, {collation='unicode_ci'},
+        { collation = 'unicode_ci', type = 'string' },
+        { collation = 'unicode_ci', type = 'string' },
+        { collation = 'unicode_ci', type = 'string' },
     }
 
     local func_eq_unicode, err = select_comparators.gen_func(operators.GE, unicode_parts)
@@ -138,4 +144,26 @@ g.test_unicode_collations = function()
     t.assert(err == nil)
     t.assert(not func_le_unicode({'A', 'Á', 'Ä'}, {'a', 'A', 'a'}, 3))
     t.assert(func_le_unicode_ci({'A', 'Á', 'Ä'}, {'a', 'A', 'a'}, 3))
+end
+
+g.test_uuid_type_parts = function()
+    local key_parts = {
+        {type = 'uuid'}, {}
+    }
+
+    local func_eq, err = select_comparators.gen_func(operators.EQ, key_parts)
+    t.assert(err == nil)
+    local u1 = uuid.fromstr('8a1ffbc0-241e-11eb-8d27-0800200c9a66')
+    local u2 = uuid.fromstr('8f1ffbc0-241e-11eb-8d27-0800200c9a66')
+    local u1_copy = uuid.fromstr(u1:str())
+    t.assert(func_eq({u1, 'str'}, {u1, 'str'}))
+    t.assert(func_eq({u1, 'str'}, {u1_copy, 'str'}))
+    t.assert(not func_eq({u1, 'str'}, {u2, 'str'}))
+
+    local func_ge, err = select_comparators.gen_func(operators.GE, key_parts)
+    t.assert(err == nil)
+    t.assert(not func_ge({u1, 'str'}, {u2, 'str'}))
+    t.assert(func_ge({u1, 'str'}, {u1, 'str'}))
+    t.assert(func_ge({u1, 'ttr'}, {u1, 'str'}))
+    t.assert(func_ge({u2, 'str'}, {u1, 'str'}))
 end
