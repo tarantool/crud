@@ -14,6 +14,38 @@ across the cluster.
 All routers should call `crud.init_router()` (or enable the `crud-router` role)
 to make `crud` functions callable via `net.box`.
 
+All operations return a table that contains rows (tuples) and metadata
+(space format).
+It can be used to convert received tuples to objects via `crud.unflatten_rows` function.
+
+For example:
+
+```lua
+res, err = crud.select('customers')
+res
+---
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 12477, 'Elizabeth', 12]
+  - [2, 21401, 'David', 33]
+...
+crud.unflatten_rows(res.rows, res.metadata)
+---
+- - bucket_id: 12477
+    age: 12
+    name: Elizabeth
+    id: 1
+  - bucket_id: 21401
+    age: 33
+    name: David
+    id: 2
+...
+```
+
 **Notes:**
 
 * A space should have a format.
@@ -311,6 +343,9 @@ crud.select('customers', {{'<=', 'age', 35}})
   - [1, 477, 'Elizabeth', 12]
 ...
 ```
+
+**Note**: tuples are sorted by age because space has index `age`.
+Otherwise, tuples are sorted by primary key.
 
 ### Pairs
 
