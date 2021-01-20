@@ -41,7 +41,9 @@ local function validate_conditions(conditions, space_indexes, space_format)
     local index_names = {}
     for i = 0, #space_indexes do
         local index = space_indexes[i]
-        index_names[index.name] = true
+        if index ~= nil then
+            index_names[index.name] = true
+        end
     end
 
     for _, condition in ipairs(conditions) do
