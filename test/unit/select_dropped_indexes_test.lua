@@ -8,8 +8,6 @@ local g = t.group('select_dropped_indexes')
 
 local helpers = require('test.helper')
 
-local NOT_FOUND_INDEX_ERR_MSG = 'An index that matches specified conditions was not found'
-
 g.before_all = function()
     helpers.box_cfg()
 
@@ -25,7 +23,7 @@ g.before_all = function()
         if_not_exists = true,
     })
 
-    customers:create_index('id', { 
+    customers:create_index('id', {
         type = 'TREE',
         parts = {'id'},
         if_not_exists = true,
@@ -71,6 +69,7 @@ g.after_all = function()
     box.space.customers:drop()
 end
 
+
 g.test_dropped_index_call = function()
     local plan, err = select_plan.new(box.space.customers, {
         cond_funcs.gt('age_hash', 15),
@@ -81,7 +80,8 @@ g.test_dropped_index_call = function()
     t.assert_str_contains(err.err, 'No field or index "age_hash" found')
 end
 
-g.test_before_dropped_index_field = function() 
+
+g.test_before_dropped_index_field = function()
     local conditions = { cond_funcs.eq('age_tree', 20) }
     local plan, err = select_plan.new(box.space.customers, conditions)
 
@@ -97,7 +97,7 @@ g.test_before_dropped_index_field = function()
     t.assert_equals(plan.iter, box.index.EQ)
     t.assert_equals(plan.total_tuples_count, nil)
     t.assert_equals(plan.sharding_key, nil)
-end 
+end
 
 g.test_after_dropped_index_field = function()
     local conditions = { cond_funcs.eq('name_tree', 'Alexey') }
