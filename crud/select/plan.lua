@@ -44,39 +44,18 @@ local function validate_conditions(conditions, space_indexes, space_format)
 
     local index_names = {}
 
-    --local file = io.open("test100500.txt", "w+")
-    --io.output(file)
-    --io.close(file)
     for i = 0, table.maxn(space_indexes) do
         local index = space_indexes[i]
         if index ~= nil then
             index_names[index.name] = true
-            --[=====[
-            --if index.name == "name_tree" then
-                io.write(index.name)
-                io.write("\n")
-                for _, condition in ipairs(conditions) do
-                    io.write(string.format("%q", index_names[condition.operand]))
-                    io.write("\n")
-                    io.write(string.format("%q", field_names[condition.operand]))
-                    io.write("\n")
-                    io.write(condition.operand)
-                    io.write("\n")
-                end
-                io.write("cycle end\n")
-            --end
-            --]=====]
         end
     end
- --   io.close(file)
 
-    --io.output(file)
     for _, condition in ipairs(conditions) do
         if index_names[condition.operand] == nil and field_names[condition.operand] == nil then
             return false, ValidateConditionsError:new("No field or index %q found", condition.operand)
         end
     end
-   -- io.close(file)
 
     return true
 end
