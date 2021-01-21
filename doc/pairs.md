@@ -21,6 +21,8 @@ local age_sum = fun.reduce(function(acc, x) return acc + x.age end, 0, crud.pair
 ```lua
 local objects = {}
 for _, obj in fun.map(function(x) return {obj.id, obj.name, obj.age * 2} end, crud.pairs('customers', nil, {use_tomap = true}))
+    table.insert(objects, obj)
+end
 ```
 
 **Take example**:
