@@ -15,7 +15,8 @@ local function index_is_allowed(index)
 end
 
 local function get_index_for_condition(space_indexes, space_format, condition)
-    for i= 0, table.maxn(space_indexes) do
+    local maxn = table.maxn(space_indexes)
+    for i = 0, maxn do
         local index = space_indexes[i]
         if index ~= nil then
             if index.name == condition.operand and index_is_allowed(index) then
@@ -24,7 +25,7 @@ local function get_index_for_condition(space_indexes, space_format, condition)
         end
     end
 
-    for i = 0, table.maxn(space_indexes) do
+    for i = 0, maxn do
         local index = space_indexes[i]
         if index ~= nil then
             local first_part_fieldno = index.parts[1].fieldno
