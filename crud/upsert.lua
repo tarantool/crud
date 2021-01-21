@@ -6,6 +6,7 @@ local call = require('crud.common.call')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
+local schema = require('crud.common.schema')
 
 local UpsertError = errors.new_class('UpsertError',  { capture_stack = false})
 
@@ -13,19 +14,79 @@ local upsert = {}
 
 local UPSERT_FUNC_NAME = '_crud.upsert_on_storage'
 
-local function upsert_on_storage(space_name, tuple, operations)
-    dev_checks('string', 'table', 'table')
+local function upsert_on_storage(space_name, tuple, operations, opts)
+    dev_checks('string', 'table', 'table', {
+        add_space_schema_hash = '?boolean',
+    })
+
+    opts = opts or {}
 
     local space = box.space[space_name]
     if space == nil then
         return nil, UpsertError:new("Space %q doesn't exist", space_name)
     end
 
-    return space:upsert(tuple, operations)
+    -- add_space_schema_hash is true only in case of upsert_object
+    -- the only one case when reloading schema can avoid insert error
+    -- is flattening object on router
+    return schema.wrap_box_space_func_result(
+        opts.add_space_schema_hash, space, 'upsert', tuple, operations
+    )
 end
 
 function upsert.init()
    _G._crud.upsert_on_storage = upsert_on_storage
+end
+
+-- returns result, err, need_reload
+-- need_reload indicates if reloading schema could help
+-- see crud.common.schema.wrap_func_reload()
+local function call_upsert_on_router(space_name, tuple, user_operations, opts)
+    dev_checks('string', '?', 'table', {
+        timeout = '?number',
+        bucket_id = '?number|cdata',
+        add_space_schema_hash = '?boolean',
+    })
+
+    opts = opts or {}
+
+    local space, err = utils.get_space(space_name, vshard.router.routeall())
+    if err ~= nil then
+        return nil, UpsertError:new("Failed to get space %q: %s", space_name, err), true
+    end
+
+    if space == nil then
+        return nil, UpsertError:new("Space %q doesn't exist", space_name), true
+    end
+
+    local space_format = space:format()
+    local operations, err = utils.convert_operations(user_operations, space_format)
+    if err ~= nil then
+        return nil, UpsertError:new("Wrong operations are specified: %s", err), true
+    end
+
+    local bucket_id, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
+    if err ~= nil then
+        return nil, UpsertError:new("Failed to get bucket ID: %s", err), true
+    end
+
+    local storage_result, err = call.rw_single(
+        bucket_id, UPSERT_FUNC_NAME,
+        {space_name, tuple, operations},
+        {timeout = opts.timeout}
+    )
+
+    if err ~= nil then
+        return nil, UpsertError:new("Failed to call upsert on storage-side: %s", err)
+    end
+
+    if storage_result.err ~= nil then
+        local need_reload = schema.result_needs_reload(space, storage_result)
+        return nil, UpsertError:new("Failed to upsert: %s", storage_result.err), need_reload
+    end
+
+    -- upsert always returns nil
+    return utils.format_result({}, space)
 end
 
 --- Update or insert a tuple in the specified space
@@ -57,39 +118,10 @@ function upsert.tuple(space_name, tuple, user_operations, opts)
     checks('string', '?', 'table', {
         timeout = '?number',
         bucket_id = '?number|cdata',
+        add_space_schema_hash = '?boolean',
     })
 
-    opts = opts or {}
-
-    local space = utils.get_space(space_name, vshard.router.routeall())
-    if space == nil then
-        return nil, UpsertError:new("Space %q doesn't exist", space_name)
-    end
-
-    local space_format = space:format()
-    local operations, err = utils.convert_operations(user_operations, space_format)
-    if err ~= nil then
-        return nil, UpsertError:new("Wrong operations are specified: %s", err)
-    end
-
-    local bucket_id, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
-    if err ~= nil then
-        return nil, UpsertError:new("Failed to get bucket ID: %s", err)
-    end
-
-    local _, err = call.rw_single(bucket_id, UPSERT_FUNC_NAME, {space_name, tuple, operations}, {
-         timeout = opts.timeout
-    })
-
-    if err ~= nil then
-        return nil, UpsertError:new("Failed to upsert: %s", err)
-    end
-
-    -- upsert always returns nil
-    return {
-        metadata = table.copy(space_format),
-        rows = {},
-    }
+    return schema.wrap_func_reload(call_upsert_on_router, space_name, tuple, user_operations, opts)
 end
 
 --- Update or insert an object in the specified space
@@ -118,16 +150,12 @@ function upsert.object(space_name, obj, user_operations, opts)
 
     opts = opts or {}
 
-    local space = utils.get_space(space_name, vshard.router.routeall())
-    if space == nil then
-        return nil, UpsertError:new("Space %q doesn't exist", space_name)
-    end
+    -- upsert can fail if router uses outdated schema to flatten object
+    opts.add_space_schema_hash = true
 
-    local space_format = space:format()
-
-    local tuple, err = utils.flatten(obj, space_format)
+    local tuple, err = utils.flatten_obj_reload(space_name, obj)
     if err ~= nil then
-        return nil, UpsertError:new("Object is specified in bad format: %s", err)
+        return nil, UpsertError:new("Failed to flatten object: %s", err)
     end
 
     return upsert.tuple(space_name, tuple, user_operations, opts)

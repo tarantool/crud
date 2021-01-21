@@ -6,6 +6,7 @@ local call = require('crud.common.call')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
+local schema = require('crud.common.schema')
 
 local InsertError = errors.new_class('Insert',  {capture_stack = false})
 
@@ -13,19 +14,72 @@ local insert = {}
 
 local INSERT_FUNC_NAME = '_crud.insert_on_storage'
 
-local function insert_on_storage(space_name, tuple)
-    dev_checks('string', 'table')
+local function insert_on_storage(space_name, tuple, opts)
+    dev_checks('string', 'table', {
+        add_space_schema_hash = '?boolean',
+    })
+
+    opts = opts or {}
 
     local space = box.space[space_name]
     if space == nil then
         return nil, InsertError:new("Space %q doesn't exist", space_name)
     end
 
-    return space:insert(tuple)
+    -- add_space_schema_hash is true only in case of insert_object
+    -- the only one case when reloading schema can avoid insert error
+    -- is flattening object on router
+    return schema.wrap_box_space_func_result(opts.add_space_schema_hash, space, 'insert', tuple)
 end
 
 function insert.init()
    _G._crud.insert_on_storage = insert_on_storage
+end
+
+-- returns result, err, need_reload
+-- need_reload indicates if reloading schema could help
+-- see crud.common.schema.wrap_func_reload()
+local function call_insert_on_router(space_name, tuple, opts)
+    dev_checks('string', 'table', {
+        timeout = '?number',
+        bucket_id = '?number|cdata',
+        add_space_schema_hash = '?boolean',
+    })
+
+    opts = opts or {}
+
+    local space = utils.get_space(space_name, vshard.router.routeall())
+    if space == nil then
+        return nil, InsertError:new("Space %q doesn't exist", space_name), true
+    end
+
+    local bucket_id, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
+    if err ~= nil then
+        return nil, InsertError:new("Failed to get bucket ID: %s", err), true
+    end
+
+    local insert_on_storage_opts = {
+        add_space_schema_hash = opts.add_space_schema_hash,
+    }
+
+    local storage_result, err = call.rw_single(
+        bucket_id, INSERT_FUNC_NAME,
+        {space_name, tuple, insert_on_storage_opts},
+        {timeout = opts.timeout}
+    )
+
+    if err ~= nil then
+        return nil, InsertError:new("Failed to call insert on storage-side: %s", err)
+    end
+
+    if storage_result.err ~= nil then
+        local need_reload = schema.result_needs_reload(space, storage_result)
+        return nil, InsertError:new("Failed to insert: %s", storage_result.err), need_reload
+    end
+
+    local tuple = storage_result.res
+
+    return utils.format_result({tuple}, space)
 end
 
 --- Inserts a tuple to the specified space
@@ -53,33 +107,10 @@ function insert.tuple(space_name, tuple, opts)
     checks('string', 'table', {
         timeout = '?number',
         bucket_id = '?number|cdata',
+        add_space_schema_hash = '?boolean',
     })
 
-    opts = opts or {}
-
-    local space = utils.get_space(space_name, vshard.router.routeall())
-    if space == nil then
-        return nil, InsertError:new("Space %q doesn't exist", space_name)
-    end
-    local space_format = space:format()
-
-    local bucket_id, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
-    if err ~= nil then
-        return nil, InsertError:new("Failed to get bucket ID: %s", err)
-    end
-
-    local result, err = call.rw_single(
-        bucket_id, INSERT_FUNC_NAME,
-        {space_name, tuple}, {timeout=opts.timeout})
-
-    if err ~= nil then
-        return nil, InsertError:new("Failed to insert: %s", err)
-    end
-
-    return {
-        metadata = table.copy(space_format),
-        rows = {result},
-    }
+    return schema.wrap_func_reload(call_insert_on_router, space_name, tuple, opts)
 end
 
 --- Inserts an object to the specified space
@@ -104,15 +135,12 @@ function insert.object(space_name, obj, opts)
 
     opts = opts or {}
 
-    local space = utils.get_space(space_name, vshard.router.routeall())
-    if space == nil then
-        return nil, InsertError:new("Space %q doesn't exist", space_name)
-    end
-    local space_format = space:format()
+    -- insert can fail if router uses outdated schema to flatten object
+    opts.add_space_schema_hash = true
 
-    local tuple, err = utils.flatten(obj, space_format)
+    local tuple, err = utils.flatten_obj_reload(space_name, obj)
     if err ~= nil then
-        return nil, InsertError:new("Object is specified in bad format: %s", err)
+        return nil, InsertError:new("Failed to flatten object: %s", err)
     end
 
     return insert.tuple(space_name, tuple, opts)
