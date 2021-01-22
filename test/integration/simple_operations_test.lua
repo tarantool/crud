@@ -1,13 +1,15 @@
 local fio = require('fio')
 
 local t = require('luatest')
-local g_memtx = t.group('simple_operations_memtx')
-local g_vinyl = t.group('simple_operations_vinyl')
 local crud = require('crud')
 
 local helpers = require('test.helper')
 
-local function before_all(g, engine)
+local pgroup = helpers.pgroup.new('simple_operations', {
+    engine = {'memtx', 'vinyl'},
+})
+
+pgroup:set_before_all(function(g)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_simple_operations'),
@@ -41,45 +43,20 @@ local function before_all(g, engine)
             }
         },
         env = {
-            ['ENGINE'] = engine,
+            ['ENGINE'] = g.params.engine,
         },
     })
-    g.engine = engine
+
     g.cluster:start()
-end
+end)
 
-g_memtx.before_all = function() before_all(g_memtx, 'memtx') end
-g_vinyl.before_all = function() before_all(g_vinyl, 'vinyl') end
+pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
-local function after_all(g)
-    g.cluster:stop()
-    fio.rmtree(g.cluster.datadir)
-end
+pgroup:set_before_each(function(g)
+    helpers.truncate_space_on_cluster(g.cluster, 'customers')
+end)
 
-g_memtx.after_all = function() after_all(g_memtx) end
-g_vinyl.after_all = function() after_all(g_vinyl) end
-
-local function before_each(g)
-    for _, server in ipairs(g.cluster.servers) do
-        server.net_box:eval([[
-            local space = box.space.customers
-            if space ~= nil and not box.cfg.read_only then
-                space:truncate()
-            end
-        ]])
-    end
-end
-
-g_memtx.before_each(function() before_each(g_memtx) end)
-g_vinyl.before_each(function() before_each(g_vinyl) end)
-
-local function add(name, fn)
-    g_memtx[name] = fn
-    g_vinyl[name] = fn
-end
-
-add('test_non_existent_space', function(g)
-    -- insert
+pgroup:add('test_non_existent_space', function(g)
     local result, err = g.cluster.main_server.net_box:call(
         'crud.insert', {'non_existent_space', {0, box.NULL, 'Fedor', 59}})
 
@@ -141,7 +118,7 @@ add('test_non_existent_space', function(g)
     t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 end)
 
-add('test_insert_object_get', function(g)
+pgroup:add('test_insert_object_get', function(g)
     -- insert_object
     local result, err = g.cluster.main_server.net_box:call(
         'crud.insert_object', {'customers', {id = 1, name = 'Fedor', age = 59}})
@@ -180,7 +157,7 @@ add('test_insert_object_get', function(g)
     t.assert_str_contains(err.err, "Field \"age\" isn't nullable")
 end)
 
-add('test_insert_get', function(g)
+pgroup:add('test_insert_get', function(g)
     -- insert
     local result, err = g.cluster.main_server.net_box:call(
         'crud.insert', {'customers', {2, box.NULL, 'Ivan', 20}})
@@ -218,7 +195,7 @@ add('test_insert_get', function(g)
     t.assert_equals(#result.rows, 0)
 end)
 
-add('test_update', function(g)
+pgroup:add('test_update', function(g)
     -- insert tuple
     local result, err = g.cluster.main_server.net_box:call(
         'crud.insert_object', {'customers', {id = 22, name = 'Leo', age = 72}})
@@ -276,7 +253,7 @@ add('test_update', function(g)
     t.assert_equals(objects, {{id = 22, name = 'Leo', age = 72, bucket_id = 655}})
 end)
 
-add('test_delete', function(g)
+pgroup:add('test_delete', function(g)
     -- insert tuple
     local result, err = g.cluster.main_server.net_box:call(
         'crud.insert_object', {'customers', {id = 33, name = 'Mayakovsky', age = 36}})
@@ -295,7 +272,7 @@ add('test_delete', function(g)
     local result, err = g.cluster.main_server.net_box:call('crud.delete', {'customers', 33})
 
     t.assert_equals(err, nil)
-    if g.engine == 'memtx' then
+    if g.params.engine == 'memtx' then
         local objects = crud.unflatten_rows(result.rows, result.metadata)
         t.assert_equals(objects, {{id = 33, name = 'Mayakovsky', age = 36, bucket_id = 907}})
     else
@@ -316,7 +293,7 @@ add('test_delete', function(g)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type:")
 end)
 
-add('test_replace_object', function(g)
+pgroup:add('test_replace_object', function(g)
     -- get
     local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 44})
 
@@ -346,7 +323,7 @@ add('test_replace_object', function(g)
     t.assert_equals(objects, {{id = 44, name = 'Jane Doe', age = 18, bucket_id = 2805}})
 end)
 
-add('test_replace', function(g)
+pgroup:add('test_replace', function(g)
     local result, err = g.cluster.main_server.net_box:call(
         'crud.replace', {'customers', {45, box.NULL, 'John Fedor', 99}})
 
@@ -367,7 +344,7 @@ add('test_replace', function(g)
     t.assert_equals(result.rows, {{45, 392, 'John Fedor', 100}})
 end)
 
-add('test_upsert_object', function(g)
+pgroup:add('test_upsert_object', function(g)
     -- upsert_object first time
     local result, err = g.cluster.main_server.net_box:call(
         'crud.upsert_object', {'customers', {id = 66, name = 'Jack Sparrow', age = 25}, {
@@ -409,7 +386,7 @@ add('test_upsert_object', function(g)
     t.assert_equals(objects, {{id = 66, name = 'Leo Tolstoy', age = 50, bucket_id = 486}})
 end)
 
-add('test_upsert', function(g)
+pgroup:add('test_upsert', function(g)
     -- upsert tuple first time
     local result, err = g.cluster.main_server.net_box:call(
        'crud.upsert', {'customers', {67, box.NULL, 'Saltykov-Shchedrin', 63}, {

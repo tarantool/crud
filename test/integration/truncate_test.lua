@@ -1,14 +1,14 @@
 local fio = require('fio')
 
 local t = require('luatest')
-local g_memtx = t.group('truncate_memtx')
-local g_vinyl = t.group('truncate_vinyl')
 
 local helpers = require('test.helper')
 
-math.randomseed(os.time())
+local pgroup = helpers.pgroup.new('truncate', {
+    engine = {'memtx', 'vinyl'},
+})
 
-local function before_all(g, engine)
+pgroup:set_before_all(function(g)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_select'),
@@ -42,46 +42,23 @@ local function before_all(g, engine)
             }
         },
         env = {
-            ['ENGINE'] = engine,
+            ['ENGINE'] = g.params.engine,
         },
     })
-    g.engine = engine
+
     g.cluster:start()
 
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
-end
+end)
 
-g_memtx.before_all = function() before_all(g_memtx, 'memtx') end
-g_vinyl.before_all = function() before_all(g_vinyl, 'vinyl') end
+pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
-local function after_all(g)
-    g.cluster:stop()
-    fio.rmtree(g.cluster.datadir)
-end
+pgroup:set_before_each(function(g)
+    helpers.truncate_space_on_cluster(g.cluster, 'customers')
+end)
 
-g_memtx.after_all = function() after_all(g_memtx) end
-g_vinyl.after_all = function() after_all(g_vinyl) end
 
-local function before_each(g)
-    for _, server in ipairs(g.cluster.servers) do
-        server.net_box:eval([[
-            local space = box.space.customers
-            if space ~= nil and not box.cfg.read_only then
-                space:truncate()
-            end
-        ]])
-    end
-end
-
-g_memtx.before_each(function() before_each(g_memtx) end)
-g_vinyl.before_each(function() before_each(g_vinyl) end)
-
-local function add(name, fn)
-    g_memtx[name] = fn
-    g_vinyl[name] = fn
-end
-
-add('test_non_existent_space', function(g)
+pgroup:add('test_non_existent_space', function(g)
     -- insert
     local obj, err = g.cluster.main_server.net_box:call(
        'crud.truncate', {'non_existent_space'}
@@ -91,7 +68,7 @@ add('test_non_existent_space', function(g)
     t.assert_str_contains(err.err, "Space \"non_existent_space\" doesn't exist")
 end)
 
-add('test_truncate', function(g)
+pgroup:add('test_truncate', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
