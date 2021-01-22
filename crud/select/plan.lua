@@ -15,7 +15,7 @@ local function index_is_allowed(index)
 end
 
 local function get_index_for_condition(space_indexes, space_format, condition)
-    -- If we use # (not table.maxn), we may lose indexes, 
+    -- If we use # (not table.maxn), we may lose indexes,
     -- when user drop some indexes.
     local max_index = table.maxn(space_indexes)
     for i = 0, max_index do
