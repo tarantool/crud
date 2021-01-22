@@ -131,4 +131,35 @@ function helpers.truncate_space_on_cluster(cluster, space_name)
     end
 end
 
+function helpers.get_test_replicasets()
+    return {
+        {
+            uuid = helpers.uuid('a'),
+            alias = 'router',
+            roles = { 'crud-router' },
+            servers = {
+                { instance_uuid = helpers.uuid('a', 1), alias = 'router' },
+            },
+        },
+        {
+            uuid = helpers.uuid('b'),
+            alias = 's-1',
+            roles = { 'customers-storage', 'crud-storage' },
+            servers = {
+                { instance_uuid = helpers.uuid('b', 1), alias = 's1-master' },
+                { instance_uuid = helpers.uuid('b', 2), alias = 's1-replica' },
+            },
+        },
+        {
+            uuid = helpers.uuid('c'),
+            alias = 's-2',
+            roles = { 'customers-storage', 'crud-storage' },
+            servers = {
+                { instance_uuid = helpers.uuid('c', 1), alias = 's2-master' },
+                { instance_uuid = helpers.uuid('c', 2), alias = 's2-replica' },
+            },
+        }
+    }
+end
+
 return helpers
