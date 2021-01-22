@@ -119,7 +119,6 @@ pgroup:add('test_insert_object_get', function(g)
         'crud.insert_object', {'customers', {id = 1, name = 'Alexander', age = 37}})
 
     t.assert_equals(obj, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
     t.assert_str_contains(err.err, "Duplicate key exists")
 
     -- bad format
@@ -155,7 +154,6 @@ pgroup:add('test_insert_get', function(g)
     local obj, err = g.cluster.main_server.net_box:call('crud.insert', {'customers', {2, box.NULL, 'Ivan', 20}})
 
     t.assert_equals(obj, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
     t.assert_str_contains(err.err, "Duplicate key exists")
 
     -- get non-existent
@@ -205,7 +203,6 @@ pgroup:add('test_update', function(g)
         'crud.update', {'customers', 'bad-key', {{'+', 'age', 10},}})
 
     t.assert_equals(result, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type:")
 
     -- update by field numbers
@@ -262,7 +259,6 @@ pgroup:add('test_delete', function(g)
     local result, err = g.cluster.main_server.net_box:call('crud.delete', {'customers', 'bad-key'})
 
     t.assert_equals(result, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type:")
 end)
 
