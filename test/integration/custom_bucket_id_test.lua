@@ -14,34 +14,7 @@ pgroup:set_before_all(function(g)
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_simple_operations'),
         use_vshard = true,
-        replicasets = {
-            {
-                uuid = helpers.uuid('a'),
-                alias = 'router',
-                roles = { 'crud-router' },
-                servers = {
-                    { instance_uuid = helpers.uuid('a', 1), alias = 'router' },
-                },
-            },
-            {
-                uuid = helpers.uuid('b'),
-                alias = 's-1',
-                roles = { 'customers-storage', 'crud-storage' },
-                servers = {
-                    { instance_uuid = helpers.uuid('b', 1), alias = 's1-master' },
-                    { instance_uuid = helpers.uuid('b', 2), alias = 's1-replica' },
-                },
-            },
-            {
-                uuid = helpers.uuid('c'),
-                alias = 's-2',
-                roles = { 'customers-storage', 'crud-storage' },
-                servers = {
-                    { instance_uuid = helpers.uuid('c', 1), alias = 's2-master' },
-                    { instance_uuid = helpers.uuid('c', 2), alias = 's2-replica' },
-                },
-            }
-        },
+        replicasets = helpers.get_test_replicasets(),
         env = {
             ['ENGINE'] = g.params.engine,
         },
