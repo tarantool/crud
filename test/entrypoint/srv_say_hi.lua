@@ -16,7 +16,6 @@ ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
     http_port = 8081,
     bucket_count = 3000,
     roles = {
-        'cartridge.roles.vshard-router',
         'cartridge.roles.crud-storage',
         'cartridge.roles.crud-router',
     },

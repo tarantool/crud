@@ -16,7 +16,7 @@ ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
     bucket_count = 3000,
     roles = {
         'cartridge.roles.crud-storage',
-        'cartridge.roles.vshard-router',
+        'cartridge.roles.crud-router',
     },
 })
 

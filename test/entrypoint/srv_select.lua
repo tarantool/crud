@@ -105,15 +105,6 @@ package.preload['customers-storage'] = function()
             })
 
         end,
-        dependencies = {'cartridge.roles.crud-storage'},
-    }
-end
-
-package.preload['customers-router'] = function()
-    return {
-        role_name = 'customers-router',
-        init = function() end,
-        dependencies = {'cartridge.roles.crud-router'},
     }
 end
 
@@ -122,8 +113,9 @@ local ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
     http_port = 8081,
     bucket_count = 3000,
     roles = {
+        'cartridge.roles.crud-router',
+        'cartridge.roles.crud-storage',
         'customers-storage',
-        'customers-router',
     },
 })
 
