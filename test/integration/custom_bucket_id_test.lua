@@ -1,14 +1,15 @@
 local fio = require('fio')
 
 local t = require('luatest')
-local g_memtx = t.group('custom_bucket_id_memtx')
-local g_vinyl = t.group('custom_bucket_id_vinyl')
-
 local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
 
-local function before_all(g, engine)
+local pgroup = helpers.pgroup.new('custom_bucket_id', {
+    engine = {'memtx', 'vinyl'},
+})
+
+pgroup:set_before_all(function(g)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_simple_operations'),
@@ -42,44 +43,20 @@ local function before_all(g, engine)
             }
         },
         env = {
-            ['ENGINE'] = engine,
+            ['ENGINE'] = g.params.engine,
         },
     })
-    g.engine = engine
+
     g.cluster:start()
 
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
-end
+end)
 
-g_memtx.before_all = function() before_all(g_memtx, 'memtx') end
-g_vinyl.before_all = function() before_all(g_vinyl, 'vinyl') end
+pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
-local function after_all(g)
-    g.cluster:stop()
-    fio.rmtree(g.cluster.datadir)
-end
-
-g_memtx.after_all = function() after_all(g_memtx) end
-g_vinyl.after_all = function() after_all(g_vinyl) end
-
-local function before_each(g)
-    for _, server in ipairs(g.cluster.servers) do
-        server.net_box:eval([[
-            local space = box.space.customers
-            if space ~= nil and not box.cfg.read_only then
-                space:truncate()
-            end
-        ]])
-    end
-end
-
-g_memtx.before_each(function() before_each(g_memtx) end)
-g_vinyl.before_each(function() before_each(g_vinyl) end)
-
-local function add(name, fn)
-    g_memtx[name] = fn
-    g_vinyl[name] = fn
-end
+pgroup:set_before_each(function(g)
+    helpers.truncate_space_on_cluster(g.cluster, 'customers')
+end)
 
 local function get_other_storage_bucket_id(g, key)
     local res_bucket_id, err = g.cluster.main_server.net_box:eval([[
@@ -145,7 +122,7 @@ local function check_get(g, space_name, id, bucket_id, tuple)
     t.assert_equals(result.rows, {tuple})
 end
 
-add('test_update', function(g)
+pgroup:add('test_update', function(g)
     local tuple = {2, box.NULL, 'Ivan', 20}
     local bucket_id = get_other_storage_bucket_id(g, tuple[1])
 
@@ -183,7 +160,7 @@ add('test_update', function(g)
     t.assert_equals(#result.rows, 1)
 end)
 
-add('test_delete', function(g)
+pgroup:add('test_delete', function(g)
     local tuple = {2, box.NULL, 'Ivan', 20}
     local bucket_id = get_other_storage_bucket_id(g, tuple[1])
 
@@ -235,7 +212,7 @@ add('test_delete', function(g)
     t.assert_equals(#result.rows, 0)
 end)
 
-add('test_insert_object', function(g)
+pgroup:add('test_insert_object', function(g)
     local object = {id = 2, name = 'Ivan', age = 46}
     local bucket_id = get_other_storage_bucket_id(g, object.id)
     object.bucket_id = bucket_id
@@ -254,7 +231,7 @@ add('test_insert_object', function(g)
     check_get(g, 'customers', object.id, bucket_id, tuple)
 end)
 
-add('test_insert_object_bucket_id_opt', function(g)
+pgroup:add('test_insert_object_bucket_id_opt', function(g)
     local object = {id = 1, name = 'Fedor', age = 59}
     local bucket_id = get_other_storage_bucket_id(g, object.id)
 
@@ -272,7 +249,7 @@ add('test_insert_object_bucket_id_opt', function(g)
     check_get(g, 'customers', object.id, bucket_id, tuple)
 end)
 
-add('test_insert_object_bucket_id_specified_twice', function(g)
+pgroup:add('test_insert_object_bucket_id_specified_twice', function(g)
     local object = {id = 1, name = 'Fedor', age = 59}
     local bucket_id = get_other_storage_bucket_id(g, object.id)
     object.bucket_id = bucket_id
@@ -299,7 +276,7 @@ add('test_insert_object_bucket_id_specified_twice', function(g)
     check_get(g, 'customers', object.id, bucket_id, tuple)
 end)
 
-add('test_insert', function(g)
+pgroup:add('test_insert', function(g)
     local tuple = {2, box.NULL, 'Ivan', 20}
     local bucket_id = get_other_storage_bucket_id(g, tuple[1])
     tuple[2] = bucket_id
@@ -316,7 +293,7 @@ add('test_insert', function(g)
     check_get(g, 'customers', tuple[1], bucket_id, tuple)
 end)
 
-add('test_insert_bucket_id_opt', function(g)
+pgroup:add('test_insert_bucket_id_opt', function(g)
     local tuple = {1, box.NULL, 'Ivan', 20}
     local bucket_id = get_other_storage_bucket_id(g, tuple[1])
 
@@ -335,7 +312,7 @@ add('test_insert_bucket_id_opt', function(g)
     check_get(g, 'customers', tuple[1], bucket_id, tuple_with_bucket_id)
 end)
 
-add('test_insert_bucket_id_specified_twice', function(g)
+pgroup:add('test_insert_bucket_id_specified_twice', function(g)
     local tuple = {2, box.NULL, 'Ivan', 20}
     local bucket_id = get_other_storage_bucket_id(g, tuple[1])
     tuple[2] = bucket_id
@@ -360,7 +337,7 @@ add('test_insert_bucket_id_specified_twice', function(g)
     check_get(g, 'customers', tuple[1], bucket_id, tuple)
 end)
 
-add('test_replace_object', function(g)
+pgroup:add('test_replace_object', function(g)
     local object = {id = 2, name = 'Jane', age = 21}
     local bucket_id = get_other_storage_bucket_id(g, object.id)
     object.bucket_id = bucket_id
@@ -379,7 +356,7 @@ add('test_replace_object', function(g)
     check_get(g, 'customers', object.id, bucket_id, tuple)
 end)
 
-add('test_replace_object_bucket_id_opt', function(g)
+pgroup:add('test_replace_object_bucket_id_opt', function(g)
     local object = {id = 1, name = 'John', age = 25}
     local bucket_id = get_other_storage_bucket_id(g, object.id)
 
@@ -397,7 +374,7 @@ add('test_replace_object_bucket_id_opt', function(g)
     check_get(g, 'customers', object.id, bucket_id, tuple)
 end)
 
-add('test_replace_object_bucket_id_specified_twice', function(g)
+pgroup:add('test_replace_object_bucket_id_specified_twice', function(g)
     local object = {id = 1, name = 'Fedor', age = 59}
     local bucket_id = get_other_storage_bucket_id(g, object.id)
     object.bucket_id = bucket_id
@@ -424,7 +401,7 @@ add('test_replace_object_bucket_id_specified_twice', function(g)
     check_get(g, 'customers', object.id, bucket_id, tuple)
 end)
 
-add('test_replace', function(g)
+pgroup:add('test_replace', function(g)
     local tuple = {2, box.NULL, 'Jane', 21}
     local bucket_id = get_other_storage_bucket_id(g, tuple[1])
     tuple[2] = bucket_id
@@ -441,7 +418,7 @@ add('test_replace', function(g)
     check_get(g, 'customers', tuple[1], bucket_id, tuple)
 end)
 
-add('test_replace_bucket_id_opt', function(g)
+pgroup:add('test_replace_bucket_id_opt', function(g)
     local tuple = {1, box.NULL, 'John', 25}
     local bucket_id = get_other_storage_bucket_id(g, tuple[1])
 
@@ -460,7 +437,7 @@ add('test_replace_bucket_id_opt', function(g)
     check_get(g, 'customers', tuple[1], bucket_id, tuple_with_bucket_id)
 end)
 
-add('test_replace_bucket_id_specified_twice', function(g)
+pgroup:add('test_replace_bucket_id_specified_twice', function(g)
     local tuple = {1, box.NULL, 'John', 25}
     local bucket_id = get_other_storage_bucket_id(g, tuple[1])
     tuple[2] = bucket_id
@@ -485,7 +462,7 @@ add('test_replace_bucket_id_specified_twice', function(g)
     check_get(g, 'customers', tuple[1], bucket_id, tuple)
 end)
 
-add('test_upsert_object', function(g)
+pgroup:add('test_upsert_object', function(g)
     local  object = {id = 2, name = 'Jane', age = 21}
     local bucket_id = get_other_storage_bucket_id(g, object.id)
     object.bucket_id = bucket_id
@@ -504,7 +481,7 @@ add('test_upsert_object', function(g)
     check_get(g, 'customers', object.id, bucket_id, tuple)
 end)
 
-add('test_upsert_object_bucket_id_opt', function(g)
+pgroup:add('test_upsert_object_bucket_id_opt', function(g)
     local object = {id = 1, name = 'John', age = 25}
     local bucket_id = get_other_storage_bucket_id(g, object.id)
 
@@ -522,7 +499,7 @@ add('test_upsert_object_bucket_id_opt', function(g)
     check_get(g, 'customers', object.id, bucket_id, tuple)
 end)
 
-add('test_upsert_object_bucket_id_specified_twice', function(g)
+pgroup:add('test_upsert_object_bucket_id_specified_twice', function(g)
     local object = {id = 1, name = 'Fedor', age = 59}
     local bucket_id = get_other_storage_bucket_id(g, object.id)
     object.bucket_id = bucket_id
@@ -549,7 +526,7 @@ add('test_upsert_object_bucket_id_specified_twice', function(g)
     check_get(g, 'customers', object.id, bucket_id, tuple)
 end)
 
-add('test_upsert', function(g)
+pgroup:add('test_upsert', function(g)
     local tuple = {1, box.NULL, 'John', 25}
     local bucket_id = get_other_storage_bucket_id(g, tuple[1])
     tuple[2] = bucket_id
@@ -566,7 +543,7 @@ add('test_upsert', function(g)
     check_get(g, 'customers', tuple[1], bucket_id, tuple)
 end)
 
-add('test_upsert_bucket_id_opt', function(g)
+pgroup:add('test_upsert_bucket_id_opt', function(g)
     local tuple = {1, box.NULL, 'John', 25}
     local bucket_id = get_other_storage_bucket_id(g, tuple[1])
 
@@ -585,7 +562,7 @@ add('test_upsert_bucket_id_opt', function(g)
     check_get(g, 'customers', tuple[1], bucket_id, tuple_with_bucket_id)
 end)
 
-add('test_upsert_bucket_id_specified_twice', function(g)
+pgroup:add('test_upsert_bucket_id_specified_twice', function(g)
     local tuple = {1, box.NULL, 'John', 25}
     local bucket_id = get_other_storage_bucket_id(g, tuple[1])
     tuple[2] = bucket_id
@@ -610,7 +587,7 @@ add('test_upsert_bucket_id_specified_twice', function(g)
     check_get(g, 'customers', tuple[1], bucket_id, tuple)
 end)
 
-add('test_select', function(g)
+pgroup:add('test_select', function(g)
     local tuple = {2, box.NULL, 'Ivan', 20}
     local bucket_id = get_other_storage_bucket_id(g, tuple[1])
 

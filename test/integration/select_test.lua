@@ -1,17 +1,17 @@
 local fio = require('fio')
 
 local t = require('luatest')
-local g_memtx = t.group('select_memtx')
-local g_vinyl = t.group('select_vinyl')
 
 local crud = require('crud')
 local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
 
-math.randomseed(os.time())
+local pgroup = helpers.pgroup.new('select', {
+    engine = {'memtx', 'vinyl'},
+})
 
-local function before_all(g, engine)
+pgroup:set_before_all(function(g)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_select'),
@@ -45,46 +45,23 @@ local function before_all(g, engine)
             }
         },
         env = {
-            ['ENGINE'] = engine,
+            ['ENGINE'] = g.params.engine,
         },
     })
-    g.engine = engine
+
     g.cluster:start()
 
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
-end
+end)
 
-g_memtx.before_all = function() before_all(g_memtx, 'memtx') end
-g_vinyl.before_all = function() before_all(g_vinyl, 'vinyl') end
+pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
-local function after_all(g)
-    g.cluster:stop()
-    fio.rmtree(g.cluster.datadir)
-end
+pgroup:set_before_each(function(g)
+    helpers.truncate_space_on_cluster(g.cluster, 'customers')
+end)
 
-g_memtx.after_all = function() after_all(g_memtx) end
-g_vinyl.after_all = function() after_all(g_vinyl) end
 
-local function before_each(g)
-    for _, server in ipairs(g.cluster.servers) do
-        server.net_box:eval([[
-            local space = box.space.customers
-            if space ~= nil and not box.cfg.read_only then
-                space:truncate()
-            end
-        ]])
-    end
-end
-
-g_memtx.before_each(function() before_each(g_memtx) end)
-g_vinyl.before_each(function() before_each(g_vinyl) end)
-
-local function add(name, fn)
-    g_memtx[name] = fn
-    g_vinyl[name] = fn
-end
-
-add('test_non_existent_space', function(g)
+pgroup:add('test_non_existent_space', function(g)
     -- insert
     local obj, err = g.cluster.main_server.net_box:call(
        'crud.select', {'non_existent_space'}
@@ -94,7 +71,7 @@ add('test_non_existent_space', function(g)
     t.assert_str_contains(err.err, "Space non_existent_space doesn't exist")
 end)
 
-add('test_not_valid_value_type', function(g)
+pgroup:add('test_not_valid_value_type', function(g)
     local conditions = {
         {'=', 'id', 'not_number'}
     }
@@ -111,7 +88,7 @@ add('test_not_valid_value_type', function(g)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type: expected unsigned")
 end)
 
-add('test_select_all', function(g)
+pgroup:add('test_select_all', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -172,7 +149,7 @@ add('test_select_all', function(g)
     t.assert_equals(#objects, 0)
 end)
 
-add('test_select_all_with_first', function(g)
+pgroup:add('test_select_all_with_first', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -208,7 +185,7 @@ add('test_select_all_with_first', function(g)
     t.assert_equals(#objects, 0)
 end)
 
-add('test_negative_first', function(g)
+pgroup:add('test_negative_first', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -319,7 +296,7 @@ add('test_negative_first', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {6}))
 end)
 
-add('test_select_all_with_batch_size', function(g)
+pgroup:add('test_select_all_with_batch_size', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -372,7 +349,7 @@ add('test_select_all_with_batch_size', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1, 2, 3, 4, 5, 6}))
 end)
 
-add('test_select_by_primary_index', function(g)
+pgroup:add('test_select_by_primary_index', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -403,7 +380,7 @@ add('test_select_by_primary_index', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3}))
 end)
 
-add('test_eq_condition_with_index', function(g)
+pgroup:add('test_eq_condition_with_index', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -451,7 +428,7 @@ add('test_eq_condition_with_index', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {5, 7})) -- in id order
 end)
 
-add('test_ge_condition_with_index', function(g)
+pgroup:add('test_ge_condition_with_index', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -490,7 +467,7 @@ add('test_ge_condition_with_index', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 4})) -- in age order
 end)
 
-add('test_le_condition_with_index',function(g)
+pgroup:add('test_le_condition_with_index',function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -529,7 +506,7 @@ add('test_le_condition_with_index',function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1})) -- in age order
 end)
 
-add('test_lt_condition_with_index', function(g)
+pgroup:add('test_lt_condition_with_index', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -568,7 +545,7 @@ add('test_lt_condition_with_index', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {})) -- in age order
 end)
 
-add('test_multiple_conditions', function(g)
+pgroup:add('test_multiple_conditions', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Rodriguez",
@@ -612,7 +589,7 @@ add('test_multiple_conditions', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2})) -- in age order
 end)
 
-add('test_composite_index', function(g)
+pgroup:add('test_composite_index', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Rodriguez",
@@ -662,7 +639,7 @@ add('test_composite_index', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 1})) -- in full_name order
 end)
 
-add('test_select_with_batch_size_1', function(g)
+pgroup:add('test_select_with_batch_size_1', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -726,7 +703,7 @@ add('test_select_with_batch_size_1', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {8, 2, 4}))
 end)
 
-add('test_select_by_full_sharding_key', function(g)
+pgroup:add('test_select_by_full_sharding_key', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -750,7 +727,7 @@ add('test_select_by_full_sharding_key', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3}))
 end)
 
-add('test_select_with_collations', function(g)
+pgroup:add('test_select_with_collations', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -792,7 +769,7 @@ add('test_select_with_collations', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 4}))
 end)
 
-add('test_multipart_primary_index', function(g)
+pgroup:add('test_multipart_primary_index', function(g)
     local coords = helpers.insert_objects(g, 'coord', {
         { x = 0, y = 0 }, -- 1
         { x = 0, y = 1 }, -- 2

@@ -13,13 +13,20 @@ if os.getenv('DEV') == nil then
     os.setenv('DEV', 'ON')
 end
 
+local helpers = {}
+
+local pgroup = require('test.pgroup')
+helpers.pgroup = pgroup
+
 local ok, cartridge_helpers = pcall(require, 'cartridge.test-helpers')
 if not ok then
     log.error('Please, install cartridge rock to run tests')
     os.exit(1)
 end
 
-local helpers = table.copy(cartridge_helpers)
+for name, value in pairs(cartridge_helpers) do
+    helpers[name] = value
+end
 
 helpers.project_root = fio.dirname(debug.sourcedir())
 
@@ -103,6 +110,25 @@ function helpers.get_objects_by_idxs(objects, idxs)
         table.insert(results, objects[idx])
     end
     return results
+end
+
+function helpers.stop_cluster(cluster)
+    assert(cluster ~= nil)
+    cluster:stop()
+    fio.rmtree(cluster.datadir)
+end
+
+function helpers.truncate_space_on_cluster(cluster, space_name)
+    assert(cluster ~= nil)
+    for _, server in ipairs(cluster.servers) do
+        server.net_box:eval([[
+            local space_name = ...
+            local space = box.space[space_name]
+            if space ~= nil and not box.cfg.read_only then
+                space:truncate()
+            end
+        ]], {space_name})
+    end
 end
 
 return helpers

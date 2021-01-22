@@ -1,16 +1,16 @@
 local fio = require('fio')
 
 local t = require('luatest')
-local g_memtx = t.group('pairs_memtx')
-local g_vinyl = t.group('pairs_vinyl')
 
 local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
 
-math.randomseed(os.time())
+local pgroup = helpers.pgroup.new('pairs', {
+    engine = {'memtx', 'vinyl'},
+})
 
-local function before_all(g, engine)
+pgroup:set_before_all(function(g)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_select'),
@@ -44,46 +44,23 @@ local function before_all(g, engine)
             }
         },
         env = {
-            ['ENGINE'] = engine,
+            ['ENGINE'] = g.params.engine,
         },
     })
-    g.engine = engine
+
     g.cluster:start()
 
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
-end
+end)
 
-local function after_all(g)
-    g.cluster:stop()
-    fio.rmtree(g.cluster.datadir)
-end
+pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
-local function before_each(g)
-    for _, server in ipairs(g.cluster.servers) do
-        server.net_box:eval([[
-            local space = box.space.customers
-            if space ~= nil and not box.cfg.read_only then
-                space:truncate()
-            end
-        ]])
-    end
-end
+pgroup:set_before_each(function(g)
+    helpers.truncate_space_on_cluster(g.cluster, 'customers')
+end)
 
-g_memtx.before_all = function() before_all(g_memtx, 'memtx') end
-g_vinyl.before_all = function() before_all(g_vinyl, 'vinyl') end
 
-g_memtx.after_all = function() after_all(g_memtx) end
-g_vinyl.after_all = function() after_all(g_vinyl) end
-
-g_memtx.before_each(function() before_each(g_memtx) end)
-g_vinyl.before_each(function() before_each(g_vinyl) end)
-
-local function add(name, fn)
-    g_memtx[name] = fn
-    g_vinyl[name] = fn
-end
-
-add('test_pairs_no_conditions', function(g)
+pgroup:add('test_pairs_no_conditions', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -186,7 +163,7 @@ add('test_pairs_no_conditions', function(g)
     t.assert_equals(#objects, 0)
 end)
 
-add('test_ge_condition_with_index', function(g)
+pgroup:add('test_ge_condition_with_index', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -245,7 +222,7 @@ add('test_ge_condition_with_index', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 4})) -- in age order
 end)
 
-add('test_le_condition_with_index', function(g)
+pgroup:add('test_le_condition_with_index', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -304,7 +281,7 @@ add('test_le_condition_with_index', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1})) -- in age order
 end)
 
-add('test_negative_first', function(g)
+pgroup:add('test_negative_first', function(g)
     local customers = helpers.insert_objects(g, 'customers',{
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -329,7 +306,7 @@ add('test_negative_first', function(g)
     end)
 end)
 
-add('test_empty_space', function(g)
+pgroup:add('test_empty_space', function(g)
     local count = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         local count = 0
@@ -341,7 +318,7 @@ add('test_empty_space', function(g)
     t.assert_equals(count, 0)
 end)
 
-add('test_luafun_compatipility', function(g)
+pgroup:add('test_luafun_compatipility', function(g)
     helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
