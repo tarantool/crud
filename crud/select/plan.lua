@@ -15,8 +15,10 @@ local function index_is_allowed(index)
 end
 
 local function get_index_for_condition(space_indexes, space_format, condition)
-    -- If we use # (not table.maxn), we may lose indexes,
-    -- when user drop some indexes.
+    -- If we use # (not table.maxn), we may lose indexes, when user drop some indexes.
+    -- E.g: we have table with indexes id {1, 2, 3, nil, nil, 6}.
+    -- If we use #{1, 2, 3, nil, nil, 6} (== 3) we will lose index with id = 6.
+    -- See details: https://github.com/tarantool/crud/issues/103
     local max_index = table.maxn(space_indexes)
     for i = 0, max_index do
         local index = space_indexes[i]
@@ -47,6 +49,10 @@ local function validate_conditions(conditions, space_indexes, space_format)
 
     local index_names = {}
 
+    -- If we use # (not table.maxn), we may lose indexes, when user drop some indexes.
+    -- E.g: we have table with indexes id {1, 2, 3, nil, nil, 6}.
+    -- If we use #{1, 2, 3, nil, nil, 6} (== 3) we will lose index with id = 6.
+    -- See details: https://github.com/tarantool/crud/issues/103
     for i = 0, table.maxn(space_indexes) do
         local index = space_indexes[i]
         if index ~= nil then
