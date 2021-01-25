@@ -64,7 +64,7 @@ g.before_all = function()
     customers.index.index4_dropped:drop()
     customers.index.index5_dropped:drop()
 
-    -- We need this check to make sure that tests actually covers a problem.
+    -- We need this check to make sure that test actually covers a problem.
     t.assert(#box.space.customers.index ~= table.maxn(box.space.customers.index))
 end
 
