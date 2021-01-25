@@ -63,24 +63,13 @@ g.before_all = function()
 
     customers.index.index4_dropped:drop()
     customers.index.index5_dropped:drop()
+
+    -- We need this check to make sure that tests actually covers a problem.
+    t.assert(#box.space.customers.index ~= table.maxn(box.space.customers.index))
 end
 
 g.after_all = function()
     box.space.customers:drop()
-end
-
-g.test_conditions = function()
-    t.assert(#box.space.customers.index ~= table.maxn(box.space.customers.index))
-end
-
-g.test_dropped_index_call = function()
-    local plan, err = select_plan.new(box.space.customers, {
-        cond_funcs.gt('index4_dropped', 15),
-    })
-
-    t.assert_equals(plan, nil)
-    t.assert(err ~= nil)
-    t.assert_str_contains(err.err, 'No field or index "index4_dropped" found')
 end
 
 g.test_before_dropped_index_field = function()
