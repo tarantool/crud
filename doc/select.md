@@ -6,7 +6,7 @@ The second parameter passed to ``crud.select`` is an array of conditions. Below 
 
 ### Getting full space
 
-To get a full space without filtering, you need to pass nil as a condition.
+To get a full space without filtering, you need to pass ``nil`` as a condition.
 
 **Example:**
 
@@ -30,7 +30,7 @@ crud.select('customers', nil)
 
 ### Select using index
 
-Let's say we have a ``age`` index. Example below 
+Let's say we have a ``age`` index. Example below gets a list of ``customers`` over 30 years old.
 
 **Example:**
 
@@ -74,6 +74,8 @@ res.rows
 
 ### Select using non-indexed field
 
+You can also make a selection using a non-indexed field.
+
 **Example:**
 
 ```lua
@@ -86,11 +88,39 @@ res.rows
 ...
 ```
 
-**Note:**
+**Note:** in this case full scan is performed.
+
+Note that the search condition for the indexed field must be placed first to avoi a full scan.
+
+**Example:**
+
+```lua
+res, err = crud.select('customers', {{'>=', 'id', 3}, {'>=', 'age', 30}})
+res.rows
+---
+- - [3, 6517, 'Ronald', 'Dump', 77]
+...
+```
+
+In this case, a full scan will be performed, since non-indexed field is placed first in search conditions. Example below shows how you can avoid a full scan.
+
+**Example:**
+
+```lua
+res, err = crud.select('customers', {{'>=', 'age', 30}, {'>=', 'id', 3}})
+res.rows
+---
+- - [3, 6517, 'Ronald', 'Dump', 77]
+...
+```
 
 ## Pagination
 
-### First parameter
+The third (but optional) parameter in ``crud.select`` is array of [``options``](https://github.com/tarantool/crud#select). With this parameter, we can implement pagination. 
+
+### ``First`` parameter
+
+Using the ``first`` option we will get the first **N** results for the query.
 
 **Example:**
 
@@ -108,7 +138,11 @@ crud.select('developers', nil, { first = 3 })
 ...
 ```
 
-### After parameter
+Thus, we got the first three objects from the ``developers`` space.
+
+### ``After`` parameter
+
+Using ``after``, we can get the objects after specified tuple.
 
 **Example:**
 
@@ -121,23 +155,25 @@ res.rows
   - [6, 8765, 'Artyom', 51]
 ```
 
-### Combine first and after parameters
+With this request, we got objects behind the objects from the [previous example](https://github.com/crud/doc/select#first-parameter)
 
-Select supports pagination. To use it, we have to combine ``after`` and ``first`` parameters. 
+### Combine ``first`` and ``after`` 
+
+To use pagination, we have to combine ``after`` and ``first`` parameters. 
 
 **Example:**
 
 ```lua
 res, err = crud.select('developers', nil,  { first = 3 })
 res.rows
----
+--- Got first three objects
 - - [1, 7331, 'Alexey', 20]
   - [2, 899, 'Sergey', 21]
   - [3, 9661, 'Pavel', 27]
 ...
 res, err = crud.select('developers', nil, { after = res.rows[3], first = 3 })
 res.rows
----
+--- Get the next three objects
 - - [4, 501, 'Mikhail', 31]
   - [5, 1997, 'Dmitry', 16]
   - [6, 8765, 'Artyom', 51]
@@ -146,7 +182,7 @@ res.rows
 
 ### Reverse pagination
 
-Select also supports reverse pagination.
+Select also supports reverse pagination. To use it, pass a negative value to the ``first`` parameter.
 
 **Example:**
 
