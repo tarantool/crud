@@ -15,19 +15,28 @@ local function index_is_allowed(index)
 end
 
 local function get_index_for_condition(space_indexes, space_format, condition)
-    for i= 0, #space_indexes do
+    -- If we use # (not table.maxn), we may lose indexes, when user drop some indexes.
+    -- E.g: we have table with indexes id {1, 2, 3, nil, nil, 6}.
+    -- If we use #{1, 2, 3, nil, nil, 6} (== 3) we will lose index with id = 6.
+    -- See details: https://github.com/tarantool/crud/issues/103
+    local max_index = table.maxn(space_indexes)
+    for i = 0, max_index do
         local index = space_indexes[i]
-        if index.name == condition.operand and index_is_allowed(index) then
-            return index
+        if index ~= nil then
+            if index.name == condition.operand and index_is_allowed(index) then
+                return index
+            end
         end
     end
 
-    for i = 0, #space_indexes do
+    for i = 0, max_index do
         local index = space_indexes[i]
-        local first_part_fieldno = index.parts[1].fieldno
-        local first_part_name = space_format[first_part_fieldno].name
-        if first_part_name == condition.operand and index_is_allowed(index) then
-            return index
+        if index ~= nil then
+            local first_part_fieldno = index.parts[1].fieldno
+            local first_part_name = space_format[first_part_fieldno].name
+            if first_part_name == condition.operand and index_is_allowed(index) then
+                return index
+            end
         end
     end
 end
@@ -39,9 +48,16 @@ local function validate_conditions(conditions, space_indexes, space_format)
     end
 
     local index_names = {}
-    for i = 0, #space_indexes do
+
+    -- If we use # (not table.maxn), we may lose indexes, when user drop some indexes.
+    -- E.g: we have table with indexes id {1, 2, 3, nil, nil, 6}.
+    -- If we use #{1, 2, 3, nil, nil, 6} (== 3) we will lose index with id = 6.
+    -- See details: https://github.com/tarantool/crud/issues/103
+    for i = 0, table.maxn(space_indexes) do
         local index = space_indexes[i]
-        index_names[index.name] = true
+        if index ~= nil then
+            index_names[index.name] = true
+        end
     end
 
     for _, condition in ipairs(conditions) do
