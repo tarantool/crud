@@ -2,16 +2,18 @@
 
 ## Filtering
 
-The second parameter passed to ``crud.select`` is an array of conditions. Below are examples of filtering data using these conditions. 
+``CRUD`` allows to filter tuples by conditions. Each condition can use field name (or number) or index name. The first condition that uses index name is used to iterate over space. If there is no conditions that match index names, full scan is performed. Other conditions are used as additional filters. 
 
-### Getting full space
+Below are examples of filtering data using these conditions. 
 
-To get a full space without filtering, you need to pass ``nil`` as a condition.
+### Getting space
+
+Let's check ``developers`` space contents to make other examples more clear. Just select first 6 values without conditions.
 
 **Example:**
 
 ```lua
-crud.select('customers', nil)
+crud.select('developers', nil, { first = 6 })
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
@@ -20,11 +22,12 @@ crud.select('customers', nil)
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
   rows:
-  - [1, 635, 'John', 'Adams', 65]
-  - [2, 2364, 'John', 'Sidorov', 28]
-  - [3, 6517, 'Ronald', 'Dump', 77]
-  - [4, 563, 'Sergey', 'Lee', 21]
-  - [5, 2313, 'Tatyana', 'May', 20]
+  - [1, 7331, 'Alexey', 'Adams', 20]
+  - [2, 899, 'Sergey', 'Allred', 21]
+  - [3, 9661, 'Pavel', 'Adams', 27]
+  - [4, 501, 'Mikhail', 'Liston', 31]
+  - [5, 1993, 'Dmitry', 'Jacobi', 16]
+  - [6, 8765, 'Alexey', 'Sidorov', 51]
 ...
 ```
 
@@ -35,11 +38,17 @@ Let's say we have a ``age`` index. Example below gets a list of ``customers`` ov
 **Example:**
 
 ```lua
-res, err = crud.select('customers', {{'>=', 'age', 30}})
-res.rows
+crud.select('developers', {{'>=', 'age', 30}})
 ---
-- - [1, 635, 'John', 'Adams', 65]
-  - [3, 6517, 'Ronald', 'Dump', 77]
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [4, 501, 'Mikhail', 'Liston', 31]
+  - [6, 8765, 'Alexey', 'Sidorov', 51]
 ...
 ```
 
@@ -50,10 +59,16 @@ Suppose we have a composite index consisting of the ``name`` and ``surname`` fie
 **Example**:
 
 ```lua
-res, err = crud.select('customers', {{'==', 'full_name', {"John", "Sidorov"}}})
-res.rows
+crud.select('developers', {{'==', 'full_name', {"Alexey", "Adams"}}})
 ---
-- - [1, 2364, 'John', 'Sidorov', 28]
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 7331, 'Alexey', 'Adams', 20]
 ...
 ```
 
@@ -64,11 +79,17 @@ Alternatively, you can use a partial key for a composite index.
 **Example**:
 
 ```lua
-res, err = crud.select('customers', {{'==', 'full_name', "John"}})
-res.rows
+crud.select('developers', {{'==', 'full_name', "Alexey"}})
 ---
-- - [1, 2364, 'John', 'Sidorov', 28]
-  - [2, 635, 'John', 'Adams', 65]
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 7331, 'Alexey', 'Adams', 20]
+  - [6, 8765, 'Alexey', 'Sidorov', 51]
 ...
 ```
 
@@ -79,26 +100,37 @@ You can also make a selection using a non-indexed field.
 **Example:**
 
 ```lua
-res, err = crud.select('customers', {{'>=', 'id', 3}})
-res.rows
+crud.select('developers', {{'==', 'surname', "Adams"}})
 ---
-- - [3, 6517, 'Ronald', 'Dump', 77]
-  - [4, 563, 'Sergey', 'Lee', 21]
-  - [5, 2313, 'Tatyana', 'May', 20]
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 7331, 'Alexey', 'Adams', 20]
+  - [3, 9661, 'Pavel', 'Adams', 27]
 ...
 ```
 
 **Note:** in this case full scan is performed.
 
-Note that the search condition for the indexed field must be placed first to avoi a full scan.
+Note that the search condition for the indexed field must be placed first to avoid a full scan.
 
 **Example:**
 
 ```lua
-res, err = crud.select('customers', {{'>=', 'id', 3}, {'>=', 'age', 30}})
-res.rows
+crud.select('developers', {{'==', 'surname', "Adams"}, {'>=', 'age', 25}})
 ---
-- - [3, 6517, 'Ronald', 'Dump', 77]
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [3, 9661, 'Pavel', 'Adams', 27]
 ...
 ```
 
@@ -107,16 +139,22 @@ In this case, a full scan will be performed, since non-indexed field is placed f
 **Example:**
 
 ```lua
-res, err = crud.select('customers', {{'>=', 'age', 30}, {'>=', 'id', 3}})
-res.rows
+crud.select('developers', {{'>=', 'age', 30}, {'==', 'surname', "Adams"}})
 ---
-- - [3, 6517, 'Ronald', 'Dump', 77]
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [3, 9661, 'Pavel', 'Adams', 27]
 ...
 ```
 
 ## Pagination
 
-The third (but optional) parameter in ``crud.select`` is array of [``options``](https://github.com/tarantool/crud#select). With this parameter, we can implement pagination. 
+[See more](https://github.com/tarantool/crud#select) about ``opts`` parameter.
 
 ### ``First`` parameter
 
@@ -125,16 +163,18 @@ Using the ``first`` option we will get the first **N** results for the query.
 **Example:**
 
 ```lua
-crud.select('developers', nil, { first = 3 })
+res, err = crud.select('developers', nil, { first = 3 })
+res
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
   - {'name': 'bucked_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
   rows:
-  - [1, 7331, 'Alexey', 20]
-  - [2, 899, 'Sergey', 21]
-  - [3, 9661, 'Pavel', 27]
+  - [1, 7331, 'Alexey', 'Adams', 20]
+  - [2, 899, 'Sergey', 'Allred', 21]
+  - [3, 9661, 'Pavel', 'Adams', 27]
 ...
 ```
 
@@ -148,11 +188,19 @@ Using ``after``, we can get the objects after specified tuple.
 
 ```lua
 res, err = crud.select('developers', nil, { after = res.rows[3] })
-res.rows
+res
 ---
-- - [4, 501, 'Mikhail', 31]
-  - [5, 1997, 'Dmitry', 16]
-  - [6, 8765, 'Artyom', 51]
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [4, 501, 'Mikhail', 'Liston', 31]
+  - [5, 1993, 'Dmitry', 'Jacobi', 16]
+  - [6, 8765, 'Alexey', 'Sidorov', 51]
+...
 ```
 
 With this request, we got objects behind the objects from the [previous example](https://github.com/tarantool/crud/doc/select#first-parameter)
@@ -164,19 +212,33 @@ To use pagination, we have to combine ``after`` and ``first`` parameters.
 **Example:**
 
 ```lua
-res, err = crud.select('developers', nil,  { first = 3 })
-res.rows
+res, err = crud.select('developers', nil, { first = 3 })
+res
 --- Got first three objects
-- - [1, 7331, 'Alexey', 20]
-  - [2, 899, 'Sergey', 21]
-  - [3, 9661, 'Pavel', 27]
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 7331, 'Alexey', 'Adams', 20]
+  - [2, 899, 'Sergey', 'Allred', 21]
+  - [3, 9661, 'Pavel', 'Adams', 27]
 ...
 res, err = crud.select('developers', nil, { after = res.rows[3], first = 3 })
-res.rows
---- Get the next three objects
-- - [4, 501, 'Mikhail', 31]
-  - [5, 1997, 'Dmitry', 16]
-  - [6, 8765, 'Artyom', 51]
+res
+--- Got the next three objects
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [4, 501, 'Mikhail', 'Liston', 31]
+  - [5, 1993, 'Dmitry', 'Jacobi', 16]
+  - [6, 8765, 'Alexey', 'Sidorov', 51]
 ...
 ```
 
@@ -187,18 +249,46 @@ Select also supports reverse pagination. To use it, pass a negative value to the
 **Example:**
 
 ```lua
+res, err = crud.select('developers', nil, { first = 3 })
+res
+--- Got first three objects
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 7331, 'Alexey', 'Adams', 20]
+  - [2, 899, 'Sergey', 'Allred', 21]
+  - [3, 9661, 'Pavel', 'Adams', 27]
+...
 res, err = crud.select('developers', nil, { after = res.rows[3], first = 3 })
-res.rows
----
-- - [4, 501, 'Mikhail', 31]
-  - [5, 1997, 'Dmitry', 16]
-  - [6, 8765, 'Artyom', 51]
+res
+--- Got the next three objects
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [4, 501, 'Mikhail', 'Liston', 31]
+  - [5, 1993, 'Dmitry', 'Jacobi', 16]
+  - [6, 8765, 'Alexey', 'Sidorov', 51]
 ...
 res, err = crud.select('developers', nil, { after = res.rows[1], first = -3 })
-res.rows
----
-- - [1, 7331, 'Alexey', 20]
-  - [2, 899, 'Sergey', 21]
-  - [3, 9661, 'Pavel', 27]
+res
+--- Got first three objects again
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 7331, 'Alexey', 'Adams', 20]
+  - [2, 899, 'Sergey', 'Allred', 21]
+  - [3, 9661, 'Pavel', 'Adams', 27]
 ...
 ```
