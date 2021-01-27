@@ -2,16 +2,16 @@
 
 With ``crud.pairs``, you can iterate across a distributed space. The arguments are the same as [``crud.select``](https://github.com/tarantool/crud/docs/select.md), except or the ``use_tomap`` parameter. Below are examples that may help you.
 
-## ``Use_tomap`` parameter
+## Getting space
 
-With ``use_tomap`` flag, you can choose to iterate over objects or over tuples. If ``use_tomap = false``, you will iterate over tuples. This parameter is false by default.
+Let's check ``developers`` space contents to make other examples more clear. Just select first 4 values without conditions.
 
 **Example:**
 
 ```lua
 tuples = {}
-for _, tuple in crud.pairs('developers', nil, { use_tomap = false, first = 3 }) do
-    table.insert(tuples, tuple)
+for _, tuple in crud.pairs('developers', nil, { first = 4 }) do
+  table.insert(tuples, tuple)
 end
 
 tuples
@@ -31,10 +31,17 @@ tuples
     - Pavel
     - Adams
     - 27
+  - - 4
+    - 501
+    - Mikhail
+    - Liston
+    - 51
 ...
 ```
 
-If ``use_tomap = true``, you will iterate over objects.
+## ``Use_tomap`` parameter
+
+With ``use_tomap`` flag, you can choose to iterate over objects or over tuples. If ``use_tomap = true``, you will iterate over objects. This parameter is false by default.
 
 **Example:**
 
@@ -89,23 +96,14 @@ tuples
     - Allred
     - 21
 ...
+new_tuples = {}
 for _, tuple in crud.pairs('developers', nil, { after = tuples[2], first = 2 }) do
-    table.insert(tuples, tuple) -- Got next two tuples
+    table.insert(new_tuples, tuple) -- Got next two tuples
 end
 
-tuples
+new_tuples
 --- 
-- - - 1
-    - 7331
-    - Alexey
-    - Adams
-    - 20
-  - - 2
-    - 899
-    - Sergey
-    - Allred
-    - 21
-  - - 3
+- - - 3
     - 9661
     - Pavel
     - Adams
@@ -114,10 +112,11 @@ tuples
     - 501
     - Mikhail
     - Liston
-    - 31
+    - 51
+...
 ```
 
-Note that ``crud.pairs``, unlike ``crud.select``, **don't support reverse pagination.**
+Note that ``crud.pairs``, unlike ``crud.select``, **doesn't support reverse pagination.**
 
 ## Lua Fun
 
@@ -172,13 +171,13 @@ objects
     age: 54
   - id: 4
     name: Mikhail
-    age: 62
+    age: 102
   - id: 5
     name: Dmitry
     age: 32
   - id: 6
     name: Alexey
-    age: 102
+    age: 62
 ...
 ```
 
@@ -201,6 +200,6 @@ tuples
     - 501
     - Mikhail
     - Liston
-    - 31
+    - 51
 ...
 ```

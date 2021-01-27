@@ -2,7 +2,7 @@
 
 ## Filtering
 
-``CRUD`` allows to filter tuples by conditions. Each condition can use field name (or number) or index name. The first condition that uses index name is used to iterate over space. If there is no conditions that match index names, full scan is performed. Other conditions are used as additional filters. 
+``CRUD`` allows to filter tuples by conditions. Each condition can use field name (or number) or index name. The first condition that uses index name is used to iterate over space. If there is no conditions that match index names, full scan is performed. Other conditions are used as additional filters. Search condition for the indexed field must be placed first to avoid a full scan.
 
 **Note:** If you specify ``sharding key`` or ``bucket_id`` select will be performed on single node. Otherwise Map-Reduce over all nodes will be occurred.
 
@@ -27,9 +27,9 @@ crud.select('developers', nil, { first = 6 })
   - [1, 7331, 'Alexey', 'Adams', 20]
   - [2, 899, 'Sergey', 'Allred', 21]
   - [3, 9661, 'Pavel', 'Adams', 27]
-  - [4, 501, 'Mikhail', 'Liston', 31]
+  - [4, 501, 'Mikhail', 'Liston', 51]
   - [5, 1993, 'Dmitry', 'Jacobi', 16]
-  - [6, 8765, 'Alexey', 'Sidorov', 51]
+  - [6, 8765, 'Alexey', 'Sidorov', 31]
 ...
 ```
 
@@ -49,8 +49,8 @@ crud.select('developers', {{'>=', 'age', 30}})
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
   rows:
-  - [4, 501, 'Mikhail', 'Liston', 31]
-  - [6, 8765, 'Alexey', 'Sidorov', 51]
+  - [6, 8765, 'Alexey', 'Sidorov', 31]
+  - [4, 501, 'Mikhail', 'Liston', 51]
 ...
 ```
 
@@ -91,9 +91,11 @@ crud.select('developers', {{'==', 'full_name', "Alexey"}})
   - {'name': 'age', 'type': 'number'}
   rows:
   - [1, 7331, 'Alexey', 'Adams', 20]
-  - [6, 8765, 'Alexey', 'Sidorov', 51]
+  - [6, 8765, 'Alexey', 'Sidorov', 31]
 ...
 ```
+
+**Note:** If you specify partial key not at the first parameter (e.g. ``{{'==', 'full_name', {nil, "Sidorov"}}}``), then full scan will be performed.
 
 ### Select using non-indexed field
 
@@ -118,7 +120,7 @@ crud.select('developers', {{'==', 'surname', "Adams"}})
 
 **Note:** in this case full scan is performed.
 
-Note that the search condition for the indexed field must be placed first to avoid a full scan.
+### Avoiding full scan
 
 **Example:**
 
@@ -199,9 +201,9 @@ res
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
   rows:
-  - [4, 501, 'Mikhail', 'Liston', 31]
+  - [4, 501, 'Mikhail', 'Liston', 51]
   - [5, 1993, 'Dmitry', 'Jacobi', 16]
-  - [6, 8765, 'Alexey', 'Sidorov', 51]
+  - [6, 8765, 'Alexey', 'Sidorov', 31]
 ...
 ```
 
@@ -238,9 +240,9 @@ res
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
   rows:
-  - [4, 501, 'Mikhail', 'Liston', 31]
+  - [4, 501, 'Mikhail', 'Liston', 51]
   - [5, 1993, 'Dmitry', 'Jacobi', 16]
-  - [6, 8765, 'Alexey', 'Sidorov', 51]
+  - [6, 8765, 'Alexey', 'Sidorov', 31]
 ...
 ```
 
@@ -251,9 +253,12 @@ Select also supports reverse pagination. To use it, pass a negative value to the
 **Example:**
 
 ```lua
+-- Imagine that user looks at his friends list using very small pages
+-- He opens first page, then presses '->' and take next page
+-- Then, he wants to return back and presses '<-'
 res, err = crud.select('developers', nil, { first = 3 })
 res
---- Got first three objects
+--- Got first page (first three objects)
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
   - {'name': 'bucked_id', 'type': 'unsigned'}
@@ -267,7 +272,7 @@ res
 ...
 res, err = crud.select('developers', nil, { after = res.rows[3], first = 3 })
 res
---- Got the next three objects
+--- Got the next page (next three objects)
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
   - {'name': 'bucked_id', 'type': 'unsigned'}
@@ -275,13 +280,13 @@ res
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
   rows:
-  - [4, 501, 'Mikhail', 'Liston', 31]
+  - [4, 501, 'Mikhail', 'Liston', 51]
   - [5, 1993, 'Dmitry', 'Jacobi', 16]
-  - [6, 8765, 'Alexey', 'Sidorov', 51]
+  - [6, 8765, 'Alexey', 'Sidorov', 31]
 ...
 res, err = crud.select('developers', nil, { after = res.rows[1], first = -3 })
 res
---- Got first three objects again
+--- Got first page again
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
   - {'name': 'bucked_id', 'type': 'unsigned'}
