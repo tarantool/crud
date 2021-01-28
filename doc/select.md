@@ -4,7 +4,7 @@
 
 ``CRUD`` allows to filter tuples by conditions. Each condition can use field name (or number) or index name. The first condition that uses index name is used to iterate over space. If there is no conditions that match index names, full scan is performed. Other conditions are used as additional filters. Search condition for the indexed field must be placed first to avoid a full scan.
 
-**Note:** If you specify ``sharding key`` or ``bucket_id`` select will be performed on single node. Otherwise Map-Reduce over all nodes will be occurred.
+**Note:** If you specify sharding key or ``bucket_id`` select will be performed on single node. Otherwise Map-Reduce over all nodes will be occurred.
 
 Below are examples of filtering data using these conditions. 
 
@@ -53,6 +53,8 @@ crud.select('developers', {{'>=', 'age', 30}})
   - [4, 501, 'Mikhail', 'Liston', 51]
 ...
 ```
+
+**Note:** results are sorted by age, because first condition is ``age`` index.
 
 ### Select using composite index
 
@@ -160,7 +162,7 @@ crud.select('developers', {{'>=', 'age', 30}, {'==', 'surname', "Adams"}})
 
 [See more](https://github.com/tarantool/crud#select) about ``opts`` parameter.
 
-### ``First`` parameter
+### ``first`` parameter
 
 Using the ``first`` option we will get the first **N** results for the query.
 
@@ -184,7 +186,7 @@ res
 
 Thus, we got the first three objects from the ``developers`` space.
 
-### ``After`` parameter
+### ``after`` parameter
 
 Using ``after``, we can get the objects after specified tuple.
 

@@ -39,7 +39,7 @@ tuples
 ...
 ```
 
-## ``Use_tomap`` parameter
+## ``use_tomap`` parameter
 
 With ``use_tomap`` flag, you can choose to iterate over objects or over tuples. If ``use_tomap = true``, you will iterate over objects. This parameter is false by default.
 
