@@ -1,6 +1,8 @@
 # Pairs examples
 
-With ``crud.pairs``, you can iterate across a distributed space. The arguments are the same as [``crud.select``](https://github.com/tarantool/crud/docs/select.md), except or the ``use_tomap`` parameter. Below are examples that may help you.
+With ``crud.pairs``, you can iterate across a distributed space.  
+The arguments are the same as [``crud.select``](https://github.com/tarantool/crud/docs/select.md), except of the ``use_tomap`` parameter.  
+Below are examples that may help you.
 
 ## Getting space
 
@@ -16,11 +18,11 @@ end
 
 tuples
 ---
-- - - 1
-    - 7331
-    - Alexey
-    - Adams
-    - 20
+- - - 1 -- id
+    - 7331 -- bucket_id
+    - Alexey -- name
+    - Adams -- surname
+    - 20 -- age
   - - 2
     - 899
     - Sergey
@@ -73,7 +75,8 @@ objects
 
 ## Pagination
 
-``crud.pairs``, like [``crud.select``](https://github.com/tarantool/crud/doc/select#pagination), supports pagination. To use it, combine the ``first`` and ``after`` parameters. 
+``crud.pairs``, like [``crud.select``](https://github.com/tarantool/crud/doc/select#pagination), supports pagination.  
+To use it, combine the ``first`` and ``after`` parameters. 
 
 **Example:**
 

@@ -10,7 +10,7 @@ Below are examples of filtering data using these conditions.
 
 ### Getting space
 
-Let's check ``developers`` space contents to make other examples more clear. Just select first 6 values without conditions.
+Let's check ``developers`` space content to make other examples more clear. Just select first 6 values without conditions.
 
 **Example:**
 
@@ -164,7 +164,7 @@ crud.select('developers', {{'>=', 'age', 30}, {'==', 'surname', "Adams"}})
 
 ### ``first`` parameter
 
-Using the ``first`` option we will get the first **N** results for the query.
+Using the ``first`` option we will get the first **N** results of the query.
 
 **Example:**
 
@@ -250,7 +250,7 @@ res
 
 ### Reverse pagination
 
-Select also supports reverse pagination. To use it, pass a negative value to the ``first`` parameter.
+Select also supports reverse pagination. To use it, pass a negative value to the ``first`` parameter and combine it with ``after`` parameter.
 
 **Example:**
 
