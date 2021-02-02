@@ -209,7 +209,7 @@ res
 ...
 ```
 
-With this request, we got objects behind the objects from the [previous example](https://github.com/tarantool/crud/doc/select#first-parameter)
+With this request, we got objects behind the objects from the [previous example](https://github.com/tarantool/crud/blob/master/doc/select.md#first-parameter)
 
 ### Combine ``first`` and ``after`` 
 

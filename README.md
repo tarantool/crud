@@ -347,7 +347,7 @@ crud.select('customers', {{'<=', 'age', 35}})
 **Note**: tuples are sorted by age because space has index `age`.
 Otherwise, tuples are sorted by primary key.
 
-See more examples of select queries [here.](https://github.com/tarantool/crud/docs/select.md)
+See more examples of select queries [here.](https://github.com/tarantool/crud/blob/master/doc/select.md)
 
 ### Pairs
 
@@ -372,7 +372,7 @@ for _, object in crud.pairs('customers', {{'<=', 'age', 35}}, {use_tomap = true}
 end
 ```
 
-See more examples of pairs queries [here.](https://github.com/tarantool/crud/docs/pairs.md)
+See more examples of pairs queries [here.](https://github.com/tarantool/crud/blob/master/doc/pairs.md)
 
 ### Truncate
 
