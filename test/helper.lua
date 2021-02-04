@@ -118,6 +118,19 @@ function helpers.stop_cluster(cluster)
     fio.rmtree(cluster.datadir)
 end
 
+function helpers.drop_space_on_cluster(cluster, space_name)
+    assert(cluster ~= nil)
+    for _, server in ipairs(cluster.servers) do
+        server.net_box:eval([[
+            local space_name = ...
+            local space = box.space[space_name]
+            if space ~= nil and not box.cfg.read_only then
+                space:drop()
+            end
+        ]], {space_name})
+    end
+end
+
 function helpers.truncate_space_on_cluster(cluster, space_name)
     assert(cluster ~= nil)
     for _, server in ipairs(cluster.servers) do
@@ -160,6 +173,13 @@ function helpers.get_test_replicasets()
             },
         }
     }
+end
+
+function helpers.call_on_servers(cluster, aliases, func)
+    for _, alias in ipairs(aliases) do
+        local server = cluster:server(alias)
+        func(server)
+    end
 end
 
 return helpers

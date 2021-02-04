@@ -7,6 +7,7 @@ local call = require('crud.common.call')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
+local schema = require('crud.common.schema')
 
 local select_conditions = require('crud.select.conditions')
 local select_plan = require('crud.select.plan')
@@ -36,7 +37,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, SelectError:new("Space %s doesn't exist", space_name)
+        return nil, SelectError:new("Space %q doesn't exist", space_name)
     end
 
     local index = space.index[index_id]
@@ -114,6 +115,9 @@ local function get_replicasets_by_sharding_key(bucket_id)
     }
 end
 
+-- returns result, err, need_reload
+-- need_reload indicates if reloading schema could help
+-- see crud.common.schema.wrap_func_reload()
 local function build_select_iterator(space_name, user_conditions, opts)
     dev_checks('string', '?table', {
         after = '?table',
@@ -144,8 +148,9 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
     local space = utils.get_space(space_name, replicasets)
     if space == nil then
-        return nil, SelectError:new("Space %s doesn't exist", space_name)
+        return nil, SelectError:new("Space %q doesn't exist", space_name), true
     end
+
     local space_format = space:format()
 
     -- plan select
@@ -155,7 +160,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     })
 
     if err ~= nil then
-        return nil, SelectError:new("Failed to plan select: %s", err)
+        return nil, SelectError:new("Failed to plan select: %s", err), true
     end
 
     -- set replicasets to select from
@@ -163,7 +168,12 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
     if plan.sharding_key ~= nil then
         local bucket_id = sharding.key_get_bucket_id(plan.sharding_key, opts.bucket_id)
-        replicasets_to_select = get_replicasets_by_sharding_key(bucket_id)
+
+        local err
+        replicasets_to_select, err = get_replicasets_by_sharding_key(bucket_id)
+        if err ~= nil then
+            return nil, err, true
+        end
     end
 
     -- generate tuples comparator
@@ -211,13 +221,17 @@ function select_module.pairs(space_name, user_conditions, opts)
         error(string.format("Negative first isn't allowed for pairs"))
     end
 
-    local iter, err = build_select_iterator(space_name, user_conditions, {
+    local iterator_opts = {
         after = opts.after,
         first = opts.first,
         timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
-    })
+    }
+
+    local iter, err = schema.wrap_func_reload(
+        build_select_iterator, space_name, user_conditions, iterator_opts
+    )
 
     if err ~= nil then
         error(string.format("Failed to generate iterator: %s", err))
@@ -264,14 +278,17 @@ function select_module.call(space_name, user_conditions, opts)
         end
     end
 
-    local iter, err = build_select_iterator(space_name, user_conditions, {
+    local iterator_opts = {
         after = opts.after,
         first = opts.first,
         timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
-    })
+    }
 
+    local iter, err = schema.wrap_func_reload(
+        build_select_iterator, space_name, user_conditions, iterator_opts
+    )
     if err ~= nil then
         return nil, err
     end

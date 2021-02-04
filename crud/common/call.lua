@@ -160,6 +160,8 @@ function call.rw_single(bucket_id, func_name, func_args, options)
             )
         end
 
+        err = errors.wrap(err)
+
         return nil, CallError:new(utils.format_replicaset_error(
              replicaset.uuid, "Function returned an error: %s", err
         ))

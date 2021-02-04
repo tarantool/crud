@@ -41,7 +41,7 @@ pgroup:add('test_non_existent_space', function(g)
     )
 
     t.assert_equals(obj, nil)
-    t.assert_str_contains(err.err, "Space non_existent_space doesn't exist")
+    t.assert_str_contains(err.err, "Space \"non_existent_space\" doesn't exist")
 end)
 
 pgroup:add('test_not_valid_value_type', function(g)

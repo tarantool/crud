@@ -1,12 +1,15 @@
 local errors = require('errors')
 local ffi = require('ffi')
+local vshard = require('vshard')
 
+local schema = require('crud.common.schema')
 local dev_checks = require('crud.common.dev_checks')
 
 local FlattenError = errors.new_class("FlattenError", {capture_stack = false})
 local UnflattenError = errors.new_class("UnflattenError", {capture_stack = false})
 local ParseOperationsError = errors.new_class('ParseOperationsError',  {capture_stack = false})
 local ShardingError = errors.new_class('ShardingError',  {capture_stack = false})
+local GetSpaceFormatError = errors.new_class('GetSpaceFormatError',  {capture_stack = false})
 
 local utils = {}
 
@@ -34,7 +37,19 @@ end
 function utils.get_space(space_name, replicasets)
     local replicaset = select(2, next(replicasets))
     local space = replicaset.master.conn.space[space_name]
+
     return space
+end
+
+function utils.get_space_format(space_name, replicasets)
+    local space = utils.get_space(space_name, replicasets)
+    if space == nil then
+        return nil, GetSpaceFormatError:new("Space %q doesn't exist", space_name)
+    end
+
+    local space_format = space:format()
+
+    return space_format
 end
 
 local system_fields = { bucket_id = true }
@@ -44,20 +59,30 @@ function utils.flatten(object, space_format, bucket_id)
 
     local tuple = {}
 
-    for fieldno, field_format in ipairs(space_format) do
-        local value = object[field_format.name]
+    local fieldnames = {}
 
-        if not system_fields[field_format.name] then
+    for fieldno, field_format in ipairs(space_format) do
+        local fieldname = field_format.name
+        local value = object[fieldname]
+
+        if not system_fields[fieldname] then
             if not field_format.is_nullable and value == nil then
-                return nil, FlattenError:new("Field %q isn't nullable", field_format.name)
+                return nil, FlattenError:new("Field %q isn't nullable", fieldname)
             end
         end
 
-        if bucket_id ~= nil and field_format.name == 'bucket_id' then
+        if bucket_id ~= nil and fieldname == 'bucket_id' then
             value = bucket_id
         end
 
         tuple[fieldno] = value
+        fieldnames[fieldname] = true
+    end
+
+    for fieldname in pairs(object) do
+        if not fieldnames[fieldname] then
+            return nil, FlattenError:new("Unknown field %q is specified", fieldname)
+        end
     end
 
     return tuple
@@ -124,7 +149,7 @@ local function determine_enabled_features()
     enabled_tarantool_features.uuids = major >= 2 and (minor > 4 or minor == 4 and patch >= 1)
 end
 
-local function tarantool_supports_fieldpaths()
+function utils.tarantool_supports_fieldpaths()
     if enabled_tarantool_features.fieldpaths == nil then
         determine_enabled_features()
     end
@@ -141,7 +166,7 @@ function utils.tarantool_supports_uuids()
 end
 
 function utils.convert_operations(user_operations, space_format)
-    if tarantool_supports_fieldpaths() then
+    if utils.tarantool_supports_fieldpaths() then
         return user_operations
     end
 
@@ -224,6 +249,31 @@ end
 local uuid_t = ffi.typeof('struct tt_uuid')
 function utils.is_uuid(value)
     return ffi.istype(uuid_t, value)
+end
+
+function utils.format_result(rows, space)
+    return {
+        metadata = table.copy(space:format()),
+        rows = rows,
+    }
+end
+
+local function flatten_obj(space_name, obj)
+    local space_format, err = utils.get_space_format(space_name, vshard.router.routeall())
+    if err ~= nil then
+        return nil, FlattenError:new("Failed to get space format: %s", err), true
+    end
+
+    local tuple, err = utils.flatten(obj, space_format)
+    if err ~= nil then
+        return nil, FlattenError:new("Object is specified in bad format: %s", err), true
+    end
+
+    return tuple
+end
+
+function utils.flatten_obj_reload(space_name, obj)
+    return schema.wrap_func_reload(flatten_obj, space_name, obj)
 end
 
 return utils

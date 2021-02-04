@@ -90,6 +90,20 @@ g.test_flatten = function()
     local tuple, err = utils.flatten(object, space_format)
     t.assert(err == nil)
     t.assert_equals(tuple, {1, 1024, 'Marilyn', nil})
+
+    -- unknown field is specififed
+    local object = {
+        id = 1,
+        bucket_id = 1024,
+        name = 'Marilyn',
+        age = 50,
+        some_unknown_field = 'XXX',
+    }
+
+    local tuple, err = utils.flatten(object, space_format)
+    t.assert_is(tuple, nil)
+    t.assert_is_not(err, nil)
+    t.assert_str_contains(err.err, 'Unknown field \"some_unknown_field\" is specified')
 end
 
 g.test_unflatten = function()
