@@ -14,8 +14,8 @@ local get = {}
 
 local GET_FUNC_NAME = '_crud.get_on_storage'
 
-local function get_on_storage(space_name, key)
-    dev_checks('string', '?')
+local function get_on_storage(space_name, key, fields)
+    dev_checks('string', '?', '?table')
 
     local space = box.space[space_name]
     if space == nil then
@@ -38,6 +38,7 @@ local function call_get_on_router(space_name, key, opts)
     dev_checks('string', '?', {
         timeout = '?number',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -105,6 +106,7 @@ function get.call(space_name, key, opts)
     checks('string', '?', {
         timeout = '?number',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     return schema.wrap_func_reload(call_get_on_router, space_name, key, opts)
