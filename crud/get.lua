@@ -14,6 +14,28 @@ local get = {}
 
 local GET_FUNC_NAME = '_crud.get_on_storage'
 
+local function get_field_metadata(full_metadata, field)
+    dev_checks('table', 'string')
+
+    for _, tuple in ipairs(full_metadata) do
+        if tuple['name'] == field then
+            return tuple
+        end
+    end
+end
+
+local function format_metadata(full_metadata, fields)
+    dev_checks('table', '?table')
+
+    local metadata = {}
+
+    for i, field in ipairs(fields) do
+        metadata[i] = get_field_metadata(full_metadata, field)
+    end
+
+    return metadata
+end
+
 local function format_result_by_fields(formatted_result, fields)
     dev_checks('table', '?table')
 
