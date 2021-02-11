@@ -118,7 +118,7 @@ local function call_get_on_router(space_name, key, opts)
     -- a stale result.
     local storage_result, err = call.rw_single(
         bucket_id, GET_FUNC_NAME,
-        {space_name, key},
+        {space_name, key, opts.fields},
         {timeout = opts.timeout}
     )
 
