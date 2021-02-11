@@ -14,6 +14,26 @@ local get = {}
 
 local GET_FUNC_NAME = '_crud.get_on_storage'
 
+local function get_partial_result(func_get_res, fields)
+    dev_checks('table', '?table')
+
+    local result = {}
+
+    result.err = func_get_res.err
+    if func_get_res.res ~= nil then
+        if fields ~= nil then
+            result.res = {}
+            for i, field in ipairs(fields) do
+                result.res[i] = func_get_res.res[field]
+            end
+        else
+            result.res = func_get_res.res
+        end
+    end
+
+    return result
+end
+
 local function get_on_storage(space_name, key, fields)
     dev_checks('string', '?', '?table')
 
@@ -24,7 +44,9 @@ local function get_on_storage(space_name, key, fields)
 
     -- add_space_schema_hash is false because
     -- reloading space format on router can't avoid get error on storage
-    return schema.wrap_box_space_func_result(false, space, 'get', key)
+    local func_res = schema.wrap_box_space_func_result(false, space, 'get', key)
+
+    return get_partial_result(func_res, fields)
 end
 
 function get.init()
