@@ -29,7 +29,9 @@ local function replace_on_storage(space_name, tuple, opts)
     -- add_space_schema_hash is true only in case of replace_object
     -- the only one case when reloading schema can avoid insert error
     -- is flattening object on router
-    return schema.wrap_box_space_func_result(opts.add_space_schema_hash, space, 'replace', tuple)
+    return schema.wrap_box_space_func_result(space, 'replace', {tuple}, {
+        add_space_schema_hash = opts.add_space_schema_hash,
+    })
 end
 
 function replace.init()

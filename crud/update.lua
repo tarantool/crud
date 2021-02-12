@@ -24,7 +24,9 @@ local function update_on_storage(space_name, key, operations)
 
     -- add_space_schema_hash is false because
     -- reloading space format on router can't avoid update error on storage
-    return schema.wrap_box_space_func_result(false, space, 'update', key, operations)
+    return schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
+        add_space_schema_hash = false,
+    })
 end
 
 function update.init()

@@ -29,9 +29,9 @@ local function upsert_on_storage(space_name, tuple, operations, opts)
     -- add_space_schema_hash is true only in case of upsert_object
     -- the only one case when reloading schema can avoid insert error
     -- is flattening object on router
-    return schema.wrap_box_space_func_result(
-        opts.add_space_schema_hash, space, 'upsert', tuple, operations
-    )
+    return schema.wrap_box_space_func_result(space, 'upsert', {tuple, operations}, {
+        add_space_schema_hash = opts.add_space_schema_hash,
+    })
 end
 
 function upsert.init()

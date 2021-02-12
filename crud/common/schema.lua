@@ -133,25 +133,44 @@ local function get_space_schema_hash(space)
     return digest.murmur(msgpack.encode(space_info))
 end
 
+local function get_partial_result(func_get_res, fields)
+    local result = {}
+
+    result.err = func_get_res.err
+    if func_get_res.res ~= nil then
+        if fields ~= nil then
+            result.res = {}
+            for i, field in ipairs(fields) do
+                result.res[i] = func_get_res.res[field]
+            end
+        else
+            result.res = func_get_res.res
+        end
+    end
+
+    return result
+end
 -- schema.wrap_box_space_func_result pcalls some box.space function
 -- and returns its result as a table
 -- `{res = ..., err = ..., space_schema_hash = ...}`
 -- space_schema_hash is computed if function failed and
 -- `add_space_schema_hash` is true
-function schema.wrap_box_space_func_result(add_space_schema_hash, space, func_name, ...)
+function schema.wrap_box_space_func_result(space, func_name, args, opts)
     local result = {}
 
-    local ok, func_res = pcall(space[func_name], space, ...)
+    opts = opts or {}
+
+    local ok, func_res = pcall(space[func_name], space, unpack(args))
     if not ok then
         result.err = func_res
-        if add_space_schema_hash then
+        if opts.add_space_schema_hash then
             result.space_schema_hash = get_space_schema_hash(space)
         end
     else
         result.res = func_res
     end
 
-    return result
+    return get_partial_result(result, opts.fields)
 end
 
 -- schema.result_needs_reload checks that schema reload can
