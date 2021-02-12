@@ -14,43 +14,6 @@ local get = {}
 
 local GET_FUNC_NAME = '_crud.get_on_storage'
 
-local function get_field_metadata(full_metadata, field)
-    dev_checks('table', 'string')
-
-    for _, tuple in ipairs(full_metadata) do
-        if tuple['name'] == field then
-            return tuple
-        end
-    end
-end
-
-local function format_metadata(full_metadata, fields)
-    dev_checks('table', '?table')
-
-    local metadata = {}
-
-    for i, field in ipairs(fields) do
-        metadata[i] = get_field_metadata(full_metadata, field)
-    end
-
-    return metadata
-end
-
-local function format_result_by_fields(formatted_result, fields)
-    dev_checks('table', '?table')
-
-    local result = {}
-
-    result.rows = formatted_result.rows
-    if fields ~= nil then
-        result.metadata = format_metadata(formatted_result.metadata, fields)
-    else
-        result.metadata = formatted_result.metadata
-    end
-
-    return result
-end
-
 local function get_on_storage(space_name, key, fields)
     dev_checks('string', '?', '?table')
 
@@ -118,9 +81,7 @@ local function call_get_on_router(space_name, key, opts)
         tuple = nil
     end
 
-    local formatted_result = utils.format_result({tuple}, space)
-
-    return format_result_by_fields(formatted_result, opts.fields)
+    return utils.format_result({tuple}, space, opts.fields)
 end
 
 --- Get tuple from the specified space by key

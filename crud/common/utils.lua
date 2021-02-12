@@ -251,11 +251,40 @@ function utils.is_uuid(value)
     return ffi.istype(uuid_t, value)
 end
 
-function utils.format_result(rows, space)
-    return {
-        metadata = table.copy(space:format()),
-        rows = rows,
-    }
+local function get_field_metadata(full_metadata, field)
+    dev_checks('table', 'string')
+
+    for _, tuple in ipairs(full_metadata) do
+        if tuple['name'] == field then
+            return tuple
+        end
+    end
+end
+
+local function format_metadata(full_metadata, fields)
+    dev_checks('table', 'table')
+
+    local metadata = {}
+
+    for i, field in ipairs(fields) do
+        metadata[i] = get_field_metadata(full_metadata, field)
+    end
+
+    return metadata
+end
+
+function utils.format_result(rows, space, fields)
+    local result = {}
+    local metadata = table.copy(space:format())
+    result.rows = rows
+
+    if fields ~= nil then
+        result.metadata = format_metadata(metadata, fields)
+    else
+        result.metadata = metadata
+    end
+
+    return result
 end
 
 local function flatten_obj(space_name, obj)
