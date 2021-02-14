@@ -133,23 +133,24 @@ local function get_space_schema_hash(space)
     return digest.murmur(msgpack.encode(space_info))
 end
 
-local function get_partial_result(func_get_res, fields)
-    local result = {}
+local function extract_fields(tuple, fields)
+    local extracted_fields = {}
 
-    result.err = func_get_res.err
-    if func_get_res.res ~= nil then
-        if fields ~= nil then
-            result.res = {}
-            for i, field in ipairs(fields) do
-                result.res[i] = func_get_res.res[field]
-            end
-        else
-            result.res = func_get_res.res
-        end
+    for i, field in ipairs(fields) do
+        extracted_fields[i] = tuple[field]
     end
 
-    return result
+    return extracted_fields
 end
+
+local function get_partial_result(tuple, fields)
+    if fields == nil or tuple == nil then
+        return tuple
+    else
+        return extract_fields(tuple, fields)
+    end
+end
+
 -- schema.wrap_box_space_func_result pcalls some box.space function
 -- and returns its result as a table
 -- `{res = ..., err = ..., space_schema_hash = ...}`
@@ -167,10 +168,10 @@ function schema.wrap_box_space_func_result(space, func_name, args, opts)
             result.space_schema_hash = get_space_schema_hash(space)
         end
     else
-        result.res = func_res
+        result.res = get_partial_result(func_res, opts.fields)
     end
 
-    return get_partial_result(result, opts.fields)
+    return result
 end
 
 -- schema.result_needs_reload checks that schema reload can
