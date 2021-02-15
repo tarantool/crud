@@ -443,3 +443,35 @@ pgroup:add('test_insert_object_partial_result', function(g)
     })
     t.assert_equals(result.rows, {{1, 'Elizabeth'}})
 end)
+
+pgroup:add('test_delete_partial_result', function(g)
+    -- insert_object
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.insert_object', {'customers', {id = 1, name = 'Elizabeth', age = 24}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'bucket_id', type = 'unsigned'},
+        {name = 'name', type = 'string'},
+        {name = 'age', type = 'number'},
+    })
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 1, name = 'Elizabeth', age = 24, bucket_id = 477}})
+
+    -- delete
+    local result, err = g.cluster.main_server.net_box:call('crud.delete', {'customers', 1, {fields={'id', 'name'}}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'name', type = 'string'},
+    })
+
+    if g.params.engine == 'memtx' then
+        local objects = crud.unflatten_rows(result.rows, result.metadata)
+        t.assert_equals(objects, {{id = 1, name = 'Elizabeth'}})
+    else
+        t.assert_equals(#result.rows, 0)
+    end
+end)
