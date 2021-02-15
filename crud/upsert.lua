@@ -46,6 +46,7 @@ local function call_upsert_on_router(space_name, tuple, user_operations, opts)
         timeout = '?number',
         bucket_id = '?number|cdata',
         add_space_schema_hash = '?boolean',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -86,7 +87,7 @@ local function call_upsert_on_router(space_name, tuple, user_operations, opts)
     end
 
     -- upsert always returns nil
-    return utils.format_result({}, space)
+    return utils.format_result({}, space, opts.fields)
 end
 
 --- Update or insert a tuple in the specified space
@@ -119,6 +120,7 @@ function upsert.tuple(space_name, tuple, user_operations, opts)
         timeout = '?number',
         bucket_id = '?number|cdata',
         add_space_schema_hash = '?boolean',
+        fields = '?table',
     })
 
     return schema.wrap_func_reload(call_upsert_on_router, space_name, tuple, user_operations, opts)
