@@ -13,6 +13,8 @@ local GetSpaceFormatError = errors.new_class('GetSpaceFormatError',  {capture_st
 
 local utils = {}
 
+local metadata_cache = setmetatable({}, {__mode = 'k'})
+
 function utils.table_count(table)
     dev_checks("table")
 
@@ -254,11 +256,17 @@ end
 local function get_field_metadata(full_metadata, field)
     dev_checks('table', 'string')
 
-    for _, tuple in ipairs(full_metadata) do
-        if tuple['name'] == field then
-            return tuple
-        end
+    local metadata = metadata_cache[full_metadata]
+    if metadata ~= nil then
+        return metadata[field]
     end
+
+    metadata_cache[full_metadata] = {}
+    for _, tuple in ipairs(full_metadata) do
+        metadata_cache[full_metadata][tuple.name] = tuple
+    end
+
+    return metadata_cache[full_metadata][field]
 end
 
 local function format_metadata(full_metadata, fields)
