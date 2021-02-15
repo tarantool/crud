@@ -14,8 +14,8 @@ local update = {}
 
 local UPDATE_FUNC_NAME = '_crud.update_on_storage'
 
-local function update_on_storage(space_name, key, operations)
-    dev_checks('string', '?', 'table')
+local function update_on_storage(space_name, key, operations, fields)
+    dev_checks('string', '?', 'table', '?table')
 
     local space = box.space[space_name]
     if space == nil then
@@ -26,6 +26,7 @@ local function update_on_storage(space_name, key, operations)
     -- reloading space format on router can't avoid update error on storage
     return schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
         add_space_schema_hash = false,
+        fields = fields,
     })
 end
 
@@ -40,6 +41,7 @@ local function call_update_on_router(space_name, key, user_operations, opts)
     dev_checks('string', '?', 'table', {
         timeout = '?number',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -63,7 +65,7 @@ local function call_update_on_router(space_name, key, user_operations, opts)
     local bucket_id = sharding.key_get_bucket_id(key, opts.bucket_id)
     local storage_result, err = call.rw_single(
         bucket_id, UPDATE_FUNC_NAME,
-        {space_name, key, operations},
+        {space_name, key, operations, opts.fields},
         {timeout = opts.timeout}
     )
 
@@ -77,7 +79,7 @@ local function call_update_on_router(space_name, key, user_operations, opts)
 
     local tuple = storage_result.res
 
-    return utils.format_result({tuple}, space)
+    return utils.format_result({tuple}, space, opts.fields)
 end
 
 --- Updates tuple in the specified space
@@ -109,6 +111,7 @@ function update.call(space_name, key, user_operations, opts)
     checks('string', '?', 'table', {
         timeout = '?number',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     return schema.wrap_func_reload(call_update_on_router, space_name, key, user_operations, opts)
