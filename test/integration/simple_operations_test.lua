@@ -417,3 +417,29 @@ pgroup:add('test_get_partial_result', function(g)
     })
     t.assert_equals(result.rows, {{1, 'Elizabeth'}})
 end)
+
+pgroup:add('test_insert_tuple_partial_result', function(g)
+    -- insert
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.insert', {'customers', {1, box.NULL, 'Elizabeth', 24}, {fields={'id', 'name'}}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'name', type = 'string'},
+    })
+    t.assert_equals(result.rows, {{1, 'Elizabeth'}})
+end)
+
+pgroup:add('test_insert_object_partial_result', function(g)
+    -- insert_object
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.insert_object', {'customers', {id = 1, name = 'Elizabeth', age = 24}, {fields={'id', 'name'}}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'name', type = 'string'},
+    })
+    t.assert_equals(result.rows, {{1, 'Elizabeth'}})
+end)
