@@ -563,3 +563,61 @@ pgroup:add('test_replace_object_partial_result', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {{id = 1, age = 24}})
 end)
+
+pgroup:add('test_upsert_tuple_partial_result', function(g)
+    -- upsert tuple first time
+    local result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+        'customers', {1, box.NULL, 'Elizabeth', 23}, {{'+', 'age', 1},},
+        {fields={'id', 'age'}}
+    })
+
+    t.assert_equals(#result.rows, 0)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'age', type = 'number'},
+    })
+    t.assert_equals(err, nil)
+
+    -- upsert second time
+    result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+        'customers', {1, box.NULL, 'Elizabeth', 23}, {{'+', 'age', 1},},
+        {fields={'id', 'age'}}
+    })
+
+    t.assert_equals(#result.rows, 0)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'age', type = 'number'},
+    })
+    t.assert_equals(err, nil)
+end)
+
+pgroup:add('test_upsert_object_partial_result', function(g)
+    -- upsert_object first time
+    local result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
+            'customers', {id = 1, name = 'Elizabeth', age = 23},
+            {{'+', 'age', 1},},
+            {fields={'id', 'age'}}
+    })
+
+    t.assert_equals(#result.rows, 0)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'age', type = 'number'},
+    })
+    t.assert_equals(err, nil)
+
+    -- upsert_object second time
+    result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
+        'customers', {id = 1, name = 'Elizabeth', age = 23},
+        {{'+', 'age', 1},},
+        {fields={'id', 'age'}}
+    })
+
+    t.assert_equals(#result.rows, 0)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'age', type = 'number'},
+    })
+    t.assert_equals(err, nil)
+end)
