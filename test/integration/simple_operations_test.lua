@@ -502,3 +502,64 @@ pgroup:add('test_update_partial_result', function(g)
     })
     t.assert_equals(result.rows, {{1, 24}})
 end)
+
+pgroup:add('test_replace_tuple_partial_result', function(g)
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.replace', {'customers', {1, box.NULL, 'Elizabeth', 23}, {fields={'id', 'age'}}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'age', type = 'number'},
+    })
+    t.assert_equals(result.rows, {{1, 23}})
+
+    -- replace again
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.replace', {'customers', {1, box.NULL, 'Elizabeth', 24}, {fields={'id', 'age'}}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'age', type = 'number'},
+    })
+    t.assert_equals(result.rows, {{1, 24}})
+end)
+
+pgroup:add('test_replace_object_partial_result', function(g)
+    -- get
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 1})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'bucket_id', type = 'unsigned'},
+        {name = 'name', type = 'string'},
+        {name = 'age', type = 'number'},
+    })
+    t.assert_equals(#result.rows, 0)
+
+    -- replace_object
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.replace_object', {'customers', {id = 1, name = 'Elizabeth', age = 23}, {fields={'id', 'age'}}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'age', type = 'number'},
+    })
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 1, age = 23}})
+
+    -- replace_object
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.replace_object', {'customers', {id = 1, name = 'Elizabeth', age = 24}, {fields={'id', 'age'}}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'age', type = 'number'},
+    })
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 1, age = 24}})
+end)
