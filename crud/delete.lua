@@ -14,8 +14,8 @@ local delete = {}
 
 local DELETE_FUNC_NAME = '_crud.delete_on_storage'
 
-local function delete_on_storage(space_name, key)
-    dev_checks('string', '?')
+local function delete_on_storage(space_name, key, fields)
+    dev_checks('string', '?', '?table')
 
     local space = box.space[space_name]
     if space == nil then
@@ -26,6 +26,7 @@ local function delete_on_storage(space_name, key)
     -- reloading space format on router can't avoid delete error on storage
     return schema.wrap_box_space_func_result(space, 'delete', {key}, {
         add_space_schema_hash = false,
+        fields = fields,
     })
 end
 
@@ -40,6 +41,7 @@ local function call_delete_on_router(space_name, key, opts)
     dev_checks('string', '?', {
         timeout = '?number',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -56,7 +58,7 @@ local function call_delete_on_router(space_name, key, opts)
     local bucket_id = sharding.key_get_bucket_id(key, opts.bucket_id)
     local storage_result, err = call.rw_single(
         bucket_id, DELETE_FUNC_NAME,
-        {space_name, key},
+        {space_name, key, opts.fields},
         {timeout = opts.timeout}
     )
 
@@ -70,7 +72,7 @@ local function call_delete_on_router(space_name, key, opts)
 
     local tuple = storage_result.res
 
-    return utils.format_result({tuple}, space)
+    return utils.format_result({tuple}, space, opts.fields)
 end
 
 --- Deletes tuple from the specified space by key
@@ -98,6 +100,7 @@ function delete.call(space_name, key, opts)
     checks('string', '?', {
         timeout = '?number',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     return schema.wrap_func_reload(call_delete_on_router, space_name, key, opts)
