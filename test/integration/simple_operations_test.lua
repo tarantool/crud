@@ -475,3 +475,30 @@ pgroup:add('test_delete_partial_result', function(g)
         t.assert_equals(#result.rows, 0)
     end
 end)
+
+pgroup:add('test_update_partial_result', function(g)
+    -- insert_object
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.insert_object', {'customers', {id = 1, name = 'Elizabeth', age = 23}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'bucket_id', type = 'unsigned'},
+        {name = 'name', type = 'string'},
+        {name = 'age', type = 'number'},
+    })
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 1, name = 'Elizabeth', age = 23, bucket_id = 477}})
+
+    -- get
+    local result, err = g.cluster.main_server.net_box:call('crud.update', {
+        'customers', 1, {{'+', 'age', 1},},  {fields={'id', 'age'}}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'age', type = 'number'},
+    })
+    t.assert_equals(result.rows, {{1, 24}})
+end)
