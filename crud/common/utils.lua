@@ -253,23 +253,23 @@ function utils.is_uuid(value)
     return ffi.istype(uuid_t, value)
 end
 
-local function get_field_metadata(full_metadata, field)
+local function get_field_metadata(full_metadata, field_name)
     dev_checks('table', 'string')
 
     local metadata = metadata_cache[full_metadata]
     if metadata ~= nil then
-        return metadata[field]
+        return metadata[field_name]
     end
 
     metadata_cache[full_metadata] = {}
-    for _, tuple in ipairs(full_metadata) do
-        metadata_cache[full_metadata][tuple.name] = tuple
+    for _, field in ipairs(full_metadata) do
+        metadata_cache[full_metadata][field.name] = field
     end
 
-    return metadata_cache[full_metadata][field]
+    return metadata_cache[full_metadata][field_name]
 end
 
-local function format_metadata(full_metadata, fields)
+local function filter_format_fields(full_metadata, fields)
     dev_checks('table', 'table')
 
     local metadata = {}
@@ -283,14 +283,15 @@ end
 
 function utils.format_result(rows, space, fields)
     local result = {}
-    local metadata = table.copy(space:format())
+    local space_format = table.copy(space:format())
     result.rows = rows
 
-    if fields ~= nil then
-        result.metadata = format_metadata(metadata, fields)
-    else
-        result.metadata = metadata
+    if fields == nil then
+        result.metadata = space_format
+        return result
     end
+
+    result.metadata = filter_format_fields(space_format, fields)
 
     return result
 end
