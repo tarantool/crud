@@ -395,7 +395,11 @@ end)
 pgroup:add('test_get_partial_result', function(g)
     -- insert_object
     local result, err = g.cluster.main_server.net_box:call(
-            'crud.insert_object', {'customers', {id = 1, name = 'Elizabeth', age = 24}})
+            'crud.insert_object', {
+                'customers',
+                {id = 1, name = 'Elizabeth', age = 24}
+            }
+    )
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -408,7 +412,9 @@ pgroup:add('test_get_partial_result', function(g)
     t.assert_equals(objects, {{id = 1, name = 'Elizabeth', age = 24, bucket_id = 477}})
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 1, {fields={'id', 'name'}}})
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.get', {'customers', 1, {fields = {'id', 'name'}}}
+    )
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -420,8 +426,9 @@ end)
 
 pgroup:add('test_insert_tuple_partial_result', function(g)
     -- insert
-    local result, err = g.cluster.main_server.net_box:call(
-            'crud.insert', {'customers', {1, box.NULL, 'Elizabeth', 24}, {fields={'id', 'name'}}})
+    local result, err = g.cluster.main_server.net_box:call( 'crud.insert', {
+        'customers', {1, box.NULL, 'Elizabeth', 24}, {fields = {'id', 'name'}}
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -434,7 +441,12 @@ end)
 pgroup:add('test_insert_object_partial_result', function(g)
     -- insert_object
     local result, err = g.cluster.main_server.net_box:call(
-            'crud.insert_object', {'customers', {id = 1, name = 'Elizabeth', age = 24}, {fields={'id', 'name'}}})
+            'crud.insert_object', {
+                'customers',
+                {id = 1, name = 'Elizabeth', age = 24},
+                {fields = {'id', 'name'}}
+            }
+    )
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -447,7 +459,11 @@ end)
 pgroup:add('test_delete_partial_result', function(g)
     -- insert_object
     local result, err = g.cluster.main_server.net_box:call(
-            'crud.insert_object', {'customers', {id = 1, name = 'Elizabeth', age = 24}})
+            'crud.insert_object', {
+                'customers',
+                {id = 1, name = 'Elizabeth', age = 24}
+            }
+    )
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -460,7 +476,11 @@ pgroup:add('test_delete_partial_result', function(g)
     t.assert_equals(objects, {{id = 1, name = 'Elizabeth', age = 24, bucket_id = 477}})
 
     -- delete
-    local result, err = g.cluster.main_server.net_box:call('crud.delete', {'customers', 1, {fields={'id', 'name'}}})
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.delete', {
+                'customers', 1, {fields = {'id', 'name'}}
+            }
+    )
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -479,7 +499,11 @@ end)
 pgroup:add('test_update_partial_result', function(g)
     -- insert_object
     local result, err = g.cluster.main_server.net_box:call(
-            'crud.insert_object', {'customers', {id = 1, name = 'Elizabeth', age = 23}})
+            'crud.insert_object', {
+                'customers',
+                {id = 1, name = 'Elizabeth', age = 23}
+            }
+    )
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -493,7 +517,8 @@ pgroup:add('test_update_partial_result', function(g)
 
     -- get
     local result, err = g.cluster.main_server.net_box:call('crud.update', {
-        'customers', 1, {{'+', 'age', 1},},  {fields={'id', 'age'}}})
+        'customers', 1, {{'+', 'age', 1},},  {fields = {'id', 'age'}}
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -505,7 +530,12 @@ end)
 
 pgroup:add('test_replace_tuple_partial_result', function(g)
     local result, err = g.cluster.main_server.net_box:call(
-            'crud.replace', {'customers', {1, box.NULL, 'Elizabeth', 23}, {fields={'id', 'age'}}})
+            'crud.replace', {
+                'customers',
+                {1, box.NULL, 'Elizabeth', 23},
+                {fields = {'id', 'age'}}
+            }
+    )
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -516,7 +546,12 @@ pgroup:add('test_replace_tuple_partial_result', function(g)
 
     -- replace again
     local result, err = g.cluster.main_server.net_box:call(
-            'crud.replace', {'customers', {1, box.NULL, 'Elizabeth', 24}, {fields={'id', 'age'}}})
+            'crud.replace', {
+                'customers',
+                {1, box.NULL, 'Elizabeth', 24},
+                {fields = {'id', 'age'}}
+            }
+    )
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -528,7 +563,9 @@ end)
 
 pgroup:add('test_replace_object_partial_result', function(g)
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 1})
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers', 1
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -541,7 +578,12 @@ pgroup:add('test_replace_object_partial_result', function(g)
 
     -- replace_object
     local result, err = g.cluster.main_server.net_box:call(
-            'crud.replace_object', {'customers', {id = 1, name = 'Elizabeth', age = 23}, {fields={'id', 'age'}}})
+            'crud.replace_object', {
+                'customers',
+                {id = 1, name = 'Elizabeth', age = 23},
+                {fields = {'id', 'age'}}
+            }
+    )
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -553,7 +595,12 @@ pgroup:add('test_replace_object_partial_result', function(g)
 
     -- replace_object
     local result, err = g.cluster.main_server.net_box:call(
-            'crud.replace_object', {'customers', {id = 1, name = 'Elizabeth', age = 24}, {fields={'id', 'age'}}})
+            'crud.replace_object', {
+                'customers',
+                {id = 1, name = 'Elizabeth', age = 24},
+                {fields = {'id', 'age'}}
+            }
+    )
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -567,57 +614,63 @@ end)
 pgroup:add('test_upsert_tuple_partial_result', function(g)
     -- upsert tuple first time
     local result, err = g.cluster.main_server.net_box:call('crud.upsert', {
-        'customers', {1, box.NULL, 'Elizabeth', 23}, {{'+', 'age', 1},},
-        {fields={'id', 'age'}}
+        'customers',
+        {1, box.NULL, 'Elizabeth', 23},
+        {{'+', 'age', 1},},
+        {fields = {'id', 'age'}}
     })
 
+    t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
     t.assert_equals(result.metadata, {
         {name = 'id', type = 'unsigned'},
         {name = 'age', type = 'number'},
     })
-    t.assert_equals(err, nil)
 
     -- upsert second time
     result, err = g.cluster.main_server.net_box:call('crud.upsert', {
-        'customers', {1, box.NULL, 'Elizabeth', 23}, {{'+', 'age', 1},},
-        {fields={'id', 'age'}}
+        'customers',
+        {1, box.NULL, 'Elizabeth', 23},
+        {{'+', 'age', 1},},
+        {fields = {'id', 'age'}}
     })
 
+    t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
     t.assert_equals(result.metadata, {
         {name = 'id', type = 'unsigned'},
         {name = 'age', type = 'number'},
     })
-    t.assert_equals(err, nil)
 end)
 
 pgroup:add('test_upsert_object_partial_result', function(g)
     -- upsert_object first time
     local result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
-            'customers', {id = 1, name = 'Elizabeth', age = 23},
+            'customers',
+            {id = 1, name = 'Elizabeth', age = 23},
             {{'+', 'age', 1},},
-            {fields={'id', 'age'}}
+            {fields = {'id', 'age'}}
     })
 
+    t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
     t.assert_equals(result.metadata, {
         {name = 'id', type = 'unsigned'},
         {name = 'age', type = 'number'},
     })
-    t.assert_equals(err, nil)
 
     -- upsert_object second time
     result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
-        'customers', {id = 1, name = 'Elizabeth', age = 23},
+        'customers',
+        {id = 1, name = 'Elizabeth', age = 23},
         {{'+', 'age', 1},},
-        {fields={'id', 'age'}}
+        {fields = {'id', 'age'}}
     })
 
+    t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
     t.assert_equals(result.metadata, {
         {name = 'id', type = 'unsigned'},
         {name = 'age', type = 'number'},
     })
-    t.assert_equals(err, nil)
 end)
