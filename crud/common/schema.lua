@@ -8,6 +8,7 @@ local log = require('log')
 local ReloadSchemaError = errors.new_class('ReloadSchemaError',  {capture_stack = false})
 
 local const = require('crud.common.const')
+local dev_checks = require('crud.common.dev_checks')
 
 local schema = {}
 
@@ -133,22 +134,18 @@ local function get_space_schema_hash(space)
     return digest.murmur(msgpack.encode(space_info))
 end
 
-local function extract_fields(tuple, fields)
-    local extracted_fields = {}
-
-    for i, field in ipairs(fields) do
-        extracted_fields[i] = tuple[field]
-    end
-
-    return extracted_fields
-end
-
-local function get_partial_result(tuple, fields)
+local function filter_result_fields(tuple, fields)
     if fields == nil or tuple == nil then
         return tuple
-    else
-        return extract_fields(tuple, fields)
     end
+
+    local result = {}
+
+    for i, field in ipairs(fields) do
+        result[i] = tuple[field]
+    end
+
+    return result
 end
 
 -- schema.wrap_box_space_func_result pcalls some box.space function
@@ -157,6 +154,8 @@ end
 -- space_schema_hash is computed if function failed and
 -- `add_space_schema_hash` is true
 function schema.wrap_box_space_func_result(space, func_name, args, opts)
+    dev_checks('table', 'string', 'table', 'table')
+
     local result = {}
 
     opts = opts or {}
@@ -168,7 +167,7 @@ function schema.wrap_box_space_func_result(space, func_name, args, opts)
             result.space_schema_hash = get_space_schema_hash(space)
         end
     else
-        result.res = get_partial_result(func_res, opts.fields)
+        result.res = filter_result_fields(func_res, opts.fields)
     end
 
     return result
