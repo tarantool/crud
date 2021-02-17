@@ -10,6 +10,7 @@ local UnflattenError = errors.new_class("UnflattenError", {capture_stack = false
 local ParseOperationsError = errors.new_class('ParseOperationsError',  {capture_stack = false})
 local ShardingError = errors.new_class('ShardingError',  {capture_stack = false})
 local GetSpaceFormatError = errors.new_class('GetSpaceFormatError',  {capture_stack = false})
+local FilterFieldsError = errors.new_class('FilterFieldsError',  {capture_stack = false})
 
 local utils = {}
 
@@ -276,6 +277,11 @@ local function filter_format_fields(full_metadata, fields)
 
     for i, field in ipairs(fields) do
         metadata[i] = get_field_metadata(full_metadata, field)
+        if metadata[i] == nil then
+            return nil, FilterFieldsError:new(
+                    'Space format doesn\'t contain field named %q', field
+            )
+        end
     end
 
     return metadata
@@ -283,6 +289,7 @@ end
 
 function utils.format_result(rows, space, fields)
     local result = {}
+    local err
     local space_format = table.copy(space:format())
     result.rows = rows
 
@@ -291,7 +298,11 @@ function utils.format_result(rows, space, fields)
         return result
     end
 
-    result.metadata = filter_format_fields(space_format, fields)
+    result.metadata, err = filter_format_fields(space_format, fields)
+
+    if err ~= nil then
+        return nil, err
+    end
 
     return result
 end
