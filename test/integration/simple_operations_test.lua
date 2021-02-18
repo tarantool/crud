@@ -392,6 +392,22 @@ pgroup:add('test_upsert', function(g)
     t.assert_equals(result.rows, {{67, 1143, 'Mikhail Saltykov-Shchedrin', 63}})
 end)
 
+pgroup:add('test_intermediate_nullable_fields_update', function(g)
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.insert', {'developers', {1, box.NULL}})
+    t.assert_equals(err, nil)
+
+    helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
+        server.net_box:call('add_extra_field', {'extra_1'})
+        server.net_box:call('add_extra_field', {'extra_2'})
+    end)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.update',
+        {'developers', 1, {{'=', 'extra_2', 'extra_value'}}})
+    t.assert_equals(err, nil)
+    --t.assert_equals(result, nil)
+end)
+
 pgroup:add('test_object_with_nullable_fields', function(g)
     -- Insert
     local result, err = g.cluster.main_server.net_box:call(

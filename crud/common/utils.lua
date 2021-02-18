@@ -199,6 +199,77 @@ function utils.tarantool_supports_uuids()
     return enabled_tarantool_features.uuids
 end
 
+function utils.table_to_string(tbl)
+    local result = "{"
+    for k, v in pairs(tbl) do
+        -- Check the key type (ignore any numerical keys - assume its an array)
+        if type(k) == "string" then
+            result = result.."[\""..k.."\"]".."="
+        end
+
+        -- Check the value type
+        if type(v) == "table" then
+            result = result..utils.table_to_string(v)
+        elseif type(v) == "boolean" then
+            result = result..tostring(v)
+        else
+            result = result.."\""..v.."\""
+        end
+        result = result..","
+    end
+    -- Remove leading commas from the result
+    if result ~= "" then
+        result = result:sub(1, result:len()-1)
+    end
+    return result.."}"
+end
+
+function utils.add_intermediate_nullable_fields(user_operations, space_format)
+    local math = require('math')
+    local formatted_operations = {}
+    local max_field_id = 0
+    local file = io.open('test_form', 'a+')
+    io.output(file)
+
+    for _, operation in ipairs(user_operations) do
+        if type(operation[2]) == 'string' then
+            local field_id
+            for fieldno, field_format in ipairs(space_format) do
+                io.write(table_to_string(field_format))
+                if field_format.name == operation[2] then
+                    field_id = fieldno
+                    break
+                end
+                io.write(field_format.name)
+            end
+
+            if field_id == nil then
+                return nil, ParseOperationsError:new(
+                        "Space format doesn't contain field named %q", operation[2])
+            end
+
+            max_field_id = math.max(field_id, max_field_id)
+            table.insert(formatted_operations, {
+                operation[1], field_id, operation[3]
+            })
+        else
+            max_field_id = math.max(operation[2], max_field_id)
+            table.insert(formatted_operations, operation)
+        end
+    end
+
+    if max_field_id == #space_format then
+        for fieldno, field_format in ipairs(space_format) do
+            if field_format.is_nullable == true and fieldno ~= max_field_id then
+                table.insert(formatted_operations, {'=', fieldno, box.NULL})
+            end
+        end
+    end
+
+    table.sort(formatted_operations, function(v1, v2) return v1[2] < v2[2] end)
+    return formatted_operations
+end
+
 function utils.convert_operations(user_operations, space_format)
     if utils.tarantool_supports_fieldpaths() then
         return user_operations

@@ -57,7 +57,16 @@ local function call_update_on_router(space_name, key, user_operations, opts)
         key = key:totable()
     end
 
+    --local user_operations, err = utils.add_intermediate_nullable_fields(user_operations, space_format)
+    --if err ~= nil then
+        --return nil, UpdateError:new("%s", err), true
+    --end
     local operations, err = utils.convert_operations(user_operations, space_format)
+    local file = io.open('test1.txt', 'a+')
+    io.output(file)
+    io.write('\n\n')
+    io.write(utils.table_to_string(space_format))
+    io.write('\n\n')
     if err ~= nil then
         return nil, UpdateError:new("Wrong operations are specified: %s", err), true
     end
