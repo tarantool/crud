@@ -135,18 +135,18 @@ local function get_space_schema_hash(space)
     return digest.murmur(msgpack.encode(space_info))
 end
 
-local function filter_result_fields(tuple, fields)
-    if fields == nil or tuple == nil then
+local function filter_result_fields(tuple, field_names)
+    if field_names == nil or tuple == nil then
         return tuple
     end
 
     local result = {}
 
-    for i, field in ipairs(fields) do
-        result[i] = tuple[field]
+    for i, field_name in ipairs(field_names) do
+        result[i] = tuple[field_name]
         if result[i] == nil then
             return nil, FilterFieldsError:new(
-                    'Space format doesn\'t contain field named %q', field
+                    'Space format doesn\'t contain field named %q', field_name
             )
         end
     end
@@ -174,7 +174,7 @@ function schema.wrap_box_space_func_result(space, func_name, args, opts)
             result.space_schema_hash = get_space_schema_hash(space)
         end
     else
-        result.res, err = filter_result_fields(func_res, opts.fields)
+        result.res, err = filter_result_fields(func_res, opts.field_names)
         if err ~= nil then
             return nil, err
         end

@@ -14,7 +14,7 @@ local FilterFieldsError = errors.new_class('FilterFieldsError',  {capture_stack 
 
 local utils = {}
 
-local metadata_cache = setmetatable({}, {__mode = 'k'})
+local space_format_cache = setmetatable({}, {__mode = 'k'})
 
 function utils.table_count(table)
     dev_checks("table")
@@ -254,29 +254,29 @@ function utils.is_uuid(value)
     return ffi.istype(uuid_t, value)
 end
 
-local function get_field_metadata(full_metadata, field_name)
+local function get_field_format(space_format, field_name)
     dev_checks('table', 'string')
 
-    local metadata = metadata_cache[full_metadata]
+    local metadata = space_format_cache[space_format]
     if metadata ~= nil then
         return metadata[field_name]
     end
 
-    metadata_cache[full_metadata] = {}
-    for _, field in ipairs(full_metadata) do
-        metadata_cache[full_metadata][field.name] = field
+    space_format_cache[space_format] = {}
+    for _, field in ipairs(space_format) do
+        space_format_cache[space_format][field.name] = field
     end
 
-    return metadata_cache[full_metadata][field_name]
+    return space_format_cache[space_format][field_name]
 end
 
-local function filter_format_fields(full_metadata, fields)
+local function filter_format_fields(space_format, field_names)
     dev_checks('table', 'table')
 
     local metadata = {}
 
-    for i, field in ipairs(fields) do
-        metadata[i] = get_field_metadata(full_metadata, field)
+    for i, field in ipairs(field_names) do
+        metadata[i] = get_field_format(space_format, field)
         if metadata[i] == nil then
             return nil, FilterFieldsError:new(
                     'Space format doesn\'t contain field named %q', field
@@ -287,18 +287,18 @@ local function filter_format_fields(full_metadata, fields)
     return metadata
 end
 
-function utils.format_result(rows, space, fields)
+function utils.format_result(rows, space, field_names)
     local result = {}
     local err
     local space_format = table.copy(space:format())
     result.rows = rows
 
-    if fields == nil then
+    if field_names == nil then
         result.metadata = space_format
         return result
     end
 
-    result.metadata, err = filter_format_fields(space_format, fields)
+    result.metadata, err = filter_format_fields(space_format, field_names)
 
     if err ~= nil then
         return nil, err

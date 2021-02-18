@@ -14,7 +14,7 @@ local update = {}
 
 local UPDATE_FUNC_NAME = '_crud.update_on_storage'
 
-local function update_on_storage(space_name, key, operations, fields)
+local function update_on_storage(space_name, key, operations, field_names)
     dev_checks('string', '?', 'table', '?table')
 
     local space = box.space[space_name]
@@ -26,7 +26,7 @@ local function update_on_storage(space_name, key, operations, fields)
     -- reloading space format on router can't avoid update error on storage
     return schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
         add_space_schema_hash = false,
-        fields = fields,
+        field_names = field_names,
     })
 end
 

@@ -32,7 +32,7 @@ local function insert_on_storage(space_name, tuple, opts)
     -- is flattening object on router
     return schema.wrap_box_space_func_result(space, 'insert', {tuple}, {
         add_space_schema_hash = opts.add_space_schema_hash,
-        fields = opts.fields,
+        field_names = opts.fields,
     })
 end
 
