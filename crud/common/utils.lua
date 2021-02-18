@@ -55,40 +55,71 @@ function utils.get_space_format(space_name, replicasets)
     return space_format
 end
 
-local system_fields = { bucket_id = true }
+local function append(lines, s, ...)
+    table.insert(lines, string.format(s, ...))
+end
+
+local flatten_functions_cache = setmetatable({}, {__mode = 'k'})
 
 function utils.flatten(object, space_format, bucket_id)
-    if object == nil then return nil end
+    local flatten_func = flatten_functions_cache[space_format]
+    if flatten_func ~= nil then
+        local data, err = flatten_func(object, bucket_id)
+        if err ~= nil then
+            return nil, FlattenError:new(err)
+        end
+        return data
+    end
 
-    local tuple = {}
+    local lines = {}
+    append(lines, 'local object, bucket_id = ...')
 
-    local fieldnames = {}
+    append(lines, 'for k in pairs(object) do')
+    append(lines, '    if fieldmap[k] == nil then')
+    append(lines, '        return nil, format(\'Unknown field %%q is specified\', k)')
+    append(lines, '    end')
+    append(lines, 'end')
 
-    for fieldno, field_format in ipairs(space_format) do
-        local fieldname = field_format.name
-        local value = object[fieldname]
+    local len = #space_format
+    append(lines, 'local result = {%s}', string.rep('NULL,', len))
 
-        if not system_fields[fieldname] then
-            if not field_format.is_nullable and value == nil then
-                return nil, FlattenError:new("Field %q isn't nullable", fieldname)
+    local fieldmap = {}
+
+    for i, field in ipairs(space_format) do
+        fieldmap[field.name] = true
+        if field.name ~= 'bucket_id' then
+            append(lines, 'if object[%q] ~= nil then', field.name)
+            append(lines, '    result[%d] = object[%q]', i, field.name)
+            if field.is_nullable ~= true then
+                append(lines, 'else')
+                append(lines, '    return nil, \'Field %q isn\\\'t nullable\'', field.name)
             end
-        end
-
-        if bucket_id ~= nil and fieldname == 'bucket_id' then
-            value = bucket_id
-        end
-
-        tuple[fieldno] = value
-        fieldnames[fieldname] = true
-    end
-
-    for fieldname in pairs(object) do
-        if not fieldnames[fieldname] then
-            return nil, FlattenError:new("Unknown field %q is specified", fieldname)
+            append(lines, 'end')
+        else
+            append(lines, 'if bucket_id ~= nil then')
+            append(lines, '    result[%d] = bucket_id', i, field.name)
+            append(lines, 'else')
+            append(lines, '    result[%d] = object[%q]', i, field.name)
+            append(lines, 'end')
         end
     end
+    append(lines, 'return result')
 
-    return tuple
+    local code = table.concat(lines, '\n')
+    local env = {
+        pairs = pairs,
+        format = string.format,
+        fieldmap = fieldmap,
+        NULL = box.NULL,
+    }
+    flatten_func = assert(load(code, '@flatten', 't', env))
+
+    flatten_functions_cache[space_format] = flatten_func
+    local data, err = flatten_func(object, bucket_id)
+    if err ~= nil then
+        return nil, FlattenError:new(err)
+    end
+    return data
 end
 
 function utils.unflatten(tuple, space_format)

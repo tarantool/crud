@@ -31,6 +31,39 @@ package.preload['customers-storage'] = function()
                 unique = false,
                 if_not_exists = true,
             })
+
+            -- Space with huge amount of nullable fields
+            -- an object that inserted in such space should get
+            -- explicit nulls in absence fields otherwise
+            -- Tarantool serializers could consider such object as map (not array).
+            local tags_space = box.schema.space.create('tags', {
+                format = {
+                    {name = 'id', type = 'unsigned'},
+                    {name = 'bucket_id', type = 'unsigned'},
+                    {name = 'is_red', type = 'boolean', is_nullable = true},
+                    {name = 'is_green', type = 'boolean', is_nullable = true},
+                    {name = 'is_blue', type = 'boolean', is_nullable = true},
+                    {name = 'is_yellow', type = 'boolean', is_nullable = true},
+                    {name = 'is_sweet', type = 'boolean', is_nullable = true},
+                    {name = 'is_dirty', type = 'boolean', is_nullable = true},
+                    {name = 'is_long', type = 'boolean', is_nullable = true},
+                    {name = 'is_short', type = 'boolean', is_nullable = true},
+                    {name = 'is_useful', type = 'boolean', is_nullable = true},
+                    {name = 'is_correct', type = 'boolean', is_nullable = true},
+                },
+                if_not_exists = true,
+                engine = engine,
+            })
+
+            tags_space:create_index('id', {
+                parts = { {field = 'id'} },
+                if_not_exists = true,
+            })
+            tags_space:create_index('bucket_id', {
+                parts = { {field = 'bucket_id'} },
+                unique = false,
+                if_not_exists = true,
+            })
         end,
     }
 end

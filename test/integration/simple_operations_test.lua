@@ -392,6 +392,116 @@ pgroup:add('test_upsert', function(g)
     t.assert_equals(result.rows, {{67, 1143, 'Mikhail Saltykov-Shchedrin', 63}})
 end)
 
+pgroup:add('test_object_with_nullable_fields', function(g)
+    -- Insert
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.insert_object', {'tags', {id = 1, is_green = true}})
+    t.assert_equals(err, nil)
+
+    -- {1, 477, NULL, true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {
+        {
+            bucket_id = 477,
+            id = 1,
+            is_blue = box.NULL,
+            is_correct = box.NULL,
+            is_dirty = box.NULL,
+            is_green = true,
+            is_long = box.NULL,
+            is_red = box.NULL,
+            is_short = box.NULL,
+            is_sweet = box.NULL,
+            is_useful = box.NULL,
+            is_yellow = box.NULL,
+        }
+    })
+
+    -- Update
+    -- {1, 477, NULL, true, NULL, NULL, true, NULL, NULL, NULL, NULL, NULL}
+    -- Shouldn't failed because of https://github.com/tarantool/tarantool/issues/3378
+    result, err = g.cluster.main_server.net_box:call(
+            'crud.update', {'tags', 1, {{'=', 'is_sweet', true}}})
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {
+        {
+            bucket_id = 477,
+            id = 1,
+            is_blue = box.NULL,
+            is_correct = box.NULL,
+            is_dirty = box.NULL,
+            is_green = true,
+            is_long = box.NULL,
+            is_red = box.NULL,
+            is_short = box.NULL,
+            is_sweet = true,
+            is_useful = box.NULL,
+            is_yellow = box.NULL,
+        }
+    })
+
+    -- Replace
+    -- {2, 401, NULL, true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+    result, err = g.cluster.main_server.net_box:call(
+            'crud.replace_object', {'tags', {id = 2, is_green = true}})
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {
+        {
+            bucket_id = 401,
+            id = 2,
+            is_blue = box.NULL,
+            is_correct = box.NULL,
+            is_dirty = box.NULL,
+            is_green = true,
+            is_long = box.NULL,
+            is_red = box.NULL,
+            is_short = box.NULL,
+            is_sweet = box.NULL,
+            is_useful = box.NULL,
+            is_yellow = box.NULL,
+        }
+    })
+
+    -- Upsert: first is insert then update
+    -- {3, 2804, NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL, NULL}
+    local _, err = g.cluster.main_server.net_box:call(
+            'crud.upsert_object', {'tags', {id = 3, is_dirty = true}, {
+                {'=', 'is_dirty', true},
+            }})
+    t.assert_equals(err, nil)
+
+    -- {3, 2804, NULL, NULL, NULL, NULL, NULL, true, NULL, true, true, NULL}
+    -- Shouldn't failed because of https://github.com/tarantool/tarantool/issues/3378
+    _, err = g.cluster.main_server.net_box:call(
+            'crud.upsert_object', {'tags', {id = 3, is_dirty = true}, {
+                {'=', 'is_useful', true},
+            }})
+    t.assert_equals(err, nil)
+
+    -- Get
+    result, err = g.cluster.main_server.net_box:call('crud.get', {'tags', 3})
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {
+        {
+            bucket_id = 2804,
+            id = 3,
+            is_blue = box.NULL,
+            is_correct = box.NULL,
+            is_dirty = true,
+            is_green = box.NULL,
+            is_long = box.NULL,
+            is_red = box.NULL,
+            is_short = box.NULL,
+            is_sweet = box.NULL,
+            is_useful = true,
+            is_yellow = box.NULL,
+        }
+    })
+end)
+
 pgroup:add('test_get_partial_result', function(g)
     -- insert_object
     local result, err = g.cluster.main_server.net_box:call(
