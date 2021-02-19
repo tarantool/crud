@@ -304,28 +304,28 @@ end
 local function filter_format_fields(space_format, field_names)
     dev_checks('table', 'table')
 
-    local metadata = {}
+    local filtered_space_format = {}
 
-    for i, field in ipairs(field_names) do
-        metadata[i] = get_field_format(space_format, field)
-        if metadata[i] == nil then
+    for i, field_name in ipairs(field_names) do
+        filtered_space_format[i] = get_field_format(space_format, field_name)
+        if filtered_space_format[i] == nil then
             return nil, FilterFieldsError:new(
-                    'Space format doesn\'t contain field named %q', field
+                    'Space format doesn\'t contain field named %q', field_name
             )
         end
     end
 
-    return metadata
+    return filtered_space_format
 end
 
 function utils.format_result(rows, space, field_names)
     local result = {}
     local err
-    local space_format = table.copy(space:format())
+    local space_format = space:format()
     result.rows = rows
 
     if field_names == nil then
-        result.metadata = space_format
+        result.metadata = table.copy(space_format)
         return result
     end
 
