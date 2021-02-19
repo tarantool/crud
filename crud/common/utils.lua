@@ -10,8 +10,11 @@ local UnflattenError = errors.new_class("UnflattenError", {capture_stack = false
 local ParseOperationsError = errors.new_class('ParseOperationsError',  {capture_stack = false})
 local ShardingError = errors.new_class('ShardingError',  {capture_stack = false})
 local GetSpaceFormatError = errors.new_class('GetSpaceFormatError',  {capture_stack = false})
+local FilterFieldsError = errors.new_class('FilterFieldsError',  {capture_stack = false})
 
 local utils = {}
+
+local space_format_cache = setmetatable({}, {__mode = 'k'})
 
 function utils.table_count(table)
     dev_checks("table")
@@ -282,11 +285,57 @@ function utils.is_uuid(value)
     return ffi.istype(uuid_t, value)
 end
 
-function utils.format_result(rows, space)
-    return {
-        metadata = table.copy(space:format()),
-        rows = rows,
-    }
+local function get_field_format(space_format, field_name)
+    dev_checks('table', 'string')
+
+    local metadata = space_format_cache[space_format]
+    if metadata ~= nil then
+        return metadata[field_name]
+    end
+
+    space_format_cache[space_format] = {}
+    for _, field in ipairs(space_format) do
+        space_format_cache[space_format][field.name] = field
+    end
+
+    return space_format_cache[space_format][field_name]
+end
+
+local function filter_format_fields(space_format, field_names)
+    dev_checks('table', 'table')
+
+    local filtered_space_format = {}
+
+    for i, field_name in ipairs(field_names) do
+        filtered_space_format[i] = get_field_format(space_format, field_name)
+        if filtered_space_format[i] == nil then
+            return nil, FilterFieldsError:new(
+                    'Space format doesn\'t contain field named %q', field_name
+            )
+        end
+    end
+
+    return filtered_space_format
+end
+
+function utils.format_result(rows, space, field_names)
+    local result = {}
+    local err
+    local space_format = space:format()
+    result.rows = rows
+
+    if field_names == nil then
+        result.metadata = table.copy(space_format)
+        return result
+    end
+
+    result.metadata, err = filter_format_fields(space_format, field_names)
+
+    if err ~= nil then
+        return nil, err
+    end
+
+    return result
 end
 
 local function flatten_obj(space_name, obj)

@@ -6,8 +6,10 @@ local errors = require('errors')
 local log = require('log')
 
 local ReloadSchemaError = errors.new_class('ReloadSchemaError',  {capture_stack = false})
+local FilterFieldsError = errors.new_class('FilterFieldsError',  {capture_stack = false})
 
 local const = require('crud.common.const')
+local dev_checks = require('crud.common.dev_checks')
 
 local schema = {}
 
@@ -133,22 +135,49 @@ local function get_space_schema_hash(space)
     return digest.murmur(msgpack.encode(space_info))
 end
 
+local function filter_result_fields(tuple, field_names)
+    if field_names == nil or tuple == nil then
+        return tuple
+    end
+
+    local result = {}
+
+    for i, field_name in ipairs(field_names) do
+        result[i] = tuple[field_name]
+        if result[i] == nil then
+            return nil, FilterFieldsError:new(
+                    'Space format doesn\'t contain field named %q', field_name
+            )
+        end
+    end
+
+    return result
+end
+
 -- schema.wrap_box_space_func_result pcalls some box.space function
 -- and returns its result as a table
 -- `{res = ..., err = ..., space_schema_hash = ...}`
 -- space_schema_hash is computed if function failed and
 -- `add_space_schema_hash` is true
-function schema.wrap_box_space_func_result(add_space_schema_hash, space, func_name, ...)
-    local result = {}
+function schema.wrap_box_space_func_result(space, func_name, args, opts)
+    dev_checks('table', 'string', 'table', 'table')
 
-    local ok, func_res = pcall(space[func_name], space, ...)
+    local result = {}
+    local err
+
+    opts = opts or {}
+
+    local ok, func_res = pcall(space[func_name], space, unpack(args))
     if not ok then
         result.err = func_res
-        if add_space_schema_hash then
+        if opts.add_space_schema_hash then
             result.space_schema_hash = get_space_schema_hash(space)
         end
     else
-        result.res = func_res
+        result.res, err = filter_result_fields(func_res, opts.field_names)
+        if err ~= nil then
+            return nil, err
+        end
     end
 
     return result

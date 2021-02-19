@@ -14,8 +14,8 @@ local get = {}
 
 local GET_FUNC_NAME = '_crud.get_on_storage'
 
-local function get_on_storage(space_name, key)
-    dev_checks('string', '?')
+local function get_on_storage(space_name, key, field_names)
+    dev_checks('string', '?', '?table')
 
     local space = box.space[space_name]
     if space == nil then
@@ -24,7 +24,10 @@ local function get_on_storage(space_name, key)
 
     -- add_space_schema_hash is false because
     -- reloading space format on router can't avoid get error on storage
-    return schema.wrap_box_space_func_result(false, space, 'get', key)
+    return schema.wrap_box_space_func_result(space, 'get', {key}, {
+        add_space_schema_hash = false,
+        field_names = field_names,
+    })
 end
 
 function get.init()
@@ -38,6 +41,7 @@ local function call_get_on_router(space_name, key, opts)
     dev_checks('string', '?', {
         timeout = '?number',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -58,7 +62,7 @@ local function call_get_on_router(space_name, key, opts)
     -- a stale result.
     local storage_result, err = call.rw_single(
         bucket_id, GET_FUNC_NAME,
-        {space_name, key},
+        {space_name, key, opts.fields},
         {timeout = opts.timeout}
     )
 
@@ -77,7 +81,7 @@ local function call_get_on_router(space_name, key, opts)
         tuple = nil
     end
 
-    return utils.format_result({tuple}, space)
+    return utils.format_result({tuple}, space, opts.fields)
 end
 
 --- Get tuple from the specified space by key
@@ -105,6 +109,7 @@ function get.call(space_name, key, opts)
     checks('string', '?', {
         timeout = '?number',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     return schema.wrap_func_reload(call_get_on_router, space_name, key, opts)

@@ -71,6 +71,7 @@ where:
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `bucket_id` (`?number|cdata`) - bucket ID
+  * `fields` (`?table`) - field names for getting only a subset of fields
 
 Returns metadata and array contains one inserted row, error.
 
@@ -114,6 +115,7 @@ where:
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `bucket_id` (`?number|cdata`) - bucket ID
+  * `fields` (`?table`) - field names for getting only a subset of fields
 
 Returns metadata and array contains one row, error.
 
@@ -146,6 +148,7 @@ where:
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `bucket_id` (`?number|cdata`) - bucket ID
+  * `fields` (`?table`) - field names for getting only a subset of fields
 
 Returns metadata and array contains one updated row, error.
 
@@ -177,6 +180,7 @@ where:
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `bucket_id` (`?number|cdata`) - bucket ID
+  * `fields` (`?table`) - field names for getting only a subset of fields
 
 Returns metadata and array contains one deleted row (empty for vinyl), error.
 
@@ -210,6 +214,7 @@ where:
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `bucket_id` (`?number|cdata`) - bucket ID
+  * `fields` (`?table`) - field names for getting only a subset of fields
 
 Returns inserted or replaced rows and metadata or nil with error.
 
@@ -257,6 +262,7 @@ where:
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `bucket_id` (`?number|cdata`) - bucket ID
+  * `fields` (`?table`) - field names for getting only a subset of fields
 
 Returns metadata and empty array of rows or nil, error.
 

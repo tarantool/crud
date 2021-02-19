@@ -17,6 +17,7 @@ local INSERT_FUNC_NAME = '_crud.insert_on_storage'
 local function insert_on_storage(space_name, tuple, opts)
     dev_checks('string', 'table', {
         add_space_schema_hash = '?boolean',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -29,7 +30,10 @@ local function insert_on_storage(space_name, tuple, opts)
     -- add_space_schema_hash is true only in case of insert_object
     -- the only one case when reloading schema can avoid insert error
     -- is flattening object on router
-    return schema.wrap_box_space_func_result(opts.add_space_schema_hash, space, 'insert', tuple)
+    return schema.wrap_box_space_func_result(space, 'insert', {tuple}, {
+        add_space_schema_hash = opts.add_space_schema_hash,
+        field_names = opts.fields,
+    })
 end
 
 function insert.init()
@@ -44,6 +48,7 @@ local function call_insert_on_router(space_name, tuple, opts)
         timeout = '?number',
         bucket_id = '?number|cdata',
         add_space_schema_hash = '?boolean',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -60,6 +65,7 @@ local function call_insert_on_router(space_name, tuple, opts)
 
     local insert_on_storage_opts = {
         add_space_schema_hash = opts.add_space_schema_hash,
+        fields = opts.fields,
     }
 
     local storage_result, err = call.rw_single(
@@ -79,7 +85,7 @@ local function call_insert_on_router(space_name, tuple, opts)
 
     local tuple = storage_result.res
 
-    return utils.format_result({tuple}, space)
+    return utils.format_result({tuple}, space, opts.fields)
 end
 
 --- Inserts a tuple to the specified space
@@ -108,6 +114,7 @@ function insert.tuple(space_name, tuple, opts)
         timeout = '?number',
         bucket_id = '?number|cdata',
         add_space_schema_hash = '?boolean',
+        fields = '?table',
     })
 
     return schema.wrap_func_reload(call_insert_on_router, space_name, tuple, opts)
