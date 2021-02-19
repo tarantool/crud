@@ -395,7 +395,7 @@ end)
 pgroup:add('test_object_with_nullable_fields', function(g)
     -- Insert
     local result, err = g.cluster.main_server.net_box:call(
-            'crud.insert_object', {'tags', {id = 1, is_green = true}})
+        'crud.insert_object', {'tags', {id = 1, is_green = true}})
     t.assert_equals(err, nil)
 
     -- {1, 477, NULL, true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
@@ -421,7 +421,7 @@ pgroup:add('test_object_with_nullable_fields', function(g)
     -- {1, 477, NULL, true, NULL, NULL, true, NULL, NULL, NULL, NULL, NULL}
     -- Shouldn't failed because of https://github.com/tarantool/tarantool/issues/3378
     result, err = g.cluster.main_server.net_box:call(
-            'crud.update', {'tags', 1, {{'=', 'is_sweet', true}}})
+        'crud.update', {'tags', 1, {{'=', 'is_sweet', true}}})
     t.assert_equals(err, nil)
     objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {
@@ -444,7 +444,7 @@ pgroup:add('test_object_with_nullable_fields', function(g)
     -- Replace
     -- {2, 401, NULL, true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
     result, err = g.cluster.main_server.net_box:call(
-            'crud.replace_object', {'tags', {id = 2, is_green = true}})
+        'crud.replace_object', {'tags', {id = 2, is_green = true}})
     t.assert_equals(err, nil)
     objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {
@@ -467,17 +467,17 @@ pgroup:add('test_object_with_nullable_fields', function(g)
     -- Upsert: first is insert then update
     -- {3, 2804, NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL, NULL}
     local _, err = g.cluster.main_server.net_box:call(
-            'crud.upsert_object', {'tags', {id = 3, is_dirty = true}, {
-                {'=', 'is_dirty', true},
-            }})
+        'crud.upsert_object', {'tags', {id = 3, is_dirty = true}, {
+             {'=', 'is_dirty', true},
+    }})
     t.assert_equals(err, nil)
 
     -- {3, 2804, NULL, NULL, NULL, NULL, NULL, true, NULL, true, true, NULL}
     -- Shouldn't failed because of https://github.com/tarantool/tarantool/issues/3378
     _, err = g.cluster.main_server.net_box:call(
-            'crud.upsert_object', {'tags', {id = 3, is_dirty = true}, {
-                {'=', 'is_useful', true},
-            }})
+        'crud.upsert_object', {'tags', {id = 3, is_dirty = true}, {
+             {'=', 'is_useful', true},
+    }})
     t.assert_equals(err, nil)
 
     -- Get
