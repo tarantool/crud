@@ -397,15 +397,59 @@ pgroup:add('test_intermediate_nullable_fields_update', function(g)
         'crud.insert', {'developers', {1, box.NULL}})
     t.assert_equals(err, nil)
 
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {
+        {
+            id = 1,
+            bucket_id = 477
+        }
+    })
+
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('add_extra_field', {'extra_1'})
         server.net_box:call('add_extra_field', {'extra_2'})
+        server.net_box:call('add_extra_field', {'extra_3'})
+        server.net_box:call('add_extra_field', {'extra_4'})
+        server.net_box:call('add_extra_field', {'extra_5'})
+        server.net_box:call('add_extra_field', {'extra_6'})
     end)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.update',
-        {'developers', 1, {{'=', 'extra_2', 'extra_value'}}})
+    -- TODO: delete this, when issue (https://github.com/tarantool/crud/issues/98) will be closed
+    g.cluster.main_server.net_box:call('crud.select',
+        {'developers', nil})
+
+    result, err = g.cluster.main_server.net_box:call('crud.update',
+        {'developers', 1, {{'=', 'extra_3', 'extra_value_3'}}})
+
     t.assert_equals(err, nil)
-    --t.assert_equals(result, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {
+        {
+            id = 1,
+            bucket_id = 477,
+            extra_1 = box.NULL,
+            extra_2 = box.NULL,
+            extra_3 = 'extra_value_3',
+        }
+    })
+
+    result, err = g.cluster.main_server.net_box:call('crud.update',
+        {'developers', 1, {{'=', 8, 'extra_value_6'}}}) -- update extra_6 field
+
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {
+        {
+            id = 1,
+            bucket_id = 477,
+            extra_1 = box.NULL,
+            extra_2 = box.NULL,
+            extra_3 = 'extra_value_3',
+            extra_4 = box.NULL,
+            extra_5 = box.NULL,
+            extra_6 = 'extra_value_6'
+        }
+    })
 end)
 
 pgroup:add('test_object_with_nullable_fields', function(g)
