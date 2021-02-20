@@ -24,10 +24,23 @@ local function update_on_storage(space_name, key, operations, field_names)
 
     -- add_space_schema_hash is false because
     -- reloading space format on router can't avoid update error on storage
-    return schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
+    local result = schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
         add_space_schema_hash = false,
         field_names = field_names,
     })
+
+    local err = result.err
+    if err ~= nil and (err.code == box.error.NO_SUCH_FIELD_NO or err.code == box.error.NO_SUCH_FIELD_NAME) then
+        local tuple = space:get(key)
+        operations = utils.add_intermediate_nullable_fields(operations, space:format(), tuple)
+
+        result = schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
+            add_space_schema_hash = false,
+            field_names = field_names,
+        })
+    end
+
+    return result
 end
 
 function update.init()
@@ -60,12 +73,6 @@ local function call_update_on_router(space_name, key, user_operations, opts)
     local operations, err = utils.convert_operations(user_operations, space_format)
     if err ~= nil then
         return nil, UpdateError:new("Wrong operations are specified: %s", err), true
-    end
-
-    if type(key) == 'table' or type(key) == 'number' then
-        local tuple = space:get{key}
-        -- See https://github.com/tarantool/crud/issues/113
-        operations = utils.add_intermediate_nullable_fields(operations, space_format, tuple)
     end
 
     local bucket_id = sharding.key_get_bucket_id(key, opts.bucket_id)
