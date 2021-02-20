@@ -24,23 +24,27 @@ local function update_on_storage(space_name, key, operations, field_names)
 
     -- add_space_schema_hash is false because
     -- reloading space format on router can't avoid update error on storage
-    local result = schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
+    local res, err = schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
         add_space_schema_hash = false,
         field_names = field_names,
     })
 
-    local err = result.err
+    if err ~= nil then
+        return nil, err
+    end
+
+    local err = res.err
     if err ~= nil and (err.code == box.error.NO_SUCH_FIELD_NO or err.code == box.error.NO_SUCH_FIELD_NAME) then
         local tuple = space:get(key)
         operations = utils.add_intermediate_nullable_fields(operations, space:format(), tuple)
 
-        result = schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
+        res = schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
             add_space_schema_hash = false,
             field_names = field_names,
         })
     end
 
-    return result
+    return res
 end
 
 function update.init()
