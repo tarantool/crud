@@ -229,7 +229,7 @@ function utils.add_intermediate_nullable_fields(operations, space_format, tuple)
 
     local operations, err = utils.convert_operations(operations, space_format)
     if err ~= nil then
-        return nil, UpdateError:new("Wrong operations are specified: %s", err), true
+        return operations
     end
 
     for i = 1, #operations do

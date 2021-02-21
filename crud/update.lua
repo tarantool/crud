@@ -74,8 +74,9 @@ local function call_update_on_router(space_name, key, user_operations, opts)
         key = key:totable()
     end
 
+    local err
     if not utils.tarantool_supports_fieldpaths() then
-        local user_operations, err = utils.convert_operations(user_operations, space_format)
+        user_operations, err = utils.convert_operations(user_operations, space_format)
         if err ~= nil then
             return nil, UpdateError:new("Wrong operations are specified: %s", err), true
         end
