@@ -223,19 +223,25 @@ local function add_nullable_fields_rec(operations, space_format, tuple, id)
 end
 
 function utils.add_intermediate_nullable_fields(operations, space_format, tuple)
-    if tuple ~= nil then
-        for i = 1, #operations do
-            operations = add_nullable_fields_rec(
-                operations,
-                space_format,
-                tuple,
-                operations[i][2]
-            )
-        end
-
-        table.sort(operations, function(v1, v2) return v1[2] < v2[2] end)
+    if tuple == nil then
+        return operations
     end
 
+    local operations, err = utils.convert_operations(operations, space_format)
+    if err ~= nil then
+        return nil, UpdateError:new("Wrong operations are specified: %s", err), true
+    end
+
+    for i = 1, #operations do
+        operations = add_nullable_fields_rec(
+            operations,
+            space_format,
+            tuple,
+            operations[i][2]
+        )
+    end
+
+    table.sort(operations, function(v1, v2) return v1[2] < v2[2] end)
     return operations
 end
 

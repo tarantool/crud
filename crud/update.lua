@@ -74,15 +74,17 @@ local function call_update_on_router(space_name, key, user_operations, opts)
         key = key:totable()
     end
 
-    local operations, err = utils.convert_operations(user_operations, space_format)
-    if err ~= nil then
-        return nil, UpdateError:new("Wrong operations are specified: %s", err), true
+    if not utils.tarantool_supports_fieldpaths() then
+        local user_operations, err = utils.convert_operations(user_operations, space_format)
+        if err ~= nil then
+            return nil, UpdateError:new("Wrong operations are specified: %s", err), true
+        end
     end
 
     local bucket_id = sharding.key_get_bucket_id(key, opts.bucket_id)
     local storage_result, err = call.rw_single(
         bucket_id, UPDATE_FUNC_NAME,
-        {space_name, key, operations, opts.fields},
+        {space_name, key, user_operations, opts.fields},
         {timeout = opts.timeout}
     )
 

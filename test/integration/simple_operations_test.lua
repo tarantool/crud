@@ -412,6 +412,11 @@ pgroup:add('test_intermediate_nullable_fields_update', function(g)
         server.net_box:call('add_extra_field', {'extra_4'})
         server.net_box:call('add_extra_field', {'extra_5'})
         server.net_box:call('add_extra_field', {'extra_6'})
+        server.net_box:call('add_extra_field', {'extra_7'})
+        server.net_box:call('add_extra_field', {'extra_8'})
+        server.net_box:call('add_extra_field', {'extra_9'})
+        server.net_box:call('add_extra_field', {'extra_10'})
+        server.net_box:call('add_extra_field', {'extra_11'})
     end)
 
     -- TODO: delete this, when issue (https://github.com/tarantool/crud/issues/98) will be closed
@@ -448,6 +453,29 @@ pgroup:add('test_intermediate_nullable_fields_update', function(g)
             extra_4 = box.NULL,
             extra_5 = box.NULL,
             extra_6 = 'extra_value_6'
+        }
+    })
+
+    result, err = g.cluster.main_server.net_box:call('crud.update',
+        {'developers', 1, {{'=', 13, 'extra_value_11'}, {'=', 'extra_8', 'extra_value_8'}}})
+
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {
+        {
+            id = 1,
+            bucket_id = 477,
+            extra_1 = box.NULL,
+            extra_2 = box.NULL,
+            extra_3 = 'extra_value_3',
+            extra_4 = box.NULL,
+            extra_5 = box.NULL,
+            extra_6 = 'extra_value_6',
+            extra_7 = box.NULL,
+            extra_8 = 'extra_value_8',
+            extra_9 = box.NULL,
+            extra_10 = box.NULL,
+            extra_11 = 'extra_value_11'
         }
     })
 end)
