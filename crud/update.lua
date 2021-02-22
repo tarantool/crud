@@ -37,7 +37,11 @@ local function update_on_storage(space_name, key, operations, field_names)
         return res, nil
     end
 
-    if res.err.code == box.error.NO_SUCH_FIELD_NO or res.err.code == box.error.NO_SUCH_FIELD_NAME then
+    -- We can only add fields to end of the tuple.
+    -- If schema is updated and intermediate null fields are added, then we will get error.
+    -- Therefore, we need to add filling of intermediate null fields.
+    -- More details: https://github.com/tarantool/crud/issues/113
+    if utils.is_field_not_found(res.err.code) then
         operations = utils.add_intermediate_nullable_fields(operations, space:format(), space:get(key))
         res, err = schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
             add_space_schema_hash = false,
