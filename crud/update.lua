@@ -33,18 +33,20 @@ local function update_on_storage(space_name, key, operations, field_names)
         return nil, err
     end
 
-    local err = res.err
-    if err ~= nil and (err.code == box.error.NO_SUCH_FIELD_NO or err.code == box.error.NO_SUCH_FIELD_NAME) then
-        local tuple = space:get(key)
-        operations = utils.add_intermediate_nullable_fields(operations, space:format(), tuple)
+    if res.err == nil then
+        return res, nil
+    end
 
-        res = schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
+    if (res.err.code == box.error.NO_SUCH_FIELD_NO or res.err.code == box.error.NO_SUCH_FIELD_NAME) then
+        operations = utils.add_intermediate_nullable_fields(operations, space:format(), space:get(key))
+
+        res, err = schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
             add_space_schema_hash = false,
             field_names = field_names,
         })
     end
 
-    return res
+    return res, err
 end
 
 function update.init()
@@ -63,18 +65,20 @@ local function call_update_on_router(space_name, key, user_operations, opts)
 
     opts = opts or {}
 
-    local space = utils.get_space(space_name, vshard.router.routeall())
+    local space, err = utils.get_space(space_name, vshard.router.routeall())
+    if err ~= nil then
+        return nil, UpdateError:new("Failed to get space %q: %s", space_name, err), true
+    end
+
     if space == nil then
         return nil, UpdateError:new("Space %q doesn't exist", space_name), true
     end
-
-    local space_format = space:format()
 
     if box.tuple.is(key) then
         key = key:totable()
     end
 
-    local err
+    local space_format = space:format()
     if not utils.tarantool_supports_fieldpaths() then
         user_operations, err = utils.convert_operations(user_operations, space_format)
         if err ~= nil then
