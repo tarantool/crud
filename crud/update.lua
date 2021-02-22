@@ -37,9 +37,8 @@ local function update_on_storage(space_name, key, operations, field_names)
         return res, nil
     end
 
-    if (res.err.code == box.error.NO_SUCH_FIELD_NO or res.err.code == box.error.NO_SUCH_FIELD_NAME) then
+    if res.err.code == box.error.NO_SUCH_FIELD_NO or res.err.code == box.error.NO_SUCH_FIELD_NAME then
         operations = utils.add_intermediate_nullable_fields(operations, space:format(), space:get(key))
-
         res, err = schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
             add_space_schema_hash = false,
             field_names = field_names,

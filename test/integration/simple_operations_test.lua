@@ -420,8 +420,7 @@ pgroup:add('test_intermediate_nullable_fields_update', function(g)
     end)
 
     -- TODO: delete this, when issue (https://github.com/tarantool/crud/issues/98) will be closed
-    g.cluster.main_server.net_box:call('crud.select',
-        {'developers', nil})
+    g.cluster.main_server.net_box:call('crud.select', {'developers'})
 
     result, err = g.cluster.main_server.net_box:call('crud.update',
         {'developers', 1, {{'=', 'extra_3', 'extra_value_3'}}})

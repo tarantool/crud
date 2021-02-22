@@ -227,22 +227,22 @@ function utils.add_intermediate_nullable_fields(operations, space_format, tuple)
         return operations
     end
 
-    local operations, err = utils.convert_operations(operations, space_format)
+    local formatted_operations, err = utils.convert_operations(operations, space_format)
     if err ~= nil then
         return operations
     end
 
-    for i = 1, #operations do
-        operations = add_nullable_fields_rec(
-            operations,
+    for i = 1, #formatted_operations do
+        formatted_operations = add_nullable_fields_rec(
+            formatted_operations,
             space_format,
             tuple,
-            operations[i][2]
+            formatted_operations[i][2]
         )
     end
 
-    table.sort(operations, function(v1, v2) return v1[2] < v2[2] end)
-    return operations
+    table.sort(formatted_operations, function(v1, v2) return v1[2] < v2[2] end)
+    return formatted_operations
 end
 
 function utils.convert_operations(user_operations, space_format)
