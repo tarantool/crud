@@ -261,7 +261,7 @@ local function convert_jsonpath_operation(operation)
     if #field_parts > 1 or field_id == nil then
         -- Checking '[4].a.b' case
         if field_name:sub(1, 1) == '[' and field_name:sub(-1, -1) == ']' then
-            local field_id = tonumber(field_name:sub(2, -2))
+            field_id = tonumber(field_name:sub(2, -2))
 
             if field_id == nil then
                 -- Checking '["field_name"]' case
