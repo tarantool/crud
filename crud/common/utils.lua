@@ -199,23 +199,23 @@ function utils.tarantool_supports_uuids()
     return enabled_tarantool_features.uuids
 end
 
-local function exists_operations_id_map(operations)
-    local map = {}
-    for _, operation in ipairs(operations) do
-        map[operation[2]] = true
+local function map_to_table(map)
+    local tab = {}
+    for _, value in pairs(map) do
+        table.insert(tab, value)
     end
 
-    return map
+    return tab
 end
 
-local function add_nullable_fields_rec(operations, operations_id_map, space_format, tuple, id)
+local function add_nullable_fields_recursive(operations, space_format, tuple, id)
     if id < 2 or tuple[id - 1] ~= box.NULL then
         return operations
     end
 
-    if space_format[id - 1].is_nullable and not operations_id_map[id - 1] then
-        table.insert(operations, {'=', id - 1, box.NULL})
-        return add_nullable_fields_rec(operations, operations_id_map, space_format, tuple, id - 1)
+    if space_format[id - 1].is_nullable and not operations[id - 1] then
+        operations[id - 1] = {'=', id - 1, box.NULL}
+        return add_nullable_fields_recursive(operations, space_format, tuple, id - 1)
     end
 
     return operations
@@ -237,40 +237,58 @@ function utils.add_intermediate_nullable_fields(operations, space_format, tuple)
         return operations
     end
 
-    if utils.tarantool_supports_fieldpaths() then
-        local formatted_operations, err = utils.convert_operations(operations, space_format)
-        if err ~= nil then
-            return operations
-        end
-
-        operations = formatted_operations
+    -- We need this map to check existence of an operation in constant complexity
+    local operations_map, err = utils.get_operations_map(operations, space_format)
+    if err ~= nil then
+        return operations
     end
 
-    -- We need this map to check existence of an operation in constant complexity
-    local operations_id_map = exists_operations_id_map(operations)
-    for i = 1, #operations do
-        operations = add_nullable_fields_rec(
-            operations,
-            operations_id_map,
-            space_format,
-            tuple,
-            operations[i][2]
+    for key, _ in pairs(operations_map) do
+        operations_map = add_nullable_fields_recursive(
+            operations_map, space_format,
+            tuple, key
         )
     end
 
-    table.sort(operations, function(v1, v2) return v1[2] < v2[2] end)
-    return operations
+    return map_to_table(operations_map)
+end
+
+local function convert_jsonpath_operation(operation)
+    local field_parts = operation[2]:split('.', 1)
+    local field_name = field_parts[1]
+    local field_id = tonumber(field_name:sub(2, -2))
+
+    if #field_parts > 1 or field_id == nil then
+        -- Checking '[4].a.b' case
+        if field_name:sub(1, 1) == '[' and field_name:sub(-1, -1) == ']' then
+            local field_id = tonumber(field_name:sub(2, -2))
+
+            if field_id == nil then
+                -- Checking '["field_name"]' case
+                if field_name:sub(2, 2) == '"' and field_name:sub(-2, -2) == '"' then
+                    return field_name:sub(3, -3), nil
+                end
+            end
+
+            return nil, tonumber(field_name:sub(2, -2))
+        end
+    end
+
+    return field_name, nil
 end
 
 function utils.convert_operations(user_operations, space_format)
+    if utils.tarantool_supports_fieldpaths() then
+        return user_operations
+    end
+
     local converted_operations = {}
 
     for _, operation in ipairs(user_operations) do
         if type(operation[2]) == 'string' then
             local field_id
             for fieldno, field_format in ipairs(space_format) do
-                local operation_name = operation[2]:split('.', 1)[1]
-                if field_format.name == operation_name then
+                if field_format.name == operation[2] then
                     field_id = fieldno
                     break
                 end
@@ -290,6 +308,36 @@ function utils.convert_operations(user_operations, space_format)
     end
 
     return converted_operations
+end
+
+function utils.get_operations_map(user_operations, space_format)
+    local operations_map = {}
+
+    for _, operation in ipairs(user_operations) do
+        if type(operation[2]) == 'string' then
+            local field_name, field_id = convert_jsonpath_operation(operation)
+
+            if field_id == nil then
+                for fieldno, field_format in ipairs(space_format) do
+                    if field_format.name == field_name then
+                        field_id = fieldno
+                        break
+                    end
+                end
+
+                if field_id == nil then
+                    return nil, ParseOperationsError:new(
+                            "Space format doesn't contain field named %q", operation[2])
+                end
+            end
+
+            operations_map[field_id] = operation
+        else
+            operations_map[operation[2]] = operation
+        end
+    end
+
+    return operations_map
 end
 
 function utils.unflatten_rows(rows, metadata)
