@@ -199,24 +199,23 @@ function utils.tarantool_supports_uuids()
     return enabled_tarantool_features.uuids
 end
 
-local function id_not_in_table(operations, id)
+local function exists_operations_id_map(operations)
+    local map = {}
     for _, operation in ipairs(operations) do
-        if operation[2] == id then
-            return false
-        end
+        map[operation[2]] = true
     end
 
-    return true
+    return map
 end
 
-local function add_nullable_fields_rec(operations, space_format, tuple, id)
+local function add_nullable_fields_rec(operations, operations_id_map, space_format, tuple, id)
     if id < 2 or tuple[id - 1] ~= box.NULL then
         return operations
     end
 
-    if space_format[id - 1].is_nullable and id_not_in_table(operations, id - 1) then
+    if space_format[id - 1].is_nullable and not operations_id_map[id - 1] then
         table.insert(operations, {'=', id - 1, box.NULL})
-        return add_nullable_fields_rec(operations, space_format, tuple, id - 1)
+        return add_nullable_fields_rec(operations, operations_id_map, space_format, tuple, id - 1)
     end
 
     return operations
@@ -238,22 +237,29 @@ function utils.add_intermediate_nullable_fields(operations, space_format, tuple)
         return operations
     end
 
-    local formatted_operations, err = utils.convert_operations(operations, space_format)
-    if err ~= nil then
-        return operations
+    if utils.tarantool_supports_fieldpaths() then
+        local formatted_operations, err = utils.convert_operations(operations, space_format)
+        if err ~= nil then
+            return operations
+        end
+
+        operations = formatted_operations
     end
 
-    for i = 1, #formatted_operations do
-        formatted_operations = add_nullable_fields_rec(
-            formatted_operations,
+    -- We need this map to check existence of an operation in constant complexity
+    local operations_id_map = exists_operations_id_map(operations)
+    for i = 1, #operations do
+        operations = add_nullable_fields_rec(
+            operations,
+            operations_id_map,
             space_format,
             tuple,
-            formatted_operations[i][2]
+            operations[i][2]
         )
     end
 
-    table.sort(formatted_operations, function(v1, v2) return v1[2] < v2[2] end)
-    return formatted_operations
+    table.sort(operations, function(v1, v2) return v1[2] < v2[2] end)
+    return operations
 end
 
 function utils.convert_operations(user_operations, space_format)
@@ -263,7 +269,8 @@ function utils.convert_operations(user_operations, space_format)
         if type(operation[2]) == 'string' then
             local field_id
             for fieldno, field_format in ipairs(space_format) do
-                if field_format.name == operation[2] then
+                local operation_name = operation[2]:split('.', 1)[1]
+                if field_format.name == operation_name then
                     field_id = fieldno
                     break
                 end

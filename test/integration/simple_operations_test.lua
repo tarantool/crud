@@ -406,22 +406,13 @@ pgroup:add('test_intermediate_nullable_fields_update', function(g)
     })
 
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
-        server.net_box:call('add_extra_field', {'extra_1'})
-        server.net_box:call('add_extra_field', {'extra_2'})
-        server.net_box:call('add_extra_field', {'extra_3'})
-        server.net_box:call('add_extra_field', {'extra_4'})
-        server.net_box:call('add_extra_field', {'extra_5'})
-        server.net_box:call('add_extra_field', {'extra_6'})
-        server.net_box:call('add_extra_field', {'extra_7'})
-        server.net_box:call('add_extra_field', {'extra_8'})
-        server.net_box:call('add_extra_field', {'extra_9'})
-        server.net_box:call('add_extra_field', {'extra_10'})
-        server.net_box:call('add_extra_field', {'extra_11'})
+        for i = 1, 12 do
+            server.net_box:call('add_extra_field', {'extra_' .. tostring(i)})
+        end
     end)
 
     result, err = g.cluster.main_server.net_box:call('crud.update',
-        {'developers', 1, {{'=', 'extra_3', 'extra_value_3'}}})
-
+        {'developers', 1, {{'=', 'extra_3', { a = { b = {} } } }}})
     t.assert_equals(err, nil)
     objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {
@@ -430,13 +421,12 @@ pgroup:add('test_intermediate_nullable_fields_update', function(g)
             bucket_id = 477,
             extra_1 = box.NULL,
             extra_2 = box.NULL,
-            extra_3 = 'extra_value_3',
+            extra_3 = {a = {b = {}}},
         }
     })
 
     result, err = g.cluster.main_server.net_box:call('crud.update',
-        {'developers', 1, {{'=', 8, 'extra_value_6'}}}) -- update extra_6 field
-
+        {'developers', 1, {{'=', 'extra_3.a.b[1]', 2}, {'=', 'extra_5', 'extra_value_5'}}})
     t.assert_equals(err, nil)
     objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {
@@ -445,15 +435,14 @@ pgroup:add('test_intermediate_nullable_fields_update', function(g)
             bucket_id = 477,
             extra_1 = box.NULL,
             extra_2 = box.NULL,
-            extra_3 = 'extra_value_3',
+            extra_3 = 2,
             extra_4 = box.NULL,
-            extra_5 = box.NULL,
-            extra_6 = 'extra_value_6'
+            extra_5 = 'extra_value_5'
         }
     })
 
     result, err = g.cluster.main_server.net_box:call('crud.update',
-        {'developers', 1, {{'=', 13, 'extra_value_11'}, {'=', 'extra_8', 'extra_value_8'}}})
+        {'developers', 1, {{'=', 9, 'extra_value_7'}}}) -- update extra_7 field
 
     t.assert_equals(err, nil)
     objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -463,15 +452,35 @@ pgroup:add('test_intermediate_nullable_fields_update', function(g)
             bucket_id = 477,
             extra_1 = box.NULL,
             extra_2 = box.NULL,
-            extra_3 = 'extra_value_3',
+            extra_3 = 2,
             extra_4 = box.NULL,
-            extra_5 = box.NULL,
-            extra_6 = 'extra_value_6',
-            extra_7 = box.NULL,
-            extra_8 = 'extra_value_8',
-            extra_9 = box.NULL,
+            extra_5 = 'extra_value_5',
+            extra_6 = box.NULL,
+            extra_7 = 'extra_value_7'
+        }
+    })
+
+    result, err = g.cluster.main_server.net_box:call('crud.update',
+        {'developers', 1, {{'=', 14, 'extra_value_12'}, {'=', 'extra_9', 'extra_value_9'}}})
+
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {
+        {
+            id = 1,
+            bucket_id = 477,
+            extra_1 = box.NULL,
+            extra_2 = box.NULL,
+            extra_3 = 2,
+            extra_4 = box.NULL,
+            extra_5 = 'extra_value_5',
+            extra_6 = box.NULL,
+            extra_7 = 'extra_value_7',
+            extra_8 = box.NULL,
+            extra_9 = 'extra_value_9',
             extra_10 = box.NULL,
-            extra_11 = 'extra_value_11'
+            extra_11 = box.NULL,
+            extra_12 = 'extra_value_12'
         }
     })
 end)

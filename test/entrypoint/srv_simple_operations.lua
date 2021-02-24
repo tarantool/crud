@@ -52,7 +52,7 @@ package.preload['customers-storage'] = function()
 
             rawset(_G, 'add_extra_field', function(name)
                 local new_format = box.space.developers:format()
-                table.insert(new_format, {name = name, type = 'string', is_nullable = true})
+                table.insert(new_format, {name = name, type = 'any', is_nullable = true})
                 box.space.developers:format(new_format)
             end)
 
