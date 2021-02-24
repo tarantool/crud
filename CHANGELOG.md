@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
-* Fixed not fining field in tuple on ``crud.update`` if
+* Fixed not finding field in tuple on ``crud.update`` if
   there are ``is_nullable`` fields in front of it that were added
   when the schema was changed.
 * Fixed select crash when dropping indexes
