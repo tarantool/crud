@@ -222,22 +222,15 @@ local function add_nullable_fields_rec(operations, space_format, tuple, id)
     return operations
 end
 
--- Tarantool < 2 has no fields `box.error.NO_SUCH_FIELD_NO` and `box.error.NO_SUCH_FIELD_NAME`.
-function utils.is_field_not_found(err_code)
-    local patch_parts = _G._TARANTOOL:split('-', 1)[1]:split('.', 2)
-    local major = tonumber(patch_parts[1])
-
-    if major >= 2 then
-        if err_code == box.error.NO_SUCH_FIELD_NO or err_code == box.error.NO_SUCH_FIELD_NAME then
-            return true
-        end
-    else
-        if err_code == box.error.NO_SUCH_FIELD then
-            return true
-        end
+-- Tarantool < 2.3 has no fields `box.error.NO_SUCH_FIELD_NO` and `box.error.NO_SUCH_FIELD_NAME`.
+if _TARANTOOL >= "2.3" then
+    function utils.is_field_not_found(err_code)
+        return err_code == box.error.NO_SUCH_FIELD_NO or err_code == box.error.NO_SUCH_FIELD_NAME
     end
-
-    return false
+else
+    function utils.is_field_not_found(err_code)
+        return err_code == box.error.NO_SUCH_FIELD
+    end
 end
 
 function utils.add_intermediate_nullable_fields(operations, space_format, tuple)
