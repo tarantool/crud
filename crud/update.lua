@@ -38,9 +38,9 @@ local function update_on_storage(space_name, key, operations, field_names)
     end
 
     -- We can only add fields to end of the tuple.
-    -- If schema is updated and intermediate null fields are added, then we will get error.
-    -- Therefore, we need to add filling of intermediate null fields.
-    -- More details: https://github.com/tarantool/crud/issues/113
+    -- If schema is updated and nullable fields are added, then we will get error.
+    -- Therefore, we need to add filling of intermediate nullable fields.
+    -- More details: https://github.com/tarantool/tarantool/issues/3378
     if utils.is_field_not_found(res.err.code) then
         operations = utils.add_intermediate_nullable_fields(operations, space:format(), space:get(key))
         res, err = schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
@@ -83,9 +83,12 @@ local function call_update_on_router(space_name, key, user_operations, opts)
         key = key:totable()
     end
 
-    local operations, err = utils.convert_operations(user_operations, space_format)
-    if err ~= nil then
-        return nil, UpdateError:new("Wrong operations are specified: %s", err), true
+    local operations = user_operations
+    if not utils.tarantool_supports_fieldpaths() then
+        operations, err = utils.convert_operations(user_operations, space_format)
+        if err ~= nil then
+            return nil, UpdateError:new("Wrong operations are specified: %s", err), true
+        end
     end
 
     local bucket_id = sharding.key_get_bucket_id(key, opts.bucket_id)

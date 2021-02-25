@@ -61,9 +61,12 @@ local function call_upsert_on_router(space_name, tuple, user_operations, opts)
     end
 
     local space_format = space:format()
-    local operations, err = utils.convert_operations(user_operations, space_format)
-    if err ~= nil then
-        return nil, UpsertError:new("Wrong operations are specified: %s", err), true
+    local operations = user_operations
+    if not utils.tarantool_supports_fieldpaths() then
+        operations, err = utils.convert_operations(user_operations, space_format)
+        if err ~= nil then
+            return nil, UpsertError:new("Wrong operations are specified: %s", err), true
+        end
     end
 
     local bucket_id, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)

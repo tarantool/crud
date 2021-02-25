@@ -199,23 +199,14 @@ function utils.tarantool_supports_uuids()
     return enabled_tarantool_features.uuids
 end
 
-local function map_to_table(map)
-    local tab = {}
-    for _, value in pairs(map) do
-        table.insert(tab, value)
-    end
-
-    return tab
-end
-
-local function add_nullable_fields_recursive(operations, space_format, tuple, id)
+local function add_nullable_fields_recursive(operations, operations_map, space_format, tuple, id)
     if id < 2 or tuple[id - 1] ~= box.NULL then
         return operations
     end
 
-    if space_format[id - 1].is_nullable and not operations[id - 1] then
-        operations[id - 1] = {'=', id - 1, box.NULL}
-        return add_nullable_fields_recursive(operations, space_format, tuple, id - 1)
+    if space_format[id - 1].is_nullable and not operations_map[id - 1] then
+        table.insert(operations, {'=', id - 1, box.NULL})
+        return add_nullable_fields_recursive(operations, operations_map, space_format, tuple, id - 1)
     end
 
     return operations
@@ -232,32 +223,46 @@ else
     end
 end
 
+local function get_operations_map(operations)
+    local map = {}
+    for _, operation in ipairs(operations) do
+        map[operation[2]] = true
+    end
+
+    return map
+end
+
 function utils.add_intermediate_nullable_fields(operations, space_format, tuple)
     if tuple == nil then
         return operations
     end
 
-    -- We need this map to check existence of an operation in constant complexity
-    local operations_map, err = utils.get_operations_map(operations, space_format)
-    if err ~= nil then
-        return operations
+    -- If tarantool doesn't supports the fieldpaths, we already
+    -- have converted operations (see this function call in update.lua)
+    if utils.tarantool_supports_fieldpaths() then
+        local formatted_operations, err = utils.convert_operations(operations, space_format)
+        if err ~= nil then
+            return operations
+        end
+
+        operations = formatted_operations
     end
 
-    for key, _ in pairs(operations_map) do
-        operations_map = add_nullable_fields_recursive(
-            operations_map, space_format,
-            tuple, key
+    -- We need this map to check if there is a field update
+    -- operation with constant complexity
+    local operations_map = get_operations_map(operations)
+    for _, operation in ipairs(operations) do
+        operations = add_nullable_fields_recursive(
+            operations, operations_map,
+            space_format, tuple, operation[2]
         )
     end
 
-    return map_to_table(operations_map)
+    table.sort(operations, function(v1, v2) return v1[2] < v2[2] end)
+    return operations
 end
 
 function utils.convert_operations(user_operations, space_format)
-    if utils.tarantool_supports_fieldpaths() then
-        return user_operations
-    end
-
     local converted_operations = {}
 
     for _, operation in ipairs(user_operations) do
