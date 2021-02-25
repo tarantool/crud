@@ -253,30 +253,6 @@ function utils.add_intermediate_nullable_fields(operations, space_format, tuple)
     return map_to_table(operations_map)
 end
 
-local function convert_jsonpath_operation(operation)
-    local field_parts = operation[2]:split('.', 1)
-    local field_name = field_parts[1]
-    local field_id = tonumber(field_name:sub(2, -2))
-
-    if #field_parts > 1 or field_id == nil then
-        -- Checking '[4].a.b' case
-        if field_name:sub(1, 1) == '[' and field_name:sub(-1, -1) == ']' then
-            field_id = tonumber(field_name:sub(2, -2))
-
-            if field_id == nil then
-                -- Checking '["field_name"]' case
-                if field_name:sub(2, 2) == '"' and field_name:sub(-2, -2) == '"' then
-                    return field_name:sub(3, -3), nil
-                end
-            end
-
-            return nil, tonumber(field_name:sub(2, -2))
-        end
-    end
-
-    return field_name, nil
-end
-
 function utils.convert_operations(user_operations, space_format)
     if utils.tarantool_supports_fieldpaths() then
         return user_operations
@@ -315,22 +291,18 @@ function utils.get_operations_map(user_operations, space_format)
 
     for _, operation in ipairs(user_operations) do
         if type(operation[2]) == 'string' then
-            local field_name, field_id = convert_jsonpath_operation(operation)
-
-            if field_id == nil then
-                for fieldno, field_format in ipairs(space_format) do
-                    if field_format.name == field_name then
-                        field_id = fieldno
-                        break
-                    end
-                end
-
-                if field_id == nil then
-                    return nil, ParseOperationsError:new(
-                            "Space format doesn't contain field named %q", operation[2])
+            local field_id
+            for fieldno, field_format in ipairs(space_format) do
+                if field_format.name == operation[2] then
+                    field_id = fieldno
+                    break
                 end
             end
 
+            if field_id == nil then
+                return nil, ParseOperationsError:new(
+                        "Space format doesn't contain field named %q", operation[2])
+            end
             operations_map[field_id] = operation
         else
             operations_map[operation[2]] = operation

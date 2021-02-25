@@ -77,11 +77,12 @@ local function call_update_on_router(space_name, key, user_operations, opts)
         return nil, UpdateError:new("Space %q doesn't exist", space_name), true
     end
 
+    local space_format = space:format()
+
     if box.tuple.is(key) then
         key = key:totable()
     end
 
-    local space_format = space:format()
     local operations, err = utils.convert_operations(user_operations, space_format)
     if err ~= nil then
         return nil, UpdateError:new("Wrong operations are specified: %s", err), true
