@@ -318,6 +318,25 @@ local function filter_format_fields(space_format, field_names)
     return filtered_space_format
 end
 
+function utils.get_fields_format(space_format, field_names)
+    dev_checks('table', '?table')
+
+    if field_names == nil then
+        return table.copy(space_format)
+    end
+
+    local filtered_space_format, err = filter_format_fields(
+            space_format,
+            field_names
+    )
+
+    if err ~= nil then
+        return nil, err
+    end
+
+    return filtered_space_format
+end
+
 function utils.format_result(rows, space, field_names)
     local result = {}
     local err
@@ -336,6 +355,49 @@ function utils.format_result(rows, space, field_names)
     end
 
     return result
+end
+
+function utils.update_keys_fieldno(key_parts, start_fieldno)
+    local updated_key_parts = {}
+    start_fieldno = start_fieldno or 1
+    local current_fieldno = start_fieldno
+
+    for _, part in ipairs(key_parts) do
+        local updated_part = table.copy(part)
+        updated_part.fieldno = current_fieldno
+        current_fieldno = current_fieldno + 1
+        table.insert(updated_key_parts, updated_part)
+    end
+
+    return updated_key_parts
+end
+
+function utils.merge_comparison_fields(space_format, key_parts, field_names)
+    dev_checks('table', 'table', '?table')
+
+    if field_names == nil then
+        return nil
+    end
+
+    local merged_field_names = {}
+    local key_field_names = {}
+
+    for _, part in ipairs(key_parts) do
+        local field_name = space_format[part.fieldno].name
+        if not key_field_names[field_name] then
+            table.insert(merged_field_names, field_name)
+            key_field_names[field_name] = true
+        end
+    end
+
+    for _, field_name in ipairs(field_names) do
+        if not key_field_names[field_name] then
+            table.insert(merged_field_names, field_name)
+            key_field_names[field_name] = true
+        end
+    end
+
+    return merged_field_names
 end
 
 local function flatten_obj(space_name, obj)
