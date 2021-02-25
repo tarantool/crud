@@ -33,6 +33,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         iter = 'number',
         limit = 'number',
         scan_condition_num = '?number',
+        field_names = '?table',
     })
 
     local space = box.space[space_name]
@@ -64,6 +65,8 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         return nil, SelectError:new("Failed to execute select: %s", err)
     end
 
+    tuples = schema.filter_tuples_fields(tuples, opts.field_names)
+
     return tuples
 end
 
@@ -77,6 +80,7 @@ local function select_iteration(space_name, plan, opts)
         replicasets = 'table',
         timeout = '?number',
         limit = 'number',
+        field_names = '?table',
     })
 
     -- call select on storages
@@ -86,10 +90,14 @@ local function select_iteration(space_name, plan, opts)
         iter = plan.iter,
         limit = opts.limit,
         scan_condition_num = plan.scan_condition_num,
+        field_names = opts.field_names,
     }
 
     local storage_select_args = {
-        space_name, plan.index_id, plan.conditions, storage_select_opts,
+        space_name,
+        plan.index_id,
+        plan.conditions,
+        storage_select_opts,
     }
 
     local results, err = call.ro(SELECT_FUNC_NAME, storage_select_args, {
@@ -125,6 +133,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         timeout = '?number',
         batch_size = '?number',
         bucket_id = '?number|cdata',
+        field_names = '?table',
     })
 
     opts = opts or {}
@@ -180,6 +189,17 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local scan_index = space.index[plan.index_id]
     local primary_index = space.index[0]
     local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
+
+    local field_names = utils.merge_comparison_fields(
+            space_format,
+            cmp_key_parts,
+            opts.field_names
+    )
+
+    if opts.field_names ~= nil then
+        cmp_key_parts = utils.update_keys_fieldno(cmp_key_parts)
+    end
+
     local cmp_operator = select_comparators.get_cmp_operator(plan.iter)
     local tuples_comparator, err = select_comparators.gen_tuples_comparator(
         cmp_operator, cmp_key_parts
@@ -188,9 +208,18 @@ local function build_select_iterator(space_name, user_conditions, opts)
         return nil, SelectError:new("Failed to generate comparator function: %s", err)
     end
 
+    local filtered_space_format, err = utils.get_fields_format(
+            space_format,
+            field_names
+    )
+
+    if err ~= nil then
+        return nil, err
+    end
+
     local iter = Iterator.new({
         space_name = space_name,
-        space_format = space_format,
+        space_format = filtered_space_format,
         iteration_func = select_iteration,
         comparator = tuples_comparator,
 
@@ -200,6 +229,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         replicasets = replicasets_to_select,
 
         timeout = opts.timeout,
+        field_names = field_names,
     })
 
     return iter
@@ -213,6 +243,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         batch_size = '?number',
         use_tomap = '?boolean',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -227,6 +258,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
+        field_names = opts.fields,
     }
 
     local iter, err = schema.wrap_func_reload(
@@ -247,9 +279,31 @@ function select_module.pairs(space_name, user_conditions, opts)
             error(string.format("Failed to get next object: %s", err))
         end
 
+        local space_format, err = utils.get_fields_format(
+                iter.space_format,
+                opts.fields
+        )
+
+        if err ~= nil then
+            return nil, err
+        end
+
+        if opts.fields then
+            tuple, err = utils.unflatten(tuple, iter.space_format)
+            if err ~= nil then
+                error(string.format("Failed to unflatten next object: %s", err))
+            end
+        end
+
+        tuple, err = schema.filter_result_fields(tuple, opts.fields)
+
+        if err ~= nil then
+            return nil, err
+        end
+
         local result = tuple
         if opts.use_tomap == true then
-            result, err = utils.unflatten(tuple, iter.space_format)
+            result, err = utils.unflatten(tuple, space_format)
             if err ~= nil then
                 error(string.format("Failed to unflatten next object: %s", err))
             end
@@ -268,6 +322,7 @@ function select_module.call(space_name, user_conditions, opts)
         timeout = '?number',
         batch_size = '?number',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -284,6 +339,7 @@ function select_module.call(space_name, user_conditions, opts)
         timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
+        field_names = opts.fields,
     }
 
     local iter, err = schema.wrap_func_reload(
@@ -305,6 +361,12 @@ function select_module.call(space_name, user_conditions, opts)
             break
         end
 
+        if opts.fields then
+            tuple, err = utils.unflatten(tuple, iter.space_format)
+            if err ~= nil then
+                error(string.format("Failed to unflatten next object: %s", err))
+            end
+        end
         table.insert(tuples, tuple)
     end
 
@@ -312,9 +374,24 @@ function select_module.call(space_name, user_conditions, opts)
         utils.reverse_inplace(tuples)
     end
 
+    local filtered_space_format, err = utils.get_fields_format(
+            iter.space_format,
+            opts.fields
+    )
+
+    if err ~= nil then
+        return nil, err
+    end
+
+    local rows, err = schema.filter_tuples_fields(tuples, opts.fields)
+
+    if err ~= nil then
+        return nil, err
+    end
+
     return {
-        metadata = table.copy(iter.space_format),
-        rows = tuples,
+        metadata = filtered_space_format,
+        rows = rows,
     }
 end
 

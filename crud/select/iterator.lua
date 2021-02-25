@@ -25,6 +25,7 @@ function Iterator.new(opts)
         replicasets = 'table',
 
         timeout = '?number',
+        field_names = '?table',
     })
 
     local iter = {
@@ -35,6 +36,7 @@ function Iterator.new(opts)
         plan = opts.plan,
 
         timeout = opts.timeout,
+        field_names = opts.field_names,
 
         replicasets = table.copy(opts.replicasets),
         replicasets_count = utils.table_count(opts.replicasets),
@@ -99,6 +101,7 @@ local function update_replicasets_tuples(iter, after_tuple, replicaset_uuid)
         replicasets = replicasets,
         timeout = iter.timeout,
         limit = limit_per_storage_call,
+        field_names = iter.field_names,
     })
     if err ~= nil then
         return false, UpdateTuplesError:new('Failed to select tuples from storages: %s', err)
