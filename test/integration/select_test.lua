@@ -763,3 +763,68 @@ pgroup:add('test_multipart_primary_index', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {3}))
 end)
+
+pgroup:add('test_select_partial_result_bad_input', function(g)
+    local customers = helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 81, city = "Chicago",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    local conditions = {{'>=', 'age', 33}}
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'customers', conditions, {fields = {'id', 'mame'}}}
+    )
+
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, 'Space format doesn\'t contain field named "mame"')
+end)
+
+pgroup:add('test_select_partial_result', function(g)
+    local customers = helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 81, city = "Chicago",
+        },
+    })
+
+    -- in age order
+    local expected_customers = {
+        {id = 3, name = "David"},
+        {id = 2, name = "Mary"},
+        {id = 4, name = "William"},
+    }
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    local conditions = {{'>=', 'age', 33}}
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'customers', conditions, {fields = {'id', 'name'}}}
+    )
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, expected_customers)
+end)
+
