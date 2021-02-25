@@ -319,3 +319,49 @@ pgroup:add('test_luafun_compatipility', function(g)
     ]])
     t.assert_equals(count, 3)
 end)
+
+pgroup:add('test_pairs_partial_result', function(g)
+    local customers = helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 81, city = "Chicago",
+        },
+    })
+
+    -- in age order
+    local expected_customers = {
+        {id = 3, name = "David"},
+        {id = 2, name = "Mary"},
+        {id = 4, name = "William"},
+    }
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    local conditions = {
+        {'>=', 'age', 33},
+    }
+
+    local objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions = ...
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions,  {use_tomap = true, fields = {'id', 'name'}}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions})
+    t.assert_equals(objects, expected_customers)
+end)
+
