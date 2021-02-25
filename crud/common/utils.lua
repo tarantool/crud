@@ -291,32 +291,6 @@ function utils.convert_operations(user_operations, space_format)
     return converted_operations
 end
 
-function utils.get_operations_map(user_operations, space_format)
-    local operations_map = {}
-
-    for _, operation in ipairs(user_operations) do
-        if type(operation[2]) == 'string' then
-            local field_id
-            for fieldno, field_format in ipairs(space_format) do
-                if field_format.name == operation[2] then
-                    field_id = fieldno
-                    break
-                end
-            end
-
-            if field_id == nil then
-                return nil, ParseOperationsError:new(
-                        "Space format doesn't contain field named %q", operation[2])
-            end
-            operations_map[field_id] = operation
-        else
-            operations_map[operation[2]] = operation
-        end
-    end
-
-    return operations_map
-end
-
 function utils.unflatten_rows(rows, metadata)
     if metadata == nil then
         return nil, UnflattenError:new('Metadata is not provided')
