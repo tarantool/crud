@@ -65,9 +65,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         return nil, SelectError:new("Failed to execute select: %s", err)
     end
 
-    tuples = schema.filter_tuples_fields(tuples, opts.field_names)
-
-    return tuples
+    return schema.filter_tuples_fields(tuples, opts.field_names)
 end
 
 function select_module.init()
@@ -94,10 +92,7 @@ local function select_iteration(space_name, plan, opts)
     }
 
     local storage_select_args = {
-        space_name,
-        plan.index_id,
-        plan.conditions,
-        storage_select_opts,
+        space_name, plan.index_id, plan.conditions, storage_select_opts,
     }
 
     local results, err = call.ro(SELECT_FUNC_NAME, storage_select_args, {
@@ -189,12 +184,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local scan_index = space.index[plan.index_id]
     local primary_index = space.index[0]
     local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
-
-    local field_names = utils.merge_comparison_fields(
-            space_format,
-            cmp_key_parts,
-            opts.field_names
-    )
+    local field_names = utils.merge_comparison_fields(space_format, cmp_key_parts, opts.field_names)
 
     if opts.field_names ~= nil then
         cmp_key_parts = utils.update_keys_fieldno(cmp_key_parts)
@@ -208,10 +198,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         return nil, SelectError:new("Failed to generate comparator function: %s", err)
     end
 
-    local filtered_space_format, err = utils.get_fields_format(
-            space_format,
-            field_names
-    )
+    local filtered_space_format, err = utils.get_fields_format(space_format, field_names)
 
     if err ~= nil then
         return nil, err
@@ -279,10 +266,7 @@ function select_module.pairs(space_name, user_conditions, opts)
             error(string.format("Failed to get next object: %s", err))
         end
 
-        local space_format, err = utils.get_fields_format(
-                iter.space_format,
-                opts.fields
-        )
+        local space_format, err = utils.get_fields_format(iter.space_format, opts.fields)
 
         if err ~= nil then
             return nil, err
@@ -374,10 +358,7 @@ function select_module.call(space_name, user_conditions, opts)
         utils.reverse_inplace(tuples)
     end
 
-    local filtered_space_format, err = utils.get_fields_format(
-            iter.space_format,
-            opts.fields
-    )
+    local filtered_space_format, err = utils.get_fields_format(iter.space_format, opts.fields)
 
     if err ~= nil then
         return nil, err
