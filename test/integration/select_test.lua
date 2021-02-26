@@ -823,4 +823,3 @@ pgroup:add('test_select_partial_result', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, expected_customers)
 end)
-

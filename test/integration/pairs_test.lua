@@ -362,4 +362,3 @@ pgroup:add('test_pairs_partial_result', function(g)
     ]], {conditions})
     t.assert_equals(objects, expected_customers)
 end)
-
