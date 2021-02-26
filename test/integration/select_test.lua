@@ -781,8 +781,6 @@ pgroup:add('test_select_partial_result_bad_input', function(g)
         },
     })
 
-    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
-
     local conditions = {{'>=', 'age', 33}}
     local result, err = g.cluster.main_server.net_box:call('crud.select',
             {'customers', conditions, {fields = {'id', 'mame'}}}
@@ -815,8 +813,6 @@ pgroup:add('test_select_partial_result', function(g)
         {id = 2, name = "Mary"},
         {id = 4, name = "William"},
     }
-
-    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
     local conditions = {{'>=', 'age', 33}}
     local result, err = g.cluster.main_server.net_box:call('crud.select',

@@ -344,8 +344,6 @@ pgroup:add('test_pairs_partial_result', function(g)
         {id = 4, name = "William"},
     }
 
-    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
-
     local conditions = {
         {'>=', 'age', 33},
     }
