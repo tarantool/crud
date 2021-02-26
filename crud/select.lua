@@ -279,7 +279,7 @@ function select_module.pairs(space_name, user_conditions, opts)
             end
         end
 
-        tuple, err = schema.filter_result_fields(tuple, opts.fields)
+        tuple, err = schema.filter_tuple_fields(tuple, opts.fields)
 
         if err ~= nil then
             return nil, err
