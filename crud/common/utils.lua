@@ -325,10 +325,7 @@ function utils.get_fields_format(space_format, field_names)
         return table.copy(space_format)
     end
 
-    local filtered_space_format, err = filter_format_fields(
-            space_format,
-            field_names
-    )
+    local filtered_space_format, err = filter_format_fields(space_format, field_names)
 
     if err ~= nil then
         return nil, err
@@ -359,13 +356,11 @@ end
 
 function utils.update_keys_fieldno(key_parts, start_fieldno)
     local updated_key_parts = {}
-    start_fieldno = start_fieldno or 1
-    local current_fieldno = start_fieldno
+    start_fieldno = start_fieldno or 0
 
-    for _, part in ipairs(key_parts) do
+    for i, part in ipairs(key_parts) do
         local updated_part = table.copy(part)
-        updated_part.fieldno = current_fieldno
-        current_fieldno = current_fieldno + 1
+        updated_part.fieldno = start_fieldno + i
         table.insert(updated_key_parts, updated_part)
     end
 
