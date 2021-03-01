@@ -184,21 +184,16 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local scan_index = space.index[plan.index_id]
     local primary_index = space.index[0]
     local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
-    local field_names = utils.merge_comparison_fields(space_format, cmp_key_parts, opts.field_names)
-
-    if opts.field_names ~= nil then
-        cmp_key_parts = utils.update_keys_fieldno(cmp_key_parts)
-    end
-
+    local merged_result = utils.merge_comparison_fields(space_format, cmp_key_parts, opts.field_names)
     local cmp_operator = select_comparators.get_cmp_operator(plan.iter)
     local tuples_comparator, err = select_comparators.gen_tuples_comparator(
-        cmp_operator, cmp_key_parts
+        cmp_operator, merged_result.key_parts
     )
     if err ~= nil then
         return nil, SelectError:new("Failed to generate comparator function: %s", err)
     end
 
-    local filtered_space_format, err = utils.get_fields_format(space_format, field_names)
+    local filtered_space_format, err = utils.get_fields_format(space_format, merged_result.field_names)
 
     if err ~= nil then
         return nil, err
@@ -216,7 +211,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         replicasets = replicasets_to_select,
 
         timeout = opts.timeout,
-        field_names = field_names,
+        field_names = merged_result.field_names,
     })
 
     return iter
@@ -272,19 +267,7 @@ function select_module.pairs(space_name, user_conditions, opts)
             return nil, err
         end
 
-        if opts.fields then
-            tuple, err = utils.unflatten(tuple, iter.space_format)
-            if err ~= nil then
-                error(string.format("Failed to unflatten next object: %s", err))
-            end
-        end
-
-        tuple, err = schema.filter_tuple_fields(tuple, opts.fields)
-
-        if err ~= nil then
-            return nil, err
-        end
-
+        tuple = schema.truncate_tuple_trailing_fields(tuple, opts.fields)
         local result = tuple
         if opts.use_tomap == true then
             result, err = utils.unflatten(tuple, space_format)
@@ -345,12 +328,6 @@ function select_module.call(space_name, user_conditions, opts)
             break
         end
 
-        if opts.fields then
-            tuple, err = utils.unflatten(tuple, iter.space_format)
-            if err ~= nil then
-                error(string.format("Failed to unflatten next object: %s", err))
-            end
-        end
         table.insert(tuples, tuple)
     end
 
@@ -364,11 +341,7 @@ function select_module.call(space_name, user_conditions, opts)
         return nil, err
     end
 
-    local rows, err = schema.filter_tuples_fields(tuples, opts.fields)
-
-    if err ~= nil then
-        return nil, err
-    end
+    local rows = schema.truncate_tuples_trailing_fields(tuples, opts.fields)
 
     return {
         metadata = filtered_space_format,

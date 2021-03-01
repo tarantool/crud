@@ -354,45 +354,42 @@ function utils.format_result(rows, space, field_names)
     return result
 end
 
-function utils.update_keys_fieldno(key_parts, start_fieldno)
-    local updated_key_parts = {}
-    start_fieldno = start_fieldno or 0
-
-    for i, part in ipairs(key_parts) do
-        local updated_part = table.copy(part)
-        updated_part.fieldno = start_fieldno + i
-        table.insert(updated_key_parts, updated_part)
-    end
-
-    return updated_key_parts
-end
-
 function utils.merge_comparison_fields(space_format, key_parts, field_names)
     dev_checks('table', 'table', '?table')
 
     if field_names == nil then
-        return nil
+        return {
+            field_names = nil,
+            key_parts = key_parts
+        }
     end
 
     local merged_field_names = {}
-    local key_field_names = {}
+    local fields_positions = {}
+    local updated_key_parts = {}
+    local last_position = #field_names + 1
+
+    for i, field_name in ipairs(field_names) do
+        table.insert(merged_field_names, field_name)
+        fields_positions[field_name] = i
+    end
 
     for _, part in ipairs(key_parts) do
         local field_name = space_format[part.fieldno].name
-        if not key_field_names[field_name] then
+        if not fields_positions[field_name] then
             table.insert(merged_field_names, field_name)
-            key_field_names[field_name] = true
+            fields_positions[field_name] = last_position
+            last_position = last_position + 1
         end
+        local updated_part = table.copy(part)
+        updated_part.fieldno = fields_positions[field_name]
+        table.insert(updated_key_parts, updated_part)
     end
 
-    for _, field_name in ipairs(field_names) do
-        if not key_field_names[field_name] then
-            table.insert(merged_field_names, field_name)
-            key_field_names[field_name] = true
-        end
-    end
-
-    return merged_field_names
+    return {
+        field_names = merged_field_names,
+        key_parts = updated_key_parts
+    }
 end
 
 local function flatten_obj(space_name, obj)

@@ -135,6 +135,37 @@ local function get_space_schema_hash(space)
     return digest.murmur(msgpack.encode(space_info))
 end
 
+function schema.truncate_tuple_trailing_fields(tuple, field_names)
+    dev_checks('table|cdata', '?table')
+
+    if field_names == nil then
+        return tuple
+    end
+
+    local index = #field_names + 1
+    local len_tuple = #tuple
+
+    for i = index, len_tuple do
+        tuple[i] = nil
+    end
+
+    return tuple
+end
+
+function schema.truncate_tuples_trailing_fields(tuples, field_names)
+    dev_checks('table|cdata', '?table')
+
+    if field_names == nil then
+        return tuples
+    end
+
+    for i, _ in ipairs(tuples) do
+        tuples[i] = schema.truncate_tuple_trailing_fields(tuples[i], field_names)
+    end
+
+    return tuples
+end
+
 function schema.filter_tuple_fields(tuple, field_names)
     dev_checks('?table|cdata', '?table')
 
