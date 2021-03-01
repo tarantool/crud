@@ -1,9 +1,9 @@
-local fiber = require('fiber')
 local vshard = require('vshard')
 local errors = require('errors')
 
 local dev_checks = require('crud.common.dev_checks')
 local utils = require('crud.common.utils')
+local fiber_clock = require('fiber').clock
 
 local CallError = errors.new_class('Call')
 local NotInitializedError = errors.new_class('NotInitialized')
@@ -11,26 +11,6 @@ local NotInitializedError = errors.new_class('NotInitialized')
 local call = {}
 
 local DEFAULT_VSHARD_CALL_TIMEOUT = 2
-
-local function call_on_replicaset(replicaset, channel, vshard_call, func_name, func_args, opts)
-    -- replicaset:<vshard_call>(func_name,...)
-    local func_ret, err = replicaset[vshard_call](replicaset, func_name, func_args, opts)
-    if type(err) == 'table' and err.type == 'ClientError' and type(err.message) == 'string' then
-        if err.message == string.format("Procedure '%s' is not defined", func_name) then
-            if func_name:startswith('_crud.') then
-                err = NotInitializedError:new("crud isn't initialized on replicaset")
-            else
-                err = NotInitializedError:new("Function %s is not registered", func_name)
-            end
-        end
-    end
-
-    channel:put({
-        replicaset_uuid = replicaset.uuid,
-        func_ret = func_ret,
-        err = err,
-    })
-end
 
 local function call_impl(vshard_call, func_name, func_args, opts)
     dev_checks('string', 'string', '?table', {
@@ -52,39 +32,42 @@ local function call_impl(vshard_call, func_name, func_args, opts)
         end
     end
 
-    local nodes_count = utils.table_count(replicasets)
-    local channel = fiber.channel(nodes_count)
-
+    local futures_by_replicasets = {}
+    local call_opts = {is_async = true}
     for _, replicaset in pairs(replicasets) do
-        fiber.create(
-            call_on_replicaset, replicaset, channel, vshard_call, func_name, func_args, {
-                timeout = timeout,
-            }
-        )
+        local future = replicaset[vshard_call](replicaset, func_name, func_args, call_opts)
+        futures_by_replicasets[replicaset.uuid] = future
     end
 
     local results = {}
-
-    for _ = 1, channel:size() do
-        local res = channel:get()
-
-        if res == nil then
-            if channel:is_closed() then
-                return nil, CallError:new("Channel is closed")
-            end
-
-            return nil, CallError:new("Timeout was reached")
+    local deadline = fiber_clock() + timeout
+    for replicaset_uuid, future in pairs(futures_by_replicasets) do
+        local wait_timeout = deadline - fiber_clock()
+        if wait_timeout < 0 then
+            wait_timeout = 0
         end
 
-        if res.err ~= nil then
-            res.err = errors.wrap(res.err)
+        local result, err = future:wait_result(wait_timeout)
+        if err == nil and result[1] == nil then
+            err = result[2]
+        end
 
+        if err ~= nil then
+            if err.type == 'ClientError' and type(err.message) == 'string' then
+                if err.message == string.format("Procedure '%s' is not defined", func_name) then
+                    if func_name:startswith('_crud.') then
+                        err = NotInitializedError:new("crud isn't initialized on replicaset: %q", replicaset_uuid)
+                    else
+                        err = NotInitializedError:new("Function %s is not registered", func_name)
+                    end
+                end
+            end
+            err = errors.wrap(err)
             return nil, CallError:new(utils.format_replicaset_error(
-                res.replicaset_uuid, "Function returned an error: %s", res.err
+                replicaset_uuid, "Function returned an error: %s", err
             ))
         end
-
-        results[res.replicaset_uuid] = res.func_ret
+        results[replicaset_uuid] = result[1]
     end
 
     return results
