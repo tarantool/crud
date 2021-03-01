@@ -794,32 +794,98 @@ pgroup:add('test_select_partial_result', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
-            age = 12, city = "New York",
+            age = 12, city = "Los Angeles",
         }, {
             id = 2, name = "Mary", last_name = "Brown",
-            age = 46, city = "Los Angeles",
+            age = 46, city = "London",
         }, {
             id = 3, name = "David", last_name = "Smith",
             age = 33, city = "Los Angeles",
         }, {
             id = 4, name = "William", last_name = "White",
-            age = 81, city = "Chicago",
+            age = 46, city = "Chicago",
         },
     })
 
-    -- in age order
+    -- condition by indexed non-unique non-primary field (age):
+    local conditions = {{'>=', 'age', 33}}
+
+    -- condition field is not in opts.fields
+    local fields = {'name', 'city'}
+
+    -- result doesn't contain primary key, result tuples are sorted by field+primary
+    -- in age + id order
     local expected_customers = {
-        {id = 3, name = "David"},
-        {id = 2, name = "Mary"},
-        {id = 4, name = "William"},
+        {name = "David", city = "Los Angeles"},
+        {name = "Mary", city = "London"},
+        {name = "William", city = "Chicago"},
     }
 
-    local conditions = {{'>=', 'age', 33}}
     local result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'customers', conditions, {fields = {'id', 'name'}}}
+            {'customers', conditions, {fields = fields}}
     )
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, expected_customers)
+
+    -- condition field is in opts.fields
+    fields = {'name', 'age'}
+
+    -- result doesn't contain primary key, result tuples are sorted by field+primary
+    -- in age + id order
+    expected_customers = {
+        {name = "David", age = 33},
+        {name = "Mary", age = 46},
+        {name = "William", age = 46},
+    }
+
+    result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'customers', conditions, {fields = fields}}
+    )
+
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, expected_customers)
+
+    -- condition by non-indexed non-unique non-primary field (city):
+    conditions = {{'>=', 'city', 'Lo'}}
+
+    -- condition field is not in opts.fields
+    fields = {'name', 'age'}
+
+    -- result doesn't contain primary key, result tuples are sorted by primary
+    -- in id order
+    expected_customers = {
+        {name = "Elizabeth", age = 12},
+        {name = "Mary", age = 46},
+        {name = "David", age = 33},
+    }
+
+    result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'customers', conditions, {fields = fields}}
+    )
+
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, expected_customers)
+
+    -- condition field is in opts.fields
+    fields = {'name', 'city'}
+
+    -- result doesn't contain primary key, result tuples are sorted by primary
+    -- in id order
+    expected_customers = {
+        {name = "Elizabeth", city = "Los Angeles"},
+        {name = "Mary", city = "London"},
+        {name = "David", city = "Los Angeles"},
+    }
+
+    result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'customers', conditions, {fields = fields}}
+    )
+
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, expected_customers)
 end)
