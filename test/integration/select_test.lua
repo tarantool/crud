@@ -765,7 +765,7 @@ pgroup:add('test_multipart_primary_index', function(g)
 end)
 
 pgroup:add('test_select_partial_result_bad_input', function(g)
-    local customers = helpers.insert_objects(g, 'customers', {
+    helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
@@ -791,7 +791,7 @@ pgroup:add('test_select_partial_result_bad_input', function(g)
 end)
 
 pgroup:add('test_select_partial_result', function(g)
-    local customers = helpers.insert_objects(g, 'customers', {
+    helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "Los Angeles",

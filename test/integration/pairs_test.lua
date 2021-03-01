@@ -321,7 +321,7 @@ pgroup:add('test_luafun_compatipility', function(g)
 end)
 
 pgroup:add('test_pairs_partial_result', function(g)
-    local customers = helpers.insert_objects(g, 'customers', {
+    helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
