@@ -136,7 +136,7 @@ local function get_space_schema_hash(space)
 end
 
 function schema.truncate_tuple_trailing_fields(tuple, field_names)
-    dev_checks('table|cdata', '?table')
+    dev_checks('table', '?table')
 
     if field_names == nil then
         return tuple
@@ -153,7 +153,7 @@ function schema.truncate_tuple_trailing_fields(tuple, field_names)
 end
 
 function schema.truncate_tuples_trailing_fields(tuples, field_names)
-    dev_checks('table|cdata', '?table')
+    dev_checks('table', '?table')
 
     if field_names == nil then
         return tuples
@@ -166,8 +166,7 @@ function schema.truncate_tuples_trailing_fields(tuples, field_names)
     return tuples
 end
 
-function schema.filter_tuple_fields(tuple, field_names)
-    dev_checks('?table|cdata', '?table')
+local function filter_tuple_fields(tuple, field_names)
 
     if field_names == nil or tuple == nil then
         return tuple
@@ -197,7 +196,7 @@ function schema.filter_tuples_fields(tuples, field_names)
     local result = {}
 
     for _, tuple in ipairs(tuples) do
-        local filtered_tuple, err = schema.filter_tuple_fields(tuple, field_names)
+        local filtered_tuple, err = filter_tuple_fields(tuple, field_names)
 
         if err ~= nil then
             return nil, err
@@ -229,7 +228,7 @@ function schema.wrap_box_space_func_result(space, func_name, args, opts)
             result.space_schema_hash = get_space_schema_hash(space)
         end
     else
-        result.res, err = schema.filter_tuple_fields(func_res, opts.field_names)
+        result.res, err = filter_tuple_fields(func_res, opts.field_names)
         if err ~= nil then
             return nil, err
         end
