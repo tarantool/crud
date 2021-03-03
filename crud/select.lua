@@ -262,7 +262,6 @@ function select_module.pairs(space_name, user_conditions, opts)
         end
 
         local space_format, err = utils.get_fields_format(iter.space_format, opts.fields)
-
         if err ~= nil then
             return nil, err
         end
@@ -336,7 +335,6 @@ function select_module.call(space_name, user_conditions, opts)
     end
 
     local filtered_space_format, err = utils.get_fields_format(iter.space_format, opts.fields)
-
     if err ~= nil then
         return nil, err
     end
