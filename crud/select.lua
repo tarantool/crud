@@ -157,10 +157,25 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
     local space_format = space:format()
 
+    local scan_index, err = select_plan.find_scan_index(space, conditions)
+    if err ~= nil then
+        return nil, err
+    end
+
+    local primary_index = space.index[0]
+    local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
+    local updated_space_metadata = utils.merge_comparison_fields(space_format, cmp_key_parts, opts.field_names)
+    local after_tuple, err = schema.convert_tuple_to_space_format(
+            space_format, updated_space_metadata.field_names, opts.after
+    )
+    if err ~= nil then
+        return nil, err
+    end
+
     -- plan select
     local plan, err = select_plan.new(space, conditions, {
         first = opts.first,
-        after_tuple = opts.after,
+        after_tuple = after_tuple,
     })
 
     if err ~= nil then
@@ -181,20 +196,15 @@ local function build_select_iterator(space_name, user_conditions, opts)
     end
 
     -- generate tuples comparator
-    local scan_index = space.index[plan.index_id]
-    local primary_index = space.index[0]
-    local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
-    local merged_result = utils.merge_comparison_fields(space_format, cmp_key_parts, opts.field_names)
     local cmp_operator = select_comparators.get_cmp_operator(plan.iter)
     local tuples_comparator, err = select_comparators.gen_tuples_comparator(
-        cmp_operator, merged_result.key_parts
+        cmp_operator, updated_space_metadata.key_parts
     )
     if err ~= nil then
         return nil, SelectError:new("Failed to generate comparator function: %s", err)
     end
 
-    local filtered_space_format, err = utils.get_fields_format(space_format, merged_result.field_names)
-
+    local filtered_space_format, err = utils.get_fields_format(space_format, updated_space_metadata.field_names)
     if err ~= nil then
         return nil, err
     end
@@ -211,7 +221,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         replicasets = replicasets_to_select,
 
         timeout = opts.timeout,
-        field_names = merged_result.field_names,
+        field_names = updated_space_metadata.field_names,
     })
 
     return iter
@@ -261,15 +271,9 @@ function select_module.pairs(space_name, user_conditions, opts)
             error(string.format("Failed to get next object: %s", err))
         end
 
-        local space_format, err = utils.get_fields_format(iter.space_format, opts.fields)
-        if err ~= nil then
-            return nil, err
-        end
-
-        tuple = schema.truncate_tuple_trailing_fields(tuple, opts.fields)
         local result = tuple
         if opts.use_tomap == true then
-            result, err = utils.unflatten(tuple, space_format)
+            result, err = utils.unflatten(tuple, iter.space_format)
             if err ~= nil then
                 error(string.format("Failed to unflatten next object: %s", err))
             end
@@ -334,16 +338,9 @@ function select_module.call(space_name, user_conditions, opts)
         utils.reverse_inplace(tuples)
     end
 
-    local filtered_space_format, err = utils.get_fields_format(iter.space_format, opts.fields)
-    if err ~= nil then
-        return nil, err
-    end
-
-    local rows = schema.truncate_tuples_trailing_fields(tuples, opts.fields)
-
     return {
-        metadata = filtered_space_format,
-        rows = rows,
+        metadata = iter.space_format,
+        rows = tuples,
     }
 end
 
