@@ -106,6 +106,44 @@ local function extract_sharding_key_from_scan_value(scan_value, scan_index, shar
     return sharding_key
 end
 
+function select_plan.find_scan_index(space, conditions)
+    dev_checks('table', '?table')
+
+    local space_indexes = space.index
+    local space_format = space:format()
+    local scan_index
+
+    if conditions == nil then
+        conditions = {}
+    end
+
+    local ok, err = validate_conditions(conditions, space_indexes, space_format)
+    if not ok then
+        return nil, SelectPlanError:new('Passed bad conditions: %s', err)
+    end
+
+    for _, condition in ipairs(conditions) do
+        scan_index = get_index_for_condition(space_indexes, space_format, condition)
+
+        if scan_index ~= nil then
+            break
+        end
+    end
+
+    local primary_index = space_indexes[0]
+    if scan_index == nil then
+
+        if not index_is_allowed(primary_index) then
+            return nil, IndexTypeError:new('An index that matches specified conditions was not found: ' ..
+                    'At least one of condition indexes or primary index should be of type TREE')
+        end
+
+        scan_index = primary_index
+    end
+
+    return scan_index
+end
+
 function select_plan.new(space, conditions, opts)
     dev_checks('table', '?table', {
         first = '?number',
