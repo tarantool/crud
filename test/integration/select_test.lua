@@ -816,9 +816,9 @@ pgroup:add('test_select_partial_result', function(g)
     -- result doesn't contain primary key, result tuples are sorted by field+primary
     -- in age + id order
     local expected_customers = {
-        {name = "David", city = "Los Angeles"},
-        {name = "Mary", city = "London"},
-        {name = "William", city = "Chicago"},
+        {id = 3, age = 33, name = "David", city = "Los Angeles"},
+        {id = 2, age = 46, name = "Mary", city = "London"},
+        {id = 4, age = 46, name = "William", city = "Chicago"},
     }
 
     local result, err = g.cluster.main_server.net_box:call('crud.select',
@@ -829,19 +829,47 @@ pgroup:add('test_select_partial_result', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, expected_customers)
 
+    -- same case with after option
+    expected_customers = {
+        {id = 2, age = 46, name = "Mary", city = "London"},
+        {id = 4, age = 46, name = "William", city = "Chicago"},
+    }
+
+    result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'customers', conditions, {after = result.rows[1], fields = fields}}
+    )
+
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, expected_customers)
+
     -- condition field is in opts.fields
     fields = {'name', 'age'}
 
     -- result doesn't contain primary key, result tuples are sorted by field+primary
     -- in age + id order
     expected_customers = {
-        {name = "David", age = 33},
-        {name = "Mary", age = 46},
-        {name = "William", age = 46},
+        {id = 3, age = 33, name = "David"},
+        {id = 2, age = 46, name = "Mary"},
+        {id = 4, age = 46, name = "William"},
     }
 
     result, err = g.cluster.main_server.net_box:call('crud.select',
             {'customers', conditions, {fields = fields}}
+    )
+
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, expected_customers)
+
+    -- same case with after option
+    expected_customers = {
+        {id = 2, age = 46, name = "Mary"},
+        {id = 4, age = 46, name = "William"},
+    }
+
+    result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'customers', conditions, {after = result.rows[1], fields = fields}}
     )
 
     t.assert_equals(err, nil)
@@ -857,13 +885,27 @@ pgroup:add('test_select_partial_result', function(g)
     -- result doesn't contain primary key, result tuples are sorted by primary
     -- in id order
     expected_customers = {
-        {name = "Elizabeth", age = 12},
-        {name = "Mary", age = 46},
-        {name = "David", age = 33},
+        {id = 1, name = "Elizabeth", age = 12},
+        {id = 2, name = "Mary", age = 46},
+        {id = 3, name = "David", age = 33},
     }
 
     result, err = g.cluster.main_server.net_box:call('crud.select',
             {'customers', conditions, {fields = fields}}
+    )
+
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, expected_customers)
+
+    -- same case with after option
+    expected_customers = {
+        {id = 2, name = "Mary", age = 46},
+        {id = 3, name = "David", age = 33},
+    }
+
+    result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'customers', conditions, {after = result.rows[1], fields = fields}}
     )
 
     t.assert_equals(err, nil)
@@ -876,13 +918,27 @@ pgroup:add('test_select_partial_result', function(g)
     -- result doesn't contain primary key, result tuples are sorted by primary
     -- in id order
     expected_customers = {
-        {name = "Elizabeth", city = "Los Angeles"},
-        {name = "Mary", city = "London"},
-        {name = "David", city = "Los Angeles"},
+        {id = 1, name = "Elizabeth", city = "Los Angeles"},
+        {id = 2, name = "Mary", city = "London"},
+        {id = 3, name = "David", city = "Los Angeles"},
     }
 
     result, err = g.cluster.main_server.net_box:call('crud.select',
             {'customers', conditions, {fields = fields}}
+    )
+
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, expected_customers)
+
+    -- same case with after option
+    expected_customers = {
+        {id = 2, name = "Mary", city = "London"},
+        {id = 3, name = "David", city = "Los Angeles"},
+    }
+
+    result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'customers', conditions, {after = result.rows[1], fields = fields}}
     )
 
     t.assert_equals(err, nil)
