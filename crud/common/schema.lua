@@ -135,35 +135,36 @@ local function get_space_schema_hash(space)
     return digest.murmur(msgpack.encode(space_info))
 end
 
-function schema.truncate_tuple_trailing_fields(tuple, field_names)
-    dev_checks('table', '?table')
+function schema.convert_tuple_to_space_format(space_format, field_names, tuple)
+    dev_checks('table', '?table', '?table')
+
+    if tuple == nil then
+        return nil
+    end
 
     if field_names == nil then
         return tuple
     end
 
-    local index = #field_names + 1
-    local len_tuple = #tuple
+    local positions = {}
+    local transformed_tuple = {}
 
-    for i = index, len_tuple do
-        tuple[i] = nil
+    for i, field in ipairs(space_format) do
+        positions[field.name] = i
     end
 
-    return tuple
-end
+    for i, field_name in ipairs(field_names) do
+        local fieldno = positions[field_name]
+        if fieldno == nil then
+            return nil, FilterFieldsError:new(
+                    'Space format doesn\'t contain field named %q', field_name
+            )
+        end
 
-function schema.truncate_tuples_trailing_fields(tuples, field_names)
-    dev_checks('table', '?table')
-
-    if field_names == nil then
-        return tuples
+        transformed_tuple[fieldno] = tuple[i]
     end
 
-    for i, _ in ipairs(tuples) do
-        tuples[i] = schema.truncate_tuple_trailing_fields(tuples[i], field_names)
-    end
-
-    return tuples
+    return transformed_tuple
 end
 
 local function filter_tuple_fields(tuple, field_names)
