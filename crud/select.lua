@@ -159,7 +159,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
     local scan_index, err = select_plan.find_scan_index(space, conditions)
     if err ~= nil then
-        return nil, err
+        return nil, err, true
     end
 
     local primary_index = space.index[0]
