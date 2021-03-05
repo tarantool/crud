@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 * Support for UUID field types and UUID values
 * `fields` option for simple operations to get partial result
+* `fields` option for select/pairs with pagination support
 
 ## [0.4.0] - 2020-12-02
 
