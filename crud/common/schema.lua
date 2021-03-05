@@ -136,7 +136,6 @@ local function get_space_schema_hash(space)
 end
 
 local function filter_tuple_fields(tuple, field_names)
-
     if field_names == nil or tuple == nil then
         return tuple
     end
