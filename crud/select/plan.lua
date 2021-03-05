@@ -9,6 +9,7 @@ local select_plan = {}
 local SelectPlanError = errors.new_class('SelectPlanError', {capture_stack = false})
 local IndexTypeError = errors.new_class('IndexTypeError', {capture_stack = false})
 local ValidateConditionsError = errors.new_class('ValidateConditionsError', {capture_stack = false})
+local FilterFieldsError = errors.new_class('FilterFieldsError',  {capture_stack = false})
 
 local function index_is_allowed(index)
     return index.type == 'TREE'
@@ -106,48 +107,65 @@ local function extract_sharding_key_from_scan_value(scan_value, scan_index, shar
     return sharding_key
 end
 
-function select_plan.find_scan_index(space, conditions)
-    dev_checks('table', '?table')
-
-    local space_indexes = space.index
-    local space_format = space:format()
-    local scan_index
-
-    if conditions == nil then
-        conditions = {}
+local function construct_after_tuple_by_fields(space_format, field_names, tuple)
+    if tuple == nil then
+        return nil
     end
 
-    local ok, err = validate_conditions(conditions, space_indexes, space_format)
-    if not ok then
-        return nil, SelectPlanError:new('Passed bad conditions: %s', err)
+    if field_names == nil then
+        return tuple
     end
 
-    for _, condition in ipairs(conditions) do
-        scan_index = get_index_for_condition(space_indexes, space_format, condition)
+    local positions = {}
+    local transformed_tuple = {}
 
-        if scan_index ~= nil then
-            break
+    for i, field in ipairs(space_format) do
+        positions[field.name] = i
+    end
+
+    for i, field_name in ipairs(field_names) do
+        local fieldno = positions[field_name]
+        if fieldno == nil then
+            return nil, FilterFieldsError:new(
+                    'Space format doesn\'t contain field named %q', field_name
+            )
+        end
+
+        transformed_tuple[fieldno] = tuple[i]
+    end
+
+    return transformed_tuple
+end
+
+local function enrich_field_names_with_cmp_key(field_names, key_parts, space_format)
+    if field_names == nil then
+        return nil
+    end
+
+    local enriched_field_names = {}
+    local key_field_names = {}
+
+    for _, field_name in ipairs(field_names) do
+        table.insert(enriched_field_names, field_name)
+        key_field_names[field_name] = true
+    end
+
+    for _, part in ipairs(key_parts) do
+        local field_name = space_format[part.fieldno].name
+        if not key_field_names[field_name] then
+            table.insert(enriched_field_names, field_name)
+            key_field_names[field_name] = true
         end
     end
 
-    local primary_index = space_indexes[0]
-    if scan_index == nil then
-
-        if not index_is_allowed(primary_index) then
-            return nil, IndexTypeError:new('An index that matches specified conditions was not found: ' ..
-                    'At least one of condition indexes or primary index should be of type TREE')
-        end
-
-        scan_index = primary_index
-    end
-
-    return scan_index
+    return enriched_field_names
 end
 
 function select_plan.new(space, conditions, opts)
     dev_checks('table', '?table', {
         first = '?number',
         after_tuple = '?table',
+        field_names = '?table',
     })
 
     conditions = conditions ~= nil and conditions or {}
@@ -197,9 +215,17 @@ function select_plan.new(space, conditions, opts)
         scan_value = {}
     end
 
+    local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
+    local field_names = enrich_field_names_with_cmp_key(opts.field_names, cmp_key_parts, space_format)
+
     -- handle opts.first
     local total_tuples_count
-    local scan_after_tuple = opts.after_tuple
+    local scan_after_tuple, err = construct_after_tuple_by_fields(
+            space_format, field_names, opts.after_tuple
+    )
+    if err ~= nil then
+        return nil, err
+    end
 
     if opts.first ~= nil then
         total_tuples_count = math.abs(opts.first)
@@ -241,6 +267,7 @@ function select_plan.new(space, conditions, opts)
         iter = scan_iter,
         total_tuples_count = total_tuples_count,
         sharding_key = sharding_key,
+        field_names = field_names,
     }
 
     return plan
