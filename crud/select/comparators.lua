@@ -83,6 +83,9 @@ local function gen_array_cmp_func(target, key_parts)
     end
 end
 
+-- if `fields` option is specified then tuples to compare contains
+-- fields in order specified by field_names
+-- for comparison tuples we need to change fieldno in key_parts according to field_names
 local function update_key_parts_by_field_names(space_format, field_names, key_parts)
     if field_names == nil then
         return key_parts

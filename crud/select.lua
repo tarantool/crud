@@ -65,6 +65,8 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         return nil, SelectError:new("Failed to execute select: %s", err)
     end
 
+    -- getting tuples with user defined fields (if `fields` option is specified)
+    -- and fields that are needed for comparison on router (primary key + scan key)
     return schema.filter_tuples_fields(tuples, opts.field_names)
 end
 
@@ -188,7 +190,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
     -- generator of tuples comparator needs field_names and space_format
     -- to update fieldno in each part in cmp_key_parts because storage result contains
-    -- fields in order specified by the field_names
+    -- fields in order specified by field_names
     local tuples_comparator, err = select_comparators.gen_tuples_comparator(
         cmp_operator, cmp_key_parts, opts.field_names, space_format
     )
@@ -196,6 +198,8 @@ local function build_select_iterator(space_name, user_conditions, opts)
         return nil, SelectError:new("Failed to generate comparator function: %s", err)
     end
 
+    -- filter space format by plan.field_names (user defined fields + primary key + scan key)
+    -- to pass it user as metadata
     local filtered_space_format, err = utils.get_fields_format(space_format, plan.field_names)
     if err ~= nil then
         return nil, err
