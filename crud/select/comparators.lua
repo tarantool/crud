@@ -102,8 +102,9 @@ local function update_key_parts_by_field_names(space_format, field_names, key_pa
             fields_positions[field_name] = last_position
             last_position = last_position + 1
         end
-        local updated_part = table.copy(part)
-        updated_part.fieldno = fields_positions[field_name]
+        local updated_part = {type = part.type,
+                              fieldno = fields_positions[field_name],
+                              is_nullable = part.is_nullable}
         table.insert(updated_key_parts, updated_part)
     end
 
