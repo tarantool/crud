@@ -107,6 +107,11 @@ local function extract_sharding_key_from_scan_value(scan_value, scan_index, shar
     return sharding_key
 end
 
+-- We need to construct after_tuple by field_names
+-- because if `fields` option is specified we have after_tuple with partial fields
+-- and these fields are ordered by field_names + primary key + scan key
+-- this order can be differ from order in space format
+-- so we need to cast after_tuple to space format for scrolling tuples on storage
 local function construct_after_tuple_by_fields(space_format, field_names, tuple)
     if tuple == nil then
         return nil
