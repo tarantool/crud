@@ -354,44 +354,6 @@ function utils.format_result(rows, space, field_names)
     return result
 end
 
-function utils.merge_comparison_fields(space_format, key_parts, field_names)
-    dev_checks('table', 'table', '?table')
-
-    if field_names == nil then
-        return {
-            field_names = nil,
-            key_parts = key_parts
-        }
-    end
-
-    local merged_field_names = {}
-    local fields_positions = {}
-    local updated_key_parts = {}
-    local last_position = #field_names + 1
-
-    for i, field_name in ipairs(field_names) do
-        table.insert(merged_field_names, field_name)
-        fields_positions[field_name] = i
-    end
-
-    for _, part in ipairs(key_parts) do
-        local field_name = space_format[part.fieldno].name
-        if not fields_positions[field_name] then
-            table.insert(merged_field_names, field_name)
-            fields_positions[field_name] = last_position
-            last_position = last_position + 1
-        end
-        local updated_part = table.copy(part)
-        updated_part.fieldno = fields_positions[field_name]
-        table.insert(updated_key_parts, updated_part)
-    end
-
-    return {
-        field_names = merged_field_names,
-        key_parts = updated_key_parts
-    }
-end
-
 local function flatten_obj(space_name, obj)
     local space_format, err = utils.get_space_format(space_name, vshard.router.routeall())
     if err ~= nil then
