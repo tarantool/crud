@@ -78,7 +78,6 @@ local function select_iteration(space_name, plan, opts)
         replicasets = 'table',
         timeout = '?number',
         limit = 'number',
-        field_names = '?table',
     })
 
     -- call select on storages
@@ -88,7 +87,7 @@ local function select_iteration(space_name, plan, opts)
         iter = plan.iter,
         limit = opts.limit,
         scan_condition_num = plan.scan_condition_num,
-        field_names = opts.field_names,
+        field_names = plan.field_names,
     }
 
     local storage_select_args = {
@@ -157,25 +156,11 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
     local space_format = space:format()
 
-    local scan_index, err = select_plan.find_scan_index(space, conditions)
-    if err ~= nil then
-        return nil, err, true
-    end
-
-    local primary_index = space.index[0]
-    local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
-    local updated_space_metadata = utils.merge_comparison_fields(space_format, cmp_key_parts, opts.field_names)
-    local after_tuple, err = schema.convert_tuple_to_space_format(
-            space_format, updated_space_metadata.field_names, opts.after
-    )
-    if err ~= nil then
-        return nil, err
-    end
-
     -- plan select
     local plan, err = select_plan.new(space, conditions, {
         first = opts.first,
-        after_tuple = after_tuple,
+        after_tuple = opts.after,
+        field_names = opts.field_names,
     })
 
     if err ~= nil then
@@ -196,15 +181,22 @@ local function build_select_iterator(space_name, user_conditions, opts)
     end
 
     -- generate tuples comparator
+    local scan_index = space.index[plan.index_id]
+    local primary_index = space.index[0]
+    local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
     local cmp_operator = select_comparators.get_cmp_operator(plan.iter)
+
+    -- generator of tuples comparator needs field_names and space_format
+    -- to update fieldno in each part in cmp_key_parts because storage result contains
+    -- fields in order specified by the field_names
     local tuples_comparator, err = select_comparators.gen_tuples_comparator(
-        cmp_operator, updated_space_metadata.key_parts
+        cmp_operator, cmp_key_parts, opts.field_names, space_format
     )
     if err ~= nil then
         return nil, SelectError:new("Failed to generate comparator function: %s", err)
     end
 
-    local filtered_space_format, err = utils.get_fields_format(space_format, updated_space_metadata.field_names)
+    local filtered_space_format, err = utils.get_fields_format(space_format, plan.field_names)
     if err ~= nil then
         return nil, err
     end
@@ -221,7 +213,6 @@ local function build_select_iterator(space_name, user_conditions, opts)
         replicasets = replicasets_to_select,
 
         timeout = opts.timeout,
-        field_names = updated_space_metadata.field_names,
     })
 
     return iter
