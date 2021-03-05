@@ -301,3 +301,41 @@ res
   - [3, 9661, 'Pavel', 'Adams', 27]
 ...
 ```
+
+## ``fields`` parameter
+
+With ``fields`` parameter you can choose the value of which fields you would like to get.
+Result contains fields specified by ``fields`` parameter, primary key and scan key. We need primary and scan keys in result to support pagination.
+
+**Example:**
+
+```lua
+-- condition by indexed non-unique non-primary field
+res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} })
+res
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [3, 'Pavel', 27]
+  - [6, 'Alexey', 31]
+  - [4, 'Mikhail', 51]
+```
+
+You can use pagination and ``fields`` option together if you pass tuple gotten with ``fields`` option to ``after``.
+
+**Example with pagination:**
+
+```lua
+-- condition by indexed non-unique non-primary field
+res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, after = res.rows[1] })
+res
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [6, 'Alexey', 31]
+  - [4, 'Mikhail', 51]
+```

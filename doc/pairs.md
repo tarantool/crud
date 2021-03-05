@@ -207,3 +207,65 @@ tuples
     - 51
 ...
 ```
+## ``fields`` parameter
+
+With ``fields`` parameter you can choose the value of which fields you would like to get.
+Result contains fields specified by ``fields`` parameter, primary key and scan key. We need primary and scan keys in result to support pagination.
+
+**Example:**
+
+```lua
+objects = {}
+-- condition by indexed non-unique non-primary field
+for _, obj in crud.pairs('developers', {{'>=', 'age', 31}},  {use_tomap = true, fields = {'name'}}) do
+    table.insert(objects, obj)
+end
+
+objects
+---
+- - id: 6
+    name: Alexey
+    age: 31
+  - id: 4
+    name: Mikhail
+    age: 51
+...
+```
+
+You can use pagination and ``fields`` option together if you pass tuple gotten with ``fields`` option to ``after``.
+
+**Example with pagination:**
+
+```lua
+tuples = {}
+for _, tuple in crud.pairs('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} }) do
+    table.insert(tuples, tuple)
+end
+
+tuples
+---
+- - - 3
+    - Pavel
+    - 27
+  - - 6
+    - Alexey
+    - 31
+  - - 4
+    - Mikhail
+    - 51
+...
+new_tuples = {}
+for _, tuple in crud.pairs('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, after = tuples[1]}) do
+    table.insert(new_tuples, tuple)
+end
+
+new_tuples
+---
+- - - 6
+    - Alexey
+    - 31
+  - - 4
+    - Mikhail
+    - 51
+...
+```
