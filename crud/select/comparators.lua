@@ -83,6 +83,33 @@ local function gen_array_cmp_func(target, key_parts)
     end
 end
 
+local function update_key_parts_by_field_names(space_format, field_names, key_parts)
+    if field_names == nil then
+        return key_parts
+    end
+
+    local fields_positions = {}
+    local updated_key_parts = {}
+    local last_position = #field_names + 1
+
+    for i, field_name in ipairs(field_names) do
+        fields_positions[field_name] = i
+    end
+
+    for _, part in ipairs(key_parts) do
+        local field_name = space_format[part.fieldno].name
+        if not fields_positions[field_name] then
+            fields_positions[field_name] = last_position
+            last_position = last_position + 1
+        end
+        local updated_part = table.copy(part)
+        updated_part.fieldno = fields_positions[field_name]
+        table.insert(updated_key_parts, updated_part)
+    end
+
+    return updated_key_parts
+end
+
 local cmp_operators_by_tarantool_iter = {
     [box.index.GT] = operators.GT,
     [box.index.GE] = operators.GT,
@@ -127,15 +154,18 @@ function comparators.gen_func(cmp_operator, key_parts)
     return func
 end
 
-function comparators.gen_tuples_comparator(cmp_operator, key_parts)
-    local keys_comparator, err = comparators.gen_func(cmp_operator, key_parts)
+function comparators.gen_tuples_comparator(cmp_operator, key_parts, field_names, space_format)
+    local updated_key_parts = update_key_parts_by_field_names(
+            space_format, field_names, key_parts
+    )
+    local keys_comparator, err = comparators.gen_func(cmp_operator, updated_key_parts)
     if err ~= nil then
         return nil, ComparatorsError:new("Failed to generate comparator function: %s", err)
     end
 
     return function(lhs, rhs)
-        local lhs_key = utils.extract_key(lhs, key_parts)
-        local rhs_key = utils.extract_key(rhs, key_parts)
+        local lhs_key = utils.extract_key(lhs, updated_key_parts)
+        local rhs_key = utils.extract_key(rhs, updated_key_parts)
 
         return keys_comparator(lhs_key, rhs_key)
     end
