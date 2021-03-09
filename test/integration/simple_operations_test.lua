@@ -392,6 +392,92 @@ pgroup:add('test_upsert', function(g)
     t.assert_equals(result.rows, {{67, 1143, 'Mikhail Saltykov-Shchedrin', 63}})
 end)
 
+pgroup:add('test_intermediate_nullable_fields_update', function(g)
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.insert', {'developers', {1, box.NULL}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {
+        {
+            id = 1,
+            bucket_id = 477
+        }
+    })
+
+    helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
+        for i = 1, 12 do
+            server.net_box:call('add_extra_field', {'extra_' .. tostring(i)})
+        end
+    end)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.update',
+        {'developers', 1, {{'=', 'extra_3', { a = { b = {} } } }}})
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {
+        {
+            id = 1,
+            bucket_id = 477,
+            extra_1 = box.NULL,
+            extra_2 = box.NULL,
+            extra_3 = {a = {b = {}}},
+        }
+    })
+
+    -- This tests use jsonpath updates.
+    if _TARANTOOL >= "2.3" then
+        local _, err = g.cluster.main_server.net_box:call('crud.update',
+            {'developers', 1, {{'=', '[5].a.b[1]', 3}, {'=', 'extra_5', 'extra_value_5'}}})
+        t.assert_equals(err.err, "Failed to update: Field ''extra_5'' was not found in the tuple")
+    end
+
+    result, err = g.cluster.main_server.net_box:call('crud.update',
+        {'developers', 1, {{'=', 5, 'extra_value_3'}, {'=', 7, 'extra_value_5'}}})
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {
+        {
+            id = 1,
+            bucket_id = 477,
+            extra_1 = box.NULL,
+            extra_2 = box.NULL,
+            extra_3 = 'extra_value_3',
+            extra_4 = box.NULL,
+            extra_5 = 'extra_value_5',
+        }
+    })
+
+    result, err = g.cluster.main_server.net_box:call('crud.update',
+        {'developers', 1, {
+            {'=', 14, 'extra_value_12'},
+            {'=', 'extra_9', 'extra_value_9'},
+            {'=', 'extra_3', 'updated_extra_value_3'}
+        }
+    })
+
+    t.assert_equals(err, nil)
+    objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {
+        {
+            id = 1,
+            bucket_id = 477,
+            extra_1 = box.NULL,
+            extra_2 = box.NULL,
+            extra_3 = 'updated_extra_value_3',
+            extra_4 = box.NULL,
+            extra_5 = 'extra_value_5',
+            extra_6 = box.NULL,
+            extra_7 = box.NULL,
+            extra_8 = box.NULL,
+            extra_9 = 'extra_value_9',
+            extra_10 = box.NULL,
+            extra_11 = box.NULL,
+            extra_12 = 'extra_value_12'
+        }
+    })
+end)
+
 pgroup:add('test_object_with_nullable_fields', function(g)
     -- Insert
     local result, err = g.cluster.main_server.net_box:call(

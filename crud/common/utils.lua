@@ -199,11 +199,70 @@ function utils.tarantool_supports_uuids()
     return enabled_tarantool_features.uuids
 end
 
-function utils.convert_operations(user_operations, space_format)
-    if utils.tarantool_supports_fieldpaths() then
-        return user_operations
+local function add_nullable_fields_recursive(operations, operations_map, space_format, tuple, id)
+    if id < 2 or tuple[id - 1] ~= box.NULL then
+        return operations
     end
 
+    if space_format[id - 1].is_nullable and not operations_map[id - 1] then
+        table.insert(operations, {'=', id - 1, box.NULL})
+        return add_nullable_fields_recursive(operations, operations_map, space_format, tuple, id - 1)
+    end
+
+    return operations
+end
+
+-- Tarantool < 2.3 has no fields `box.error.NO_SUCH_FIELD_NO` and `box.error.NO_SUCH_FIELD_NAME`.
+if _TARANTOOL >= "2.3" then
+    function utils.is_field_not_found(err_code)
+        return err_code == box.error.NO_SUCH_FIELD_NO or err_code == box.error.NO_SUCH_FIELD_NAME
+    end
+else
+    function utils.is_field_not_found(err_code)
+        return err_code == box.error.NO_SUCH_FIELD
+    end
+end
+
+local function get_operations_map(operations)
+    local map = {}
+    for _, operation in ipairs(operations) do
+        map[operation[2]] = true
+    end
+
+    return map
+end
+
+function utils.add_intermediate_nullable_fields(operations, space_format, tuple)
+    if tuple == nil then
+        return operations
+    end
+
+    -- If tarantool doesn't supports the fieldpaths, we already
+    -- have converted operations (see this function call in update.lua)
+    if utils.tarantool_supports_fieldpaths() then
+        local formatted_operations, err = utils.convert_operations(operations, space_format)
+        if err ~= nil then
+            return operations
+        end
+
+        operations = formatted_operations
+    end
+
+    -- We need this map to check if there is a field update
+    -- operation with constant complexity
+    local operations_map = get_operations_map(operations)
+    for _, operation in ipairs(operations) do
+        operations = add_nullable_fields_recursive(
+            operations, operations_map,
+            space_format, tuple, operation[2]
+        )
+    end
+
+    table.sort(operations, function(v1, v2) return v1[2] < v2[2] end)
+    return operations
+end
+
+function utils.convert_operations(user_operations, space_format)
     local converted_operations = {}
 
     for _, operation in ipairs(user_operations) do
