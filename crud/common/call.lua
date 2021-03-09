@@ -112,7 +112,7 @@ function call.map(func_name, func_args, opts)
             return nil, wrap_vshard_err(err, func_name, replicaset_uuid)
         end
 
-        results[replicaset_uuid] = result[1]
+        results[replicaset_uuid] = result
     end
 
     return results
