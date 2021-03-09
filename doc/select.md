@@ -304,12 +304,21 @@ res
 
 ## ``fields`` parameter
 
-With ``fields`` parameter you can choose the value of which fields you would like to get.
-Result contains fields specified by ``fields`` parameter, primary key and scan key. We need primary and scan keys in result to support pagination.
+Result contains only fields specified by ``fields`` parameter, but scan key and primary key values are merged to the result fields to support pagination (any tuple from result can be simply passed to ``after`` option).
+Using ``fields`` parameters allows to reduce amount of data transferred from storage.
 
 **Example:**
 
 ```lua
+-- list space fields
+format = box.space.developers:format()
+format
+- {'name': 'id', 'type': 'unsigned'}
+- {'name': 'bucked_id', 'type': 'unsigned'}
+- {'name': 'name', 'type': 'string'}
+- {'name': 'surname', 'type': 'string'}
+- {'name': 'age', 'type': 'number'}
+...
 -- condition by indexed non-unique non-primary field
 res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} })
 res
@@ -322,12 +331,34 @@ res
   - [6, 'Alexey', 31]
   - [4, 'Mikhail', 51]
 ```
+We got ``name`` field as it was specified, ``age`` field because space was scanned by ``age`` index and primary key ``id``.
 
-You can use pagination and ``fields`` option together if you pass tuple gotten with ``fields`` option to ``after``.
+``after`` tuple should contain the same fields as we receive on ``select`` call with such ``fields`` parameters.
 
-**Example with pagination:**
+**Example:**
 
 ```lua
+-- list space fields
+format = box.space.developers:format()
+format
+- {'name': 'id', 'type': 'unsigned'} 
+- {'name': 'bucked_id', 'type': 'unsigned'}
+- {'name': 'name', 'type': 'string'}
+- {'name': 'surname', 'type': 'string'}
+- {'name': 'age', 'type': 'number'}
+...
+-- condition by indexed non-unique non-primary field
+res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} })
+res
+- metadata: 
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [3, 'Pavel', 27]
+  - [6, 'Alexey', 31]
+  - [4, 'Mikhail', 51]
+...
 -- condition by indexed non-unique non-primary field
 res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, after = res.rows[1] })
 res
@@ -338,4 +369,12 @@ res
   rows:
   - [6, 'Alexey', 31]
   - [4, 'Mikhail', 51]
+...
+-- 'fields' isn't specified
+res, err = crud.select('developers', {{'>=', 'age', 27}})
+
+-- THIS WOULD FAIL
+-- call 'select' with 'fields' option specified 
+-- and pass to 'after' tuple that were got without 'fields' option
+res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, after = res.rows[1] })
 ```

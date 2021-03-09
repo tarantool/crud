@@ -209,12 +209,21 @@ tuples
 ```
 ## ``fields`` parameter
 
-With ``fields`` parameter you can choose the value of which fields you would like to get.
-Result contains fields specified by ``fields`` parameter, primary key and scan key. We need primary and scan keys in result to support pagination.
+Result contains only fields specified by ``fields`` parameter, but scan key and primary key values are merged to the result fields to support pagination (any tuple from result can be simply passed to ``after`` option).
+Using ``fields`` parameters allows to reduce amount of data transferred from storage.
 
 **Example:**
 
 ```lua
+-- list space fields
+format = box.space.developers:format()
+format
+- {'name': 'id', 'type': 'unsigned'}
+- {'name': 'bucked_id', 'type': 'unsigned'}
+- {'name': 'name', 'type': 'string'}
+- {'name': 'surname', 'type': 'string'} 
+- {'name': 'age', 'type': 'number'}
+...
 objects = {}
 -- condition by indexed non-unique non-primary field
 for _, obj in crud.pairs('developers', {{'>=', 'age', 31}},  {use_tomap = true, fields = {'name'}}) do
@@ -231,12 +240,22 @@ objects
     age: 51
 ...
 ```
+We got ``name`` field as it was specified, ``age`` field because space was scanned by ``age`` index and primary key ``id``.
 
-You can use pagination and ``fields`` option together if you pass tuple gotten with ``fields`` option to ``after``.
+``after`` tuple should contain the same fields as we receive on ``pairs`` call with such ``fields`` parameters.
 
-**Example with pagination:**
+**Example:**
 
 ```lua
+-- list space fields
+format = box.space.developers:format()
+format
+- {'name': 'id', 'type': 'unsigned'}
+- {'name': 'bucked_id', 'type': 'unsigned'}
+- {'name': 'name', 'type': 'string'}
+- {'name': 'surname', 'type': 'string'}
+- {'name': 'age', 'type': 'number'}
+...
 tuples = {}
 for _, tuple in crud.pairs('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} }) do
     table.insert(tuples, tuple)
@@ -268,4 +287,17 @@ new_tuples
     - Mikhail
     - 51
 ...
+
+tuples = {}
+for _, tuple in crud.pairs('developers', {{'>=', 'age', 27}}) do  -- 'fields' isn't specified
+    table.insert(tuples, tuple)
+end
+
+-- THIS WOULD FAIL
+-- call 'pairs' with 'fields' option specified 
+-- and pass to 'after' tuple that were got without 'fields' option
+new_tuples = {}
+for _, tuple in crud.pairs('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, after = tuples[1]}) do
+    table.insert(new_tuples, tuple)
+end
 ```
