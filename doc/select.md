@@ -301,3 +301,83 @@ res
   - [3, 9661, 'Pavel', 'Adams', 27]
 ...
 ```
+
+## `fields` parameter
+
+Result contains only fields specified by `fields` parameter, but scan key and primary key values are merged to the result fields to support pagination (any tuple from result can be simply passed to `after` option).
+Using `fields` parameters allows to reduce amount of data transferred from storage.
+
+**Example:**
+
+```lua
+-- list space fields
+format = box.space.developers:format()
+format
+- {'name': 'id', 'type': 'unsigned'}
+- {'name': 'bucked_id', 'type': 'unsigned'}
+- {'name': 'name', 'type': 'string'}
+- {'name': 'surname', 'type': 'string'}
+- {'name': 'age', 'type': 'number'}
+...
+-- get names of users that are 27 years old or older
+res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} })
+res
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [3, 'Pavel', 27]
+  - [6, 'Alexey', 31]
+  - [4, 'Mikhail', 51]
+```
+We got `name` field as it was specified, `age` field because space was scanned by `age` index and primary key `id`.
+
+`after` tuple should contain the same fields as we receive on `select` call with such `fields` parameters.
+
+**Example:**
+
+```lua
+-- list space fields
+format = box.space.developers:format()
+format
+- {'name': 'id', 'type': 'unsigned'} 
+- {'name': 'bucked_id', 'type': 'unsigned'}
+- {'name': 'name', 'type': 'string'}
+- {'name': 'surname', 'type': 'string'}
+- {'name': 'age', 'type': 'number'}
+...
+-- get names of users that are 27 years old or older
+res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} })
+res
+- metadata: 
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [3, 'Pavel', 27]
+  - [6, 'Alexey', 31]
+  - [4, 'Mikhail', 51]
+...
+-- get names of users that are 27 years old or older
+res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, after = res.rows[1] })
+res
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [6, 'Alexey', 31]
+  - [4, 'Mikhail', 51]
+...
+```
+**THIS WOULD FAIL**
+```lua
+-- 'fields' isn't specified
+res, err = crud.select('developers', {{'>=', 'age', 27}})
+
+-- THIS WOULD FAIL
+-- call 'select' with 'fields' option specified 
+-- and pass to 'after' tuple that were got without 'fields' option
+res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, after = res.rows[1] })
+```

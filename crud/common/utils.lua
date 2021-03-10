@@ -377,6 +377,22 @@ local function filter_format_fields(space_format, field_names)
     return filtered_space_format
 end
 
+function utils.get_fields_format(space_format, field_names)
+    dev_checks('table', '?table')
+
+    if field_names == nil then
+        return table.copy(space_format)
+    end
+
+    local filtered_space_format, err = filter_format_fields(space_format, field_names)
+
+    if err ~= nil then
+        return nil, err
+    end
+
+    return filtered_space_format
+end
+
 function utils.format_result(rows, space, field_names)
     local result = {}
     local err

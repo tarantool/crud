@@ -319,3 +319,227 @@ pgroup:add('test_luafun_compatipility', function(g)
     ]])
     t.assert_equals(count, 3)
 end)
+
+pgroup:add('test_pairs_partial_result', function(g)
+    helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "Los Angeles",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "London",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 46, city = "Chicago",
+        },
+    })
+
+    -- condition by indexed non-unique non-primary field (age):
+    local conditions = {{'>=', 'age', 33}}
+
+    -- condition field is not in opts.fields
+    local fields = {'name', 'city'}
+
+    -- result doesn't contain primary key, result tuples are sorted by field+primary
+    -- in age + id order
+    local expected_customers = {
+        {id = 3, age = 33, name = "David", city = "Los Angeles"},
+        {id = 2, age = 46, name = "Mary", city = "London"},
+        {id = 4, age = 46, name = "William", city = "Chicago"},
+    }
+
+    local objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, fields = ...
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions,  {use_tomap = true, fields = fields}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions, fields})
+    t.assert_equals(objects, expected_customers)
+
+    -- same case with after option
+    expected_customers = {
+        {id = 2, age = 46, name = "Mary", city = "London"},
+        {id = 4, age = 46, name = "William", city = "Chicago"},
+    }
+
+    objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, fields = ...
+
+        local tuples = {}
+        for _, tuple in crud.pairs('customers', conditions,  {fields = fields}) do
+            table.insert(tuples, tuple)
+        end
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions,  {after = tuples[1], use_tomap = true, fields = fields}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions, fields})
+    t.assert_equals(objects, expected_customers)
+
+    -- condition field is in opts.fields
+    fields = {'name', 'age'}
+
+    -- result doesn't contain primary key, result tuples are sorted by field+primary
+    -- in age + id order
+    expected_customers = {
+        {id = 3, age = 33, name = "David"},
+        {id = 2, age = 46, name = "Mary"},
+        {id = 4, age = 46, name = "William"},
+    }
+
+    objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, fields = ...
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions,  {use_tomap = true, fields = fields}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions, fields})
+    t.assert_equals(objects, expected_customers)
+
+    -- same case with after option
+    expected_customers = {
+        {id = 2, age = 46, name = "Mary"},
+        {id = 4, age = 46, name = "William"},
+    }
+
+    objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, fields = ...
+
+        local tuples = {}
+        for _, tuple in crud.pairs('customers', conditions,  {fields = fields}) do
+            table.insert(tuples, tuple)
+        end
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions,  {after = tuples[1], use_tomap = true, fields = fields}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions, fields})
+    t.assert_equals(objects, expected_customers)
+
+    -- condition by non-indexed non-unique non-primary field (city):
+    conditions = {{'>=', 'city', 'Lo'}}
+
+    -- condition field is not in opts.fields
+    fields = {'name', 'age'}
+
+    -- result doesn't contain primary key, result tuples are sorted by primary
+    -- in id order
+    expected_customers = {
+        {id = 1, name = "Elizabeth", age = 12},
+        {id = 2, name = "Mary", age = 46},
+        {id = 3, name = "David", age = 33},
+    }
+
+    objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, fields = ...
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions,  {use_tomap = true, fields = fields}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions, fields})
+    t.assert_equals(objects, expected_customers)
+
+    -- same case with after option
+    expected_customers = {
+        {id = 2, name = "Mary", age = 46},
+        {id = 3, name = "David", age = 33},
+    }
+
+    objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, fields = ...
+
+        local tuples = {}
+        for _, tuple in crud.pairs('customers', conditions,  {fields = fields}) do
+            table.insert(tuples, tuple)
+        end
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions,  {after = tuples[1], use_tomap = true, fields = fields}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions, fields})
+    t.assert_equals(objects, expected_customers)
+
+    -- condition field is in opts.fields
+    fields = {'name', 'city'}
+
+    -- result doesn't contain primary key, result tuples are sorted by primary
+    -- in id order
+    expected_customers = {
+        {id = 1, name = "Elizabeth", city = "Los Angeles"},
+        {id = 2, name = "Mary", city = "London"},
+        {id = 3, name = "David", city = "Los Angeles"},
+    }
+
+    objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, fields = ...
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions,  {use_tomap = true, fields = fields}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions, fields})
+    t.assert_equals(objects, expected_customers)
+
+    -- same case with after option
+    expected_customers = {
+        {id = 2, name = "Mary", city = "London"},
+        {id = 3, name = "David", city = "Los Angeles"},
+    }
+
+    objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, fields = ...
+
+        local tuples = {}
+        for _, tuple in crud.pairs('customers', conditions,  {fields = fields}) do
+            table.insert(tuples, tuple)
+        end
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions,  {after = tuples[1], use_tomap = true, fields = fields}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions, fields})
+    t.assert_equals(objects, expected_customers)
+end)

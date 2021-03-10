@@ -135,7 +135,7 @@ local function get_space_schema_hash(space)
     return digest.murmur(msgpack.encode(space_info))
 end
 
-local function filter_result_fields(tuple, field_names)
+local function filter_tuple_fields(tuple, field_names)
     if field_names == nil or tuple == nil then
         return tuple
     end
@@ -149,6 +149,28 @@ local function filter_result_fields(tuple, field_names)
                     'Space format doesn\'t contain field named %q', field_name
             )
         end
+    end
+
+    return result
+end
+
+function schema.filter_tuples_fields(tuples, field_names)
+    dev_checks('?table', '?table')
+
+    if field_names == nil then
+        return tuples
+    end
+
+    local result = {}
+
+    for _, tuple in ipairs(tuples) do
+        local filtered_tuple, err = filter_tuple_fields(tuple, field_names)
+
+        if err ~= nil then
+            return nil, err
+        end
+
+        table.insert(result, filtered_tuple)
     end
 
     return result
@@ -174,7 +196,7 @@ function schema.wrap_box_space_func_result(space, func_name, args, opts)
             result.space_schema_hash = get_space_schema_hash(space)
         end
     else
-        result.res, err = filter_result_fields(func_res, opts.field_names)
+        result.res, err = filter_tuple_fields(func_res, opts.field_names)
         if err ~= nil then
             return nil, err
         end

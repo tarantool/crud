@@ -33,6 +33,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         iter = 'number',
         limit = 'number',
         scan_condition_num = '?number',
+        field_names = '?table',
     })
 
     local space = box.space[space_name]
@@ -64,7 +65,9 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         return nil, SelectError:new("Failed to execute select: %s", err)
     end
 
-    return tuples
+    -- getting tuples with user defined fields (if `fields` option is specified)
+    -- and fields that are needed for comparison on router (primary key + scan key)
+    return schema.filter_tuples_fields(tuples, opts.field_names)
 end
 
 function select_module.init()
@@ -86,6 +89,7 @@ local function select_iteration(space_name, plan, opts)
         iter = plan.iter,
         limit = opts.limit,
         scan_condition_num = plan.scan_condition_num,
+        field_names = plan.field_names,
     }
 
     local storage_select_args = {
@@ -125,6 +129,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         timeout = '?number',
         batch_size = '?number',
         bucket_id = '?number|cdata',
+        field_names = '?table',
     })
 
     opts = opts or {}
@@ -157,6 +162,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local plan, err = select_plan.new(space, conditions, {
         first = opts.first,
         after_tuple = opts.after,
+        field_names = opts.field_names,
     })
 
     if err ~= nil then
@@ -181,16 +187,27 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local primary_index = space.index[0]
     local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
     local cmp_operator = select_comparators.get_cmp_operator(plan.iter)
+
+    -- generator of tuples comparator needs field_names and space_format
+    -- to update fieldno in each part in cmp_key_parts because storage result contains
+    -- fields in order specified by field_names
     local tuples_comparator, err = select_comparators.gen_tuples_comparator(
-        cmp_operator, cmp_key_parts
+        cmp_operator, cmp_key_parts, opts.field_names, space_format
     )
     if err ~= nil then
         return nil, SelectError:new("Failed to generate comparator function: %s", err)
     end
 
+    -- filter space format by plan.field_names (user defined fields + primary key + scan key)
+    -- to pass it user as metadata
+    local filtered_space_format, err = utils.get_fields_format(space_format, plan.field_names)
+    if err ~= nil then
+        return nil, err
+    end
+
     local iter = Iterator.new({
         space_name = space_name,
-        space_format = space_format,
+        space_format = filtered_space_format,
         iteration_func = select_iteration,
         comparator = tuples_comparator,
 
@@ -213,6 +230,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         batch_size = '?number',
         use_tomap = '?boolean',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -227,6 +245,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
+        field_names = opts.fields,
     }
 
     local iter, err = schema.wrap_func_reload(
@@ -268,6 +287,7 @@ function select_module.call(space_name, user_conditions, opts)
         timeout = '?number',
         batch_size = '?number',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -284,6 +304,7 @@ function select_module.call(space_name, user_conditions, opts)
         timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
+        field_names = opts.fields,
     }
 
     local iter, err = schema.wrap_func_reload(
@@ -313,7 +334,7 @@ function select_module.call(space_name, user_conditions, opts)
     end
 
     return {
-        metadata = table.copy(iter.space_format),
+        metadata = iter.space_format,
         rows = tuples,
     }
 end
