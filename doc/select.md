@@ -302,10 +302,10 @@ res
 ...
 ```
 
-## ``fields`` parameter
+## `fields` parameter
 
-Result contains only fields specified by ``fields`` parameter, but scan key and primary key values are merged to the result fields to support pagination (any tuple from result can be simply passed to ``after`` option).
-Using ``fields`` parameters allows to reduce amount of data transferred from storage.
+Result contains only fields specified by `fields` parameter, but scan key and primary key values are merged to the result fields to support pagination (any tuple from result can be simply passed to `after` option).
+Using `fields` parameters allows to reduce amount of data transferred from storage.
 
 **Example:**
 
@@ -319,7 +319,7 @@ format
 - {'name': 'surname', 'type': 'string'}
 - {'name': 'age', 'type': 'number'}
 ...
--- condition by indexed non-unique non-primary field
+-- get names of users that are 27 year old or older
 res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} })
 res
 - metadata:
@@ -331,9 +331,9 @@ res
   - [6, 'Alexey', 31]
   - [4, 'Mikhail', 51]
 ```
-We got ``name`` field as it was specified, ``age`` field because space was scanned by ``age`` index and primary key ``id``.
+We got `name` field as it was specified, `age` field because space was scanned by `age` index and primary key `id`.
 
-``after`` tuple should contain the same fields as we receive on ``select`` call with such ``fields`` parameters.
+`after` tuple should contain the same fields as we receive on `select` call with such `fields` parameters.
 
 **Example:**
 
@@ -347,7 +347,7 @@ format
 - {'name': 'surname', 'type': 'string'}
 - {'name': 'age', 'type': 'number'}
 ...
--- condition by indexed non-unique non-primary field
+-- get names of users that are 27 year old or older
 res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} })
 res
 - metadata: 
@@ -359,7 +359,7 @@ res
   - [6, 'Alexey', 31]
   - [4, 'Mikhail', 51]
 ...
--- condition by indexed non-unique non-primary field
+-- get names of users that are 27 year old or older
 res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, after = res.rows[1] })
 res
 - metadata:
@@ -370,6 +370,9 @@ res
   - [6, 'Alexey', 31]
   - [4, 'Mikhail', 51]
 ...
+```
+**THIS WOULD FAIL**
+```lua
 -- 'fields' isn't specified
 res, err = crud.select('developers', {{'>=', 'age', 27}})
 

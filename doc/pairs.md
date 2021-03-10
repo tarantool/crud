@@ -207,10 +207,10 @@ tuples
     - 51
 ...
 ```
-## ``fields`` parameter
+## `fields` parameter
 
-Result contains only fields specified by ``fields`` parameter, but scan key and primary key values are merged to the result fields to support pagination (any tuple from result can be simply passed to ``after`` option).
-Using ``fields`` parameters allows to reduce amount of data transferred from storage.
+Result contains only fields specified by `fields` parameter, but scan key and primary key values are merged to the result fields to support pagination (any tuple from result can be simply passed to `after` option).
+Using `fields` parameters allows to reduce amount of data transferred from storage.
 
 **Example:**
 
@@ -225,7 +225,7 @@ format
 - {'name': 'age', 'type': 'number'}
 ...
 objects = {}
--- condition by indexed non-unique non-primary field
+-- get names of users that are 31 year old or older
 for _, obj in crud.pairs('developers', {{'>=', 'age', 31}},  {use_tomap = true, fields = {'name'}}) do
     table.insert(objects, obj)
 end
@@ -240,9 +240,9 @@ objects
     age: 51
 ...
 ```
-We got ``name`` field as it was specified, ``age`` field because space was scanned by ``age`` index and primary key ``id``.
+We got `name` field as it was specified, `age` field because space was scanned by `age` index and primary key `id`.
 
-``after`` tuple should contain the same fields as we receive on ``pairs`` call with such ``fields`` parameters.
+`after` tuple should contain the same fields as we receive on `pairs` call with such `fields` parameters.
 
 **Example:**
 
@@ -287,7 +287,9 @@ new_tuples
     - Mikhail
     - 51
 ...
-
+```
+**THIS WOULD FAIL**
+```lua
 tuples = {}
 for _, tuple in crud.pairs('developers', {{'>=', 'age', 27}}) do  -- 'fields' isn't specified
     table.insert(tuples, tuple)
