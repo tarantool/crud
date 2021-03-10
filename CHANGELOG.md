@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.5.0] - 2021-03-10
+
 ### Fixed
 
 * Fixed not finding field in tuple on ``crud.update`` if
@@ -19,7 +21,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 * Support for UUID field types and UUID values
-* `fields` option for simple operations and select/pairs calls with pagination support to get partial result
+* `fields` option for simple operations and select/pairs calls with pagination
+  support to get partial result
 
 ## [0.4.0] - 2020-12-02
 
