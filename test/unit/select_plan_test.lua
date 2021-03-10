@@ -97,6 +97,7 @@ g.test_indexed_field = function()
     t.assert_equals(plan.iter, box.index.GT)
     t.assert_equals(plan.total_tuples_count, nil)
     t.assert_equals(plan.sharding_key, nil)
+    t.assert_equals(plan.field_names, nil)
 end
 
 g.test_non_indexed_field = function()
@@ -115,6 +116,7 @@ g.test_non_indexed_field = function()
     t.assert_equals(plan.iter, box.index.GE)
     t.assert_equals(plan.total_tuples_count, nil)
     t.assert_equals(plan.sharding_key, nil)
+    t.assert_equals(plan.field_names, nil)
 end
 
 g.test_partial_indexed_field = function()
@@ -134,6 +136,7 @@ g.test_partial_indexed_field = function()
     t.assert_equals(plan.iter, box.index.GT)
     t.assert_equals(plan.total_tuples_count, nil)
     t.assert_equals(plan.sharding_key, nil)
+    t.assert_equals(plan.field_names, nil)
 
     -- select by second part of the index
     local conditions = { cond_funcs.gt('last_name', 'A'), }
@@ -151,6 +154,7 @@ g.test_partial_indexed_field = function()
     t.assert_equals(plan.iter, box.index.GE)
     t.assert_equals(plan.total_tuples_count, nil)
     t.assert_equals(plan.sharding_key, nil)
+    t.assert_equals(plan.field_names, nil)
 end
 
 g.test_is_scan_by_full_sharding_key_eq = function()
@@ -265,6 +269,7 @@ g.test_first = function()
     t.assert_equals(plan.iter, box.index.LE) -- inverted iterator
     t.assert_equals(plan.total_tuples_count, 10)
     t.assert_equals(plan.sharding_key, nil)
+    t.assert_equals(plan.field_names, nil)
 
     -- select by primary key, lt condition
     -- first -10 after_tuple 777
@@ -286,4 +291,34 @@ g.test_first = function()
     t.assert_equals(plan.iter, box.index.GT) -- inverted iterator
     t.assert_equals(plan.total_tuples_count, 10)
     t.assert_equals(plan.sharding_key, nil)
+    t.assert_equals(plan.field_names, nil)
 end
+
+g.test_construct_after = function()
+    local after_tuple = {'Leo', 'Tula', 76, 777}
+    local expected_after_tuple = {[1] = 777, [3] = "Leo", [5] = 76, [6] = "Tula"}
+    local field_names = {'name', 'city'}
+    local expected_field_names = {'name', 'city', 'age', 'id'}
+
+    -- select by primary key, lt condition
+    -- after_tuple 777
+    local conditions = { cond_funcs.lt('age', 76) }
+    local plan, err = select_plan.new(box.space.customers, conditions, {
+        after_tuple = after_tuple,
+        field_names = field_names,
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_type(plan, 'table')
+
+    t.assert_equals(plan.conditions, conditions)
+    t.assert_equals(plan.space_name, 'customers')
+    t.assert_equals(plan.index_id, 1) -- primary index
+    t.assert_equals(plan.scan_value, {76})  -- after_tuple age value
+    t.assert_equals(plan.after_tuple, expected_after_tuple) -- after_tuple key
+    t.assert_equals(plan.scan_condition_num, 1)
+    t.assert_equals(plan.iter, box.index.LT) -- inverted iterator
+    t.assert_equals(plan.sharding_key, nil)
+    t.assert_equals(plan.field_names, expected_field_names)
+end
+
