@@ -321,4 +321,3 @@ g.test_construct_after = function()
     t.assert_equals(plan.sharding_key, nil)
     t.assert_equals(plan.field_names, expected_field_names)
 end
-
