@@ -319,7 +319,7 @@ format
 - {'name': 'surname', 'type': 'string'}
 - {'name': 'age', 'type': 'number'}
 ...
--- get names of users that are 27 year old or older
+-- get names of users that are 27 years old or older
 res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} })
 res
 - metadata:
@@ -347,7 +347,7 @@ format
 - {'name': 'surname', 'type': 'string'}
 - {'name': 'age', 'type': 'number'}
 ...
--- get names of users that are 27 year old or older
+-- get names of users that are 27 years old or older
 res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} })
 res
 - metadata: 
@@ -359,7 +359,7 @@ res
   - [6, 'Alexey', 31]
   - [4, 'Mikhail', 51]
 ...
--- get names of users that are 27 year old or older
+-- get names of users that are 27 years old or older
 res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, after = res.rows[1] })
 res
 - metadata:

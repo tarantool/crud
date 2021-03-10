@@ -225,7 +225,7 @@ format
 - {'name': 'age', 'type': 'number'}
 ...
 objects = {}
--- get names of users that are 31 year old or older
+-- get names of users that are 31 years old or older
 for _, obj in crud.pairs('developers', {{'>=', 'age', 31}},  {use_tomap = true, fields = {'name'}}) do
     table.insert(objects, obj)
 end
