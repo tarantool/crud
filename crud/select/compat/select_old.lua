@@ -7,6 +7,7 @@ local call = require('crud.common.call')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
+local schema = require('crud.common.schema')
 
 local select_conditions = require('crud.select.conditions')
 local select_plan = require('crud.select.plan')
@@ -34,6 +35,7 @@ local function select_iteration(space_name, plan, opts)
         tarantool_iter = plan.tarantool_iter,
         limit = opts.limit,
         scan_condition_num = plan.scan_condition_num,
+        field_names = plan.field_names,
     }
 
     local storage_select_args = {
@@ -57,6 +59,9 @@ local function select_iteration(space_name, plan, opts)
     return tuples
 end
 
+-- returns result, err, need_reload
+-- need_reload indicates if reloading schema could help
+-- see crud.common.schema.wrap_func_reload()
 local function build_select_iterator(space_name, user_conditions, opts)
     dev_checks('string', '?table', {
         after = '?table',
@@ -64,6 +69,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         timeout = '?number',
         batch_size = '?number',
         bucket_id = '?number|cdata',
+        field_names = '?table',
     })
 
     opts = opts or {}
@@ -87,7 +93,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
     local space = utils.get_space(space_name, replicasets)
     if space == nil then
-        return nil, SelectError:new("Space %q doesn't exist", space_name)
+        return nil, SelectError:new("Space %q doesn't exist", space_name), true
     end
     local space_format = space:format()
 
@@ -95,10 +101,11 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local plan, err = select_plan.new(space, conditions, {
         first = opts.first,
         after_tuple = opts.after,
+        field_names = opts.field_names,
     })
 
     if err ~= nil then
-        return nil, SelectError:new("Failed to plan select: %s", err)
+        return nil, SelectError:new("Failed to plan select: %s", err), true
     end
 
     -- set replicasets to select from
@@ -106,7 +113,12 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
     if plan.sharding_key ~= nil then
         local bucket_id = sharding.key_get_bucket_id(plan.sharding_key, opts.bucket_id)
-        replicasets_to_select = common.get_replicasets_by_sharding_key(bucket_id)
+
+        local err
+        replicasets_to_select, err = common.get_replicasets_by_sharding_key(bucket_id)
+        if err ~= nil then
+            return nil, err, true
+        end
     end
 
     -- generate tuples comparator
@@ -114,16 +126,27 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local primary_index = space.index[0]
     local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
     local cmp_operator = select_comparators.get_cmp_operator(plan.tarantool_iter)
+
+    -- generator of tuples comparator needs field_names and space_format
+    -- to update fieldno in each part in cmp_key_parts because storage result contains
+    -- fields in order specified by field_names
     local tuples_comparator, err = select_comparators.gen_tuples_comparator(
-        cmp_operator, cmp_key_parts
+        cmp_operator, cmp_key_parts, plan.field_names, space_format
     )
     if err ~= nil then
         return nil, SelectError:new("Failed to generate comparator function: %s", err)
     end
 
+    -- filter space format by plan.field_names (user defined fields + primary key + scan key)
+    -- to pass it user as metadata
+    local filtered_space_format, err = utils.get_fields_format(space_format, plan.field_names)
+    if err ~= nil then
+        return nil, err
+    end
+
     local iter = Iterator.new({
         space_name = space_name,
-        space_format = space_format,
+        space_format = filtered_space_format,
         iteration_func = select_iteration,
         comparator = tuples_comparator,
 
@@ -146,6 +169,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         batch_size = '?number',
         use_tomap = '?boolean',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -154,13 +178,18 @@ function select_module.pairs(space_name, user_conditions, opts)
         error(string.format("Negative first isn't allowed for pairs"))
     end
 
-    local iter, err = build_select_iterator(space_name, user_conditions, {
+    local iterator_opts = {
         after = opts.after,
         first = opts.first,
         timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
-    })
+        field_names = opts.fields,
+    }
+
+    local iter, err = schema.wrap_func_reload(
+            build_select_iterator, space_name, user_conditions, iterator_opts
+    )
 
     if err ~= nil then
         error(string.format("Failed to generate iterator: %s", err))
@@ -197,6 +226,7 @@ function select_module.call(space_name, user_conditions, opts)
         timeout = '?number',
         batch_size = '?number',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -207,14 +237,18 @@ function select_module.call(space_name, user_conditions, opts)
         end
     end
 
-    local iter, err = build_select_iterator(space_name, user_conditions, {
+    local iterator_opts = {
         after = opts.after,
         first = opts.first,
         timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
-    })
+        field_names = opts.fields,
+    }
 
+    local iter, err = schema.wrap_func_reload(
+            build_select_iterator, space_name, user_conditions, iterator_opts
+    )
     if err ~= nil then
         return nil, err
     end
