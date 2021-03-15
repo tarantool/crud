@@ -19,11 +19,12 @@ local select_module = {}
 
 local function build_select_iterator(space_name, user_conditions, opts)
     dev_checks('string', '?table', {
-        after = '?table',
+        after = '?table|cdata',
         first = '?number',
         timeout = '?number',
         batch_size = '?number',
         bucket_id = '?number|cdata',
+        field_names = '?table',
     })
 
     opts = opts or {}
@@ -53,6 +54,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local plan, err = select_plan.new(space, conditions, {
         first = opts.first,
         after_tuple = opts.after,
+        field_names = opts.field_names,
     })
 
     if err ~= nil then
@@ -90,28 +92,37 @@ local function build_select_iterator(space_name, user_conditions, opts)
         tarantool_iter = plan.tarantool_iter,
         limit = batch_size,
         scan_condition_num = plan.scan_condition_num,
+        field_names = plan.field_names,
     }
 
     local merger = Merger.new(replicasets_to_select, space_name, plan.index_id,
             common.SELECT_FUNC_NAME,
             {space_name, plan.index_id, plan.conditions, select_opts},
-            {tarantool_iter = plan.tarantool_iter}
+            {tarantool_iter = plan.tarantool_iter, field_names = plan.field_names}
         )
+
+    -- filter space format by plan.field_names (user defined fields + primary key + scan key)
+    -- to pass it user as metadata
+    local filtered_space_format, err = utils.get_fields_format(space_format, plan.field_names)
+    if err ~= nil then
+        return nil, err
+    end
 
     return {
         merger = merger,
-        space_format = space_format,
+        space_format = filtered_space_format,
     }
 end
 
 function select_module.pairs(space_name, user_conditions, opts)
     checks('string', '?table', {
-        after = '?table',
+        after = '?table|cdata',
         first = '?number',
         timeout = '?number',
         batch_size = '?number',
         use_tomap = '?boolean',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -120,13 +131,18 @@ function select_module.pairs(space_name, user_conditions, opts)
         error(string.format("Negative first isn't allowed for pairs"))
     end
 
-    local iter, err = build_select_iterator(space_name, user_conditions, {
+    local iterator_opts = {
         after = opts.after,
         first = opts.first,
         timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
-    })
+        field_names = opts.fields,
+    }
+
+    local iter, err = schema.wrap_func_reload(
+            build_select_iterator, space_name, user_conditions, iterator_opts
+    )
 
     if err ~= nil then
         error(string.format("Failed to generate iterator: %s", err))
@@ -153,6 +169,7 @@ local function select_module_call_xc(space_name, user_conditions, opts)
         timeout = '?number',
         batch_size = '?number',
         bucket_id = '?number|cdata',
+        fields = '?table',
     })
 
     opts = opts or {}
@@ -169,15 +186,12 @@ local function select_module_call_xc(space_name, user_conditions, opts)
         timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
+        field_names = opts.fields,
     }
 
     local iter, err = schema.wrap_func_reload(
             build_select_iterator, space_name, user_conditions, iterator_opts
     )
-
-    if err ~= nil then
-        return nil, err
-    end
 
     if err ~= nil then
         return nil, err
