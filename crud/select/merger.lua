@@ -3,6 +3,7 @@ local msgpack = require('msgpack')
 local log = require('log')
 local ffi = require('ffi')
 local collations = require('crud.common.collations')
+local comparators = require('crud.select.comparators')
 
 local key_def_lib
 local merger_lib
@@ -41,23 +42,33 @@ local function normalize_parts(index_parts)
     return result
 end
 
-local function get_key_def(replicasets, space_name, index_name)
+local function get_key_def(replicasets, space_name, field_names, index_name)
     -- Get requested and primary index metainfo.
     local conn = select(2, next(replicasets)).master.conn
-    local index = conn.space[space_name].index[index_name]
+    local space = conn.space[space_name]
+    local space_format = space:format()
+    local index = space.index[index_name]
+    local index_by_field_names = {index, field_names}
 
-    if key_def_cache[index] ~= nil then
-        return key_def_cache[index]
+    if key_def_cache[index_by_field_names] ~= nil then
+        return key_def_cache[index_by_field_names]
     end
 
     -- Create a key def
-    local primary_index = conn.space[space_name].index[0]
-    local key_def = key_def_lib.new(normalize_parts(index.parts))
+    local primary_index = space.index[0]
+    local updated_parts = comparators.update_key_parts_by_field_names(
+            space_format, field_names, index.parts
+    )
+
+    local key_def = key_def_lib.new(normalize_parts(updated_parts))
     if not index.unique then
-        key_def = key_def:merge(key_def_lib.new(normalize_parts(primary_index.parts)))
+        updated_parts = comparators.update_key_parts_by_field_names(
+                space_format, field_names, primary_index.parts
+        )
+        key_def = key_def:merge(key_def_lib.new(normalize_parts(updated_parts)))
     end
 
-    key_def_cache[index] = key_def
+    key_def_cache[index_by_field_names] = key_def
 
     return key_def
 end
@@ -188,7 +199,7 @@ local reverse_tarantool_iters = {
 local function new(replicasets, space_name, index_id, func_name, func_args, opts)
     opts = opts or {}
 
-    local key_def = get_key_def(replicasets, space_name, index_id)
+    local key_def = get_key_def(replicasets, space_name, opts.field_names, index_id)
 
     -- Request a first data chunk and create merger sources.
     local merger_sources = {}
