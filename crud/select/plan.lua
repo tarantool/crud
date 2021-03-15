@@ -169,7 +169,7 @@ end
 function select_plan.new(space, conditions, opts)
     dev_checks('table', '?table', {
         first = '?number',
-        after_tuple = '?table',
+        after_tuple = '?table|cdata',
         field_names = '?table',
     })
 
