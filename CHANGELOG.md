@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+* `mode`, `prefer_replica` and `balance` options for read operations
+  (get, select, pairs). According to this parameters one of vshard
+  calls (`callrw`, `callro`, `callbro`, `callre`, `callbre`) is selected
+
 ## [0.5.0] - 2021-03-10
 
 ### Fixed

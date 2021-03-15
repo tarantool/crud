@@ -6,18 +6,38 @@ _G.is_initialized = function() return false end
 local log = require('log')
 local errors = require('errors')
 local cartridge = require('cartridge')
-local membership = require('membership')
-local fiber = require('fiber')
 
-local ok, err
+package.preload['customers-storage'] = function()
+    return {
+        role_name = 'customers-storage',
+        init = function()
+            local engine = os.getenv('ENGINE') or 'memtx'
+            local customers_space = box.schema.space.create('customers', {
+                format = {
+                    {name = 'id', type = 'unsigned'},
+                    {name = 'bucket_id', type = 'unsigned'},
+                    {name = 'name', type = 'string'},
+                    {name = 'age', type = 'number'},
+                },
+                if_not_exists = true,
+                engine = engine,
+            })
+            customers_space:create_index('id', {
+                parts = { {field = 'id'} },
+                if_not_exists = true,
+            })
+        end,
+    }
+end
 
-ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
+local ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
     advertise_uri = 'localhost:3301',
     http_port = 8081,
     bucket_count = 3000,
     roles = {
-        'cartridge.roles.crud-storage',
+        'customers-storage',
         'cartridge.roles.crud-router',
+        'cartridge.roles.crud-storage',
     },
 })
 
@@ -25,21 +45,6 @@ if not ok then
     log.error('%s', err)
     os.exit(1)
 end
-
-
-rawset(_G, 'say_hi_politely', function (to_name)
-   to_name = to_name or "handsome"
-   local my_alias = membership.myself().payload.alias
-   return string.format("HI, %s! I am %s", to_name, my_alias)
-end)
-
-rawset(_G, 'say_hi_sleepily', function (time_to_sleep)
-   if time_to_sleep ~= nil then
-      fiber.sleep(time_to_sleep)
-   end
-
-   return "HI"
-end)
 
 rawset(_G, 'vshard_calls', {})
 

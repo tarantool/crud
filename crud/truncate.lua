@@ -48,7 +48,8 @@ function truncate.call(space_name, opts)
     opts = opts or {}
 
     local replicasets = vshard.router.routeall()
-    local _, err = call.rw(TRUNCATE_FUNC_NAME, {space_name}, {
+    local _, err = call.map(TRUNCATE_FUNC_NAME, {space_name}, {
+        mode = 'write',
         replicasets = replicasets,
         timeout = opts.timeout,
     })

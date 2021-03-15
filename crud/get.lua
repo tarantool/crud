@@ -42,6 +42,9 @@ local function call_get_on_router(space_name, key, opts)
         timeout = '?number',
         bucket_id = '?number|cdata',
         fields = '?table',
+        prefer_replica = '?boolean',
+        balance = '?boolean',
+        mode = '?string',
     })
 
     opts = opts or {}
@@ -56,14 +59,16 @@ local function call_get_on_router(space_name, key, opts)
     end
 
     local bucket_id = sharding.key_get_bucket_id(key, opts.bucket_id)
-    -- We don't use callro() here, because if the replication is
-    -- async, there could be a lag between master and replica, so a
-    -- connector which sequentially calls put() and then get() may get
-    -- a stale result.
-    local storage_result, err = call.rw_single(
+    local call_opts = {
+        mode = opts.mode or 'read',
+        prefer_replica = opts.prefer_replica,
+        balance = opts.balance,
+        timeout = opts.timeout,
+    }
+    local storage_result, err = call.single(
         bucket_id, GET_FUNC_NAME,
         {space_name, key, opts.fields},
-        {timeout = opts.timeout}
+        call_opts
     )
 
     if err ~= nil then
@@ -101,6 +106,12 @@ end
 --  Bucket ID
 --  (by default, it's vshard.router.bucket_id_strcrc32 of primary key)
 --
+-- @tparam ?boolean opts.prefer_replica
+--  Call on replica if it's possible
+--
+-- @tparam ?boolean opts.balance
+--  Use replica according to round-robin load balancing
+--
 -- @return[1] object
 -- @treturn[2] nil
 -- @treturn[2] table Error description
@@ -110,6 +121,9 @@ function get.call(space_name, key, opts)
         timeout = '?number',
         bucket_id = '?number|cdata',
         fields = '?table',
+        prefer_replica = '?boolean',
+        balance = '?boolean',
+        mode = '?string',
     })
 
     return schema.wrap_func_reload(call_get_on_router, space_name, key, opts)

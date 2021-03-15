@@ -72,10 +72,14 @@ local function call_replace_on_router(space_name, tuple, opts)
         fields = opts.fields,
     }
 
-    local storage_result, err = call.rw_single(
+    local call_opts = {
+        mode = 'write',
+        timeout = opts.timeout,
+    }
+    local storage_result, err = call.single(
         bucket_id, REPLACE_FUNC_NAME,
         {space_name, tuple, insert_on_storage_opts},
-        {timeout = opts.timeout}
+        call_opts
     )
 
     if err ~= nil then
