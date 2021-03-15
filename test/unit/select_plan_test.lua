@@ -317,7 +317,7 @@ g.test_construct_after = function()
     t.assert_equals(plan.scan_value, {76})  -- after_tuple age value
     t.assert_equals(plan.after_tuple, expected_after_tuple) -- after_tuple key
     t.assert_equals(plan.scan_condition_num, 1)
-    t.assert_equals(plan.iter, box.index.LT) -- inverted iterator
+    t.assert_equals(plan.tarantool_iter, box.index.LT) -- inverted iterator
     t.assert_equals(plan.sharding_key, nil)
     t.assert_equals(plan.field_names, expected_field_names)
 end
