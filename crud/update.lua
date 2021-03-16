@@ -107,7 +107,8 @@ local function call_update_on_router(space_name, key, user_operations, opts)
     end
 
     if storage_result.err ~= nil then
-        return nil, UpdateError:new("Failed to update: %s", storage_result.err)
+        local need_reload = schema.result_needs_reload(space, storage_result)
+        return nil, UpdateError:new("Failed to update: %s", storage_result.err), need_reload
     end
 
     local tuple = storage_result.res
