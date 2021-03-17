@@ -74,10 +74,14 @@ local function call_upsert_on_router(space_name, tuple, user_operations, opts)
         return nil, UpsertError:new("Failed to get bucket ID: %s", err), true
     end
 
-    local storage_result, err = call.rw_single(
+    local call_opts = {
+        mode = 'write',
+        timeout = opts.timeout,
+    }
+    local storage_result, err = call.single(
         bucket_id, UPSERT_FUNC_NAME,
         {space_name, tuple, operations},
-        {timeout = opts.timeout}
+        call_opts
     )
 
     if err ~= nil then

@@ -113,9 +113,14 @@ where:
 * `space_name` (`string`) - name of the space
 * `key` (`any`) - primary key value
 * `opts`:
-  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
-  * `bucket_id` (`?number|cdata`) - bucket ID
   * `fields` (`?table`) - field names for getting only a subset of fields
+  * `bucket_id` (`?number|cdata`) - bucket ID
+  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `mode` (`?string`, `read` or `write`) - if `write` is specified then `get` is
+    performed on master
+  * `prefer_replica` (`?boolean`) - if `true` then the preferred target is one of
+    the replicas
+  * `balance` (`?boolean`) - use replica according to vshard load balancing policy
 
 Returns metadata and array contains one row, error.
 
@@ -315,9 +320,14 @@ where:
      (`after` option is required in this case).
   * `after` (`?table`) - tuple after which objects should be selected
   * `batch_size` (`?number`) - number of tuples to process per one request to storage
-  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `bucket_id` (`?number|cdata`) - bucket ID
-    (is used when select by full primary key is performed)
+  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `mode` (`?string`, `read` or `write`) - if `write` is specified then `select` is
+    performed on master
+  * `prefer_replica` (`?boolean`) - if `true` then the preferred target is one of
+    the replicas
+  * `balance` (`?boolean`) - use replica according to vshard load balancing policy
+
 
 Returns metadata and array of rows, error.
 

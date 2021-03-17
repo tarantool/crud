@@ -56,10 +56,14 @@ local function call_delete_on_router(space_name, key, opts)
     end
 
     local bucket_id = sharding.key_get_bucket_id(key, opts.bucket_id)
-    local storage_result, err = call.rw_single(
+    local call_opts = {
+        mode = 'write',
+        timeout = opts.timeout,
+    }
+    local storage_result, err = call.single(
         bucket_id, DELETE_FUNC_NAME,
         {space_name, key, opts.fields},
-        {timeout = opts.timeout}
+        call_opts
     )
 
     if err ~= nil then
