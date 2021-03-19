@@ -21,10 +21,10 @@ local function build_select_iterator(space_name, user_conditions, opts)
     dev_checks('string', '?table', {
         after = '?table|cdata',
         first = '?number',
-        timeout = '?number',
         batch_size = '?number',
         bucket_id = '?number|cdata',
         field_names = '?table',
+        call_opts = 'table',
     })
 
     opts = opts or {}
@@ -98,7 +98,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local merger = Merger.new(replicasets_to_select, space_name, plan.index_id,
             common.SELECT_FUNC_NAME,
             {space_name, plan.index_id, plan.conditions, select_opts},
-            {tarantool_iter = plan.tarantool_iter, field_names = plan.field_names}
+            {tarantool_iter = plan.tarantool_iter, field_names = plan.field_names, call_opts = opts.call_opts}
         )
 
     -- filter space format by plan.field_names (user defined fields + primary key + scan key)
@@ -118,11 +118,15 @@ function select_module.pairs(space_name, user_conditions, opts)
     checks('string', '?table', {
         after = '?table|cdata',
         first = '?number',
-        timeout = '?number',
         batch_size = '?number',
         use_tomap = '?boolean',
         bucket_id = '?number|cdata',
         fields = '?table',
+
+        mode = '?vshard_call_mode',
+        prefer_replica = '?boolean',
+        balance = '?boolean',
+        timeout = '?number',
     })
 
     opts = opts or {}
@@ -138,6 +142,12 @@ function select_module.pairs(space_name, user_conditions, opts)
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
         field_names = opts.fields,
+        call_opts = {
+            mode = opts.mode,
+            prefer_replica = opts.prefer_replica,
+            balance = opts.balance,
+            timeout = opts.timeout,
+        },
     }
 
     local iter, err = schema.wrap_func_reload(
@@ -164,12 +174,15 @@ end
 
 local function select_module_call_xc(space_name, user_conditions, opts)
     checks('string', '?table', {
-        after = '?table',
+        after = '?table|cdata',
         first = '?number',
         timeout = '?number',
         batch_size = '?number',
         bucket_id = '?number|cdata',
         fields = '?table',
+        prefer_replica = '?boolean',
+        balance = '?boolean',
+        mode = '?vshard_call_mode',
     })
 
     opts = opts or {}
@@ -187,6 +200,12 @@ local function select_module_call_xc(space_name, user_conditions, opts)
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
         field_names = opts.fields,
+        call_opts = {
+            mode = opts.mode,
+            prefer_replica = opts.prefer_replica,
+            balance = opts.balance,
+            timeout = opts.timeout,
+        },
     }
 
     local iter, err = schema.wrap_func_reload(

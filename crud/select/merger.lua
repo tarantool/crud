@@ -4,6 +4,7 @@ local log = require('log')
 local ffi = require('ffi')
 local collations = require('crud.common.collations')
 local comparators = require('crud.select.comparators')
+local call = require('crud.common.call')
 
 local key_def_lib
 local merger_lib
@@ -156,6 +157,7 @@ local function fetch_chunk(context, state)
     local func_name = context.func_name
     local func_args = context.func_args
     local replicaset = context.replicaset
+    local vshard_call_name = context.vshard_call_name
     local future = state.future
 
     -- The source was entirely drained.
@@ -184,7 +186,7 @@ local function fetch_chunk(context, state)
 
     -- change context.func_args too, but it does not matter
     next_func_args[4].after_tuple = cursor.after_tuple
-    local next_future = replicaset:callro(func_name, next_func_args, net_box_opts)
+    local next_future = replicaset[vshard_call_name](replicaset, func_name, next_func_args, net_box_opts)
 
     local next_state = {future = next_future}
     return next_state, buf
@@ -198,8 +200,11 @@ local reverse_tarantool_iters = {
 
 local function new(replicasets, space_name, index_id, func_name, func_args, opts)
     opts = opts or {}
+    local call_opts = opts.call_opts
 
     local key_def = get_key_def(replicasets, space_name, opts.field_names, index_id)
+    local mode = call_opts.mode or 'read'
+    local vshard_call_name = call.get_vshard_call_name(mode, call_opts.prefer_replica, call_opts.balance)
 
     -- Request a first data chunk and create merger sources.
     local merger_sources = {}
@@ -207,7 +212,7 @@ local function new(replicasets, space_name, index_id, func_name, func_args, opts
         -- Perform a request.
         local buf = buffer.ibuf()
         local net_box_opts = {is_async = true, buffer = buf, skip_header = false}
-        local future = replicaset:callro(func_name, func_args,
+        local future = replicaset[vshard_call_name](replicaset, func_name, func_args,
                 net_box_opts)
 
         -- Create a source.
@@ -217,6 +222,7 @@ local function new(replicasets, space_name, index_id, func_name, func_args, opts
             func_name = func_name,
             func_args = func_args,
             replicaset = replicaset,
+            vshard_call_name = vshard_call_name,
         }
         local state = {future = future}
         local source = merger_lib.new_buffer_source(fetch_chunk, context, state)

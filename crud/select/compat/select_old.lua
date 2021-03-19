@@ -24,9 +24,11 @@ local function select_iteration(space_name, plan, opts)
     dev_checks('string', '?table', {
         after_tuple = '?table',
         replicasets = 'table',
-        timeout = '?number',
         limit = 'number',
+        call_opts = 'table',
     })
+
+    local call_opts = opts.call_opts
 
     -- call select on storages
     local storage_select_opts = {
@@ -42,9 +44,12 @@ local function select_iteration(space_name, plan, opts)
         space_name, plan.index_id, plan.conditions, storage_select_opts,
     }
 
-    local results, err = call.ro(common.SELECT_FUNC_NAME, storage_select_args, {
+    local results, err = call.map(common.SELECT_FUNC_NAME, storage_select_args, {
         replicasets = opts.replicasets,
         timeout = opts.timeout,
+        mode = call_opts.mode or 'read',
+        prefer_replica = call_opts.prefer_replica,
+        balance = call_opts.balance,
     })
 
     if err ~= nil then
@@ -66,10 +71,10 @@ local function build_select_iterator(space_name, user_conditions, opts)
     dev_checks('string', '?table', {
         after = '?table',
         first = '?number',
-        timeout = '?number',
         batch_size = '?number',
         bucket_id = '?number|cdata',
         field_names = '?table',
+        call_opts = 'table',
     })
 
     opts = opts or {}
@@ -155,7 +160,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         batch_size = batch_size,
         replicasets = replicasets_to_select,
 
-        timeout = opts.timeout,
+        call_opts = opts.call_opts,
     })
 
     return iter
@@ -165,11 +170,15 @@ function select_module.pairs(space_name, user_conditions, opts)
     checks('string', '?table', {
         after = '?table',
         first = '?number',
-        timeout = '?number',
         batch_size = '?number',
         use_tomap = '?boolean',
         bucket_id = '?number|cdata',
         fields = '?table',
+
+        mode = '?vshard_call_mode',
+        prefer_replica = '?boolean',
+        balance = '?boolean',
+        timeout = '?number',
     })
 
     opts = opts or {}
@@ -185,6 +194,12 @@ function select_module.pairs(space_name, user_conditions, opts)
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
         field_names = opts.fields,
+        call_opts = {
+            mode = opts.mode,
+            prefer_replica = opts.prefer_replica,
+            balance = opts.balance,
+            timeout = opts.timeout,
+        },
     }
 
     local iter, err = schema.wrap_func_reload(
@@ -227,6 +242,9 @@ function select_module.call(space_name, user_conditions, opts)
         batch_size = '?number',
         bucket_id = '?number|cdata',
         fields = '?table',
+        prefer_replica = '?boolean',
+        balance = '?boolean',
+        mode = '?vshard_call_mode',
     })
 
     opts = opts or {}
@@ -244,6 +262,12 @@ function select_module.call(space_name, user_conditions, opts)
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
         field_names = opts.fields,
+        call_opts = {
+            mode = opts.mode,
+            prefer_replica = opts.prefer_replica,
+            balance = opts.balance,
+            timeout = opts.timeout,
+        },
     }
 
     local iter, err = schema.wrap_func_reload(
