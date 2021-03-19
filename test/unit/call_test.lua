@@ -90,7 +90,7 @@ g.test_map_no_args = function()
     t.assert_equals(err, nil)
     local results = helpers.get_results_list(results_map)
     t.assert_equals(#results, 2)
-    t.assert_items_include(results, {{"HI, dokshina! I am s1-master"}, {"HI, dokshina! I am s2-master"}})
+    t.assert_items_include(results, {{"HI, handsome! I am s1-master"}, {"HI, handsome! I am s2-master"}})
 end
 
 g.test_args = function()

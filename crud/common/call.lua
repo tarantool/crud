@@ -12,7 +12,7 @@ local call = {}
 
 local DEFAULT_VSHARD_CALL_TIMEOUT = 2
 
-local function get_vshard_call_name(mode, prefer_replica, balance)
+function call.get_vshard_call_name(mode, prefer_replica, balance)
     dev_checks('string', '?boolean', '?boolean')
 
     if mode == 'write' then
@@ -74,7 +74,7 @@ function call.map(func_name, func_args, opts)
     })
     opts = opts or {}
 
-    local vshard_call_name = get_vshard_call_name(opts.mode, opts.prefer_replica, opts.balance)
+    local vshard_call_name = call.get_vshard_call_name(opts.mode, opts.prefer_replica, opts.balance)
 
     local timeout = opts.timeout or DEFAULT_VSHARD_CALL_TIMEOUT
 
@@ -126,7 +126,7 @@ function call.single(bucket_id, func_name, func_args, opts)
         timeout = '?number',
     })
 
-    local vshard_call_name = get_vshard_call_name(opts.mode, opts.prefer_replica, opts.balance, opts.mode)
+    local vshard_call_name = call.get_vshard_call_name(opts.mode, opts.prefer_replica, opts.balance, opts.mode)
 
     local timeout = opts.timeout or DEFAULT_VSHARD_CALL_TIMEOUT
 
