@@ -158,6 +158,7 @@ local function fetch_chunk(context, state)
     local func_args = context.func_args
     local replicaset = context.replicaset
     local vshard_call_name = context.vshard_call_name
+    local timeout = context.timeout or call.DEFAULT_VSHARD_CALL_TIMEOUT
     local future = state.future
 
     -- The source was entirely drained.
@@ -166,7 +167,7 @@ local function fetch_chunk(context, state)
     end
 
     -- Wait for requested data.
-    local res, err = future:wait_result()
+    local res, err = future:wait_result(timeout)
     if res == nil then
         error(err)
     end
@@ -223,6 +224,7 @@ local function new(replicasets, space_name, index_id, func_name, func_args, opts
             func_args = func_args,
             replicaset = replicaset,
             vshard_call_name = vshard_call_name,
+            timeout = call_opts.timeout,
         }
         local state = {future = future}
         local source = merger_lib.new_buffer_source(fetch_chunk, context, state)

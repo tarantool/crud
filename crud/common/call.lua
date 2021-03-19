@@ -10,7 +10,7 @@ local NotInitializedError = errors.new_class('NotInitialized')
 
 local call = {}
 
-local DEFAULT_VSHARD_CALL_TIMEOUT = 2
+call.DEFAULT_VSHARD_CALL_TIMEOUT = 2
 
 function call.get_vshard_call_name(mode, prefer_replica, balance)
     dev_checks('string', '?boolean', '?boolean')
@@ -76,7 +76,7 @@ function call.map(func_name, func_args, opts)
 
     local vshard_call_name = call.get_vshard_call_name(opts.mode, opts.prefer_replica, opts.balance)
 
-    local timeout = opts.timeout or DEFAULT_VSHARD_CALL_TIMEOUT
+    local timeout = opts.timeout or call.DEFAULT_VSHARD_CALL_TIMEOUT
 
     local replicasets, err
     if opts.replicasets ~= nil then
@@ -128,7 +128,7 @@ function call.single(bucket_id, func_name, func_args, opts)
 
     local vshard_call_name = call.get_vshard_call_name(opts.mode, opts.prefer_replica, opts.balance, opts.mode)
 
-    local timeout = opts.timeout or DEFAULT_VSHARD_CALL_TIMEOUT
+    local timeout = opts.timeout or call.DEFAULT_VSHARD_CALL_TIMEOUT
 
     local res, err = vshard.router[vshard_call_name](bucket_id, func_name, func_args, {
         timeout = timeout,
