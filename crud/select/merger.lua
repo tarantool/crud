@@ -47,16 +47,16 @@ local function get_key_def(replicasets, space_name, field_names, index_name)
     -- Get requested and primary index metainfo.
     local conn = select(2, next(replicasets)).master.conn
     local space = conn.space[space_name]
-    local space_format = space:format()
     local index = space.index[index_name]
-    local index_by_field_names = {index, field_names}
+    local key = msgpack.encode({index_name, field_names})
 
-    if key_def_cache[index_by_field_names] ~= nil then
-        return key_def_cache[index_by_field_names]
+    if key_def_cache[key] ~= nil then
+        return key_def_cache[key]
     end
 
     -- Create a key def
     local primary_index = space.index[0]
+    local space_format = space:format()
     local updated_parts = comparators.update_key_parts_by_field_names(
             space_format, field_names, index.parts
     )
@@ -69,7 +69,7 @@ local function get_key_def(replicasets, space_name, field_names, index_name)
         key_def = key_def:merge(key_def_lib.new(normalize_parts(updated_parts)))
     end
 
-    key_def_cache[index_by_field_names] = key_def
+    key_def_cache[key] = key_def
 
     return key_def
 end
