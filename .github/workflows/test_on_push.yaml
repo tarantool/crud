@@ -34,7 +34,7 @@ jobs:
         run: tree -L 4 .rocks
 
       - name: Run tests
-        run: .rocks/bin/luatest -v
+        run: .rocks/share/tarantool/rocks/luatest/0.5.0-1/bin/luatest -v
 
   run-tests-ee:
     if: github.event_name == 'push'
