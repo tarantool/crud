@@ -17,8 +17,8 @@ elseif pcall(require, 'merger') then
     merger_lib = require('merger')
     key_def_lib = require('key_def')
 else
-    error('Seems your Tarantool version (' .. _TARANTOOL ..
-            ') does not support "tuple-merger" or "merger" modules')
+    error(string.format('Seems your Tarantool version (%q' ..
+            ') does not support "tuple-merger" or "merger" modules', _TARANTOOL))
 end
 
 local key_def_cache = {}
