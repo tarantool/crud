@@ -81,7 +81,7 @@ end
 -- See
 -- https://github.com/tarantool/tarantool/blob/0ab21ac9eeaaae2aa0aef5e598d374669f96df9e/src/lua/msgpackffi.lua
 -- to understand following hell
--- This code will work for ALL Tarantool versions
+-- This code works for ALL Tarantool versions
 local strict_alignment = (jit.arch == 'arm')
 local uint16_ptr_t = ffi.typeof('uint16_t *')
 local uint32_ptr_t = ffi.typeof('uint32_t *')
