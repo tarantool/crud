@@ -212,8 +212,8 @@ local function add_nullable_fields_recursive(operations, operations_map, space_f
     return operations
 end
 
--- Tarantool < 2.3 has no fields `box.error.NO_SUCH_FIELD_NO` and `box.error.NO_SUCH_FIELD_NAME`.
-if _TARANTOOL >= "2.3" then
+-- Tarantool < 2.1 has no fields `box.error.NO_SUCH_FIELD_NO` and `box.error.NO_SUCH_FIELD_NAME`.
+if _TARANTOOL >= "2.1" then
     function utils.is_field_not_found(err_code)
         return err_code == box.error.NO_SUCH_FIELD_NO or err_code == box.error.NO_SUCH_FIELD_NAME
     end
