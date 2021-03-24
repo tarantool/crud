@@ -357,7 +357,7 @@ pgroup:add('test_pairs_partial_result', function(g)
         local conditions, fields = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions,  {use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields}) do
             table.insert(objects, object)
         end
 
@@ -377,12 +377,12 @@ pgroup:add('test_pairs_partial_result', function(g)
         local conditions, fields = ...
 
         local tuples = {}
-        for _, tuple in crud.pairs('customers', conditions,  {fields = fields}) do
+        for _, tuple in crud.pairs('customers', conditions, {fields = fields}) do
             table.insert(tuples, tuple)
         end
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions,  {after = tuples[1], use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs('customers', conditions, {after = tuples[1], use_tomap = true, fields = fields}) do
             table.insert(objects, object)
         end
 
@@ -407,7 +407,7 @@ pgroup:add('test_pairs_partial_result', function(g)
         local conditions, fields = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions,  {use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields}) do
             table.insert(objects, object)
         end
 
@@ -427,12 +427,12 @@ pgroup:add('test_pairs_partial_result', function(g)
         local conditions, fields = ...
 
         local tuples = {}
-        for _, tuple in crud.pairs('customers', conditions,  {fields = fields}) do
+        for _, tuple in crud.pairs('customers', conditions, {fields = fields}) do
             table.insert(tuples, tuple)
         end
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions,  {after = tuples[1], use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs('customers', conditions, {after = tuples[1], use_tomap = true, fields = fields}) do
             table.insert(objects, object)
         end
 
@@ -460,7 +460,7 @@ pgroup:add('test_pairs_partial_result', function(g)
         local conditions, fields = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions,  {use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields}) do
             table.insert(objects, object)
         end
 
@@ -480,12 +480,12 @@ pgroup:add('test_pairs_partial_result', function(g)
         local conditions, fields = ...
 
         local tuples = {}
-        for _, tuple in crud.pairs('customers', conditions,  {fields = fields}) do
+        for _, tuple in crud.pairs('customers', conditions, {fields = fields}) do
             table.insert(tuples, tuple)
         end
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions,  {after = tuples[1], use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs('customers', conditions, {after = tuples[1], use_tomap = true, fields = fields}) do
             table.insert(objects, object)
         end
 
@@ -510,7 +510,7 @@ pgroup:add('test_pairs_partial_result', function(g)
         local conditions, fields = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions,  {use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields}) do
             table.insert(objects, object)
         end
 
@@ -530,12 +530,12 @@ pgroup:add('test_pairs_partial_result', function(g)
         local conditions, fields = ...
 
         local tuples = {}
-        for _, tuple in crud.pairs('customers', conditions,  {fields = fields}) do
+        for _, tuple in crud.pairs('customers', conditions, {fields = fields}) do
             table.insert(tuples, tuple)
         end
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions,  {after = tuples[1], use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs('customers', conditions, {after = tuples[1], use_tomap = true, fields = fields}) do
             table.insert(objects, object)
         end
 
