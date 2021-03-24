@@ -19,7 +19,7 @@ local filters = {}
     - opposite condition `'id' < 100` becomes false
     - in such case we can exit from iteration
 ]]
-local function is_early_exit_possible(index, iter, condition)
+local function is_early_exit_possible(index, tarantool_iter, condition)
     if index == nil then
         return false
     end
@@ -29,11 +29,11 @@ local function is_early_exit_possible(index, iter, condition)
     end
 
     local condition_iter = select_conditions.get_tarantool_iter(condition)
-    if iter == box.index.REQ or iter == box.index.LT or iter == box.index.LE then
+    if tarantool_iter == box.index.REQ or tarantool_iter == box.index.LT or tarantool_iter == box.index.LE then
         if condition_iter == box.index.GT or condition_iter == box.index.GE then
             return true
         end
-    elseif iter == box.index.EQ or iter == box.index.GT or iter == box.index.GE then
+    elseif tarantool_iter == box.index.EQ or tarantool_iter == box.index.GT or tarantool_iter == box.index.GE then
         if condition_iter == box.index.LT or condition_iter == box.index.LE then
             return true
         end
@@ -78,7 +78,7 @@ end
 local function parse(space, conditions, opts)
     dev_checks('table', '?table', {
         scan_condition_num = '?number',
-        iter = 'number',
+        tarantool_iter = 'number',
     })
 
     conditions = conditions ~= nil and conditions or {}
@@ -125,7 +125,7 @@ local function parse(space, conditions, opts)
                 operator = condition.operator,
                 values = condition.values,
                 types = fields_types,
-                early_exit_is_possible = is_early_exit_possible(index, opts.iter, condition),
+                early_exit_is_possible = is_early_exit_possible(index, opts.tarantool_iter, condition),
                 values_opts = values_opts,
             })
         end
@@ -615,13 +615,13 @@ end
 
 function filters.gen_func(space, conditions, opts)
     dev_checks('table', '?table', {
-        iter = 'number',
+        tarantool_iter = 'number',
         scan_condition_num = '?number',
     })
 
     local filter_conditions, err = parse(space, conditions, {
         scan_condition_num = opts.scan_condition_num,
-        iter = opts.iter,
+        tarantool_iter = opts.tarantool_iter,
     })
     if err ~= nil then
         return nil, GenFiltersError:new("Failed to generate filters for specified conditions: %s", err)

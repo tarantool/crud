@@ -169,7 +169,7 @@ end
 function select_plan.new(space, conditions, opts)
     dev_checks('table', '?table', {
         first = '?number',
-        after_tuple = '?table',
+        after_tuple = '?table|cdata',
         field_names = '?table',
     })
 
@@ -269,7 +269,7 @@ function select_plan.new(space, conditions, opts)
         scan_value = scan_value,
         after_tuple = scan_after_tuple,
         scan_condition_num = scan_condition_num,
-        iter = scan_iter,
+        tarantool_iter = scan_iter,
         total_tuples_count = total_tuples_count,
         sharding_key = sharding_key,
         field_names = field_names,

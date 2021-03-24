@@ -86,14 +86,13 @@ end
 -- if `fields` option is specified then tuples to compare contains
 -- fields in order specified by field_names
 -- for comparison tuples we need to change fieldno in key_parts according to field_names
-local function update_key_parts_by_field_names(space_format, field_names, key_parts)
+function comparators.update_key_parts_by_field_names(space_format, field_names, key_parts)
     if field_names == nil then
         return key_parts
     end
 
     local fields_positions = {}
     local updated_key_parts = {}
-    local last_position = #field_names + 1
 
     for i, field_name in ipairs(field_names) do
         fields_positions[field_name] = i
@@ -101,10 +100,6 @@ local function update_key_parts_by_field_names(space_format, field_names, key_pa
 
     for _, part in ipairs(key_parts) do
         local field_name = space_format[part.fieldno].name
-        if not fields_positions[field_name] then
-            fields_positions[field_name] = last_position
-            last_position = last_position + 1
-        end
         local updated_part = {type = part.type,
                               fieldno = fields_positions[field_name],
                               is_nullable = part.is_nullable}
@@ -159,7 +154,7 @@ function comparators.gen_func(cmp_operator, key_parts)
 end
 
 function comparators.gen_tuples_comparator(cmp_operator, key_parts, field_names, space_format)
-    local updated_key_parts = update_key_parts_by_field_names(
+    local updated_key_parts = comparators.update_key_parts_by_field_names(
             space_format, field_names, key_parts
     )
     local keys_comparator, err = comparators.gen_func(cmp_operator, updated_key_parts)
