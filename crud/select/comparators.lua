@@ -141,26 +141,16 @@ end
 
 function comparators.gen_func(cmp_operator, key_parts)
     local cmp_func = array_cmp_funcs_by_operators[cmp_operator]
-    if cmp_func == nil then
-        return nil, ComparatorsError:new('Unsupported operator %q', cmp_operator)
-    end
+    ComparatorsError:assert(cmp_func ~= nil, 'Unsupported operator %q', cmp_operator)
 
-    local func, err = gen_array_cmp_func(cmp_func, key_parts)
-    if err ~= nil then
-        return nil, ComparatorsError:new('Failed to generate comparator function %q', cmp_operator)
-    end
-
-    return func
+    return gen_array_cmp_func(cmp_func, key_parts)
 end
 
 function comparators.gen_tuples_comparator(cmp_operator, key_parts, field_names, space_format)
     local updated_key_parts = comparators.update_key_parts_by_field_names(
             space_format, field_names, key_parts
     )
-    local keys_comparator, err = comparators.gen_func(cmp_operator, updated_key_parts)
-    if err ~= nil then
-        return nil, ComparatorsError:new("Failed to generate comparator function: %s", err)
-    end
+    local keys_comparator = comparators.gen_func(cmp_operator, updated_key_parts)
 
     return function(lhs, rhs)
         local lhs_key = utils.extract_key(lhs, updated_key_parts)

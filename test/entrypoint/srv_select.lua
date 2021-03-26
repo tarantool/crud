@@ -104,6 +104,28 @@ package.preload['customers-storage'] = function()
                 if_not_exists = true,
             })
 
+            local book_translation = box.schema.space.create('book_translation', {
+                format = {
+                    { name = 'id', type = 'unsigned' },
+                    { name = 'bucket_id', type = 'unsigned' },
+                    { name = 'language', type = 'string' },
+                    { name = 'edition', type = 'integer' },
+                    { name = 'translator', type = 'string' },
+                    { name = 'comments', type = 'string', is_nullable = true },
+                },
+                if_not_exists = true,
+            })
+
+            book_translation:create_index('id', {
+                parts = { 'id', 'language', 'edition' },
+                if_not_exists = true,
+            })
+
+            book_translation:create_index('bucket_id', {
+                parts = { 'bucket_id' },
+                unique = false,
+                if_not_exists = true,
+            })
         end,
     }
 end

@@ -610,6 +610,51 @@ pgroup:add('test_composite_index', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 1})) -- in full_name order
+
+    -- first 1
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {first = 1}})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2})) -- in full_name order
+
+    -- first 1 with full specified key
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'customers', {{'==', 'full_name', {'Elizabeth', 'Johnson'}}}, {first = 1}})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2})) -- in full_name order
+end)
+
+pgroup:add('test_composite_primary_index', function(g)
+    local book_translation = helpers.insert_objects(g, 'book_translation', {
+        {
+            id = 5,
+            language = 'Ukrainian',
+            edition = 55,
+            translator = 'Mitro Dmitrienko',
+            comments = 'Translation 55',
+        }
+    })
+    t.assert_equals(#book_translation, 1)
+
+    local conditions = {{'=', 'id', {5, 'Ukrainian', 55}}}
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'book_translation', conditions})
+    t.assert_equals(err, nil)
+    t.assert_equals(#result.rows, 1)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'book_translation', conditions, {first = 2}})
+    t.assert_equals(err, nil)
+    t.assert_equals(#result.rows, 1)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'book_translation', conditions, {first = 1}})
+    t.assert_equals(err, nil)
+    t.assert_equals(#result.rows, 1)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'book_translation', conditions, {first = 1, after = result.rows[1]}})
+    t.assert_equals(err, nil)
+    t.assert_equals(#result.rows, 0)
 end)
 
 pgroup:add('test_select_with_batch_size_1', function(g)
