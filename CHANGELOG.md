@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.6.0] - 2021-03-29
+
 ### Fixed
 
 * Fixed not finding field in tuple on `crud.update` if
@@ -14,7 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   when the schema was changed for Tarantool version <= 2.2.
 
 * Pagination over multipart primary key.
-  
+
 ### Added
 
 * `mode`, `prefer_replica` and `balance` options for read operations
