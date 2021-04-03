@@ -33,7 +33,7 @@ package.preload['customers-storage'] = function()
             })
             log.info('authTemplates was formatted')
 
-            authTemplates_space:create_index('authTemplates_msisdn_channel_idx', 
+            authTemplates_space:create_index('authTemplates_msisdn_channel_idx',
                 {parts={{field='msisdn'}, {field='channel'}},
                 type = 'TREE',
                 if_not_exists=true})
