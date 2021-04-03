@@ -1,7 +1,6 @@
 local fio = require('fio')
 
 local t = require('luatest')
-local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
 
@@ -62,7 +61,8 @@ pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
 
 pgroup:add('test_auth_templates', function(g)
-    local templates = g.cluster.main_server.net_box:call('crud.insert', {'authTemplates', {"79774120882","app4t2","671418",3,1716591611,1716592211}})
+    local templates = g.cluster.main_server.net_box:call('crud.insert', {'authTemplates', 
+        {"79774120882","app4t2","671418",3,1716591611,1716592211}})
     t.assert_not_equals(templates, nil)
 
     local obj, err = g.cluster.main_server.net_box:call(

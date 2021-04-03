@@ -6,7 +6,6 @@ _G.is_initialized = function() return false end
 local log = require('log')
 local errors = require('errors')
 local cartridge = require('cartridge')
-local crud_utils = require('crud.common.utils')
 
 package.preload['customers-storage'] = function()
     local engine = os.getenv('ENGINE') or 'memtx'
@@ -18,7 +17,7 @@ package.preload['customers-storage'] = function()
             end
             -- authTemplates
             local authTemplates_space = box.schema.space.create('authTemplates', {
-                engine = 'memtx',
+                engine = engine,
                 if_not_exists = true,
             })
             log.info('authTemplates space was configured')
@@ -34,7 +33,8 @@ package.preload['customers-storage'] = function()
             })
             log.info('authTemplates was formatted')
 
-            authTemplates_space:create_index('authTemplates_msisdn_channel_idx', {parts={{field='msisdn'}, {field='channel'}},
+            authTemplates_space:create_index('authTemplates_msisdn_channel_idx', 
+                {parts={{field='msisdn'}, {field='channel'}},
                 type = 'TREE',
                 if_not_exists=true})
             log.info('authTemplates_msisdn_channel_idx')
