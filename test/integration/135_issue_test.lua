@@ -66,28 +66,28 @@ pgroup:add('test_auth_templates', function(g)
     t.assert_not_equals(templates, nil)
 
     local obj, err = g.cluster.main_server.net_box:call(
-       'crud.select', {'authTemplates', {{'==', 'authTemplates_msisdn_channel_idx', {'79774120882', 'app4t2'}}}}
-    )
+       'crud.select', {'authTemplates', {{'==', 'authTemplates_msisdn_channel_idx', {'79774120882', 'app4t2'}}}})
     t.assert_not_equals(obj, nil, err)
+    t.assert_not_equals(#obj['rows'], 0, obj)
     t.assert_equals(err, nil, err)
 
     local obj, err = g.cluster.main_server.net_box:call(
-       'crud.select', {'authTemplates', {{'==', 'authTemplates_msisdn_channel_idx', {'79774120882'}}}}
-    )
-    t.assert_not_equals(obj, nil)
-    t.assert_equals(err, nil, err)
-
-
-    local obj, err = g.cluster:server('router2').net_box:call(
-       'crud.select', {'authTemplates', {{'==', 'authTemplates_msisdn_channel_idx', {'79774120882', 'app4t2'}}}}
-    )
+       'crud.select', {'authTemplates', {{'==', 'authTemplates_msisdn_channel_idx', {'79774120882'}}}})
     t.assert_not_equals(obj, nil, err)
+    t.assert_not_equals(#obj['rows'], 0, obj)
+    t.assert_equals(err, nil, err)
+
+
+    local obj, err = g.cluster:server('router2').net_box:call(
+       'crud.select', {'authTemplates', {{'==', 'authTemplates_msisdn_channel_idx', {'79774120882', 'app4t2'}}}})
+    t.assert_not_equals(obj, nil, err)
+    t.assert_not_equals(#obj['rows'], 0, obj)
     t.assert_equals(err, nil, err)
 
     local obj, err = g.cluster:server('router2').net_box:call(
-       'crud.select', {'authTemplates', {{'==', 'authTemplates_msisdn_channel_idx', {'79774120882'}}}}
-    )
+       'crud.select', {'authTemplates', {{'==', 'authTemplates_msisdn_channel_idx', {'79774120882'}}}})
     t.assert_not_equals(obj, nil)
+    t.assert_not_equals(#obj['rows'], 0, obj)
     t.assert_equals(err, nil, err)
 
 end)
