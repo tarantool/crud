@@ -990,3 +990,45 @@ pgroup:add('test_select_partial_result', function(g)
     objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, expected_customers)
 end)
+
+pgroup:add('test_cut_selected_rows', function(g)
+    helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "Los Angeles",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "London",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 46, city = "Chicago",
+        },
+    })
+
+    -- condition by indexed non-unique non-primary field (age):
+    local conditions = {{'>=', 'age', 33}}
+
+    -- condition field is not in opts.fields
+    local fields = {'name', 'city'}
+
+    local expected_customers = {
+        {name = "David", city = "Los Angeles"},
+        {name = "Mary", city = "London"},
+        {name = "William", city = "Chicago"},
+    }
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'customers', conditions, {fields = fields}}
+    )
+
+    t.assert_equals(err, nil)
+
+    result, err = g.cluster.main_server.net_box:call('crud.cut_rows', {result, fields})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, expected_customers)
+end)
