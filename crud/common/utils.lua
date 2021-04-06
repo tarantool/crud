@@ -413,6 +413,30 @@ function utils.format_result(rows, space, field_names)
     return result
 end
 
+function utils.truncate_tuple_metadata(tuple_metadata, field_names)
+    dev_checks('table', 'table')
+
+    local truncated_metadata = {}
+
+    if #tuple_metadata < #field_names then
+        return nil, FilterFieldsError:new(
+                'Field names don\'t match to tuple metadata'
+        )
+    end
+
+    for i, name in ipairs(field_names) do
+        if tuple_metadata[i].name ~= name then
+            return nil, FilterFieldsError:new(
+                    'Field names don\'t match to tuple metadata'
+            )
+        end
+
+        table.insert(truncated_metadata, tuple_metadata[i])
+    end
+
+    return truncated_metadata
+end
+
 local function flatten_obj(space_name, obj)
     local space_format, err = utils.get_space_format(space_name, vshard.router.routeall())
     if err ~= nil then

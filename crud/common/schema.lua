@@ -165,6 +165,19 @@ function schema.filter_tuples_fields(tuples, field_names)
     return result
 end
 
+function schema.truncate_row_trailing_fields(tuple, field_names)
+    dev_checks('table', 'table')
+
+    local index = #field_names + 1
+    local len_tuple = #tuple
+
+    for i = index, len_tuple do
+        tuple[i] = nil
+    end
+
+    return tuple
+end
+
 -- schema.wrap_box_space_func_result pcalls some box.space function
 -- and returns its result as a table
 -- `{res = ..., err = ..., space_schema_hash = ...}`
