@@ -1,7 +1,7 @@
 local t = require('luatest')
 local g = t.group('cut_rows')
 
-local cut_rows = require('crud.cut_rows')
+local utils = require('crud.common.utils')
 
 g.test_cut_rows = function()
     local rows = {
@@ -27,18 +27,51 @@ g.test_cut_rows = function()
         {name = 'name', type = 'string'},
     }
 
-    local res = {
-        metadata = metadata,
-        rows = rows,
-    }
-
     local fields = {'id', 'name'}
 
-    local result, err = cut_rows.call(res, fields)
+    local result, err = utils.cut_rows(rows, metadata, fields)
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, expected_metadata)
     t.assert_equals(result.rows, expected_rows)
+
+    -- using box.tuple
+    rows = {
+        box.tuple.new({3, 'Pavel', 27}),
+        box.tuple.new({6, 'Alexey', 31}),
+        box.tuple.new({4, 'Mikhail', 51}),
+    }
+
+    result, err = utils.cut_rows(rows, metadata, fields)
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, expected_metadata)
+    t.assert_equals(result.rows, expected_rows)
+
+    -- without metadata
+    result, err = utils.cut_rows(rows, nil, fields)
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, nil)
+    t.assert_equals(result.rows, expected_rows)
+
+    local objs = {
+        {id = 3, name = 'Pavel', age = 27},
+        {id = 6, name = 'Alexey', age = 31},
+        {id = 4, name = 'Mikhail', age = 51},
+    }
+
+    local expected_objs = {
+        {id = 3, name = 'Pavel'},
+        {id = 6, name = 'Alexey'},
+        {id = 4, name = 'Mikhail'},
+    }
+
+    result, err = utils.cut_rows(objs, nil, fields, {mapped = true})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, nil)
+    t.assert_equals(result.rows, expected_objs)
 end
 
 g.test_cut_rows_errors = function()
@@ -54,21 +87,16 @@ g.test_cut_rows_errors = function()
         {name = 'age', type = 'number'},
     }
 
-    local res = {
-        metadata = metadata,
-        rows = rows,
-    }
+    local fields = {'name', 'id', 'age'}
 
-    local fields = {'id', 'name', 'age', 'age'}
-
-    local result, err = cut_rows.call(res, fields)
+    local result, err = utils.cut_rows(rows, metadata, fields)
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Field names don\'t match to tuple metadata')
 
     local fields = {'id', 'lastname'}
 
-    local result, err = cut_rows.call(res, fields)
+    local result, err = utils.cut_rows(rows, metadata, fields)
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Field names don\'t match to tuple metadata')
