@@ -1020,13 +1020,37 @@ pgroup:add('test_cut_selected_rows', function(g)
         {name = "William", city = "Chicago"},
     }
 
+    -- with fields option
     local result, err = g.cluster.main_server.net_box:call('crud.select',
             {'customers', conditions, {fields = fields}}
     )
 
     t.assert_equals(err, nil)
 
-    result, err = g.cluster.main_server.net_box:call('crud.cut_rows', {result, fields})
+    result, err = g.cluster.main_server.net_box:call('crud.cut_rows', {result.rows, result.metadata, fields})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, expected_customers)
+
+    -- without fields option
+
+    -- fields should be in metadata order if we want to work with cut_rows
+    fields = {'id', 'bucket_id', 'name'}
+
+    expected_customers = {
+        {bucket_id = 2804, id = 3, name = "David"},
+        {bucket_id = 401, id = 2, name = "Mary"},
+        {bucket_id = 1161, id = 4, name = "William"},
+    }
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'customers', conditions}
+    )
+
+    t.assert_equals(err, nil)
+
+    result, err = g.cluster.main_server.net_box:call('crud.cut_rows', {result.rows, result.metadata, fields})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
