@@ -10,7 +10,6 @@ local upsert = require('crud.upsert')
 local delete = require('crud.delete')
 local select = require('crud.select')
 local truncate = require('crud.truncate')
-local cut_rows = require('crud.cut_rows')
 local utils = require('crud.common.utils')
 
 local crud = {}
@@ -72,7 +71,7 @@ crud.truncate = truncate.call
 
 -- @refer cut_rows.call
 -- @function cut_rows
-crud.cut_rows = cut_rows.call
+crud.cut_rows = utils.cut_rows
 
 --- Initializes crud on node
 --

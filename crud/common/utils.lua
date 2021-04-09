@@ -413,8 +413,12 @@ function utils.format_result(rows, space, field_names)
     return result
 end
 
-function utils.truncate_tuple_metadata(tuple_metadata, field_names)
-    dev_checks('table', 'table')
+local function truncate_tuple_metadata(tuple_metadata, field_names)
+    dev_checks('?table', 'table')
+
+    if tuple_metadata == nil then
+        return nil
+    end
 
     local truncated_metadata = {}
 
@@ -435,6 +439,45 @@ function utils.truncate_tuple_metadata(tuple_metadata, field_names)
     end
 
     return truncated_metadata
+end
+
+function utils.cut_rows(rows, metadata, field_names, opts)
+    dev_checks('table', '?table', 'table', {
+        mapped = '?boolean',
+    })
+
+    opts = opts or {}
+
+    local truncated_metadata, err = truncate_tuple_metadata(metadata, field_names)
+
+    if err ~= nil then
+        return nil, err
+    end
+
+    if opts.mapped then
+        for i, row in ipairs(rows) do
+            rows[i], err = schema.filter_obj_fields(row, field_names)
+
+            if err ~= nil then
+                return nil, err
+            end
+
+        end
+
+        return {
+            metadata = truncated_metadata,
+            rows = rows,
+        }
+    end
+
+    for i, row in ipairs(rows) do
+        rows[i] = schema.truncate_row_trailing_fields(row, field_names)
+    end
+
+    return {
+        metadata = truncated_metadata,
+        rows = rows,
+    }
 end
 
 local function flatten_obj(space_name, obj)
