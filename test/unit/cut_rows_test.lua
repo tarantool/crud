@@ -42,6 +42,12 @@ g.test_cut_rows = function()
         box.tuple.new({4, 'Mikhail', 51}),
     }
 
+    metadata = {
+        {name = 'id', type = 'unsigned'},
+        {name = 'name', type = 'string'},
+        {name = 'age', type = 'number'},
+    }
+
     result, err = utils.cut_rows(rows, metadata, fields)
 
     t.assert_equals(err, nil)
@@ -49,12 +55,20 @@ g.test_cut_rows = function()
     t.assert_equals(result.rows, expected_rows)
 
     -- without metadata
+
+    local rows = {
+        {3, 'Pavel', 27},
+        {6, 'Alexey', 31},
+        {4, 'Mikhail', 51},
+    }
+
     result, err = utils.cut_rows(rows, nil, fields)
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, nil)
     t.assert_equals(result.rows, expected_rows)
 
+    -- with mapped data
     local objs = {
         {id = 3, name = 'Pavel', age = 27},
         {id = 6, name = 'Alexey', age = 31},
@@ -72,6 +86,36 @@ g.test_cut_rows = function()
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, nil)
     t.assert_equals(result.rows, expected_objs)
+
+    -- with mapped flag as box.NULL
+    rows = {
+        {3, 'Nastya', 27},
+        {6, 'Alexey', 31},
+        {4, 'Mikhail', 51},
+    }
+
+    expected_rows = {
+        {3, 'Nastya'},
+        {6, 'Alexey'},
+        {4, 'Mikhail'},
+    }
+
+    metadata = {
+        {name = 'id', type = 'unsigned'},
+        {name = 'name', type = 'string'},
+        {name = 'age', type = 'number'},
+    }
+
+    expected_metadata = {
+        {name = 'id', type = 'unsigned'},
+        {name = 'name', type = 'string'},
+    }
+
+    result, err = utils.cut_rows(rows, metadata, fields, {mapped = box.NULL})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, expected_metadata)
+    t.assert_equals(result.rows, expected_rows)
 end
 
 g.test_cut_rows_errors = function()
