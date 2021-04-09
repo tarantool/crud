@@ -2,6 +2,7 @@ local fio = require('fio')
 local log = require('log')
 local fiber = require('fiber')
 local errors = require('errors')
+
 local t = require('luatest')
 local g = t.group()
 
@@ -44,7 +45,7 @@ g.before_all(function()
     }
 
     g.cluster.main_server.net_box:call('cartridge_set_schema',
-        {require('yaml').encode({spaces = {test = test_schema}})}
+        {require('yaml').encode({spaces = {test_schema = test_schema}})}
     )
 
     g.R1 = assert(g.cluster:server('router'))
@@ -61,16 +62,15 @@ g.after_all(function()
 end)
 
 local function _insert(cnt, label)
-    local ret, err = g.R1.net_box:call('crud.insert', {
-        'test', {1, cnt, label}
-    })
+    local result, err = g.R1.net_box:call('crud.insert', {'test_schema', {1, cnt, label}})
 
-    if ret == nil then
-        log.error('CNT %d: %s', cnt, table_to_string(err))
+    if result == nil then
+        log.error('CNT %d: %s', cnt, err)
         table.insert(g.insertions_failed, {cnt = cnt, err = err})
     else
-        table.insert(g.insertions_passed, ret)
+        table.insert(g.insertions_passed, result.rows[1])
     end
+
     return true
 end
 
@@ -87,7 +87,7 @@ local function highload_loop(label)
             log.error('CNT %d: %s', highload_cnt, err)
         end
 
-        fiber.sleep(0.001)
+        fiber.sleep(0.002)
     end
 end
 
@@ -110,7 +110,7 @@ function g.test_router()
 
     g.cluster:retrying({}, function()
         local last_insert = g.insertions_passed[#g.insertions_passed]
-        t.assert_equals(last_insert.rows[1][3], 'A', 'No workload for label A')
+        t.assert_equals(last_insert[3], 'A', 'No workload for label A')
     end)
 
     reload(g.R1)
@@ -122,13 +122,10 @@ function g.test_router()
 
     g.highload_fiber:cancel()
 
-    t.assert_items_include(
-        g.R1.net_box:call(
-            'package.loaded.vshard.router.callrw',
-            {1, 'box.space.test:select'}
-        ),
-        g.insertions_passed
-    )
+    local result, err = g.R1.net_box:call('crud.select', {'test_schema'})
+    t.assert_equals(err, nil)
+
+    t.assert_items_include(result.rows, g.insertions_passed)
 end
 
 function g.test_storage()
@@ -136,7 +133,7 @@ function g.test_storage()
 
     g.cluster:retrying({}, function()
         local last_insert = g.insertions_passed[#g.insertions_passed]
-        t.assert_equals(last_insert.rows[1][3], 'B', 'No workload for label B')
+        t.assert_equals(last_insert[3], 'B', 'No workload for label B')
     end)
 
     -- snapshot with a signal
@@ -155,11 +152,8 @@ function g.test_storage()
 
     g.highload_fiber:cancel()
 
-    t.assert_items_include(
-        g.R1.net_box:call(
-            'package.loaded.vshard.router.callrw',
-            {1, 'box.space.test:select'}
-        ),
-        g.insertions_passed
-    )
+    local result, err = g.R1.net_box:call('crud.select', {'test_schema'})
+    t.assert_equals(err, nil)
+
+    t.assert_items_include(result.rows, g.insertions_passed)
 end
