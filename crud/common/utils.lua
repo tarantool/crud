@@ -463,15 +463,10 @@ function utils.cut_rows(rows, metadata, field_names, opts)
             end
 
         end
-
-        return {
-            metadata = truncated_metadata,
-            rows = rows,
-        }
-    end
-
-    for i, row in ipairs(rows) do
-        rows[i] = schema.truncate_row_trailing_fields(row, field_names)
+    else
+        for i, row in ipairs(rows) do
+            rows[i] = schema.truncate_row_trailing_fields(row, field_names)
+        end
     end
 
     return {
