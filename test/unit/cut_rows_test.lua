@@ -89,13 +89,13 @@ g.test_cut_rows = function()
 
     -- with mapped flag as box.NULL
     rows = {
-        {3, 'Nastya', 27},
+        {3, 'Pavel', 27},
         {6, 'Alexey', 31},
         {4, 'Mikhail', 51},
     }
 
     expected_rows = {
-        {3, 'Nastya'},
+        {3, 'Pavel'},
         {6, 'Alexey'},
         {4, 'Mikhail'},
     }
@@ -116,6 +116,25 @@ g.test_cut_rows = function()
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, expected_metadata)
     t.assert_equals(result.rows, expected_rows)
+
+    -- with nullable field
+    local objs = {
+        {id = 3, name = box.NULL, age = 27},
+        {id = 6, name = 'Alexey', age = 31},
+        {id = 4, name = 'Mikhail', age = 51},
+    }
+
+    local expected_objs = {
+        {id = 3, name = box.NULL},
+        {id = 6, name = 'Alexey'},
+        {id = 4, name = 'Mikhail'},
+    }
+
+    result, err = utils.cut_rows(objs, nil, fields, {mapped = true})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, nil)
+    t.assert_equals(result.rows, expected_objs)
 end
 
 g.test_cut_rows_errors = function()
