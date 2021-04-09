@@ -15,19 +15,7 @@ end
 package.preload['customers-storage'] = function()
     return {
         role_name = 'customers-storage',
-        init = function()
-            local engine = os.getenv('ENGINE') or 'memtx'
-            box.schema.space.create('customers', {
-                format = {
-                    {name = 'id', type = 'unsigned'},
-                    {name = 'bucket_id', type = 'unsigned'},
-                    {name = 'name', type = 'string'},
-                    {name = 'age', type = 'number'},
-                },
-                if_not_exists = true,
-                engine = engine,
-            })
-        end,
+        init = function() end,
     }
 end
 

@@ -26,7 +26,7 @@ g.before_all(function()
 
     g.cluster:start()
 
-    local test_schema = {
+    local simple_schema = {
         engine = 'memtx',
         is_local = false,
         temporary = false,
@@ -34,23 +34,26 @@ g.before_all(function()
             {name = 'bucket_id', type = 'unsigned', is_nullable = false},
             {name = 'record_id', type = 'unsigned', is_nullable = false},
         },
-        indexes = {{
-            name = 'pk', type = 'TREE', unique = true,
-            parts = {{path = 'record_id', is_nullable = false, type = 'unsigned'}},
-        },  {
-            name = 'bucket_id', type = 'TREE', unique = false,
-            parts = {{path = 'bucket_id', is_nullable = false, type = 'unsigned'}},
-        }},
+        indexes = {
+            {
+                name = 'pk', type = 'TREE', unique = true,
+                parts = {{path = 'record_id', is_nullable = false, type = 'unsigned'}},
+            },
+            {
+                name = 'bucket_id', type = 'TREE', unique = false,
+                parts = {{path = 'bucket_id', is_nullable = false, type = 'unsigned'}},
+            }
+        },
         sharding_key = {'record_id'},
     }
 
     g.cluster.main_server.net_box:call('cartridge_set_schema',
-        {require('yaml').encode({spaces = {test_schema = test_schema}})}
+        {require('yaml').encode({spaces = {simple_space = simple_schema}})}
     )
 
-    g.R1 = assert(g.cluster:server('router'))
-    g.SA1 = assert(g.cluster:server('s1-master'))
-    g.SA2 = assert(g.cluster:server('s1-replica'))
+    g.router = assert(g.cluster:server('router'))
+    g.s1_master = assert(g.cluster:server('s1-master'))
+    g.s1_replica = assert(g.cluster:server('s1-replica'))
 
     g.insertions_passed = {}
     g.insertions_failed = {}
@@ -62,7 +65,7 @@ g.after_all(function()
 end)
 
 local function _insert(cnt, label)
-    local result, err = g.R1.net_box:call('crud.insert', {'test_schema', {1, cnt, label}})
+    local result, err = g.router.net_box:call('crud.insert', {'simple_space', {1, cnt, label}})
 
     if result == nil then
         log.error('CNT %d: %s', cnt, err)
@@ -100,6 +103,7 @@ g.after_each(function()
         'Total insertions: %d (%d good, %d failed)',
         highload_cnt, #g.insertions_passed, #g.insertions_failed
     )
+
     for _, e in ipairs(g.insertions_failed) do
         log.error('#%d: %s', e.cnt, e.err)
     end
@@ -113,7 +117,7 @@ function g.test_router()
         t.assert_equals(last_insert[3], 'A', 'No workload for label A')
     end)
 
-    reload(g.R1)
+    reload(g.router)
 
     local cnt = #g.insertions_passed
     g.cluster:retrying({}, function()
@@ -122,9 +126,8 @@ function g.test_router()
 
     g.highload_fiber:cancel()
 
-    local result, err = g.R1.net_box:call('crud.select', {'test_schema'})
+    local result, err = g.router.net_box:call('crud.select', {'simple_space'})
     t.assert_equals(err, nil)
-
     t.assert_items_include(result.rows, g.insertions_passed)
 end
 
@@ -137,23 +140,27 @@ function g.test_storage()
     end)
 
     -- snapshot with a signal
-    g.SA1.process:kill('USR1')
+    g.s1_master.process:kill('USR1')
 
-    reload(g.SA1)
+    reload(g.s1_master)
 
     g.cluster:retrying({}, function()
-        g.SA1.net_box:call('box.snapshot')
+        g.s1_master.net_box:call('box.snapshot')
     end)
 
     local cnt = #g.insertions_passed
-    if not pcall(g.cluster.retrying, g.cluster, {timeout = 1}, function()
+    local ok = pcall(g.cluster.retrying, g.cluster, {timeout = 2}, function()
         helpers.assert_ge(#g.insertions_passed, cnt+1)
-    end) then g.highload_fiber:cancel() fiber.sleep(10000) end
+    end)
+
+    if not ok then
+        g.highload_fiber:cancel()
+        fiber.sleep(10000)
+    end
 
     g.highload_fiber:cancel()
 
-    local result, err = g.R1.net_box:call('crud.select', {'test_schema'})
+    local result, err = g.router.net_box:call('crud.select', {'simple_space'})
     t.assert_equals(err, nil)
-
     t.assert_items_include(result.rows, g.insertions_passed)
 end
