@@ -454,7 +454,7 @@ function utils.cut_rows(rows, metadata, field_names, opts)
         return nil, err
     end
 
-    if type(opts.mapped) ~= 'cdata' and opts.mapped then
+    if opts.mapped == true then
         for i, row in ipairs(rows) do
             rows[i] = schema.filter_obj_fields(row, field_names)
         end
