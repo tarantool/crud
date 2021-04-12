@@ -27,6 +27,7 @@ pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
 pgroup:set_before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
+    helpers.truncate_space_on_cluster(g.cluster, 'tags')
 end)
 
 pgroup:add('test_non_existent_space', function(g)
@@ -869,6 +870,45 @@ pgroup:add('test_upsert_object_partial_result', function(g)
         {name = 'id', type = 'unsigned'},
         {name = 'age', type = 'number'},
     })
+end)
+
+pgroup:add('test_partial_result_with_nullable_fields', function(g)
+    -- Insert
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.insert_object', {'tags', {id = 1, is_green = true}})
+    t.assert_equals(err, nil)
+
+    -- {1, 477, NULL, true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {
+        {
+            bucket_id = 477,
+            id = 1,
+            is_blue = box.NULL,
+            is_correct = box.NULL,
+            is_dirty = box.NULL,
+            is_green = true,
+            is_long = box.NULL,
+            is_red = box.NULL,
+            is_short = box.NULL,
+            is_sweet = box.NULL,
+            is_useful = box.NULL,
+            is_yellow = box.NULL,
+        }
+    })
+
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.get', {'tags', 1, {fields = {'id', 'is_sweet', 'is_green'}}}
+    )
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {name = 'id', type = 'unsigned'},
+        {name = 'is_sweet', type = 'boolean', is_nullable = true},
+        {name = 'is_green', type = 'boolean', is_nullable = true},
+    })
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 1, is_sweet = box.NULL, is_green = true}})
 end)
 
 pgroup:add('test_partial_result_bad_input', function(g)
