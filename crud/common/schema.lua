@@ -185,10 +185,7 @@ function schema.wrap_box_space_func_result(space, func_name, args, opts)
             result.space_schema_hash = get_space_schema_hash(space)
         end
     else
-        result.res, err = filter_tuple_fields(func_res, opts.field_names)
-        if err ~= nil then
-            return nil, err
-        end
+        result.res = filter_tuple_fields(func_res, opts.field_names)
     end
 
     return result
