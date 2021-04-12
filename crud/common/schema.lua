@@ -6,7 +6,6 @@ local errors = require('errors')
 local log = require('log')
 
 local ReloadSchemaError = errors.new_class('ReloadSchemaError',  {capture_stack = false})
-local FilterFieldsError = errors.new_class('FilterFieldsError',  {capture_stack = false})
 
 local const = require('crud.common.const')
 local dev_checks = require('crud.common.dev_checks')
@@ -144,11 +143,6 @@ local function filter_tuple_fields(tuple, field_names)
 
     for i, field_name in ipairs(field_names) do
         result[i] = tuple[field_name]
-        if result[i] == nil then
-            return nil, FilterFieldsError:new(
-                    'Space format doesn\'t contain field named %q', field_name
-            )
-        end
     end
 
     return result
@@ -164,12 +158,7 @@ function schema.filter_tuples_fields(tuples, field_names)
     local result = {}
 
     for _, tuple in ipairs(tuples) do
-        local filtered_tuple, err = filter_tuple_fields(tuple, field_names)
-
-        if err ~= nil then
-            return nil, err
-        end
-
+        local filtered_tuple = filter_tuple_fields(tuple, field_names)
         table.insert(result, filtered_tuple)
     end
 
