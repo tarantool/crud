@@ -143,11 +143,6 @@ function schema.filter_obj_fields(obj, field_names)
 
     for _, field_name in ipairs(field_names) do
         result[field_name] = obj[field_name]
-        if type(result[field_name]) == nil then
-            return nil, FilterFieldsError:new(
-                    'Object doesn\'t contain field named %q', field_name
-            )
-        end
     end
 
     return result

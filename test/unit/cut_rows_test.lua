@@ -119,13 +119,35 @@ g.test_cut_rows = function()
 
     -- with nullable field
     local objs = {
-        {id = 3, name = box.NULL, age = 27},
-        {id = 6, name = 'Alexey', age = 31},
-        {id = 4, name = 'Mikhail', age = 51},
+        {id = 3, name = box.NULL, lastname = 'Smith', age = 27},
+        {id = 6, name = 'Alexey', lastname = 'Black', age = 31},
+        {id = 4, name = 'Mikhail', lastname = 'Smith', age = 51},
     }
 
+    local fields = {'id', 'name', 'lastname'}
+
     local expected_objs = {
-        {id = 3, name = box.NULL},
+        {id = 3, name = box.NULL, lastname = 'Smith'},
+        {id = 6, name = 'Alexey', lastname = 'Black'},
+        {id = 4, name = 'Mikhail', lastname = 'Smith'},
+    }
+
+    result, err = utils.cut_rows(objs, nil, fields, {mapped = true})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, nil)
+    t.assert_equals(result.rows, expected_objs)
+
+    fields = {'id', 'surname', 'name'}
+
+    objs = {
+        {id = 3, name = 'Pavel', lastname = 'Smith', age = 27},
+        {id = 6, name = 'Alexey', lastname = 'Black', age = 31},
+        {id = 4, name = 'Mikhail', lastname = 'Smith', age = 51},
+    }
+
+    expected_objs = {
+        {id = 3, name = 'Pavel'},
         {id = 6, name = 'Alexey'},
         {id = 4, name = 'Mikhail'},
     }
