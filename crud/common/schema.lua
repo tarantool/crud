@@ -174,7 +174,6 @@ function schema.wrap_box_space_func_result(space, func_name, args, opts)
     dev_checks('table', 'string', 'table', 'table')
 
     local result = {}
-    local err
 
     opts = opts or {}
 
