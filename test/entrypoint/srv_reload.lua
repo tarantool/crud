@@ -67,7 +67,4 @@ if not ok then
     os.exit(1)
 end
 
-crud.init_router()
-crud.init_storage()
-
 _G.is_initialized = cartridge.is_healthy
