@@ -441,12 +441,18 @@ local function truncate_tuple_metadata(tuple_metadata, field_names)
     return truncated_metadata
 end
 
-function utils.cut_rows(rows, metadata, field_names, opts)
-    dev_checks('table', '?table', 'table', {
-        mapped = '?boolean',
-    })
+function utils.cut_objects(objs, field_names)
+    dev_checks('table', 'table')
 
-    opts = opts or {}
+    for i, obj in ipairs(objs) do
+        objs[i] = schema.filter_obj_fields(obj, field_names)
+    end
+
+    return objs
+end
+
+function utils.cut_rows(rows, metadata, field_names)
+    dev_checks('table', '?table', 'table')
 
     local truncated_metadata, err = truncate_tuple_metadata(metadata, field_names)
 
@@ -454,14 +460,8 @@ function utils.cut_rows(rows, metadata, field_names, opts)
         return nil, err
     end
 
-    if opts.mapped == true then
-        for i, row in ipairs(rows) do
-            rows[i] = schema.filter_obj_fields(row, field_names)
-        end
-    else
-        for i, row in ipairs(rows) do
-            rows[i] = schema.truncate_row_trailing_fields(row, field_names)
-        end
+    for i, row in ipairs(rows) do
+        rows[i] = schema.truncate_row_trailing_fields(row, field_names)
     end
 
     return {
