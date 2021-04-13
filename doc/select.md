@@ -381,3 +381,31 @@ res, err = crud.select('developers', {{'>=', 'age', 27}})
 -- and pass to 'after' tuple that were got without 'fields' option
 res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, after = res.rows[1] })
 ```
+You could use `crud.cut_rows` function to cut off scan key and primary key values that were merged to the result fields.
+
+**Example:**
+
+```lua
+-- get names of users that are 27 years old or older
+res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} })
+res
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [3, 'Pavel', 27]
+  - [6, 'Alexey', 31]
+  - [4, 'Mikhail', 51]
+...
+res, err = crud.cut_rows(res.rows, res.metadata, {'id', 'name'})
+res
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  rows:
+  - [3, 'Pavel']
+  - [6, 'Alexey']
+  - [4, 'Mikhail']
+...
+```
