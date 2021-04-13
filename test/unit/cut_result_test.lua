@@ -67,8 +67,9 @@ g.test_cut_rows = function()
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, nil)
     t.assert_equals(result.rows, expected_rows)
+end
 
-    -- with mapped data
+g.test_cut_objects = function()
     local objs = {
         {id = 3, name = 'Pavel', age = 27},
         {id = 6, name = 'Alexey', age = 31},
@@ -81,41 +82,12 @@ g.test_cut_rows = function()
         {id = 4, name = 'Mikhail'},
     }
 
-    result, err = utils.cut_rows(objs, nil, fields, {mapped = true})
+    local fields = {'id', 'name'}
+
+    local result, err = utils.cut_objects(objs, fields)
 
     t.assert_equals(err, nil)
-    t.assert_equals(result.metadata, nil)
-    t.assert_equals(result.rows, expected_objs)
-
-    -- with mapped flag as box.NULL
-    rows = {
-        {3, 'Pavel', 27},
-        {6, 'Alexey', 31},
-        {4, 'Mikhail', 51},
-    }
-
-    expected_rows = {
-        {3, 'Pavel'},
-        {6, 'Alexey'},
-        {4, 'Mikhail'},
-    }
-
-    metadata = {
-        {name = 'id', type = 'unsigned'},
-        {name = 'name', type = 'string'},
-        {name = 'age', type = 'number'},
-    }
-
-    expected_metadata = {
-        {name = 'id', type = 'unsigned'},
-        {name = 'name', type = 'string'},
-    }
-
-    result, err = utils.cut_rows(rows, metadata, fields, {mapped = box.NULL})
-
-    t.assert_equals(err, nil)
-    t.assert_equals(result.metadata, expected_metadata)
-    t.assert_equals(result.rows, expected_rows)
+    t.assert_equals(result, expected_objs)
 
     -- with nullable field
     local objs = {
@@ -124,7 +96,7 @@ g.test_cut_rows = function()
         {id = 4, name = 'Mikhail', lastname = 'Smith', age = 51},
     }
 
-    local fields = {'id', 'name', 'lastname'}
+    fields = {'id', 'name', 'lastname'}
 
     local expected_objs = {
         {id = 3, name = box.NULL, lastname = 'Smith'},
@@ -132,11 +104,10 @@ g.test_cut_rows = function()
         {id = 4, name = 'Mikhail', lastname = 'Smith'},
     }
 
-    result, err = utils.cut_rows(objs, nil, fields, {mapped = true})
+    result, err = utils.cut_objects(objs, fields)
 
     t.assert_equals(err, nil)
-    t.assert_equals(result.metadata, nil)
-    t.assert_equals(result.rows, expected_objs)
+    t.assert_equals(result, expected_objs)
 
     fields = {'id', 'surname', 'name'}
 
@@ -152,11 +123,10 @@ g.test_cut_rows = function()
         {id = 4, name = 'Mikhail'},
     }
 
-    result, err = utils.cut_rows(objs, nil, fields, {mapped = true})
+    result, err = utils.cut_objects(objs, fields)
 
     t.assert_equals(err, nil)
-    t.assert_equals(result.metadata, nil)
-    t.assert_equals(result.rows, expected_objs)
+    t.assert_equals(result, expected_objs)
 end
 
 g.test_cut_rows_errors = function()
@@ -179,9 +149,9 @@ g.test_cut_rows_errors = function()
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Field names don\'t match to tuple metadata')
 
-    local fields = {'id', 'lastname'}
+    fields = {'id', 'lastname'}
 
-    local result, err = utils.cut_rows(rows, metadata, fields)
+    result, err = utils.cut_rows(rows, metadata, fields)
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Field names don\'t match to tuple metadata')
