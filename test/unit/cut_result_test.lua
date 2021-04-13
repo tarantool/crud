@@ -84,9 +84,8 @@ g.test_cut_objects = function()
 
     local fields = {'id', 'name'}
 
-    local result, err = utils.cut_objects(objs, fields)
+    local result = utils.cut_objects(objs, fields)
 
-    t.assert_equals(err, nil)
     t.assert_equals(result, expected_objs)
 
     -- with nullable field
@@ -104,9 +103,8 @@ g.test_cut_objects = function()
         {id = 4, name = 'Mikhail', lastname = 'Smith'},
     }
 
-    result, err = utils.cut_objects(objs, fields)
+    result = utils.cut_objects(objs, fields)
 
-    t.assert_equals(err, nil)
     t.assert_equals(result, expected_objs)
 
     fields = {'id', 'surname', 'name'}
@@ -123,9 +121,8 @@ g.test_cut_objects = function()
         {id = 4, name = 'Mikhail'},
     }
 
-    result, err = utils.cut_objects(objs, fields)
+    result = utils.cut_objects(objs, fields)
 
-    t.assert_equals(err, nil)
     t.assert_equals(result, expected_objs)
 end
 
