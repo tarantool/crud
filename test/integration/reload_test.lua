@@ -2,6 +2,7 @@ local fio = require('fio')
 local log = require('log')
 local fiber = require('fiber')
 local errors = require('errors')
+local crud = require('crud')
 
 local t = require('luatest')
 local g = t.group()
@@ -26,34 +27,12 @@ g.before_all(function()
 
     g.cluster:start()
 
-    local simple_schema = {
-        engine = 'memtx',
-        is_local = false,
-        temporary = false,
-        format = {
-            {name = 'bucket_id', type = 'unsigned', is_nullable = false},
-            {name = 'record_id', type = 'unsigned', is_nullable = false},
-        },
-        indexes = {
-            {
-                name = 'pk', type = 'TREE', unique = true,
-                parts = {{path = 'record_id', is_nullable = false, type = 'unsigned'}},
-            },
-            {
-                name = 'bucket_id', type = 'TREE', unique = false,
-                parts = {{path = 'bucket_id', is_nullable = false, type = 'unsigned'}},
-            }
-        },
-        sharding_key = {'record_id'},
-    }
-
-    g.cluster.main_server.net_box:call('cartridge_set_schema',
-        {require('yaml').encode({spaces = {simple_space = simple_schema}})}
-    )
-
     g.router = assert(g.cluster:server('router'))
     g.s1_master = assert(g.cluster:server('s1-master'))
     g.s1_replica = assert(g.cluster:server('s1-replica'))
+
+    crud.init_router()
+    crud.init_storage()
 
     g.insertions_passed = {}
     g.insertions_failed = {}
@@ -65,7 +44,7 @@ g.after_all(function()
 end)
 
 local function _insert(cnt, label)
-    local result, err = g.router.net_box:call('crud.insert', {'simple_space', {1, cnt, label}})
+    local result, err = g.router.net_box:call('crud.insert', {'customers', {cnt, 1, label}})
 
     if result == nil then
         log.error('CNT %d: %s', cnt, err)
@@ -126,7 +105,7 @@ function g.test_router()
 
     g.highload_fiber:cancel()
 
-    local result, err = g.router.net_box:call('crud.select', {'simple_space'})
+    local result, err = g.router.net_box:call('crud.select', {'customers'})
     t.assert_equals(err, nil)
     t.assert_items_include(result.rows, g.insertions_passed)
 end
@@ -160,7 +139,7 @@ function g.test_storage()
 
     g.highload_fiber:cancel()
 
-    local result, err = g.router.net_box:call('crud.select', {'simple_space'})
+    local result, err = g.router.net_box:call('crud.select', {'customers'})
     t.assert_equals(err, nil)
     t.assert_items_include(result.rows, g.insertions_passed)
 end
