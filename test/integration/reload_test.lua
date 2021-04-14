@@ -2,7 +2,6 @@ local fio = require('fio')
 local log = require('log')
 local fiber = require('fiber')
 local errors = require('errors')
-local crud = require('crud')
 
 local t = require('luatest')
 local g = t.group()
@@ -30,9 +29,6 @@ g.before_all(function()
     g.router = assert(g.cluster:server('router'))
     g.s1_master = assert(g.cluster:server('s1-master'))
     g.s1_replica = assert(g.cluster:server('s1-replica'))
-
-    crud.init_router()
-    crud.init_storage()
 
     g.insertions_passed = {}
     g.insertions_failed = {}

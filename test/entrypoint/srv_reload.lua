@@ -6,7 +6,6 @@ _G.is_initialized = function() return false end
 local log = require('log')
 local errors = require('errors')
 local cartridge = require('cartridge')
-local crud = require('crud')
 
 local roles_reload_allowed = nil
 if not os.getenv('TARANTOOL_FORBID_HOTRELOAD') then
@@ -14,8 +13,8 @@ if not os.getenv('TARANTOOL_FORBID_HOTRELOAD') then
 end
 
 local function stop()
-    rawset(_G, 'crud', crud)
-    rawset(_G, '_crud', {})
+    rawset(_G, 'crud', nil)
+    rawset(_G, '_crud', nil)
 end
 
 package.preload['customers-storage'] = function()
@@ -46,7 +45,17 @@ package.preload['customers-storage'] = function()
                 if_not_exists = true,
             })
         end,
-        stop = stop
+        stop = stop,
+        dependencies = {'cartridge.roles.crud-storage'}
+    }
+end
+
+package.preload['customers-router'] = function()
+    return {
+        role_name = 'customers-router',
+        init = function() end,
+        stop = stop,
+        dependencies = {'cartridge.roles.crud-router'}
     }
 end
 
@@ -56,8 +65,7 @@ local ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
     bucket_count = 3000,
     roles = {
         'customers-storage',
-        'cartridge.roles.crud-router',
-        'cartridge.roles.crud-storage',
+        'customers-router',
     },
     roles_reload_allowed = roles_reload_allowed
 })
