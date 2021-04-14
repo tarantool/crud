@@ -393,6 +393,8 @@ See more examples of pairs queries [here.](https://github.com/tarantool/crud/blo
 
 ### Cut_rows 
 
+You could use `crud.cut_rows` function to cut off scan key and primary key values that were merged to the select/pairs partial result (select/pairs with `fields` option).
+
 ```lua
 local res, err = crud.cut_rows(rows, metadata, fields)
 ```
@@ -409,8 +411,10 @@ See more examples of `crud.cut_rows` usage [here](https://github.com/tarantool/c
 
 ### Cut_objects
 
+If you use `pairs` with `use_tomap` flag and you need to cut off scan key and primary key values that were merged to the pairs partial result (pairs with `fields` option) you should use `crud.cut_objects`.
+
 ```lua
-local new_objects = crud.cut_rows(objects, fields)
+local new_objects = crud.cut_objects(objects, fields)
 ```
 
 where:
