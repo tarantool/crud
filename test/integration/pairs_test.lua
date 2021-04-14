@@ -543,3 +543,71 @@ pgroup:add('test_pairs_partial_result', function(g)
     ]], {conditions, fields})
     t.assert_equals(objects, expected_customers)
 end)
+
+pgroup:add('test_pairs_cut_result', function(g)
+    helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "Los Angeles",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "London",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 46, city = "Chicago",
+        },
+    })
+
+    -- condition by indexed non-unique non-primary field (age):
+    local conditions = {{'>=', 'age', 33}}
+
+    -- condition field is not in opts.fields
+    local fields = {'name', 'city'}
+
+    -- result doesn't contain primary key, result tuples are sorted by field+primary
+    -- in age + id order
+    local expected_customers = {
+        {name = "David", city = "Los Angeles"},
+        {name = "Mary", city = "London"},
+        {name = "William", city = "Chicago"},
+    }
+
+    local objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, fields = ...
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields}) do
+            table.insert(objects, object)
+        end
+
+        return crud.cut_objects(objects, fields)
+    ]], {conditions, fields})
+    t.assert_equals(objects, expected_customers)
+
+    -- without use_tomap
+    expected_customers = {
+        {"David", "Los Angeles"},
+        {"Mary", "London"},
+        {"William", "Chicago"},
+    }
+
+    local tuples = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions, fields = ...
+
+        local tuples = {}
+        for _, tuple in crud.pairs('customers', conditions, {fields = fields}) do
+            table.insert(tuples, tuple)
+        end
+
+        return crud.cut_rows(tuples, nil, fields)
+    ]], {conditions, fields})
+     t.assert_equals(tuples.metadata, nil)
+    t.assert_equals(tuples.rows, expected_customers)
+end)

@@ -134,6 +134,20 @@ local function get_space_schema_hash(space)
     return digest.murmur(msgpack.encode(space_info))
 end
 
+function schema.filter_obj_fields(obj, field_names)
+    if field_names == nil or obj == nil then
+        return obj
+    end
+
+    local result = {}
+
+    for _, field_name in ipairs(field_names) do
+        result[field_name] = obj[field_name]
+    end
+
+    return result
+end
+
 local function filter_tuple_fields(tuple, field_names)
     if field_names == nil or tuple == nil then
         return tuple
@@ -163,6 +177,24 @@ function schema.filter_tuples_fields(tuples, field_names)
     end
 
     return result
+end
+
+function schema.truncate_row_trailing_fields(tuple, field_names)
+    dev_checks('table|tuple', 'table')
+
+    local count_names = #field_names
+    local index = count_names + 1
+    local len_tuple = #tuple
+
+    if box.tuple.is(tuple) then
+        return tuple:transform(index, len_tuple - count_names)
+    end
+
+    for i = index, len_tuple do
+        tuple[i] = nil
+    end
+
+    return tuple
 end
 
 -- schema.wrap_box_space_func_result pcalls some box.space function

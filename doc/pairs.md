@@ -303,3 +303,70 @@ for _, tuple in crud.pairs('developers', {{'>=', 'age', 27}}, { fields = {'id', 
     table.insert(new_tuples, tuple)
 end
 ```
+
+You could use `crud.cut_rows` function to cut off scan key and primary key values that were merged to the result fields.
+
+**Example:**
+
+```lua
+tuples = {}
+for _, tuple in crud.pairs('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} }) do
+    table.insert(tuples, tuple)
+end
+
+tuples
+---
+- - - 3
+    - Pavel
+    - 27
+  - - 6
+    - Alexey
+    - 31
+  - - 4
+    - Mikhail
+    - 51
+...
+res, err = crud.cut_rows(tuples, nil, {'id', 'name'})
+res
+- metadata:
+  nil
+  rows:
+  - [3, 'Pavel']
+  - [6, 'Alexey']
+  - [4, 'Mikhail']
+...
+```
+
+If you use `use_tomap` flag and you need to cut off scan key and primary key values that were merged to the result fields you should use `crud.cut_objects`.
+
+**Example:**
+
+```lua
+objects = {}
+for _, obj in crud.pairs('developers', {{'>=', 'age', 27}}, { use_tomap = true, fields = {'id', 'name'} }) do
+    table.insert(tuples, tuple)
+end
+
+objects
+---
+- - id: 3
+    name: Pavel
+    age: 27
+  - id: 6
+    name: Alexey
+    age: 31
+  - id: 4
+    name: Mikhail
+    age: 51
+...
+res = crud.cut_objects(objects, {'id', 'name'})
+res
+---
+- - id: 3
+    name: Pavel
+  - id: 6
+    name: Alexey
+  - id: 4
+    name: Mikhail
+...
+```

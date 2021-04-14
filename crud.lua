@@ -69,6 +69,14 @@ crud.unflatten_rows = utils.unflatten_rows
 -- @function truncate
 crud.truncate = truncate.call
 
+-- @refer utils.cut_rows
+-- @function cut_rows
+crud.cut_rows = utils.cut_rows
+
+-- @refer utils.cut_objects
+-- @function cut_objects
+crud.cut_objects = utils.cut_objects
+
 --- Initializes crud on node
 --
 -- Exports all functions that are used for calls

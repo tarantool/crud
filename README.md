@@ -322,6 +322,7 @@ where:
   * `batch_size` (`?number`) - number of tuples to process per one request to storage
   * `bucket_id` (`?number|cdata`) - bucket ID
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `fields` (`?table`) - field names for getting only a subset of fields
   * `mode` (`?string`, `read` or `write`) - if `write` is specified then `select` is
     performed on master
   * `prefer_replica` (`?boolean`) - if `true` then the preferred target is one of
@@ -389,6 +390,41 @@ end
 ```
 
 See more examples of pairs queries [here.](https://github.com/tarantool/crud/blob/master/doc/pairs.md)
+
+### Cut extra rows
+
+You could use `crud.cut_rows` function to cut off scan key and primary key values that were merged to the select/pairs partial result (select/pairs with `fields` option).
+
+```lua
+local res, err = crud.cut_rows(rows, metadata, fields)
+```
+
+where:
+
+* `rows` (`table`) - array of tuples for cutting
+* `matadata` (`?metadata`) - metadata about `rows` fields
+* `fields` (`table`) - field names of fields that should be contained in the result
+
+Returns metadata and array of rows, error.
+
+See more examples of `crud.cut_rows` usage [here](https://github.com/tarantool/crud/blob/master/doc/select.md) and [here.](https://github.com/tarantool/crud/blob/master/doc/pairs.md)
+
+### Cut extra objects
+
+If you use `pairs` with `use_tomap` flag and you need to cut off scan key and primary key values that were merged to the pairs partial result (pairs with `fields` option) you should use `crud.cut_objects`.
+
+```lua
+local new_objects = crud.cut_objects(objects, fields)
+```
+
+where:
+
+* `objects` (`table`) - array of objects for cutting
+* `fields` (`table`) - field names of fields that should be contained in the result
+
+Returns array of objects.
+
+See more examples of `crud.cut_objects` usage [here.](https://github.com/tarantool/crud/blob/master/doc/pairs.md)
 
 ### Truncate
 

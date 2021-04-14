@@ -413,6 +413,63 @@ function utils.format_result(rows, space, field_names)
     return result
 end
 
+local function truncate_tuple_metadata(tuple_metadata, field_names)
+    dev_checks('?table', 'table')
+
+    if tuple_metadata == nil then
+        return nil
+    end
+
+    local truncated_metadata = {}
+
+    if #tuple_metadata < #field_names then
+        return nil, FilterFieldsError:new(
+                'Field names don\'t match to tuple metadata'
+        )
+    end
+
+    for i, name in ipairs(field_names) do
+        if tuple_metadata[i].name ~= name then
+            return nil, FilterFieldsError:new(
+                    'Field names don\'t match to tuple metadata'
+            )
+        end
+
+        table.insert(truncated_metadata, tuple_metadata[i])
+    end
+
+    return truncated_metadata
+end
+
+function utils.cut_objects(objs, field_names)
+    dev_checks('table', 'table')
+
+    for i, obj in ipairs(objs) do
+        objs[i] = schema.filter_obj_fields(obj, field_names)
+    end
+
+    return objs
+end
+
+function utils.cut_rows(rows, metadata, field_names)
+    dev_checks('table', '?table', 'table')
+
+    local truncated_metadata, err = truncate_tuple_metadata(metadata, field_names)
+
+    if err ~= nil then
+        return nil, err
+    end
+
+    for i, row in ipairs(rows) do
+        rows[i] = schema.truncate_row_trailing_fields(row, field_names)
+    end
+
+    return {
+        metadata = truncated_metadata,
+        rows = rows,
+    }
+end
+
 local function flatten_obj(space_name, obj)
     local space_format, err = utils.get_space_format(space_name, vshard.router.routeall())
     if err ~= nil then
