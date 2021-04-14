@@ -391,7 +391,7 @@ end
 
 See more examples of pairs queries [here.](https://github.com/tarantool/crud/blob/master/doc/pairs.md)
 
-### Cut_rows 
+### Cut extra rows
 
 You could use `crud.cut_rows` function to cut off scan key and primary key values that were merged to the select/pairs partial result (select/pairs with `fields` option).
 
@@ -409,7 +409,7 @@ Returns metadata and array of rows, error.
 
 See more examples of `crud.cut_rows` usage [here](https://github.com/tarantool/crud/blob/master/doc/select.md) and [here.](https://github.com/tarantool/crud/blob/master/doc/pairs.md)
 
-### Cut_objects
+### Cut extra objects
 
 If you use `pairs` with `use_tomap` flag and you need to cut off scan key and primary key values that were merged to the pairs partial result (pairs with `fields` option) you should use `crud.cut_objects`.
 
