@@ -12,11 +12,6 @@ if not os.getenv('TARANTOOL_FORBID_HOTRELOAD') then
     roles_reload_allowed = true
 end
 
-local function stop()
-    rawset(_G, 'crud', nil)
-    rawset(_G, '_crud', nil)
-end
-
 package.preload['customers-storage'] = function()
     return {
         role_name = 'customers-storage',
@@ -45,17 +40,7 @@ package.preload['customers-storage'] = function()
                 if_not_exists = true,
             })
         end,
-        stop = stop,
         dependencies = {'cartridge.roles.crud-storage'}
-    }
-end
-
-package.preload['customers-router'] = function()
-    return {
-        role_name = 'customers-router',
-        init = function() end,
-        stop = stop,
-        dependencies = {'cartridge.roles.crud-router'}
     }
 end
 
@@ -65,7 +50,8 @@ local ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
     bucket_count = 3000,
     roles = {
         'customers-storage',
-        'customers-router',
+        'cartridge.roles.crud-router',
+        'cartridge.roles.crud-storage'
     },
     roles_reload_allowed = roles_reload_allowed
 })

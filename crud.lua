@@ -103,4 +103,13 @@ function crud.init_router()
    rawset(_G, 'crud', crud)
 end
 
+
+function crud.router_stop()
+    rawset(_G, 'crud', nil)
+end
+
+function crud.storage_stop()
+    rawset(_G, '_crud', nil)
+end
+
 return crud
