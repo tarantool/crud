@@ -63,7 +63,7 @@ for func_name, operator in pairs(cond_operators_by_func_names) do
         return new_condition({
             operator = operator,
             operand = operand,
-            values = values
+            values = values,
         })
     end
 end

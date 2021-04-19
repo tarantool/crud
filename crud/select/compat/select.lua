@@ -34,12 +34,6 @@ local function build_select_iterator(space_name, user_conditions, opts)
         return nil, SelectError:new("batch_size should be > 0")
     end
 
-    -- check conditions
-    local conditions, err = compare_conditions.parse(user_conditions)
-    if err ~= nil then
-        return nil, SelectError:new("Failed to parse conditions: %s", err)
-    end
-
     local replicasets, err = vshard.router.routeall()
     if err ~= nil then
         return nil, SelectError:new("Failed to get all replicasets: %s", err)
@@ -50,6 +44,12 @@ local function build_select_iterator(space_name, user_conditions, opts)
         return nil, SelectError:new("Space %q doesn't exist", space_name), true
     end
     local space_format = space:format()
+
+    -- check conditions
+    local conditions, err = select_conditions.parse(user_conditions, space_format)
+    if err ~= nil then
+        return nil, SelectError:new("Failed to parse conditions: %s", err)
+    end
 
     -- plan select
     local plan, err = select_plan.new(space, conditions, {

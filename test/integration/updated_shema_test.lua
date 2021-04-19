@@ -594,14 +594,13 @@ pgroup:add('test_select_field_added', function(g)
         server.net_box:call('create_bucket_id_index')
     end)
 
-    -- unknown field error
+    -- unknown field (no results)
     local obj, err = g.cluster.main_server.net_box:call(
         'crud.select', {'customers', {{'==', 'extra', 'EXTRRRRA'}}}
     )
 
-    t.assert_equals(obj, nil)
-    t.assert_is_not(err, nil)
-    t.assert_str_contains(err.err, "No field or index \"extra\" found")
+    t.assert_equals(obj.rows, {})
+    t.assert_equals(err, nil)
 
     -- add extra field
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)

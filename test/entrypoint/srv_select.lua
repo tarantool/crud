@@ -126,6 +126,68 @@ package.preload['customers-storage'] = function()
                 unique = false,
                 if_not_exists = true,
             })
+
+            local developers_space = box.schema.space.create('developers', {
+                format = {
+                    {name = 'id', type = 'unsigned'},
+                    {name = 'bucket_id', type = 'unsigned'},
+                    {name = 'name', type = 'string'},
+                    {name = 'last_name', type = 'string'},
+                    {name = 'age', type = 'number'},
+                    {name = 'additional', type = 'any'},
+                },
+                if_not_exists = true,
+                engine = engine,
+            })
+
+            -- primary index
+            developers_space:create_index('id_index', {
+                parts = { 'id' },
+                if_not_exists = true,
+            })
+
+            developers_space:create_index('bucket_id', {
+                parts = { 'bucket_id' },
+                unique = false,
+                if_not_exists = true,
+            })
+
+            local cars_space = box.schema.space.create('cars', {
+                format = {
+                    {name = 'id', type = 'map'},
+                    {name = 'bucket_id', type = 'unsigned'},
+                    {name = 'age', type = 'number'},
+                    {name = 'manufacturer', type = 'string'},
+                    {name = 'data', type = 'map'}
+                },
+                if_not_exists = true,
+                engine = engine,
+            })
+
+            -- primary index
+            cars_space:create_index('id_index', {
+                parts = {
+                    {1, 'unsigned', path = 'dev_id'}
+                },
+                if_not_exists = true,
+            })
+
+            cars_space:create_index('bucket_id', {
+                parts = { 'bucket_id' },
+                unique = false,
+                if_not_exists = true,
+            })
+
+            if crud_utils.tarantool_supports_jsonpath_indexes() then
+                cars_space:create_index('data_index', {
+                    parts = {
+                        {5, 'str', path = 'car.color'},
+                        --{5, 'str', path = 'car.model'}
+                    },
+                    unique = false,
+                    if_not_exists = true,
+                })
+            end
         end,
     }
 end

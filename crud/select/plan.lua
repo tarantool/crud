@@ -6,9 +6,7 @@ local dev_checks = require('crud.common.dev_checks')
 
 local select_plan = {}
 
-local SelectPlanError = errors.new_class('SelectPlanError', {capture_stack = false})
 local IndexTypeError = errors.new_class('IndexTypeError', {capture_stack = false})
-local ValidateConditionsError = errors.new_class('ValidateConditionsError', {capture_stack = false})
 local FilterFieldsError = errors.new_class('FilterFieldsError',  {capture_stack = false})
 
 local function index_is_allowed(index)
@@ -40,34 +38,6 @@ local function get_index_for_condition(space_indexes, space_format, condition)
             end
         end
     end
-end
-
-local function validate_conditions(conditions, space_indexes, space_format)
-    local field_names = {}
-    for _, field_format in ipairs(space_format) do
-        field_names[field_format.name] = true
-    end
-
-    local index_names = {}
-
-    -- If we use # (not table.maxn), we may lose indexes, when user drop some indexes.
-    -- E.g: we have table with indexes id {1, 2, 3, nil, nil, 6}.
-    -- If we use #{1, 2, 3, nil, nil, 6} (== 3) we will lose index with id = 6.
-    -- See details: https://github.com/tarantool/crud/issues/103
-    for i = 0, table.maxn(space_indexes) do
-        local index = space_indexes[i]
-        if index ~= nil then
-            index_names[index.name] = true
-        end
-    end
-
-    for _, condition in ipairs(conditions) do
-        if index_names[condition.operand] == nil and field_names[condition.operand] == nil then
-            return false, ValidateConditionsError:new("No field or index %q found", condition.operand)
-        end
-    end
-
-    return true
 end
 
 local function extract_sharding_key_from_scan_value(scan_value, scan_index, sharding_index)
@@ -156,11 +126,6 @@ function select_plan.new(space, conditions, opts)
     local space_name = space.name
     local space_indexes = space.index
     local space_format = space:format()
-
-    local ok, err = validate_conditions(conditions, space_indexes, space_format)
-    if not ok then
-        return nil, SelectPlanError:new('Passed bad conditions: %s', err)
-    end
 
     if conditions == nil then -- also cdata<NULL>
         conditions = {}

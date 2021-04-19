@@ -1,4 +1,3 @@
-local json = require('json')
 local errors = require('errors')
 
 local utils = require('crud.common.utils')
@@ -6,7 +5,6 @@ local dev_checks = require('crud.common.dev_checks')
 local collations = require('crud.common.collations')
 local compare_conditions = require('crud.compare.conditions')
 
-local ParseConditionsError = errors.new_class('ParseConditionsError', {capture_stack = false})
 local GenFiltersError = errors.new_class('GenFiltersError', {capture_stack = false})
 
 local filters = {}
@@ -97,31 +95,42 @@ local function parse(space, conditions, opts)
     for i, condition in ipairs(conditions) do
         if i ~= opts.scan_condition_num then
             -- Index check (including one and multicolumn)
-            local fieldnos
-            local fields_types
+            local fields
+            local fields_types = {}
             local values_opts
 
             local index = space_indexes[condition.operand]
 
             if index ~= nil then
-                fieldnos = get_index_fieldnos(index)
+                fields = get_index_fieldnos(index)
                 fields_types = get_index_fields_types(index)
                 values_opts = get_values_opts(index)
-            elseif fieldnos_by_names[condition.operand] ~= nil then
-                local fiendno = fieldnos_by_names[condition.operand]
-                fieldnos = {fiendno}
-                local field_format = space_format[fiendno]
-                fields_types = {field_format.type}
-                local is_nullable = field_format.is_nullable == true
+            else
+                local fieldno = fieldnos_by_names[condition.operand]
+
+                if fieldno ~= nil then
+                    fields = {fieldno}
+                else
+                    -- We assume this is jsonpath, so it is
+                    -- not in fieldnos_by_name map.
+                    fields = {condition.operand}
+                end
+
+                local field_format = space_format[fieldno]
+                local is_nullable
+
+                if field_format ~= nil then
+                    fields_types = {field_format.type}
+                    is_nullable = field_format.is_nullable == true
+                end
+
                 values_opts = {
                     {is_nullable = is_nullable, collation = nil},
                 }
-            else
-                return nil, ParseConditionsError('No field or index is found for condition %s', json.encode(condition))
             end
 
             table.insert(filter_conditions, {
-                fieldnos = fieldnos,
+                fields = fields,
                 operator = condition.operator,
                 values = condition.values,
                 types = fields_types,
@@ -156,12 +165,30 @@ end
 local PARSE_ARGS_TEMPLATE = 'local tuple = ...'
 local LIB_FUNC_HEADER_TEMPLATE = 'function M.%s(%s)'
 
+local function format_path(path)
+    local path_type = type(path)
+    if path_type == 'number' then
+        return tostring(path)
+    elseif path_type == 'string' then
+        return ('%q'):format(path)
+    end
+
+    assert(false, ('Unexpected format: %s'):format(path_type))
+end
+
 local function concat_conditions(conditions, operator)
     return '(' .. table.concat(conditions, (' %s '):format(operator)) .. ')'
 end
 
-local function get_field_variable_name(fieldno)
-    return string.format('field_%s', fieldno)
+local function get_field_variable_name(field)
+    local field_type = type(field)
+    if field_type == 'number' then
+        field = tostring(field)
+    elseif field_type == 'string' then
+        field = string.gsub(field, '([().^$%[%]%+%-%*%?%%\'"])', '_')
+    end
+
+    return string.format('field_%s', field)
 end
 
 local function get_eq_func_name(id)
@@ -173,16 +200,17 @@ local function get_cmp_func_name(id)
 end
 
 local function gen_tuple_fields_def_code(filter_conditions)
-    -- get field numbers
-    local fieldnos_added = {}
-    local fieldnos = {}
+    -- get field names
+    local fields_added = {}
+    local fields = {}
 
     for _, cond in ipairs(filter_conditions) do
         for i = 1, #cond.values do
-            local fieldno = cond.fieldnos[i]
-            if not fieldnos_added[fieldno] then
-                table.insert(fieldnos, fieldno)
-                fieldnos_added[fieldno] = true
+            local field = cond.fields[i]
+
+            if not fields_added[field] then
+                table.insert(fields, field)
+                fields_added[field] = true
             end
         end
     end
@@ -190,21 +218,21 @@ local function gen_tuple_fields_def_code(filter_conditions)
     -- gen definitions for all used fields
     local fields_def_parts = {}
 
-    for _, fieldno in ipairs(fieldnos) do
+    for _, field in ipairs(fields) do
         table.insert(fields_def_parts, string.format(
             'local %s = tuple[%s]',
-            get_field_variable_name(fieldno), fieldno
+            get_field_variable_name(field), format_path(field)
         ))
     end
 
     return table.concat(fields_def_parts, '\n')
 end
 
-local function format_comp_with_value(fieldno, func_name, value)
+local function format_comp_with_value(field, func_name, value)
     return string.format(
         '%s(%s, %s)',
         func_name,
-        get_field_variable_name(fieldno),
+        get_field_variable_name(field),
         format_value(value)
     )
 end
@@ -238,7 +266,7 @@ local function format_eq(cond)
     local values_opts = cond.values_opts or {}
 
     for j = 1, #cond.values do
-        local fieldno = cond.fieldnos[j]
+        local field = cond.fields[j]
         local value = cond.values[j]
         local value_type = cond.types[j]
         local value_opts = values_opts[j] or {}
@@ -254,7 +282,7 @@ local function format_eq(cond)
             func_name = 'eq_uuid'
         end
 
-        table.insert(cond_strings, format_comp_with_value(fieldno, func_name, value))
+        table.insert(cond_strings, format_comp_with_value(field, func_name, value))
     end
 
     return cond_strings
@@ -265,7 +293,7 @@ local function format_lt(cond)
     local values_opts = cond.values_opts or {}
 
     for j = 1, #cond.values do
-        local fieldno = cond.fieldnos[j]
+        local field = cond.fields[j]
         local value = cond.values[j]
         local value_type = cond.types[j]
         local value_opts = values_opts[j] or {}
@@ -279,9 +307,10 @@ local function format_lt(cond)
         elseif value_type == 'uuid' then
             func_name = 'lt_uuid'
         end
+
         func_name = add_strict_postfix(func_name, value_opts)
 
-        table.insert(cond_strings, format_comp_with_value(fieldno, func_name, value))
+        table.insert(cond_strings, format_comp_with_value(field, func_name, value))
     end
 
     return cond_strings
@@ -366,10 +395,10 @@ local function gen_cmp_array_func_code(operator, func_name, cond, func_args_code
     return table.concat(func_code_lines, '\n')
 end
 
-local function function_args_by_fieldnos(fieldnos)
+local function function_args_by_field(fields)
     local arg_names = {}
-    for _, fieldno in ipairs(fieldnos) do
-        table.insert(arg_names, get_field_variable_name(fieldno))
+    for _, field in ipairs(fields) do
+        table.insert(arg_names, get_field_variable_name(field))
     end
     return table.concat(arg_names, ', ')
 end
@@ -408,8 +437,8 @@ local function gen_filter_code(filter_conditions)
     table.insert(filter_code_parts, '')
 
     for i, cond in ipairs(filter_conditions) do
-        local args_fieldnos = { unpack(cond.fieldnos, 1, #cond.values) }
-        local func_args_code = function_args_by_fieldnos(args_fieldnos)
+        local args_fields = { unpack(cond.fields, 1, #cond.values) }
+        local func_args_code = function_args_by_field(args_fields)
 
         local library_func_name, library_func_code = gen_library_func(i, cond, func_args_code)
         table.insert(library_funcs_code_parts, library_func_code)
@@ -623,6 +652,7 @@ function filters.gen_func(space, conditions, opts)
         scan_condition_num = opts.scan_condition_num,
         tarantool_iter = opts.tarantool_iter,
     })
+
     if err ~= nil then
         return nil, GenFiltersError:new("Failed to generate filters for specified conditions: %s", err)
     end
