@@ -258,6 +258,10 @@ function select_plan.new(space, conditions, opts)
         sharding_key = extract_sharding_key_from_scan_value(scan_value, scan_index, sharding_index)
     end
 
+    if opts.bucket_optimization == nil then
+        opts.bucket_optimization = true
+    end
+
     if sharding_key ~= nil and opts.bucket_optimization == true then
         total_tuples_count = 1
         scan_iter = box.index.REQ
