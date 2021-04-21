@@ -5,8 +5,13 @@ local function init()
     crud.init_router()
 end
 
+local function stop()
+    crud.stop_router()
+end
+
 return {
     role_name = 'crud-router',
     init = init,
+    stop = stop,
     dependencies = {'cartridge.roles.vshard-router'}
 }
