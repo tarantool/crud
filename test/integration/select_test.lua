@@ -1056,3 +1056,40 @@ pgroup:add('test_cut_selected_rows', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, expected_customers)
 end)
+
+pgroup:add('test_select_without_bucket_id_optimization', function(g)
+    local key = 1
+    local bucket_ids, err = helpers.get_replicasets_with_equal_key(g.cluster, key)
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#bucket_ids, 2)
+
+    local customers = helpers.insert_objects(g, 'customers', {
+        {
+            id = key, bucket_id = bucket_ids[1], name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = key, bucket_id = bucket_ids[2], name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.bucket_id < obj2.bucket_id end)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+        'customers', {{'==', 'id', key}},
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#result.rows, 1)
+
+    result, err = g.cluster.main_server.net_box:call('crud.select', {
+        'customers', {{'==', 'id', key}}, {bucket_optimization = false}
+    })
+
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    table.sort(objects, function(obj1, obj2) return obj1.bucket_id < obj2.bucket_id end)
+    t.assert_equals(objects, customers)
+end)
