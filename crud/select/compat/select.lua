@@ -126,6 +126,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         batch_size = '?number',
         use_tomap = '?boolean',
         bucket_id = '?number|cdata',
+        bucket_optimization = '?boolean',
         fields = '?table',
 
         mode = '?vshard_call_mode',
@@ -146,6 +147,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
+        bucket_optimization = opts.bucket_optimization,
         field_names = opts.fields,
         call_opts = {
             mode = opts.mode,
