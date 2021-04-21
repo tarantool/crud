@@ -611,3 +611,56 @@ pgroup:add('test_pairs_cut_result', function(g)
      t.assert_equals(tuples.metadata, nil)
     t.assert_equals(tuples.rows, expected_customers)
 end)
+
+pgroup:add('test_pairs_without_bucket_optimization', function(g)
+    local key = 1
+    local bucket_ids, err = helpers.get_replicasets_with_equal_key(g.cluster, key)
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#bucket_ids, 2)
+
+    local customers = helpers.insert_objects(g, 'customers', {
+        {
+            id = key, bucket_id = bucket_ids[1], name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = key, bucket_id = bucket_ids[2], name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.bucket_id < obj2.bucket_id end)
+
+    local conditions = {{'==', 'id', key}}
+
+    local objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions = ...
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#objects, 1)
+
+    objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions = ...
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, bucket_optimization = false}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions})
+    table.sort(objects, function(obj1, obj2) return obj1.bucket_id < obj2.bucket_id end)
+    t.assert_equals(objects, customers)
+end)
