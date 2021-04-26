@@ -662,7 +662,7 @@ pgroup:add('test_pairs_without_bucket_optimization', function(g)
         local conditions = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {use_tomap = true, bucket_optimization = false}) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, block_bucket_id_computation = true}) do
             table.insert(objects, object)
         end
 

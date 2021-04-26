@@ -73,7 +73,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         first = '?number',
         batch_size = '?number',
         bucket_id = '?number|cdata',
-        bucket_optimization = '?boolean',
+        block_bucket_id_computation = '?boolean',
         field_names = '?table',
         call_opts = 'table',
     })
@@ -103,16 +103,12 @@ local function build_select_iterator(space_name, user_conditions, opts)
     end
     local space_format = space:format()
 
-    if opts.bucket_optimization == nil then
-        opts.bucket_optimization = true
-    end
-
     -- plan select
     local plan, err = select_plan.new(space, conditions, {
         first = opts.first,
         after_tuple = opts.after,
         field_names = opts.field_names,
-        bucket_optimization = opts.bucket_optimization,
+        block_bucket_id_computation = opts.block_bucket_id_computation,
     })
 
     if err ~= nil then
@@ -122,7 +118,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     -- set replicasets to select from
     local replicasets_to_select = replicasets
 
-    if plan.sharding_key ~= nil and opts.bucket_optimization == true then
+    if plan.sharding_key ~= nil and opts.block_bucket_id_computation ~= true then
         local bucket_id = sharding.key_get_bucket_id(plan.sharding_key, opts.bucket_id)
 
         local err
@@ -176,7 +172,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         batch_size = '?number',
         use_tomap = '?boolean',
         bucket_id = '?number|cdata',
-        bucket_optimization = '?boolean',
+        block_bucket_id_computation = '?boolean',
         fields = '?table',
 
         mode = '?vshard_call_mode',
@@ -197,7 +193,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
-        bucket_optimization = opts.bucket_optimization,
+        block_bucket_id_computation = opts.block_bucket_id_computation,
         field_names = opts.fields,
         call_opts = {
             mode = opts.mode,
@@ -246,7 +242,7 @@ function select_module.call(space_name, user_conditions, opts)
         timeout = '?number',
         batch_size = '?number',
         bucket_id = '?number|cdata',
-        bucket_optimization = '?boolean',
+        block_bucket_id_computation = '?boolean',
         fields = '?table',
         prefer_replica = '?boolean',
         balance = '?boolean',
@@ -267,7 +263,7 @@ function select_module.call(space_name, user_conditions, opts)
         timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
-        bucket_optimization = opts.bucket_optimization,
+        block_bucket_id_computation = opts.block_bucket_id_computation,
         field_names = opts.fields,
         call_opts = {
             mode = opts.mode,

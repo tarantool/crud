@@ -1091,7 +1091,7 @@ pgroup:add('test_select_without_bucket_id_optimization', function(g)
     t.assert_equals(#result.rows, 1)
 
     result, err = g.cluster.main_server.net_box:call('crud.select', {
-        'customers', {{'==', 'id', key}}, {bucket_optimization = false}
+        'customers', {{'==', 'id', key}}, {block_bucket_id_computation = true}
     })
 
     t.assert_equals(err, nil)
