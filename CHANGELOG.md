@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * `cut_rows` and `cut_objects` functions to cut off scan key and
   primary key values that were merged to the select/pairs partial result.
 * Functions ``stop()`` for the roles ``crud-storage`` and ``crud-router``.
+* Option flag `block_bucket_id_computation` for `select()`/`pairs()` to disable the `bucket_id` computation from primary key.
 
 ## [0.6.0] - 2021-03-29
 
