@@ -614,17 +614,24 @@ end)
 
 pgroup:add('test_pairs_without_bucket_optimization', function(g)
     local key = 1
-    local bucket_ids, err = helpers.get_replicasets_with_equal_key(g.cluster, key)
+
+    local first_bucket_id = g.cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
+
+        local key = ...
+        return vshard.router.bucket_id_strcrc32(key)
+    ]], {key})
+
+    local second_bucket_id, err = helpers.get_other_storage_bucket_id(g.cluster, first_bucket_id)
 
     t.assert_equals(err, nil)
-    t.assert_equals(#bucket_ids, 2)
 
     local customers = helpers.insert_objects(g, 'customers', {
         {
-            id = key, bucket_id = bucket_ids[1], name = "Elizabeth", last_name = "Jackson",
+            id = key, bucket_id = first_bucket_id, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "New York",
         }, {
-            id = key, bucket_id = bucket_ids[2], name = "Mary", last_name = "Brown",
+            id = key, bucket_id = second_bucket_id, name = "Mary", last_name = "Brown",
             age = 46, city = "Los Angeles",
         },
     })

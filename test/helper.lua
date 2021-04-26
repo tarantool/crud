@@ -192,13 +192,11 @@ function helpers.assert_ge(actual, expected, message)
     end
 end
 
-function helpers.get_replicasets_with_equal_key(cluster, key)
+function helpers.get_other_storage_bucket_id(cluster, bucket_id)
     return cluster.main_server.net_box:eval([[
         local vshard = require('vshard')
 
-        local key = ...
-        local bucket_id = vshard.router.bucket_id_strcrc32(key)
-        local bucket_ids = {bucket_id,}
+        local bucket_id = ...
 
         local replicasets = vshard.router.routeall()
 
@@ -231,10 +229,8 @@ function helpers.get_replicasets_with_equal_key(cluster, key)
         local buckets_info = other_replicaset:callrw('vshard.storage.buckets_info')
         local res_bucket_id = next(buckets_info)
 
-        table.insert(bucket_ids, res_bucket_id)
-
-        return bucket_ids
-    ]], {key})
+        return res_bucket_id
+    ]], {bucket_id})
 end
 
 return helpers
