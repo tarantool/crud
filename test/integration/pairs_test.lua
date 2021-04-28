@@ -612,7 +612,7 @@ pgroup:add('test_pairs_cut_result', function(g)
     t.assert_equals(tuples.rows, expected_customers)
 end)
 
-pgroup:add('test_pairs_without_bucket_optimization', function(g)
+pgroup:add('test_pairs_force_map_call', function(g)
     local key = 1
 
     local first_bucket_id = g.cluster.main_server.net_box:eval([[
@@ -662,7 +662,7 @@ pgroup:add('test_pairs_without_bucket_optimization', function(g)
         local conditions = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {use_tomap = true, block_bucket_id_computation = true}) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, force_map_call = true}) do
             table.insert(objects, object)
         end
 

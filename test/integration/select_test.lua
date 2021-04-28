@@ -1057,7 +1057,7 @@ pgroup:add('test_cut_selected_rows', function(g)
     t.assert_equals(objects, expected_customers)
 end)
 
-pgroup:add('test_select_without_bucket_id_optimization', function(g)
+pgroup:add('test_select_force_map_call', function(g)
     local key = 1
 
     local first_bucket_id = g.cluster.main_server.net_box:eval([[
@@ -1091,7 +1091,7 @@ pgroup:add('test_select_without_bucket_id_optimization', function(g)
     t.assert_equals(#result.rows, 1)
 
     result, err = g.cluster.main_server.net_box:call('crud.select', {
-        'customers', {{'==', 'id', key}}, {block_bucket_id_computation = true}
+        'customers', {{'==', 'id', key}}, {force_map_call = true}
     })
 
     t.assert_equals(err, nil)

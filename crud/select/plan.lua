@@ -171,7 +171,7 @@ function select_plan.new(space, conditions, opts)
         first = '?number',
         after_tuple = '?table|cdata',
         field_names = '?table',
-        block_bucket_id_computation = '?boolean',
+        force_map_call = '?boolean',
     })
 
     conditions = conditions ~= nil and conditions or {}
@@ -258,7 +258,7 @@ function select_plan.new(space, conditions, opts)
         sharding_key = extract_sharding_key_from_scan_value(scan_value, scan_index, sharding_index)
     end
 
-    if sharding_key ~= nil and opts.block_bucket_id_computation ~= true then
+    if sharding_key ~= nil and opts.force_map_call ~= true then
         total_tuples_count = 1
         scan_iter = box.index.REQ
     end
