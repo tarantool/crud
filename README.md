@@ -321,8 +321,9 @@ where:
   * `after` (`?table`) - tuple after which objects should be selected
   * `batch_size` (`?number`) - number of tuples to process per one request to storage
   * `bucket_id` (`?number|cdata`) - bucket ID
-  * `force_map_call` (`?boolean`) - if `true` 
-    then the `bucket_id` computation from primary key is disabled
+  * `force_map_call` (`?boolean`) - if `true`
+     then the map call is performed without any optimizations even
+     if full primary key equal condition is specified
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `fields` (`?table`) - field names for getting only a subset of fields
   * `mode` (`?string`, `read` or `write`) - if `write` is specified then `select` is
