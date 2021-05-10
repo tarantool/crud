@@ -192,4 +192,45 @@ function helpers.assert_ge(actual, expected, message)
     end
 end
 
+function helpers.get_other_storage_bucket_id(cluster, bucket_id)
+    return cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
+
+        local bucket_id = ...
+
+        local replicasets = vshard.router.routeall()
+
+        local other_replicaset_uuid
+        for replicaset_uuid, replicaset in pairs(replicasets) do
+            local stat, err = replicaset:callrw('vshard.storage.bucket_stat', {bucket_id})
+
+            if err ~= nil and err.name == 'WRONG_BUCKET' then
+                other_replicaset_uuid = replicaset_uuid
+                break
+            end
+
+            if err ~= nil then
+                return nil, string.format(
+                    'vshard.storage.bucket_stat returned unexpected error: %s',
+                    require('json').encode(err)
+                )
+            end
+        end
+
+        if other_replicaset_uuid == nil then
+            return nil, 'Other replicaset is not found'
+        end
+
+        local other_replicaset = replicasets[other_replicaset_uuid]
+        if other_replicaset == nil then
+            return nil, string.format('Replicaset %s not found', other_replicaset_uuid)
+        end
+
+        local buckets_info = other_replicaset:callrw('vshard.storage.buckets_info')
+        local res_bucket_id = next(buckets_info)
+
+        return res_bucket_id
+    ]], {bucket_id})
+end
+
 return helpers

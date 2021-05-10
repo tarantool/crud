@@ -1056,3 +1056,47 @@ pgroup:add('test_cut_selected_rows', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, expected_customers)
 end)
+
+pgroup:add('test_select_force_map_call', function(g)
+    local key = 1
+
+    local first_bucket_id = g.cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
+
+        local key = ...
+        return vshard.router.bucket_id_strcrc32(key)
+    ]], {key})
+
+    local second_bucket_id, err = helpers.get_other_storage_bucket_id(g.cluster, first_bucket_id)
+
+    t.assert_equals(err, nil)
+
+    local customers = helpers.insert_objects(g, 'customers', {
+        {
+            id = key, bucket_id = first_bucket_id, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = key, bucket_id = second_bucket_id, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.bucket_id < obj2.bucket_id end)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+        'customers', {{'==', 'id', key}},
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#result.rows, 1)
+
+    result, err = g.cluster.main_server.net_box:call('crud.select', {
+        'customers', {{'==', 'id', key}}, {force_map_call = true}
+    })
+
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    table.sort(objects, function(obj1, obj2) return obj1.bucket_id < obj2.bucket_id end)
+    t.assert_equals(objects, customers)
+end)

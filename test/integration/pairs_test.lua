@@ -611,3 +611,63 @@ pgroup:add('test_pairs_cut_result', function(g)
      t.assert_equals(tuples.metadata, nil)
     t.assert_equals(tuples.rows, expected_customers)
 end)
+
+pgroup:add('test_pairs_force_map_call', function(g)
+    local key = 1
+
+    local first_bucket_id = g.cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
+
+        local key = ...
+        return vshard.router.bucket_id_strcrc32(key)
+    ]], {key})
+
+    local second_bucket_id, err = helpers.get_other_storage_bucket_id(g.cluster, first_bucket_id)
+
+    t.assert_equals(err, nil)
+
+    local customers = helpers.insert_objects(g, 'customers', {
+        {
+            id = key, bucket_id = first_bucket_id, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = key, bucket_id = second_bucket_id, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.bucket_id < obj2.bucket_id end)
+
+    local conditions = {{'==', 'id', key}}
+
+    local objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions = ...
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#objects, 1)
+
+    objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local conditions = ...
+
+        local objects = {}
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, force_map_call = true}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]], {conditions})
+    table.sort(objects, function(obj1, obj2) return obj1.bucket_id < obj2.bucket_id end)
+    t.assert_equals(objects, customers)
+end)
