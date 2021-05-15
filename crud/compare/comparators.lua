@@ -102,7 +102,8 @@ function comparators.update_key_parts_by_field_names(space_format, field_names, 
         local field_name = space_format[part.fieldno].name
         local updated_part = {type = part.type,
                               fieldno = fields_positions[field_name],
-                              is_nullable = part.is_nullable}
+                              is_nullable = part.is_nullable,
+                              path = part.path}
         table.insert(updated_key_parts, updated_part)
     end
 
@@ -153,8 +154,8 @@ function comparators.gen_tuples_comparator(cmp_operator, key_parts, field_names,
     local keys_comparator = comparators.gen_func(cmp_operator, updated_key_parts)
 
     return function(lhs, rhs)
-        local lhs_key = utils.extract_key(lhs, updated_key_parts)
-        local rhs_key = utils.extract_key(rhs, updated_key_parts)
+        local lhs_key = utils.extract_jsonpath_keys(lhs, updated_key_parts)
+        local rhs_key = utils.extract_jsonpath_keys(rhs, updated_key_parts)
 
         return keys_comparator(lhs_key, rhs_key)
     end

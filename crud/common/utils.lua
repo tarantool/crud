@@ -12,6 +12,9 @@ local ShardingError = errors.new_class('ShardingError',  {capture_stack = false}
 local GetSpaceFormatError = errors.new_class('GetSpaceFormatError',  {capture_stack = false})
 local FilterFieldsError = errors.new_class('FilterFieldsError',  {capture_stack = false})
 
+local compat = require('crud.common.compat')
+local keydef_lib = compat.require('tuple.keydef', 'key_def')
+
 local utils = {}
 
 local space_format_cache = setmetatable({}, {__mode = 'k'})
@@ -145,6 +148,49 @@ function utils.extract_key(tuple, key_parts)
     for i, part in ipairs(key_parts) do
         key[i] = tuple[part.fieldno]
     end
+    return key
+end
+
+function utils.extract_jsonpath_keys(tuple, index_parts, condition_map)
+    if tuple == nil then
+        return nil
+    end
+
+    local key_def = nil
+    local extracted_values
+    local curr_jsonpath_ind = nil
+    local key = {}
+
+    for i, part in ipairs(index_parts) do
+        if part.path ~= nil and type(tuple[part.fieldno]) == 'table' then
+            if curr_jsonpath_ind == nil then
+                curr_jsonpath_ind = i
+            end
+
+            if key_def == nil then
+                key_def = keydef_lib.new(index_parts)
+                extracted_values = key_def:extract_key(tuple)
+            end
+
+            -- We need this check (and also condition map) for composite
+            -- jsonpath indexes. For example, we have to filtering values
+            -- by partial jsonpath index, but index is composite and fields
+            -- are jsonpaths to the same space field. In this case, we
+            -- have to extract only needed value, specified in condtion.
+            if condition_map ~= nil then
+                if condition_map[extracted_values[curr_jsonpath_ind]] then
+                    key[i] = extracted_values[curr_jsonpath_ind]
+                end
+            else
+                key[i] = extracted_values[curr_jsonpath_ind]
+            end
+
+            curr_jsonpath_ind = curr_jsonpath_ind + 1
+        else
+            key[i] = tuple[part.fieldno]
+        end
+    end
+
     return key
 end
 
@@ -510,6 +556,28 @@ end
 
 function utils.flatten_obj_reload(space_name, obj)
     return schema.wrap_func_reload(flatten_obj, space_name, obj)
+end
+
+function utils.get_index_paths(index_parts)
+    local parts = {}
+    for _, v in ipairs(index_parts) do
+        table.insert(parts, v.path)
+    end
+
+    return parts
+end
+
+function utils.get_condition_values_map(conditions)
+    if conditions == nil or conditions.values == nil then
+        return {}
+    end
+
+    local map = {}
+    for _, v in pairs(conditions.values) do
+        map[v] = true
+    end
+
+    return map
 end
 
 return utils

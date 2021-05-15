@@ -40,11 +40,15 @@ local function is_early_exit_possible(index, tarantool_iter, condition)
     return false
 end
 
-local function get_index_fieldnos(index)
+local function get_index_fieldnos(index, space_format)
     local index_fieldnos = {}
 
     for _, part in ipairs(index.parts) do
-        table.insert(index_fieldnos, part.fieldno)
+        if part.path ~= nil then
+            table.insert(index_fieldnos, string.format("%s.%s", space_format[part.fieldno].name, part.path))
+        else
+            table.insert(index_fieldnos, part.fieldno)
+        end
     end
 
     return index_fieldnos
@@ -91,7 +95,6 @@ local function parse(space, conditions, opts)
     end
 
     local filter_conditions = {}
-
     for i, condition in ipairs(conditions) do
         if i ~= opts.scan_condition_num then
             -- Index check (including one and multicolumn)

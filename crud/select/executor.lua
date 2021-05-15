@@ -37,6 +37,7 @@ function executor.execute(space, index, filter_func, opts)
         after_tuple = '?table',
         tarantool_iter = 'number',
         limit = '?number',
+        conditions = '?table'
     })
 
     opts = opts or {}
@@ -55,7 +56,11 @@ function executor.execute(space, index, filter_func, opts)
         else
             local cmp_operator = select_comparators.get_cmp_operator(opts.tarantool_iter)
             local scan_comparator = select_comparators.gen_tuples_comparator(cmp_operator, index.parts)
-            local after_tuple_key = utils.extract_key(opts.after_tuple, index.parts)
+            local after_tuple_key = utils.extract_jsonpath_keys(
+                opts.after_tuple,
+                index.parts,
+                utils.get_condition_values_map(opts.conditions)
+            )
             if scan_comparator(after_tuple_key, opts.scan_value) then
                 value = after_tuple_key
             end

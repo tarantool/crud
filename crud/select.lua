@@ -69,6 +69,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         after_tuple = opts.after_tuple,
         tarantool_iter = opts.tarantool_iter,
         limit = opts.limit,
+        conditions = conditions,
     })
     if err ~= nil then
         return nil, SelectError:new("Failed to execute select: %s", err)
