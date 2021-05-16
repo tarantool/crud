@@ -73,12 +73,6 @@ local function eq_unicode_ci(lhs, rhs)
     return lhs == rhs
 end
 
-local function lt_uuid_default(lhs, rhs)
-    return tostring(lhs) < tostring(rhs)
-end
-
-local lt_uuid = lt_nullable(lt_uuid_default)
-
 local comparators_by_type = {
     boolean = function ()
         return lt_boolean, eq
@@ -95,9 +89,6 @@ local comparators_by_type = {
             UnsupportedCollationError:assert(false, 'Unsupported Tarantool collation %q', collation)
         end
     end,
-    uuid = function ()
-        return lt_uuid, eq
-    end
 }
 
 function types.get_comparators_by_type(key_part)
