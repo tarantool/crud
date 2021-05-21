@@ -1,6 +1,6 @@
 local errors = require('errors')
 
-local select_conditions = require('crud.select.conditions')
+local compare_conditions = require('crud.compare.conditions')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
@@ -200,7 +200,7 @@ function select_plan.new(space, conditions, opts)
         scan_index = get_index_for_condition(space_indexes, space_format, condition)
 
         if scan_index ~= nil then
-            scan_iter = select_conditions.get_tarantool_iter(condition)
+            scan_iter = compare_conditions.get_tarantool_iter(condition)
             scan_value = condition.values
             scan_condition_num = i
             break

@@ -1,8 +1,8 @@
 local errors = require('errors')
 
-local select_conditions = require('crud.select.conditions')
-local type_comparators = require('crud.select.type_comparators')
-local operators = select_conditions.operators
+local compare_conditions = require('crud.compare.conditions')
+local type_comparators = require('crud.compare.type_comparators')
+local operators = compare_conditions.operators
 
 local utils = require('crud.common.utils')
 

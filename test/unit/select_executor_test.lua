@@ -4,8 +4,8 @@ local select_plan = require('crud.select.plan')
 local select_executor = require('crud.select.executor')
 local select_filters = require('crud.select.filters')
 
-local select_conditions = require('crud.select.conditions')
-local cond_funcs = select_conditions.funcs
+local compare_conditions = require('crud.compare.conditions')
+local cond_funcs = compare_conditions.funcs
 
 local t = require('luatest')
 local g = t.group('select_executor')
