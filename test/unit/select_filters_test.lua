@@ -1,7 +1,7 @@
 -- luacheck: push max_line_length 300
 
-local select_conditions = require('crud.select.conditions')
-local cond_funcs = select_conditions.funcs
+local compare_conditions = require('crud.compare.conditions')
+local cond_funcs = compare_conditions.funcs
 local select_filters = require('crud.select.filters')
 local select_plan = require('crud.select.plan')
 local collations = require('crud.common.collations')
@@ -84,7 +84,7 @@ g.test_parse = function()
     local age_filter_condition = filter_conditions[1]
     t.assert_type(age_filter_condition, 'table')
     t.assert_equals(age_filter_condition.fieldnos, {5})
-    t.assert_equals(age_filter_condition.operator, select_conditions.operators.LT)
+    t.assert_equals(age_filter_condition.operator, compare_conditions.operators.LT)
     t.assert_equals(age_filter_condition.values, {40})
     t.assert_equals(age_filter_condition.types, {'number'})
     t.assert_equals(age_filter_condition.early_exit_is_possible, true)
@@ -93,7 +93,7 @@ g.test_parse = function()
     local full_name_filter_condition = filter_conditions[2]
     t.assert_type(full_name_filter_condition, 'table')
     t.assert_equals(full_name_filter_condition.fieldnos, {3, 4})
-    t.assert_equals(full_name_filter_condition.operator, select_conditions.operators.EQ)
+    t.assert_equals(full_name_filter_condition.operator, compare_conditions.operators.EQ)
     t.assert_equals(full_name_filter_condition.values, {'Ivan', 'Ivanov'})
     t.assert_equals(full_name_filter_condition.types, {'string', 'string'})
     t.assert_equals(full_name_filter_condition.early_exit_is_possible, false)
@@ -116,7 +116,7 @@ g.test_parse = function()
     local has_a_car_filter_condition = filter_conditions[3]
     t.assert_type(has_a_car_filter_condition, 'table')
     t.assert_equals(has_a_car_filter_condition.fieldnos, {7})
-    t.assert_equals(has_a_car_filter_condition.operator, select_conditions.operators.EQ)
+    t.assert_equals(has_a_car_filter_condition.operator, compare_conditions.operators.EQ)
     t.assert_equals(has_a_car_filter_condition.values, {true})
     t.assert_equals(has_a_car_filter_condition.types, {'boolean'})
     t.assert_equals(has_a_car_filter_condition.early_exit_is_possible, false)
@@ -131,7 +131,7 @@ g.test_one_condition_number = function()
     local filter_conditions = {
         {
             fieldnos = {1},
-            operator = select_conditions.operators.EQ,
+            operator = compare_conditions.operators.EQ,
             values = {3},
             types = {'number'},
             early_exit_is_possible = true,
@@ -168,7 +168,7 @@ g.test_one_condition_boolean = function()
     local filter_conditions = {
         {
             fieldnos = {1},
-            operator = select_conditions.operators.EQ,
+            operator = compare_conditions.operators.EQ,
             values = {true},
             types = {'boolean'},
             early_exit_is_possible = true,
@@ -208,7 +208,7 @@ g.test_one_condition_string = function()
     local filter_conditions = {
         {
             fieldnos = {2},
-            operator = select_conditions.operators.GT,
+            operator = compare_conditions.operators.GT,
             values = {'dddddddd'},
             types = {'string'},
             early_exit_is_possible = true,
@@ -249,14 +249,14 @@ g.test_two_conditions = function()
     local filter_conditions = {
         {
             fieldnos = {1},
-            operator = select_conditions.operators.EQ,
+            operator = compare_conditions.operators.EQ,
             values = {4},
             types = {'number'},
             early_exit_is_possible = true,
         },
         {
             fieldnos = {3},
-            operator = select_conditions.operators.GE,
+            operator = compare_conditions.operators.GE,
             values = {"dddddddd"},
             types = {'string'},
             early_exit_is_possible = false,
@@ -305,7 +305,7 @@ g.test_two_conditions_non_nullable = function()
     local filter_conditions = {
         {
             fieldnos = {2, 3},
-            operator = select_conditions.operators.GE,
+            operator = compare_conditions.operators.GE,
             values = {"test", 5},
             types = {'string', 'number'},
             early_exit_is_possible = false,
@@ -316,7 +316,7 @@ g.test_two_conditions_non_nullable = function()
         },
         {
             fieldnos = {1},
-            operator = select_conditions.operators.LT,
+            operator = compare_conditions.operators.LT,
             values = {3},
             types = {'number'},
             early_exit_is_possible = true,
@@ -373,7 +373,7 @@ g.test_one_condition_with_nil_value = function()
     local filter_conditions = {
         {
             fieldnos = {2, 3},
-            operator = select_conditions.operators.GE,
+            operator = compare_conditions.operators.GE,
             values = {"test"},
             types = {'string', 'number'},
             early_exit_is_possible = false,
@@ -416,7 +416,7 @@ g.test_unicode_collation = function()
     local filter_conditions = {
         {
             fieldnos = {1, 2, 3, 4},
-            operator = select_conditions.operators.EQ,
+            operator = compare_conditions.operators.EQ,
             values = {'A', 'Á', 'Ä', 6},
             types = {'string', 'string', 'string', 'number'},
             early_exit_is_possible = false,
@@ -462,7 +462,7 @@ g.test_binary_and_none_collation = function()
     local filter_conditions = {
         {
             fieldnos = {1, 2, 3},
-            operator = select_conditions.operators.EQ,
+            operator = compare_conditions.operators.EQ,
             values = {'A', 'B', 'C'},
             types = {'string', 'string', 'string'},
             early_exit_is_possible = false,
@@ -507,7 +507,7 @@ g.test_null_as_last_value_eq = function()
     local filter_conditions = {
         {
             fieldnos = {1, 2},
-            operator = select_conditions.operators.EQ,
+            operator = compare_conditions.operators.EQ,
             values = {'a', box.NULL},
             types = {'string', 'string'},
             early_exit_is_possible = false,
@@ -548,7 +548,7 @@ g.test_null_as_last_value_gt = function()
     local filter_conditions = {
         {
             fieldnos = {1, 2},
-            operator = select_conditions.operators.GT,
+            operator = compare_conditions.operators.GT,
             values = {'a', box.NULL},
             types = {'string', 'string'},
             early_exit_is_possible = false,
@@ -595,7 +595,7 @@ g.test_null_as_last_value_gt_non_nullable = function()
     local filter_conditions = {
         {
             fieldnos = {1, 2},
-            operator = select_conditions.operators.GT,
+            operator = compare_conditions.operators.GT,
             values = {'a', box.NULL},
             types = {'string', 'string'},
             early_exit_is_possible = false,

@@ -9,9 +9,9 @@ local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
 
-local select_conditions = require('crud.select.conditions')
+local compare_conditions = require('crud.compare.conditions')
 local select_plan = require('crud.select.plan')
-local select_comparators = require('crud.select.comparators')
+local select_comparators = require('crud.compare.comparators')
 local common = require('crud.select.compat.common')
 
 local Iterator = require('crud.select.iterator')
@@ -87,7 +87,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local batch_size = opts.batch_size or common.DEFAULT_BATCH_SIZE
 
     -- check conditions
-    local conditions, err = select_conditions.parse(user_conditions)
+    local conditions, err = compare_conditions.parse(user_conditions)
     if err ~= nil then
         return nil, SelectError:new("Failed to parse conditions: %s", err)
     end

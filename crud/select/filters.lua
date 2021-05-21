@@ -4,7 +4,7 @@ local errors = require('errors')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 local collations = require('crud.common.collations')
-local select_conditions = require('crud.select.conditions')
+local compare_conditions = require('crud.compare.conditions')
 
 local ParseConditionsError = errors.new_class('ParseConditionsError', {capture_stack = false})
 local GenFiltersError = errors.new_class('GenFiltersError', {capture_stack = false})
@@ -28,7 +28,7 @@ local function is_early_exit_possible(index, tarantool_iter, condition)
         return false
     end
 
-    local condition_iter = select_conditions.get_tarantool_iter(condition)
+    local condition_iter = compare_conditions.get_tarantool_iter(condition)
     if tarantool_iter == box.index.REQ or tarantool_iter == box.index.LT or tarantool_iter == box.index.LE then
         if condition_iter == box.index.GT or condition_iter == box.index.GE then
             return true
@@ -306,16 +306,16 @@ local function gen_eq_func_code(func_name, cond, func_args_code)
 end
 
 local results_by_operators = {
-    [select_conditions.operators.LT] = {
+    [compare_conditions.operators.LT] = {
         le = true, not_eq = false, default = false,
     },
-    [select_conditions.operators.LE] = {
+    [compare_conditions.operators.LE] = {
         le = true, not_eq = false, default = true,
     },
-    [select_conditions.operators.GT] = {
+    [compare_conditions.operators.GT] = {
         le = false, not_eq = true, default = false,
     },
-    [select_conditions.operators.GE] = {
+    [compare_conditions.operators.GE] = {
         le = false, not_eq = true, default = true,
     },
 }
@@ -377,7 +377,7 @@ end
 local function gen_library_func(id, cond, func_args_code)
     local library_func_code, library_func_name
 
-    if cond.operator == select_conditions.operators.EQ then
+    if cond.operator == compare_conditions.operators.EQ then
         library_func_name = get_eq_func_name(id)
         library_func_code = gen_eq_func_code(library_func_name, cond, func_args_code)
     else

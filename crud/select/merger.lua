@@ -2,76 +2,20 @@ local buffer = require('buffer')
 local msgpack = require('msgpack')
 local log = require('log')
 local ffi = require('ffi')
-local collations = require('crud.common.collations')
-local comparators = require('crud.select.comparators')
 local call = require('crud.common.call')
 
-local key_def_lib
+local Keydef = require('crud.compare.keydef')
+
 local merger_lib
 
 if pcall(require, 'tuple.merger') then
     merger_lib = require('tuple.merger')
-    key_def_lib = require('tuple.keydef')
 elseif pcall(require, 'merger') then
     log.info('Impossible to load "tuple-merger" module. Built-in "merger" is used')
     merger_lib = require('merger')
-    key_def_lib = require('key_def')
 else
     error(string.format('Seems your Tarantool version (%q' ..
             ') does not support "tuple-merger" or "merger" modules', _TARANTOOL))
-end
-
-local key_def_cache = {}
-setmetatable(key_def_cache, {__mode = 'k'})
-
--- As "tuple.key_def" doesn't support collation_id
--- we manually change it to collation
-local function normalize_parts(index_parts)
-    local result = {}
-
-    for _, part in ipairs(index_parts) do
-        if part.collation_id == nil then
-            table.insert(result, part)
-        else
-            local part_copy = table.copy(part)
-            part_copy.collation = collations.get(part)
-            part_copy.collation_id = nil
-            table.insert(result, part_copy)
-        end
-    end
-
-    return result
-end
-
-local function get_key_def(replicasets, space_name, field_names, index_name)
-    -- Get requested and primary index metainfo.
-    local conn = select(2, next(replicasets)).master.conn
-    local space = conn.space[space_name]
-    local index = space.index[index_name]
-    local key = msgpack.encode({index_name, field_names})
-
-    if key_def_cache[key] ~= nil then
-        return key_def_cache[key]
-    end
-
-    -- Create a key def
-    local primary_index = space.index[0]
-    local space_format = space:format()
-    local updated_parts = comparators.update_key_parts_by_field_names(
-            space_format, field_names, index.parts
-    )
-
-    local key_def = key_def_lib.new(normalize_parts(updated_parts))
-    if not index.unique then
-        updated_parts = comparators.update_key_parts_by_field_names(
-                space_format, field_names, primary_index.parts
-        )
-        key_def = key_def:merge(key_def_lib.new(normalize_parts(updated_parts)))
-    end
-
-    key_def_cache[key] = key_def
-
-    return key_def
 end
 
 local function bswap_u16(num)
@@ -203,7 +147,6 @@ local function new(replicasets, space_name, index_id, func_name, func_args, opts
     opts = opts or {}
     local call_opts = opts.call_opts
 
-    local key_def = get_key_def(replicasets, space_name, opts.field_names, index_id)
     local mode = call_opts.mode or 'read'
     local vshard_call_name = call.get_vshard_call_name(mode, call_opts.prefer_replica, call_opts.balance)
 
@@ -231,7 +174,8 @@ local function new(replicasets, space_name, index_id, func_name, func_args, opts
         table.insert(merger_sources, source)
     end
 
-    local merger = merger_lib.new(key_def, merger_sources, {
+    local keydef = Keydef.new(replicasets, space_name, opts.field_names, index_id)
+    local merger = merger_lib.new(keydef, merger_sources, {
         reverse = reverse_tarantool_iters[opts.tarantool_iter],
     })
 

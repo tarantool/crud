@@ -8,7 +8,7 @@ local dev_checks = require('crud.common.dev_checks')
 local common = require('crud.select.compat.common')
 local schema = require('crud.common.schema')
 
-local select_conditions = require('crud.select.conditions')
+local compare_conditions = require('crud.compare.conditions')
 local select_plan = require('crud.select.plan')
 
 local Merger = require('crud.select.merger')
@@ -35,7 +35,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     end
 
     -- check conditions
-    local conditions, err = select_conditions.parse(user_conditions)
+    local conditions, err = compare_conditions.parse(user_conditions)
     if err ~= nil then
         return nil, SelectError:new("Failed to parse conditions: %s", err)
     end

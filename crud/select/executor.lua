@@ -1,7 +1,7 @@
 local errors = require('errors')
 
 local dev_checks = require('crud.common.dev_checks')
-local select_comparators = require('crud.select.comparators')
+local select_comparators = require('crud.compare.comparators')
 
 local utils = require('crud.common.utils')
 

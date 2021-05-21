@@ -1,6 +1,6 @@
-local select_comparators = require('crud.select.comparators')
-local select_conditions = require('crud.select.conditions')
-local operators = select_conditions.operators
+local select_comparators = require('crud.compare.comparators')
+local compare_conditions = require('crud.compare.conditions')
+local operators = compare_conditions.operators
 
 local t = require('luatest')
 local g = t.group('select_comparators')
