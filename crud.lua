@@ -10,6 +10,7 @@ local upsert = require('crud.upsert')
 local delete = require('crud.delete')
 local select = require('crud.select')
 local truncate = require('crud.truncate')
+local borders = require('crud.borders')
 local utils = require('crud.common.utils')
 
 local crud = {}
@@ -69,6 +70,9 @@ crud.unflatten_rows = utils.unflatten_rows
 -- @function truncate
 crud.truncate = truncate.call
 
+crud.min = borders.min
+crud.max = borders.max
+
 -- @refer utils.cut_rows
 -- @function cut_rows
 crud.cut_rows = utils.cut_rows
@@ -97,6 +101,7 @@ function crud.init_storage()
     delete.init()
     select.init()
     truncate.init()
+    borders.init()
 end
 
 function crud.init_router()

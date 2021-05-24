@@ -142,30 +142,6 @@ local function construct_after_tuple_by_fields(space_format, field_names, tuple)
     return transformed_tuple
 end
 
-local function enrich_field_names_with_cmp_key(field_names, key_parts, space_format)
-    if field_names == nil then
-        return nil
-    end
-
-    local enriched_field_names = {}
-    local key_field_names = {}
-
-    for _, field_name in ipairs(field_names) do
-        table.insert(enriched_field_names, field_name)
-        key_field_names[field_name] = true
-    end
-
-    for _, part in ipairs(key_parts) do
-        local field_name = space_format[part.fieldno].name
-        if not key_field_names[field_name] then
-            table.insert(enriched_field_names, field_name)
-            key_field_names[field_name] = true
-        end
-    end
-
-    return enriched_field_names
-end
-
 function select_plan.new(space, conditions, opts)
     dev_checks('table', '?table', {
         first = '?number',
@@ -222,7 +198,7 @@ function select_plan.new(space, conditions, opts)
     end
 
     local cmp_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
-    local field_names = enrich_field_names_with_cmp_key(opts.field_names, cmp_key_parts, space_format)
+    local field_names = utils.enrich_field_names_with_cmp_key(opts.field_names, cmp_key_parts, space_format)
 
     -- handle opts.first
     local total_tuples_count
