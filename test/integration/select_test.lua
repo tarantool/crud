@@ -201,7 +201,7 @@ pgroup:add('test_negative_first', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 3, 4}))
 
     -- id >= 2
-    -- first -2 after 5 (batch_size is 1)
+    -- first -2 after 5
     local conditions = {
         {'>=', 'id', 2},
     }
