@@ -299,7 +299,7 @@ pgroup:add('test_negative_first_with_batch_size', function(g)
     -- first -3 after 5 (batch_size is 1)
     local first = -3
     local after = crud_utils.flatten(customers[5], g.space_format)
-    local batch_size = nil
+    local batch_size = 1
     local result, err = g.cluster.main_server.net_box:call(
        'crud.select', {'customers', nil, {first=first, after=after, batch_size=batch_size}})
 
