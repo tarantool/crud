@@ -79,7 +79,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local batch_size
     if opts.batch_size == nil then
         if opts.first ~= nil and opts.first < common.DEFAULT_BATCH_SIZE then
-            batch_size = opts.first
+            batch_size = math.abs(opts.first)
         else
             batch_size = common.DEFAULT_BATCH_SIZE
         end

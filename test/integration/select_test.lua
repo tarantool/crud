@@ -189,6 +189,105 @@ pgroup:add('test_negative_first', function(g)
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
+    -- no conditions
+    -- first -3 after 5
+    local first = -3
+    local after = crud_utils.flatten(customers[5], g.space_format)
+    local result, err = g.cluster.main_server.net_box:call(
+       'crud.select', {'customers', nil, {first=first, after=after}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 3, 4}))
+
+    -- id >= 2
+    -- first -2 after 5 (batch_size is 1)
+    local conditions = {
+        {'>=', 'id', 2},
+    }
+    local first = -2
+    local after = crud_utils.flatten(customers[5], g.space_format)
+    local result, err = g.cluster.main_server.net_box:call(
+       'crud.select', {'customers', conditions, {first=first, after=after}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3, 4}))
+
+    -- age >= 22
+    -- first -2 after 5
+    local conditions = {
+        {'>=', 'age', 22},
+    }
+    local first = -2
+    local after = crud_utils.flatten(customers[5], g.space_format)
+    local result, err = g.cluster.main_server.net_box:call(
+       'crud.select', {'customers', conditions, {first=first, after=after}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3, 4}))
+
+    -- id <= 6
+    -- first -2 after 5
+    local conditions = {
+        {'<=', 'id', 6},
+    }
+    local first = -2
+    local after = crud_utils.flatten(customers[5], g.space_format)
+    local result, err = g.cluster.main_server.net_box:call(
+       'crud.select', {'customers', conditions, {first=first, after=after}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {6}))
+
+    -- age <= 66
+    -- first -2 after 5
+    local conditions = {
+        {'<=', 'age', 66},
+    }
+    local first = -2
+    local after = crud_utils.flatten(customers[5], g.space_format)
+    local result, err = g.cluster.main_server.net_box:call(
+       'crud.select', {'customers', conditions, {first=first, after=after}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {6}))
+end)
+
+pgroup:add('test_negative_first_with_batch_size', function(g)
+    local customers = helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 11, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 22, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 44, city = "Chicago",
+        }, {
+            id = 5, name = "Jack", last_name = "Sparrow",
+            age = 55, city = "London",
+        }, {
+            id = 6, name = "William", last_name = "Terner",
+            age = 66, city = "Oxford",
+        }, {
+            id = 7, name = "Elizabeth", last_name = "Swan",
+            age = 77, city = "Cambridge",
+        }, {
+            id = 8, name = "Hector", last_name = "Barbossa",
+            age = 88, city = "London",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
     -- negative first w/o after
     local first = -10
     local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil, {first=first}})
@@ -200,7 +299,7 @@ pgroup:add('test_negative_first', function(g)
     -- first -3 after 5 (batch_size is 1)
     local first = -3
     local after = crud_utils.flatten(customers[5], g.space_format)
-    local batch_size = 1
+    local batch_size = nil
     local result, err = g.cluster.main_server.net_box:call(
        'crud.select', {'customers', nil, {first=first, after=after, batch_size=batch_size}})
 
