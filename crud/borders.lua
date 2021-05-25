@@ -15,8 +15,8 @@ local borders = {}
 local STAT_FUNC_NAME = '_crud.get_border_on_storage'
 
 
-local function get_border_on_storage(border_name, space_name, index_name, field_names)
-    dev_checks('string', 'string', 'string', '?table')
+local function get_border_on_storage(border_name, space_name, index_id, field_names)
+    dev_checks('string', 'string', 'number', '?table')
 
     assert(border_name == 'min' or border_name == 'max')
 
@@ -25,9 +25,9 @@ local function get_border_on_storage(border_name, space_name, index_name, field_
         return nil, BorderError:new("Space %q doesn't exist", space_name)
     end
 
-    local index = space.index[index_name]
+    local index = space.index[index_id]
     if index == nil then
-        return nil, BorderError:new("Index %q of space doesn't exist", index_name, space_name)
+        return nil, BorderError:new("Index %q of space doesn't exist", index_id, space_name)
     end
 
     local function get_border(index)
@@ -57,7 +57,7 @@ local function is_closer(border_name, keydef, tuple, res_tuple)
 end
 
 local function get_border(border_name, space_name, index_name, opts)
-    checks('string', 'string', '?string', {
+    checks('string', 'string', '?string|number', {
         timeout = '?number',
         fields = '?table',
     })
@@ -69,12 +69,15 @@ local function get_border(border_name, space_name, index_name, opts)
         return nil, BorderError:new("Space %q doesn't exist", space_name), true
     end
 
+    local index
     if index_name == nil then
-        index_name = space.index[0].name
+        index = space.index[0]
+    else
+        index = space.index[index_name]
     end
-    local index = space.index[index_name]
+
     if index == nil then
-        return nil, BorderError:new("Index %q of space doesn't exist", index_name, space_name)
+        return nil, BorderError:new("Index %q of space %q doesn't exist", index_name, space_name)
     end
 
     local primary_index = space.index[0]
@@ -90,7 +93,7 @@ local function get_border(border_name, space_name, index_name, opts)
     }
     local results, err = call.map(
         STAT_FUNC_NAME,
-        {border_name, space_name, index_name, field_names},
+        {border_name, space_name, index.id, field_names},
         call_opts
     )
 
@@ -98,7 +101,7 @@ local function get_border(border_name, space_name, index_name, opts)
         return nil, BorderError:new("Failed to get %s: %s", border_name, err)
     end
 
-    local keydef = Keydef.new(replicasets, space_name, field_names, index_name)
+    local keydef = Keydef.new(space, field_names, index.id)
 
     local tuples = {}
     for _, result in pairs(results) do
@@ -147,8 +150,8 @@ end
 -- @return[1] result
 -- @treturn[2] nil
 -- @treturn[2] table Error description
-function borders.min(space_name, index_name, opts)
-    return get_border('min', space_name, index_name, opts)
+function borders.min(space_name, index_id, opts)
+    return get_border('min', space_name, index_id, opts)
 end
 
 --- Find the maximum value in the specified index
@@ -170,8 +173,8 @@ end
 -- @return[1] result
 -- @treturn[2] nil
 -- @treturn[2] table Error description
-function borders.max(space_name, index_name, opts)
-    return get_border('max', space_name, index_name, opts)
+function borders.max(space_name, index_id, opts)
+    return get_border('max', space_name, index_id, opts)
 end
 
 return borders

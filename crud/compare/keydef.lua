@@ -28,12 +28,10 @@ end
 local keydef_cache = {}
 setmetatable(keydef_cache, {__mode = 'k'})
 
-local function new(replicasets, space_name, field_names, index_name)
+local function new(space, field_names, index_id)
     -- Get requested and primary index metainfo.
-    local conn = select(2, next(replicasets)).master.conn
-    local space = conn.space[space_name]
-    local index = space.index[index_name]
-    local key = msgpack.encode({index_name, field_names})
+    local index = space.index[index_id]
+    local key = msgpack.encode({index_id, field_names})
 
     if keydef_cache[key] ~= nil then
         return keydef_cache[key]

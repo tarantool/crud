@@ -101,7 +101,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         field_names = plan.field_names,
     }
 
-    local merger = Merger.new(replicasets_to_select, space_name, plan.index_id,
+    local merger = Merger.new(replicasets_to_select, space, plan.index_id,
             common.SELECT_FUNC_NAME,
             {space_name, plan.index_id, plan.conditions, select_opts},
             {tarantool_iter = plan.tarantool_iter, field_names = plan.field_names, call_opts = opts.call_opts}

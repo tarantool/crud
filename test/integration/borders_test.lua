@@ -34,12 +34,53 @@ end)
 
 
 pgroup:add('test_non_existent_space', function(g)
+    -- min
     local result, err = g.cluster.main_server.net_box:call(
        'crud.min', {'non_existent_space'}
     )
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Space \"non_existent_space\" doesn't exist")
+
+    -- max
+    local result, err = g.cluster.main_server.net_box:call(
+       'crud.max', {'non_existent_space'}
+    )
+
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, "Space \"non_existent_space\" doesn't exist")
+end)
+
+pgroup:add('test_non_existent_index', function(g)
+    -- min
+    local result, err = g.cluster.main_server.net_box:call(
+       'crud.min', {'customers', 'non_existent_index'}
+    )
+
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, "Index \"non_existent_index\" of space \"customers\" doesn't exist")
+
+    local result, err = g.cluster.main_server.net_box:call(
+       'crud.min', {'customers', 13}
+    )
+
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, "Index \"13\" of space \"customers\" doesn't exist")
+
+    -- max
+    local result, err = g.cluster.main_server.net_box:call(
+       'crud.max', {'customers', 'non_existent_index'}
+    )
+
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, "Index \"non_existent_index\" of space \"customers\" doesn't exist")
+
+    local result, err = g.cluster.main_server.net_box:call(
+       'crud.max', {'customers', 13}
+    )
+
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, "Index \"13\" of space \"customers\" doesn't exist")
 end)
 
 pgroup:add('test_empty_space', function(g)
@@ -101,6 +142,12 @@ pgroup:add('test_min', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1}))
 
+    -- by primary, index ID is specified
+    local result, err = g.cluster.main_server.net_box:call('crud.min', {'customers', 0})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1}))
+
     -- by primary with fields
     local result, err = g.cluster.main_server.net_box:call('crud.min',
         {'customers', nil, {fields = {'name', 'last_name'}}}
@@ -115,6 +162,12 @@ pgroup:add('test_min', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {4}))
 
+    -- by age index, index ID is specified
+    local result, err = g.cluster.main_server.net_box:call('crud.min', {'customers', 2})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {4}))
+
     -- by age index with fields
     local result, err = g.cluster.main_server.net_box:call('crud.min',
         {'customers', 'age_index', {fields = {'name', 'last_name'}}}
@@ -125,6 +178,12 @@ pgroup:add('test_min', function(g)
 
     -- by composite index full_name
     local result, err = g.cluster.main_server.net_box:call('crud.min', {'customers', 'full_name'})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3}))
+
+    -- by composite index full_name, index ID is specified
+    local result, err = g.cluster.main_server.net_box:call('crud.min', {'customers', 5})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3}))
@@ -164,6 +223,12 @@ pgroup:add('test_max', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {4}))
 
+    -- by primary, index ID is specified
+    local result, err = g.cluster.main_server.net_box:call('crud.max', {'customers', 0})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {4}))
+
     -- by primary with fields
     local result, err = g.cluster.main_server.net_box:call('crud.max',
         {'customers', nil, {fields = {'name', 'last_name'}}}
@@ -178,6 +243,12 @@ pgroup:add('test_max', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2}))
 
+    -- by age index, index ID is specified
+    local result, err = g.cluster.main_server.net_box:call('crud.max', {'customers', 2})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2}))
+
     -- by age index with fields
     local result, err = g.cluster.main_server.net_box:call('crud.max',
         {'customers', 'age_index', {fields = {'name', 'last_name'}}}
@@ -188,6 +259,12 @@ pgroup:add('test_max', function(g)
 
     -- by composite index full_name
     local result, err = g.cluster.main_server.net_box:call('crud.max', {'customers', 'full_name'})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {4}))
+
+    -- by composite index full_name, index ID is specified
+    local result, err = g.cluster.main_server.net_box:call('crud.max', {'customers', 5})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {4}))

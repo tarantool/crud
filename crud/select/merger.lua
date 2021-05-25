@@ -133,7 +133,7 @@ local reverse_tarantool_iters = {
     [box.index.REQ] = true,
 }
 
-local function new(replicasets, space_name, index_id, func_name, func_args, opts)
+local function new(replicasets, space, index_id, func_name, func_args, opts)
     opts = opts or {}
     local call_opts = opts.call_opts
 
@@ -164,7 +164,7 @@ local function new(replicasets, space_name, index_id, func_name, func_args, opts
         table.insert(merger_sources, source)
     end
 
-    local keydef = Keydef.new(replicasets, space_name, opts.field_names, index_id)
+    local keydef = Keydef.new(space, opts.field_names, index_id)
     local merger = merger_lib.new(keydef, merger_sources, {
         reverse = reverse_tarantool_iters[opts.tarantool_iter],
     })
