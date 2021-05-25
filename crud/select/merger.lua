@@ -8,14 +8,12 @@ local Keydef = require('crud.compare.keydef')
 
 local merger_lib
 
-if pcall(require, 'tuple.merger') then
+if package.search('tuple.merger') then
+    log.info('"tuple.merger" module is used')
     merger_lib = require('tuple.merger')
-elseif pcall(require, 'merger') then
-    log.info('Impossible to load "tuple-merger" module. Built-in "merger" is used')
-    merger_lib = require('merger')
 else
-    error(string.format('Seems your Tarantool version (%q' ..
-            ') does not support "tuple-merger" or "merger" modules', _TARANTOOL))
+    log.info('"tuple.merger" module is not found. Built-in "merger" is used')
+    merger_lib = require('merger')
 end
 
 local function bswap_u16(num)

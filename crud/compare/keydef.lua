@@ -6,14 +6,12 @@ local collations = require('crud.common.collations')
 
 local keydef_lib
 
-if pcall(require, 'tuple.keydef') then
+if package.search('tuple.keydef') ~= nil then
+    log.info('"tuple.keydef" module is used')
     keydef_lib = require('tuple.keydef')
-elseif pcall(require, 'keydef') then
-    log.info('Impossible to load "tuple-keydef" module. Built-in "keydef" is used')
-    keydef_lib = require('key_def')
 else
-    error(string.format('Seems your Tarantool version (%q' ..
-            ') does not support "tuple-keydef" or "keydef" modules', _TARANTOOL))
+    log.info('"tuple-keydef" module is not found. Built-in "key_def" is used')
+    keydef_lib = require('key_def')
 end
 
 -- As "tuple.key_def" doesn't support collation_id
