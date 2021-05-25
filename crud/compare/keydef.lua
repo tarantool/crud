@@ -1,18 +1,10 @@
-local log = require('log')
 local msgpack = require('msgpack')
 
 local comparators = require('crud.compare.comparators')
 local collations = require('crud.common.collations')
 
-local keydef_lib
-
-if package.search('tuple.keydef') ~= nil then
-    log.info('"tuple.keydef" module is used')
-    keydef_lib = require('tuple.keydef')
-else
-    log.info('"tuple-keydef" module is not found. Built-in "key_def" is used')
-    keydef_lib = require('key_def')
-end
+local compat = require('crud.common.compat')
+local keydef_lib = compat.require('tuple.keydef', 'key_def')
 
 -- As "tuple.key_def" doesn't support collation_id
 -- we manually change it to collation
