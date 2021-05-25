@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Fixed error for partial result option if field contains box.NULL.
 * Fixed incorrect ``crud`` results during reverse pagination
   without specifying ``batch_size``.
+* Fixed crud roles reload:
+  * before this patch reload wasn't fair - reloading `tuple.merger`
+    and `tuple.keydef` modules failed, and crud starting to use
+    `crud.select.compat.select_old` module with naive merger realization;
+  * fair reloading `tuple.merger` and `tuple.keydef` led to the error that was
+    fixed by caching loaded module in the special global variable not cleaned
+    on reloading roles;
+  * ability of using `tuple.merger` and `tuple.keydef` modules now is checked
+    by calling `package.search`, built-in `merger` and `keydef` modules are used
+    if present in `package.loaded`. It allows to avoid ignoring errors on checking
+    modules existing via `pcall(require, '<module_name>')`.
 
 ### Added
 

@@ -11,6 +11,8 @@ function compat.require(module_name, builtin_module_name)
     if module_cached ~= nil then
         module = module_cached
     elseif package.search(module_name) then
+        -- we don't use pcall(require, modile_name) here because it
+        -- leads to ignoring errors other than 'No LuaRocks module found'
         log.info('%q module is used', module_name)
         module = require(module_name)
     else
