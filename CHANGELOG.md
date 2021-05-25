@@ -14,8 +14,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   without specifying ``batch_size``.
 * Fixed crud roles reload:
   * before this patch reload wasn't fair - reloading `tuple.merger`
-    and `tuple.keydef` modules failed, and crud starting to use
-    `crud.select.compat.select_old` module with naive merger realization;
+    and `tuple.keydef` modules failed, and crud started to use
+    `crud.select.compat.select_old` module with naive merger implementation;
   * fair reloading `tuple.merger` and `tuple.keydef` led to the error that was
     fixed by caching loaded module in the special global variable not cleaned
     on reloading roles;
