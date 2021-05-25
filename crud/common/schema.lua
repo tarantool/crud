@@ -222,12 +222,13 @@ end
 -- `{res = ..., err = ..., space_schema_hash = ...}`
 -- space_schema_hash is computed if function failed and
 -- `add_space_schema_hash` is true
-function schema.wrap_box_space_func_result(space, func_name, args, opts)
+function schema.wrap_box_space_func_result(space, box_space_func_name, box_space_func_args, opts)
     dev_checks('table', 'string', 'table', 'table')
+    local function func(space, box_space_func_name, box_space_func_args)
+        return space[box_space_func_name](space, unpack(box_space_func_args))
+    end
 
-    return schema.wrap_func_result(space, function(args)
-       return space[func_name](space, args)
-    end, args, opts)
+    return schema.wrap_func_result(space, func, {space, box_space_func_name, box_space_func_args}, opts)
 end
 
 -- schema.result_needs_reload checks that schema reload can
