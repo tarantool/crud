@@ -75,11 +75,16 @@ local function build_select_iterator(space_name, user_conditions, opts)
         end
     end
 
-    -- If opts.batch_size is missed we should specify it to min(first, DEFAULT_BATCH_SIZE)
+    local tuples_limit = opts.first
+    if tuples_limit ~= nil then
+        tuples_limit = math.abs(tuples_limit)
+    end
+
+    -- If opts.batch_size is missed we should specify it to min(tuples_limit, DEFAULT_BATCH_SIZE)
     local batch_size
     if opts.batch_size == nil then
-        if opts.first ~= nil and opts.first < common.DEFAULT_BATCH_SIZE then
-            batch_size = opts.first
+        if tuples_limit ~= nil and tuples_limit < common.DEFAULT_BATCH_SIZE then
+            batch_size = tuples_limit
         else
             batch_size = common.DEFAULT_BATCH_SIZE
         end
