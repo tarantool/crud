@@ -46,7 +46,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local space_format = space:format()
 
     -- check conditions
-    local conditions, err = select_conditions.parse(user_conditions, space_format)
+    local conditions, err = compare_conditions.parse(user_conditions, space_format)
     if err ~= nil then
         return nil, SelectError:new("Failed to parse conditions: %s", err)
     end

@@ -74,7 +74,7 @@ g.test_parse = function()
     local uuid_filter_condition = filter_conditions[1]
     t.assert_type(uuid_filter_condition, 'table')
     t.assert_equals(uuid_filter_condition.fields, {1})
-    t.assert_equals(uuid_filter_condition.operator, select_conditions.operators.LT)
+    t.assert_equals(uuid_filter_condition.operator, compare_conditions.operators.LT)
     t.assert_equals(uuid_filter_condition.values, {uuid2})
     t.assert_equals(uuid_filter_condition.types, {'uuid'})
     t.assert_equals(uuid_filter_condition.early_exit_is_possible, true)
@@ -83,7 +83,7 @@ g.test_parse = function()
     local name_filter_condition = filter_conditions[2]
     t.assert_type(name_filter_condition, 'table')
     t.assert_equals(name_filter_condition.fields, {3})
-    t.assert_equals(name_filter_condition.operator, select_conditions.operators.EQ)
+    t.assert_equals(name_filter_condition.operator, compare_conditions.operators.EQ)
     t.assert_equals(name_filter_condition.values, {'Charlie'})
     t.assert_equals(name_filter_condition.types, {'string'})
     t.assert_equals(name_filter_condition.early_exit_is_possible, false)
@@ -92,7 +92,7 @@ g.test_parse = function()
     local category_id_filter_condition = filter_conditions[3]
     t.assert_type(category_id_filter_condition, 'table')
     t.assert_equals(category_id_filter_condition.fields, {4})
-    t.assert_equals(category_id_filter_condition.operator, select_conditions.operators.EQ)
+    t.assert_equals(category_id_filter_condition.operator, compare_conditions.operators.EQ)
     t.assert_equals(category_id_filter_condition.values, {uuid3})
     t.assert_equals(category_id_filter_condition.types, {'uuid'})
     t.assert_equals(category_id_filter_condition.early_exit_is_possible, false)
@@ -112,7 +112,7 @@ g.test_one_condition_uuid = function()
     local filter_conditions = {
         {
             fields = {1},
-            operator = select_conditions.operators.EQ,
+            operator = compare_conditions.operators.EQ,
             values = {uuid1},
             types = {'uuid'},
             early_exit_is_possible = true,
@@ -154,7 +154,7 @@ g.test_one_condition_uuid_gt = function()
     local filter_conditions = {
         {
             fields = {1},
-            operator = select_conditions.operators.GT,
+            operator = compare_conditions.operators.GT,
             values = {uuid1},
             types = {'uuid'},
             early_exit_is_possible = true,
@@ -199,7 +199,7 @@ g.test_one_condition_uuid_with_nil_value = function()
     local filter_conditions = {
         {
             fields = {1, 3},
-            operator = select_conditions.operators.GE,
+            operator = compare_conditions.operators.GE,
             values = {uuid1},
             types = {'uuid', 'string'},
             early_exit_is_possible = false,
@@ -247,14 +247,14 @@ g.test_two_conditions_uuid = function()
     local filter_conditions = {
         {
             fields = {2},
-            operator = select_conditions.operators.EQ,
+            operator = compare_conditions.operators.EQ,
             values = {'Charlie'},
             types = {'string'},
             early_exit_is_possible = true,
         },
         {
             fields = {3},
-            operator = select_conditions.operators.GE,
+            operator = compare_conditions.operators.GE,
             values = {uuid2:str()},
             types = {'uuid'},
             early_exit_is_possible = false,

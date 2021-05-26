@@ -206,12 +206,6 @@ local function determine_enabled_features()
     -- since Tarantool 2.4
     enabled_tarantool_features.uuids = major >= 2 and (minor > 4 or minor == 4 and patch >= 1)
 
-    -- since Tarantool 1.10
-    enabled_tarantool_features.jsonpath_filters = major >= 2 or (major >= 1 and minor >= 10)
-
-    -- since Tarantool 2.6.3 / 2.7.2 / 2.8.1
-    enabled_tarantool_features.jsonpath_indexes = major >= 2 and ((minor >= 8 and patch >= 1) or
-        (minor >= 6 and patch >= 3) or (minor >= 7 and patch >= 2))
 end
 
 function utils.tarantool_supports_fieldpaths()
@@ -228,22 +222,6 @@ function utils.tarantool_supports_uuids()
     end
 
     return enabled_tarantool_features.uuids
-end
-
-function utils.tarantool_supports_jsonpath_filters()
-    if enabled_tarantool_features.jsonpath_filters == nil then
-        determine_enabled_features()
-    end
-
-    return enabled_tarantool_features.jsonpath_filters
-end
-
-function utils.tarantool_supports_jsonpath_indexes()
-    if enabled_tarantool_features.jsonpath_indexes == nil then
-        determine_enabled_features()
-    end
-
-    return enabled_tarantool_features.jsonpath_indexes
 end
 
 local function add_nullable_fields_recursive(operations, operations_map, space_format, tuple, id)

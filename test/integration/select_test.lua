@@ -1202,8 +1202,6 @@ pgroup:add('test_select_force_map_call', function(g)
 end)
 
 pgroup:add('test_jsonpath', function(g)
-    t.skip_if(not crud_utils.tarantool_supports_jsonpath_filters(), "Jsonpath is not supported on Tarantool < 1.10")
-
     helpers.insert_objects(g, 'developers', {
         {
             id = 1, name = "Alexey", last_name = "Smith",
@@ -1253,75 +1251,6 @@ pgroup:add('test_jsonpath', function(g)
     local expected_objects = {
         {id = 1, name = "Alexey", last_name = "Smith"},
         {id = 2, name = "Sergey", last_name = "Choppa"},
-    }
-    t.assert_equals(objects, expected_objects)
-end)
-
-pgroup:add('test_jsonpath_index_field', function(g)
-    t.skip_if(
-        not crud_utils.tarantool_supports_jsonpath_indexes(),
-        "Jsonpath indexes supported since 2.6.3/2.7.2/2.8.1"
-    )
-
-    helpers.insert_objects(g, 'cars', {
-        {
-            id = {dev_id = 1}, age = 16, manufacturer = 'VAG',
-            data = {car = { model = 'BMW', color = 'Black' }},
-        }, {
-            id = {dev_id = 2}, age = 41, manufacturer = 'FIAT',
-            data = {car = { model = 'Cadillac', color = 'White' }},
-        }, {
-            id = {dev_id = 3}, age = 25, manufacturer = 'Ford',
-            data = {car = { model = 'BMW', color = 'Yellow' }},
-        }, {
-            id = {dev_id = 4}, age = 37, manufacturer = 'General Motors',
-            data = {car = { model = 'Mercedes', color = 'Yellow' }},
-        },
-    })
-
-    local result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'cars', {{'>=', 'id_index', 3}}, {fields = {'age'}}})
-    t.assert_equals(err, nil)
-
-    local objects = crud.unflatten_rows(result.rows, result.metadata)
-    local expected_objects = {
-        {id = 3, age = 25},
-        {id = 4,  age = 37},
-    }
-    t.assert_equals(objects, expected_objects)
-
-    local result, err = g.cluster.main_server.net_box:call('crud.select',
-        {'cars', {{'==', '["id"]', 1}}})
-    t.assert_equals(err, nil)
-
-    local objects = crud.unflatten_rows(result.rows, result.metadata)
-    local expected_objects = {{
-        id = 1, age = 16, bucket_id = 477, manufacturer = 'VAG',
-        data = {car = { model = 'BMW', color = 'Black' }},
-    }}
-
-    t.assert_equals(objects, expected_objects)
-
-    local result, err = g.cluster.main_server.net_box:call('crud.select',
-        {'cars', {{'>=', '["id"]', 2}, {'>=', 'data_index', 'String'}}})
-    --t.assert_equals(err, nil)
-
-    --local objects = crud.unflatten_rows(result.rows, result.metadata)
-    local expected_objects = {{
-        id = 2, age = 41, bucket_id = 477, manufacturer = 'FIAT',
-        data = {car = { model = 'Cadillac', color = 'White' }},
-    }}
-
-    --t.assert_equals(objects, expected_objects)
-
-    local result, err = g.cluster.main_server.net_box:call('crud.select',
-        {'cars', {{'==', 'data_index', {'Yellow', 'Mercedes'}}}})
-    t.assert_equals(err, nil)
-
-    local objects = crud.unflatten_rows(result.rows, result.metadata)
-    local expected_objects = {{
-        id = 4, age = 37, bucket_id = 1161, manufacturer = 'General Motors',
-        data = {car = {color = "Yellow", model = "Mercedes"}}},
     }
     t.assert_equals(objects, expected_objects)
 end)
