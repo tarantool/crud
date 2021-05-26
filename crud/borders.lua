@@ -44,16 +44,14 @@ function borders.init()
    _G._crud.get_border_on_storage = get_border_on_storage
 end
 
-local function is_closer(border_name, keydef, tuple, res_tuple)
-    assert(border_name == 'min' or border_name == 'max')
-
+local function is_closer(compare_sign, keydef, tuple, res_tuple)
     if res_tuple == nil then
         return true
     end
 
     local cmp = keydef:compare(tuple, res_tuple)
 
-    return border_name == 'min' and cmp < 0 or border_name == 'max' and cmp > 0
+    return cmp * compare_sign > 0
 end
 
 local function call_get_border_on_router(border_name, space_name, index_name, opts)
@@ -102,6 +100,7 @@ local function call_get_border_on_router(border_name, space_name, index_name, op
     end
 
     local keydef = Keydef.new(space, field_names, index.id)
+    local compare_sign = border_name == 'max' and 1 or -1
 
     local res_tuple = nil
     for _, storage_result in pairs(results) do
@@ -112,7 +111,7 @@ local function call_get_border_on_router(border_name, space_name, index_name, op
         end
 
         local tuple = storage_result.res
-        if tuple ~= nil and is_closer(border_name, keydef, tuple, res_tuple) then
+        if tuple ~= nil and is_closer(compare_sign, keydef, tuple, res_tuple) then
             res_tuple = tuple
         end
     end
