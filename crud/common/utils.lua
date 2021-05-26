@@ -205,7 +205,6 @@ local function determine_enabled_features()
 
     -- since Tarantool 2.4
     enabled_tarantool_features.uuids = major >= 2 and (minor > 4 or minor == 4 and patch >= 1)
-
 end
 
 function utils.tarantool_supports_fieldpaths()

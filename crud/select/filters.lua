@@ -652,7 +652,6 @@ function filters.gen_func(space, conditions, opts)
         scan_condition_num = opts.scan_condition_num,
         tarantool_iter = opts.tarantool_iter,
     })
-
     if err ~= nil then
         return nil, GenFiltersError:new("Failed to generate filters for specified conditions: %s", err)
     end

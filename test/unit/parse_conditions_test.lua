@@ -112,20 +112,14 @@ g.test_jsonpath_parse = function()
         {'>=', '[\'year\'].a["f2"][\'f3\']', 2017},
     }
 
-    local space_format = {
-        {name = 'name', type = 'string'},
-        {name = 'surname', type = 'any'},
-        {name = 'year', type ='unsigned'},
-    }
-
-    local conditions, err = compare_conditions.parse(user_conditions, space_format)
+    local conditions, err = compare_conditions.parse(user_conditions)
     t.assert(err == nil)
     t.assert_equals(conditions, {
-        cond_funcs.eq('name', 'Alexey'),
-        cond_funcs.eq('name', 'Sergey', '[1].a.b'),
-        cond_funcs.lt('year', 2021, '[3]["field_1"][\'field_2\']'),
-        cond_funcs.le('surname', {1, 2, 3}, '[2].a'),
-        cond_funcs.gt('surname', 'Jackson'),
-        cond_funcs.ge('year', 2017, '[3].a["f2"][\'f3\']'),
+        cond_funcs.eq('[\'name\']', 'Alexey'),
+        cond_funcs.eq('["name"].a.b', 'Sergey'),
+        cond_funcs.lt('["year"]["field_1"][\'field_2\']', 2021),
+        cond_funcs.le('[2].a', {1, 2, 3}),
+        cond_funcs.gt('[2]', 'Jackson'),
+        cond_funcs.ge('[\'year\'].a["f2"][\'f3\']', 2017),
     })
 end

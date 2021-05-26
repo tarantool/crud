@@ -1006,3 +1006,4 @@ pgroup:add('test_partial_result_bad_input', function(g)
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Space format doesn\'t contain field named "lastname"')
 end)
+
