@@ -302,6 +302,35 @@ pgroup:add('test_select_non_existent_space', function(g)
     t.assert_equals(err, nil)
 end)
 
+pgroup:add('test_borders_non_existent_space', function(g)
+    for _, border_func_name in ipairs({'crud.max', 'crud.min'}) do
+        -- non-existent space err
+        local obj, err = g.cluster.main_server.net_box:call(
+            border_func_name, {'customers'}
+        )
+
+        t.assert_equals(obj, nil)
+        t.assert_is_not(err, nil)
+        t.assert_str_contains(err.err, "Space \"customers\" doesn't exist")
+    end
+
+    -- create space
+    helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
+        server.net_box:call('create_space')
+        server.net_box:call('create_bucket_id_index')
+    end)
+
+    for _, border_func_name in ipairs({'crud.max', 'crud.min'}) do
+        -- check that schema changes were applied
+        local obj, err = g.cluster.main_server.net_box:call(
+            border_func_name, {'customers'}
+        )
+
+        t.assert_is_not(obj, nil)
+        t.assert_equals(err, nil)
+    end
+end)
+
 pgroup:add('test_insert_no_bucket_id_index', function(g)
     -- create space w/o bucket_id index
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
@@ -679,4 +708,38 @@ pgroup:add('test_upsert_object_field_type_changed', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
+end)
+
+pgroup:add('test_borders_value_index_added', function(g)
+    -- create space w/ bucket_id index
+    helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
+        server.net_box:call('create_space')
+        server.net_box:call('create_bucket_id_index')
+    end)
+
+    for _, border_func_name in ipairs({'crud.max', 'crud.min'}) do
+        -- non-existent space err
+        local obj, err = g.cluster.main_server.net_box:call(
+            border_func_name, {'customers', 'value_index'}
+        )
+
+        t.assert_equals(obj, nil)
+        t.assert_is_not(err, nil)
+        t.assert_str_contains(err.err, "Index \"value_index\" of space \"customers\" doesn't exist")
+    end
+
+    -- create value_index index
+    helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
+        server.net_box:call('add_value_index')
+    end)
+
+    for _, border_func_name in ipairs({'crud.max', 'crud.min'}) do
+        -- check that schema changes were applied
+        local obj, err = g.cluster.main_server.net_box:call(
+            border_func_name, {'customers', 'value_index'}
+        )
+
+        t.assert_is_not(obj, nil)
+        t.assert_equals(err, nil)
+    end
 end)

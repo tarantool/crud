@@ -30,11 +30,11 @@ local function get_border_on_storage(border_name, space_name, index_id, field_na
         return nil, BorderError:new("Index %q of space doesn't exist", index_id, space_name)
     end
 
-    local function get_border(index)
+    local function get_index_border(index)
         return index[border_name](index)
     end
 
-    return schema.wrap_func_result(space, get_border, {index}, {
+    return schema.wrap_func_result(space, get_index_border, {index}, {
         add_space_schema_hash = true,
         field_names = field_names,
     })
@@ -56,7 +56,7 @@ local function is_closer(border_name, keydef, tuple, res_tuple)
     return border_name == 'min' and cmp < 0 or border_name == 'max' and cmp > 0
 end
 
-local function get_border(border_name, space_name, index_name, opts)
+local function call_get_border_on_router(border_name, space_name, index_name, opts)
     checks('string', 'string', '?string|number', {
         timeout = '?number',
         fields = '?table',
@@ -77,7 +77,7 @@ local function get_border(border_name, space_name, index_name, opts)
     end
 
     if index == nil then
-        return nil, BorderError:new("Index %q of space %q doesn't exist", index_name, space_name)
+        return nil, BorderError:new("Index %q of space %q doesn't exist", index_name, space_name), true
     end
 
     local primary_index = space.index[0]
@@ -103,20 +103,15 @@ local function get_border(border_name, space_name, index_name, opts)
 
     local keydef = Keydef.new(space, field_names, index.id)
 
-    local tuples = {}
-    for _, result in pairs(results) do
-        if result[1].err ~= nil then
-            return nil, BorderError:new("Failed to get %s: %s", border_name, result.err)
-        end
-
-        local tuple = result[1].res
-        if tuple ~= nil then
-            table.insert(tuples, tuple)
-        end
-    end
-
     local res_tuple = nil
-    for _, tuple in ipairs(tuples) do
+    for _, storage_result in pairs(results) do
+        local storage_result = storage_result[1]
+        if storage_result.err ~= nil then
+            local need_reload = schema.result_needs_reload(space, storage_result)
+            return nil, BorderError:new("Failed to get %s: %s", border_name, storage_result.err), need_reload
+        end
+
+        local tuple = storage_result.res
         if tuple ~= nil and is_closer(border_name, keydef, tuple, res_tuple) then
             res_tuple = tuple
         end
@@ -129,6 +124,12 @@ local function get_border(border_name, space_name, index_name, opts)
     end
 
     return result
+end
+
+local function get_border(border_name, space_name, index_name, opts)
+    return schema.wrap_func_reload(
+        call_get_border_on_router, border_name, space_name, index_name, opts
+    )
 end
 
 --- Find the minimum value in the specified index

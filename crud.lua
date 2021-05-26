@@ -70,7 +70,12 @@ crud.unflatten_rows = utils.unflatten_rows
 -- @function truncate
 crud.truncate = truncate.call
 
+-- @refer borders.min
+-- @function min
 crud.min = borders.min
+
+-- @refer borders.max
+-- @function max
 crud.max = borders.max
 
 -- @refer utils.cut_rows

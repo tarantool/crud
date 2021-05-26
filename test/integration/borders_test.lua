@@ -197,7 +197,6 @@ pgroup:add('test_min', function(g)
     t.assert_equals(objects, {{name = "David", last_name = "Smith"}})
 end)
 
-
 pgroup:add('test_max', function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
@@ -255,7 +254,7 @@ pgroup:add('test_max', function(g)
     )
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, {{name = "Mary", last_name = "Brown",}})
+    t.assert_equals(objects, {{name = "Mary", last_name = "Brown"}})
 
     -- by composite index full_name
     local result, err = g.cluster.main_server.net_box:call('crud.max', {'customers', 'full_name'})
@@ -276,4 +275,38 @@ pgroup:add('test_max', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {{name = "William", last_name = "White"}})
+end)
+
+pgroup:add('test_equal_secondary_keys', function(g)
+    local bucket_id = 1
+    local other_bucket_id, err = helpers.get_other_storage_bucket_id(g.cluster, bucket_id)
+    t.assert(other_bucket_id ~= nil, err)
+
+    -- let's insert two tuples on different replicasets to check that
+    -- they will be compared by index + primary fields on router
+    local customers = helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 33, city = "New York",
+            bucket_id = bucket_id,
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 33, city = "Los Angeles",
+            bucket_id = other_bucket_id,
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    -- min
+    local result, err = g.cluster.main_server.net_box:call('crud.min', {'customers', 'age_index'})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1}))
+
+    -- max
+    local result, err = g.cluster.main_server.net_box:call('crud.max', {'customers', 'age_index'})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2}))
 end)
