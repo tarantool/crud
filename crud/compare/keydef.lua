@@ -1,20 +1,10 @@
-local log = require('log')
 local msgpack = require('msgpack')
 
 local comparators = require('crud.compare.comparators')
 local collations = require('crud.common.collations')
 
-local keydef_lib
-
-if pcall(require, 'tuple.keydef') then
-    keydef_lib = require('tuple.keydef')
-elseif pcall(require, 'keydef') then
-    log.info('Impossible to load "tuple-keydef" module. Built-in "keydef" is used')
-    keydef_lib = require('key_def')
-else
-    error(string.format('Seems your Tarantool version (%q' ..
-            ') does not support "tuple-keydef" or "keydef" modules', _TARANTOOL))
-end
+local compat = require('crud.common.compat')
+local keydef_lib = compat.require('tuple.keydef', 'key_def')
 
 -- As "tuple.key_def" doesn't support collation_id
 -- we manually change it to collation

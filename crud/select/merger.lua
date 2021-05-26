@@ -1,22 +1,12 @@
 local buffer = require('buffer')
 local msgpack = require('msgpack')
-local log = require('log')
 local ffi = require('ffi')
 local call = require('crud.common.call')
 
+local compat = require('crud.common.compat')
+local merger_lib = compat.require('tuple.merger', 'merger')
+
 local Keydef = require('crud.compare.keydef')
-
-local merger_lib
-
-if pcall(require, 'tuple.merger') then
-    merger_lib = require('tuple.merger')
-elseif pcall(require, 'merger') then
-    log.info('Impossible to load "tuple-merger" module. Built-in "merger" is used')
-    merger_lib = require('merger')
-else
-    error(string.format('Seems your Tarantool version (%q' ..
-            ') does not support "tuple-merger" or "merger" modules', _TARANTOOL))
-end
 
 local function bswap_u16(num)
     return bit.rshift(bit.bswap(tonumber(num)), 16)
