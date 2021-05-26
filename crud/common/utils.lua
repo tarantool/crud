@@ -166,6 +166,30 @@ function utils.merge_primary_key_parts(key_parts, pk_parts)
     return merged_parts
 end
 
+function utils.enrich_field_names_with_cmp_key(field_names, key_parts, space_format)
+    if field_names == nil then
+        return nil
+    end
+
+    local enriched_field_names = {}
+    local key_field_names = {}
+
+    for _, field_name in ipairs(field_names) do
+        table.insert(enriched_field_names, field_name)
+        key_field_names[field_name] = true
+    end
+
+    for _, part in ipairs(key_parts) do
+        local field_name = space_format[part.fieldno].name
+        if not key_field_names[field_name] then
+            table.insert(enriched_field_names, field_name)
+            key_field_names[field_name] = true
+        end
+    end
+
+    return enriched_field_names
+end
+
 local enabled_tarantool_features = {}
 
 local function determine_enabled_features()

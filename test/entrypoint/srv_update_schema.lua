@@ -56,6 +56,14 @@ package.preload['customers-storage'] = function()
                 table.insert(new_format, {name = 'extra', type = 'string', is_nullable = true})
                 box.space.customers:format(new_format)
             end)
+
+            rawset(_G, 'add_value_index', function()
+                box.space.customers:create_index('value_index', {
+                    parts = { {field = 'value'} },
+                    if_not_exists = true,
+                    unique = false,
+                })
+            end)
         end,
     }
 end

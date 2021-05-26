@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Functions ``stop()`` for the roles ``crud-storage`` and ``crud-router``.
 * Option flag `force_map_call` for `select()`/`pairs()`
   to disable the `bucket_id` computation from primary key.
+* `crud.min` and `crud.max` functions to find the minimum and maximum values in the specified index.
 
 ## [0.6.0] - 2021-03-29
 

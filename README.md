@@ -394,6 +394,32 @@ end
 
 See more examples of pairs queries [here.](https://github.com/tarantool/crud/blob/master/doc/pairs.md)
 
+### Min and max
+
+```lua
+-- Find the minimum value in the specified index
+local result, err = crud.min(space_name, 'age', opts)
+---
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 477, 'Elizabeth', 12]
+
+-- Find the maximum value in the specified index
+local result, err = crud.min(space_name, 'age', opts)
+---
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [5, 1172, 'Jack', 35]
+```
+
 ### Cut extra rows
 
 You could use `crud.cut_rows` function to cut off scan key and primary key values that were merged to the select/pairs partial result (select/pairs with `fields` option).
