@@ -87,7 +87,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local batch_size = opts.batch_size or common.DEFAULT_BATCH_SIZE
 
     -- check conditions
-    local conditions, err = compare_conditions.parse(user_conditions, space_format)
+    local conditions, err = compare_conditions.parse(user_conditions)
     if err ~= nil then
         return nil, SelectError:new("Failed to parse conditions: %s", err)
     end
