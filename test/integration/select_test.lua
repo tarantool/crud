@@ -31,7 +31,11 @@ pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
 pgroup:set_before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
+<<<<<<< HEAD
     helpers.truncate_space_on_cluster(g.cluster, 'developers')
+=======
+    helpers.truncate_space_on_cluster(g.cluster, 'cars')
+>>>>>>> 7b67809 (Tests)
 end)
 
 
