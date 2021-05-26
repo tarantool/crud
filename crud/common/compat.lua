@@ -22,8 +22,8 @@ function compat.require(module_name, builtin_module_name)
 
     rawset(_G, module_cached_name, module)
 
-    if package.search('cartridge.hotreload') ~= nil then
-        local hotreload = require('cartridge.hotreload')
+    local hotreload = package.loaded['cartridge.hotreload']
+    if hotreload ~= nil then
         hotreload.whitelist_globals({module_cached_name})
     end
 
