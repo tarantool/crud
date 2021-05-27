@@ -432,7 +432,7 @@ pgroup:add('test_insert_field_type_changed', function(g)
 
     t.assert_equals(obj, nil)
     t.assert_is_not(err, nil)
-    t.assert_str_contains(err.err, "Tuple field 3 type does not match one required by operation: expected string")
+    t.assert_str_contains(err.err, "type does not match one required by operation: expected string")
 
     -- set value type to unsigned
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
@@ -463,7 +463,7 @@ pgroup:add('test_replace_field_type_changed', function(g)
 
     t.assert_equals(obj, nil)
     t.assert_is_not(err, nil)
-    t.assert_str_contains(err.err, "Tuple field 3 type does not match one required by operation: expected string")
+    t.assert_str_contains(err.err, "type does not match one required by operation: expected string")
 
     -- set value type to unsigned
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
@@ -494,7 +494,7 @@ pgroup:add('test_upsert_field_type_changed', function(g)
 
     t.assert_equals(obj, nil)
     t.assert_is_not(err, nil)
-    t.assert_str_contains(err.err, "Tuple field 3 type does not match one required by operation: expected string")
+    t.assert_str_contains(err.err, "type does not match one required by operation: expected string")
 
     -- set value type to unsigned
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
@@ -631,7 +631,7 @@ pgroup:add('test_insert_object_field_type_changed', function(g)
 
     t.assert_equals(obj, nil)
     t.assert_is_not(err, nil)
-    t.assert_str_contains(err.err, "Tuple field 3 type does not match one required by operation: expected string")
+    t.assert_str_contains(err.err, "type does not match one required by operation: expected string")
 
     -- set value type to unsigned
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
@@ -662,7 +662,7 @@ pgroup:add('test_replace_object_field_type_changed', function(g)
 
     t.assert_equals(obj, nil)
     t.assert_is_not(err, nil)
-    t.assert_str_contains(err.err, "Tuple field 3 type does not match one required by operation: expected string")
+    t.assert_str_contains(err.err, "type does not match one required by operation: expected string")
 
     -- set value type to unsigned
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
@@ -693,7 +693,7 @@ pgroup:add('test_upsert_object_field_type_changed', function(g)
 
     t.assert_equals(obj, nil)
     t.assert_is_not(err, nil)
-    t.assert_str_contains(err.err, "Tuple field 3 type does not match one required by operation: expected string")
+    t.assert_str_contains(err.err, "type does not match one required by operation: expected string")
 
     -- set value type to unsigned
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
