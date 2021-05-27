@@ -101,3 +101,25 @@ g.test_parse_errors = function()
         'condition[2] should be string, got "number" (condition 2)'
     )
 end
+
+g.test_jsonpath_parse = function()
+    local user_conditions = {
+        {'==', '[\'name\']', 'Alexey'},
+        {'=', '["name"].a.b', 'Sergey'},
+        {'<', '["year"]["field_1"][\'field_2\']', 2021},
+        {'<=', '[2].a', {1, 2, 3}},
+        {'>', '[2]', 'Jackson'},
+        {'>=', '[\'year\'].a["f2"][\'f3\']', 2017},
+    }
+
+    local conditions, err = compare_conditions.parse(user_conditions)
+    t.assert(err == nil)
+    t.assert_equals(conditions, {
+        cond_funcs.eq('[\'name\']', 'Alexey'),
+        cond_funcs.eq('["name"].a.b', 'Sergey'),
+        cond_funcs.lt('["year"]["field_1"][\'field_2\']', 2021),
+        cond_funcs.le('[2].a', {1, 2, 3}),
+        cond_funcs.gt('[2]', 'Jackson'),
+        cond_funcs.ge('[\'year\'].a["f2"][\'f3\']', 2017),
+    })
+end

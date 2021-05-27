@@ -31,6 +31,7 @@ pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
 pgroup:set_before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
+    helpers.truncate_space_on_cluster(g.cluster, 'developers')
 end)
 
 
@@ -1198,4 +1199,58 @@ pgroup:add('test_select_force_map_call', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     table.sort(objects, function(obj1, obj2) return obj1.bucket_id < obj2.bucket_id end)
     t.assert_equals(objects, customers)
+end)
+
+pgroup:add('test_jsonpath', function(g)
+    helpers.insert_objects(g, 'developers', {
+        {
+            id = 1, name = "Alexey", last_name = "Smith",
+            age = 20, additional = { a = { b = 140 } },
+        }, {
+            id = 2, name = "Sergey", last_name = "Choppa",
+            age = 21, additional = { a = { b = 120 } },
+        }, {
+            id = 3, name = "Mikhail", last_name = "Crossman",
+            age = 42, additional = {},
+        }, {
+            id = 4, name = "Pavel", last_name = "White",
+            age = 51, additional = { a = { b = 50 } },
+        }, {
+            id = 5, name = "Tatyana", last_name = "May",
+            age = 17, additional = { a = 55 },
+        },
+    })
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'developers', {{'>=', '[5]', 40}}, {fields = {'name', 'last_name'}}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    local expected_objects = {
+        {id = 3, name = "Mikhail", last_name = "Crossman"},
+        {id = 4, name = "Pavel", last_name = "White"},
+    }
+    t.assert_equals(objects, expected_objects)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'developers', {{'<', '["age"]', 21}}, {fields = {'name', 'last_name'}}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    local expected_objects = {
+        {id = 1, name = "Alexey", last_name = "Smith"},
+        {id = 5, name = "Tatyana", last_name = "May"},
+    }
+    t.assert_equals(objects, expected_objects)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+        {'developers', {{'>=', '[6].a.b', 55}}, {fields = {'name', 'last_name'}}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    local expected_objects = {
+        {id = 1, name = "Alexey", last_name = "Smith"},
+        {id = 2, name = "Sergey", last_name = "Choppa"},
+    }
+    t.assert_equals(objects, expected_objects)
 end)
