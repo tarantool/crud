@@ -18,6 +18,7 @@ package.preload['customers-storage'] = function()
                         {name = 'id', type = 'unsigned'},
                         {name = 'bucket_id', type = 'unsigned'},
                         {name = 'value', type = 'string'},
+                        {name = 'number', type = 'integer', is_nullable = true},
                     },
                     if_not_exists = true,
                     engine = engine,
@@ -62,6 +63,20 @@ package.preload['customers-storage'] = function()
                     parts = { {field = 'value'} },
                     if_not_exists = true,
                     unique = false,
+                })
+            end)
+
+            rawset(_G, 'create_number_value_index', function()
+                box.space.customers:create_index('number_value_index', {
+                    parts = { {field = 'number'}, {field = 'value'} },
+                    if_not_exists = true,
+                    unique = false,
+                })
+            end)
+
+            rawset(_G, 'alter_number_value_index', function()
+                box.space.customers.index.number_value_index:alter({
+                    parts = { {field = 'value'}, {field = 'number'} },
                 })
             end)
         end,

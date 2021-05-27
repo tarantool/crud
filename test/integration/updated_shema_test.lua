@@ -4,6 +4,8 @@ local t = require('luatest')
 
 local helpers = require('test.helper')
 
+local fiber = require('fiber')
+local crud = require('crud')
 local crud_utils = require('crud.common.utils')
 
 local pgroup = helpers.pgroup.new('updated_schema', {
@@ -740,5 +742,55 @@ pgroup:add('test_borders_value_index_added', function(g)
 
         t.assert_is_not(obj, nil)
         t.assert_equals(err, nil)
+    end
+end)
+
+pgroup:add('test_alter_index_parts', function(g)
+    -- create space w/ bucket_id index
+    helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
+        server.net_box:call('create_space')
+        server.net_box:call('create_bucket_id_index')
+        server.net_box:call('create_number_value_index')
+    end)
+
+    for i = 0, 9 do
+        -- Insert {0, 9}, {1, 8}, ..., {9, 0} paris in index
+        local _, err = g.cluster.main_server.net_box:call(
+                'crud.replace', {'customers', {i, nil, tostring(i), 9 - i}})
+        t.assert_equals(err, nil)
+    end
+
+    -- Check sort order before alter
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', {{'>=', 'number_value_index', {0, "0"}}}}
+    )
+    t.assert_equals(err, nil)
+    t.assert_equals(#result.rows, 10)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    for i = 0, 9 do
+        t.assert_equals(objects[i + 1].number, i)
+        t.assert_equals(objects[i + 1].value, tostring(9 - i))
+    end
+
+    -- Alter index (lead to index rebuild - change parts order)
+    helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
+        server.net_box:call('alter_number_value_index')
+    end)
+
+    -- Wait for index rebuild and schema update
+    fiber.sleep(1)
+
+    -- Sort order should be new
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', {{'>=', 'number_value_index', {"0", 0}}}}
+    )
+    t.assert_equals(err, nil)
+    t.assert_equals(#result.rows, 10)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    for i = 0, 9 do
+        t.assert_equals(objects[i + 1].number, 9 - i)
+        t.assert_equals(objects[i + 1].value, tostring(i))
     end
 end)
