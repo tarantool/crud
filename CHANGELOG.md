@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.7.0] - 2021-05-27
+
 ### Fixed
 
 * Fixed error for partial result option if field contains box.NULL.
