@@ -105,7 +105,7 @@ local function parse(space, conditions, opts)
             local index = space_indexes[condition.operand]
 
             if index ~= nil then
-                fields = get_index_fieldnos(index)
+                fields = get_index_fieldnos(index, space_format)
                 fields_types = get_index_fields_types(index)
                 values_opts = get_values_opts(index)
             else
