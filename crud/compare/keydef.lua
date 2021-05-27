@@ -1,6 +1,5 @@
 local comparators = require('crud.compare.comparators')
 local collations = require('crud.common.collations')
-local utils = require('crud.common.utils')
 
 local compat = require('crud.common.compat')
 local keydef_lib = compat.require('tuple.keydef', 'key_def')
