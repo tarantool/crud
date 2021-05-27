@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
     by calling `package.search`, built-in `merger` and `keydef` modules are used
     if present in `package.loaded`. It allows to avoid ignoring errors on checking
     modules existing via `pcall(require, '<module_name>')`.
+* Fixed some cases when module ignored schema updates.
 
 ### Added
 

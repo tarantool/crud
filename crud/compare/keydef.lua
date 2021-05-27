@@ -1,5 +1,3 @@
-local msgpack = require('msgpack')
-
 local comparators = require('crud.compare.comparators')
 local collations = require('crud.common.collations')
 
@@ -31,10 +29,15 @@ setmetatable(keydef_cache, {__mode = 'k'})
 local function new(space, field_names, index_id)
     -- Get requested and primary index metainfo.
     local index = space.index[index_id]
-    local key = msgpack.encode({index_id, field_names})
 
-    if keydef_cache[key] ~= nil then
-        return keydef_cache[key]
+    -- We use "index" as key here (not some string or something else)
+    -- since cache should be invalidated on schema update.
+    -- It will be done automatically because fetch_schema
+    -- rewrites "index" table in space object.
+    -- Later lua garbage collector will drop old
+    -- value from "keydef_cache" table. Since it's a weak table with "k" mode.
+    if field_names == nil and keydef_cache[index] ~= nil then
+        return keydef_cache[index]
     end
 
     -- Create a key def
@@ -52,7 +55,9 @@ local function new(space, field_names, index_id)
         keydef = keydef:merge(keydef_lib.new(normalize_parts(updated_parts)))
     end
 
-    keydef_cache[key] = keydef
+    if field_names == nil then
+        keydef_cache[index] = keydef
+    end
 
     return keydef
 end
