@@ -31,11 +31,8 @@ pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
 pgroup:set_before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
-<<<<<<< HEAD
     helpers.truncate_space_on_cluster(g.cluster, 'developers')
-=======
     helpers.truncate_space_on_cluster(g.cluster, 'cars')
->>>>>>> 7b67809 (Tests)
 end)
 
 
@@ -1257,4 +1254,218 @@ pgroup:add('test_jsonpath', function(g)
         {id = 2, name = "Sergey", last_name = "Choppa"},
     }
     t.assert_equals(objects, expected_objects)
+end)
+
+pgroup:add('test_jsonpath_index_field', function(g)
+    t.skip_if(
+        not crud_utils.tarantool_supports_jsonpath_indexes(),
+        "Jsonpath indexes supported since 2.6.3/2.7.2/2.8.1"
+    )
+
+    helpers.insert_objects(g, 'cars', {
+        {
+            id = {car_id = {signed = 1}},
+            age = 2,
+            manufacturer = 'VAG',
+            data = {car = { model = 'BMW', color = 'Black' }},
+        },
+        {
+            id = {car_id = {signed = 2}},
+            age = 5,
+            manufacturer = 'FIAT',
+            data = {car = { model = 'Cadillac', color = 'White' }},
+        },
+        {
+            id = {car_id = {signed = 3}},
+            age = 17,
+            manufacturer = 'Ford',
+            data = {car = { model = 'BMW', color = 'Yellow' }},
+        },
+        {
+            id = {car_id = {signed = 4}},
+            age = 3,
+            manufacturer = 'General Motors',
+            data = {car = { model = 'Mercedes', color = 'Yellow' }},
+        },
+    })
+
+    -- PK jsonpath index
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+            {'cars', {{'<=', 'id_ind', 3}, {'<=', 'age', 5}}, {fields = {'id', 'age'}}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    local expected_objects = {
+    {
+        id = {car_id = {signed = 2}},
+        age = 5,
+    },
+    {
+        id = {car_id = {signed = 1}},
+        age = 2,
+    }}
+
+    t.assert_equals(objects, expected_objects)
+
+    -- Secondary jsonpath index (partial)
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+        {'cars', {{'==', 'data_index', 'Yellow'}}, {fields = {'id', 'age'}}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    local expected_objects = {
+    {
+        id = {car_id = {signed = 3}},
+        age = 17,
+        data = {car = { model = 'BMW', color = 'Yellow' }},
+    },
+    {
+        id = {car_id = {signed = 4}},
+        age = 3,
+        data = {car = { model = 'Mercedes', color = 'Yellow' }}
+    }}
+
+    t.assert_equals(objects, expected_objects)
+
+    -- Seconday jsonpath index (full)
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+        {'cars', {{'==', 'data_index', {'Yellow', 'Mercedes'}}}, {fields = {'id', 'age'}}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    local expected_objects = {
+    {
+        id = {car_id = {signed = 4}},
+        age = 3,
+        data = {car = { model = 'Mercedes', color = 'Yellow' }}
+    }}
+
+    t.assert_equals(objects, expected_objects)
+end)
+
+pgroup:add('test_jsonpath_index_field_pagination', function(g)
+    t.skip_if(
+        not crud_utils.tarantool_supports_jsonpath_indexes(),
+        "Jsonpath indexes supported since 2.6.3/2.7.2/2.8.1"
+    )
+
+    local cars = helpers.insert_objects(g, 'cars', {
+        {
+            id = {car_id = {signed = 1}},
+            age = 5,
+            manufacturer = 'VAG',
+            data = {car = { model = 'A', color = 'Yellow' }},
+        },
+        {
+            id = {car_id = {signed = 2}},
+            age = 17,
+            manufacturer = 'FIAT',
+            data = {car = { model = 'B', color = 'Yellow' }},
+        },
+        {
+            id = {car_id = {signed = 3}},
+            age = 5,
+            manufacturer = 'Ford',
+            data = {car = { model = 'C', color = 'Yellow' }},
+        },
+        {
+            id = {car_id = {signed = 4}},
+            age = 3,
+            manufacturer = 'General Motors',
+            data = {car = { model = 'D', color = 'Yellow' }},
+        },
+        {
+            id = {car_id = {signed = 5}},
+            age = 3,
+            manufacturer = 'General Motors',
+            data = {car = { model = 'E', color = 'Yellow' }},
+        },
+        {
+            id = {car_id = {signed = 6}},
+            age = 3,
+            manufacturer = 'General Motors',
+            data = {car = { model = 'F', color = 'Yellow' }},
+        },
+        {
+            id = {car_id = {signed = 7}},
+            age = 3,
+            manufacturer = 'General Motors',
+            data = {car = { model = 'G', color = 'Yellow' }},
+        },
+        {
+            id = {car_id = {signed = 8}},
+            age = 3,
+            manufacturer = 'General Motors',
+            data = {car = { model = 'H', color = 'Yellow' }},
+        },
+    })
+
+    -- Pagination (primary index)
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+        {'cars', nil, {first = 2}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {1, 2}))
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+        {'cars', nil, {first = 2, after = result.rows[2]}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {3, 4}))
+
+    -- Reverse pagination (primary index)
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+        {'cars', nil, {first = -2, after = result.rows[1]}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {1, 2}))
+
+    -- Pagination (secondary index - 1 field)
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+        {'cars', {{'==', 'data_index', 'Yellow'}}, {first = 2}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {1, 2}))
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+        {'cars', {{'==', 'data_index', 'Yellow'}}, {first = 2, after = result.rows[2]}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {3, 4}))
+
+    -- Reverse pagination (secondary index - 1 field)
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+        {'cars', {{'==', 'data_index', 'Yellow'}}, {first = -2, after = result.rows[1]}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {1, 2}))
+
+    -- Pagination (secondary index - 2 fields)
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+        {'cars', {{'>=', 'data_index', {'Yellow', 'E'}}}, {first = 2}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {5, 6}))
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+        {'cars', {{'>=', 'data_index', {'Yellow', 'E'}}}, {first = 2, after = result.rows[2]}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {7, 8}))
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select',
+        {'cars', {{'>=', 'data_index', {'Yellow', 'B'}}, {'<=', 'id_ind', 3}},
+        {first = -3, after = result.rows[1]}})
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {2, 3}))
 end)
