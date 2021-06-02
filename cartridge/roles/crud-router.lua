@@ -13,5 +13,6 @@ return {
     role_name = 'crud-router',
     init = init,
     stop = stop,
-    dependencies = {'cartridge.roles.vshard-router'}
+    implies_router = true,
+    dependencies = {'cartridge.roles.vshard-router'},
 }
