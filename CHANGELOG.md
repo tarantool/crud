@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
     if present in `package.loaded`. It allows to avoid ignoring errors on checking
     modules existing via `pcall(require, '<module_name>')`.
 * Fixed some cases when module ignored schema updates.
+* Preserve "Bootstrap vshard" button in WebUI operable even if vshard
+  roles are hidden explicitly.
 
 ### Added
 
