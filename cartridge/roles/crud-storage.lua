@@ -12,5 +12,6 @@ return {
     role_name = 'crud-storage',
     init = init,
     stop = stop,
-    dependencies = {'cartridge.roles.vshard-storage'}
+    implies_storage = true,
+    dependencies = {'cartridge.roles.vshard-storage'},
 }
