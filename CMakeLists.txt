@@ -32,5 +32,9 @@ install(
 # Don't include to rockspec as some Tarantool versions (e.g. 2.2 and 2.3)
 # don't have symbols required by "tuple-merger" and "tuple-keydef" modules.
 execute_process(
+    COMMAND bash "-c" "tarantoolctl rocks install tuple-keydef 0.0.2"
+)
+
+execute_process(
     COMMAND bash "-c" "tarantoolctl rocks install tuple-merger 0.0.1"
 )
