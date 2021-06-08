@@ -152,10 +152,6 @@ function utils.extract_key(tuple, key_parts)
 end
 
 function utils.extract_jsonpath_keys(tuple, index_parts, condition_map)
-    if tuple == nil then
-        return nil
-    end
-
     local key_def = nil
     local extracted_values
     local curr_jsonpath_ind = nil
@@ -568,15 +564,6 @@ end
 
 function utils.flatten_obj_reload(space_name, obj)
     return schema.wrap_func_reload(flatten_obj, space_name, obj)
-end
-
-function utils.get_index_paths(index_parts)
-    local parts = {}
-    for _, v in ipairs(index_parts) do
-        table.insert(parts, v.path)
-    end
-
-    return parts
 end
 
 function utils.get_condition_values_map(conditions)
