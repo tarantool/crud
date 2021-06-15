@@ -180,11 +180,15 @@ function select_plan.new(space, conditions, opts)
         if opts.first < 0 then
             scan_iter = utils.invert_tarantool_iter(scan_iter)
 
-            -- scan condition becomes border consition
+            -- scan condition becomes border condition
             scan_condition_num = nil
 
             if scan_after_tuple ~= nil then
-                scan_value = utils.extract_key(scan_after_tuple, scan_index.parts)
+                local len
+                if scan_value ~= nil then
+                    len = #scan_value
+                end
+                scan_value = utils.extract_key(scan_after_tuple, scan_index.parts, len)
             else
                 scan_value = nil
             end

@@ -140,9 +140,12 @@ function utils.unflatten(tuple, space_format)
     return object
 end
 
-function utils.extract_key(tuple, key_parts)
+function utils.extract_key(tuple, key_parts, max_len)
     local key = {}
     for i, part in ipairs(key_parts) do
+        if max_len ~= nil and i > max_len then
+            break
+        end
         key[i] = tuple[part.fieldno]
     end
     return key
