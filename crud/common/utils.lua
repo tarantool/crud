@@ -151,9 +151,21 @@ function utils.extract_key(tuple, key_parts)
     return key
 end
 
-function utils.extract_jsonpath_keys(tuple, index_parts)
-    local key_def = keydef_lib.new(index_parts)
-    return key_def:extract_key(tuple)
+function utils.extract_jsonpath_keys(tuple, index_parts, key_def)
+    key_def = key_def or keydef_lib.new(index_parts)
+
+    -- We have case, when we get already extracted values in
+    -- tuple variable, and we will get error like this:
+    -- 'Tuple field [5] required by space format is missing'.
+    local ok, extracted_values = pcall(function()
+        return key_def:extract_key(tuple)
+    end)
+
+    if ok == false then
+        return tuple
+    end
+
+    return extracted_values
 end
 
 function utils.merge_primary_key_parts(key_parts, pk_parts)

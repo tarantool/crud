@@ -4,6 +4,9 @@ local compare_conditions = require('crud.compare.conditions')
 local type_comparators = require('crud.compare.type_comparators')
 local operators = compare_conditions.operators
 
+local compat = require('crud.common.compat')
+local keydef_lib = compat.require('tuple.keydef', 'key_def')
+
 local utils = require('crud.common.utils')
 
 local ComparatorsError = errors.new_class('ComparatorsError')
@@ -151,11 +154,13 @@ function comparators.gen_tuples_comparator(cmp_operator, key_parts, field_names,
     local updated_key_parts = comparators.update_key_parts_by_field_names(
             space_format, field_names, key_parts
     )
+
     local keys_comparator = comparators.gen_func(cmp_operator, updated_key_parts)
+    local key_def = keydef_lib.new(updated_key_parts)
 
     return function(lhs, rhs)
-        local lhs_key = utils.extract_jsonpath_keys(lhs, updated_key_parts)
-        local rhs_key = utils.extract_jsonpath_keys(rhs, updated_key_parts)
+        local lhs_key = utils.extract_jsonpath_keys(lhs, updated_key_parts, key_def)
+        local rhs_key = utils.extract_jsonpath_keys(rhs, updated_key_parts, key_def)
 
         return keys_comparator(lhs_key, rhs_key)
     end

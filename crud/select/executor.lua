@@ -50,6 +50,19 @@ function executor.execute(space, index, filter_func, opts)
     local tuples_count = 0
 
     local value = opts.scan_value
+    if opts.after_tuple ~= nil then
+        if value == nil then
+            value = opts.after_tuple
+        else
+            local cmp_operator = select_comparators.get_cmp_operator(opts.tarantool_iter)
+            local scan_comparator = select_comparators.gen_tuples_comparator(cmp_operator, index.parts)
+            local after_tuple_key = utils.extract_jsonpath_keys(opts.after_tuple, index.parts)
+            if scan_comparator(after_tuple_key, opts.scan_value) then
+                value = after_tuple_key
+            end
+        end
+    end
+
     local tuple
     local gen = index:pairs(value, {iterator = opts.tarantool_iter})
 
