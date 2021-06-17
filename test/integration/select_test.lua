@@ -1400,6 +1400,7 @@ pgroup:add('test_jsonpath_index_field_pagination', function(g)
         },
     })
 
+
     -- Pagination (primary index)
     local result, err = g.cluster.main_server.net_box:call('crud.select',
         {'cars', nil, {first = 2}})
@@ -1423,6 +1424,8 @@ pgroup:add('test_jsonpath_index_field_pagination', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {1, 2}))
 
+--[==[
+    -- Uncomment after https://github.com/tarantool/crud/issues/170
     -- Pagination (secondary index - 1 field)
     local result, err = g.cluster.main_server.net_box:call('crud.select',
         {'cars', {{'==', 'data_index', 'Yellow'}}, {first = 2}})
@@ -1442,6 +1445,7 @@ pgroup:add('test_jsonpath_index_field_pagination', function(g)
     local result, err = g.cluster.main_server.net_box:call('crud.select',
         {'cars', {{'==', 'data_index', 'Yellow'}}, {first = -2, after = result.rows[1]}})
     t.assert_equals(err, nil)
+]==]
 
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {1, 2}))
