@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
-* Added support for jsonpath indexes for ``crud.select``
+* Added jsonpath indexes support for queries.
 
 ## [0.7.0] - 2021-05-27
 
