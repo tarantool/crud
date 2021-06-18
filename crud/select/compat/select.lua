@@ -115,6 +115,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     end
 
     return {
+        tuples_limit = tuples_limit,
         merger = merger,
         space_format = filtered_space_format,
     }
@@ -166,18 +167,23 @@ function select_module.pairs(space_name, user_conditions, opts)
         error(string.format("Failed to generate iterator: %s", err))
     end
 
-    if opts.use_tomap ~= true then
-        return iter.merger:pairs()
+    local gen, param, state = iter.merger:pairs()
+    if opts.use_tomap == true then
+        gen, param, state = gen:map(function(tuple)
+            local result
+            result, err = utils.unflatten(tuple, iter.space_format)
+            if err ~= nil then
+                error(string.format("Failed to unflatten next object: %s", err))
+            end
+            return result
+        end)
     end
 
-    return iter.merger:pairs():map(function(tuple)
-        local result
-        result, err = utils.unflatten(tuple, iter.space_format)
-        if err ~= nil then
-            error(string.format("Failed to unflatten next object: %s", err))
-        end
-        return result
-    end)
+    if iter.tuples_limit ~= nil then
+        gen, param, state = gen:take_n(iter.tuples_limit)
+    end
+
+    return gen, param, state
 end
 
 local function select_module_call_xc(space_name, user_conditions, opts)
