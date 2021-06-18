@@ -149,26 +149,7 @@ function utils.extract_key(tuple, key_parts)
 end
 
 function utils.extract_jsonpath_keys(tuple, index_parts, key_def)
-    local keys = {}
-
-    -- We have case, when we get already extracted values in
-    -- tuple variable, and we will get error like this:
-    -- 'Tuple field [5] required by space format is missing'.
-    -- For example, we can get tuple {'Yellow'} (already extrated jsonpath key)
-    -- and index parts like this: {{fieldno = 3, path = data.color}}.
-    -- When we try to key_def:extract_key, we wil get error.
-    for _, part in ipairs(index_parts) do
-        if part.path ~= nil and type(tuple[part.fieldno]) == 'table' then
-            keys = key_def:extract_key(tuple)
-            break
-        end
-    end
-
-    if #keys == 0 then
-        return utils.extract_key(tuple, index_parts)
-    end
-
-    return keys
+    return key_def:extract_key(tuple)
 end
 
 function utils.merge_primary_key_parts(key_parts, pk_parts)

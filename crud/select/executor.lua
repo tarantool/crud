@@ -57,15 +57,10 @@ function executor.execute(space, index, filter_func, opts)
         if value == nil then
             value = opts.after_tuple
         else
-            local cmp_operator = select_comparators.get_cmp_operator(opts.tarantool_iter)
-            local scan_comparator = select_comparators.gen_tuples_comparator(cmp_operator, index.parts)
-            local after_tuple_key = utils.extract_jsonpath_keys(
-                opts.after_tuple,
-                index.parts,
-                keydef_lib.new(index.parts)
-            )
+            local key_def = keydef_lib.new(index.parts)
+            local after_tuple_key = utils.extract_jsonpath_keys(opts.after_tuple, index.parts, key_def)
 
-            if scan_comparator(after_tuple_key, opts.scan_value) then
+            if key_def:compare_with_key(opts.after_tuple, opts.scan_value) == 0 then
                 value = after_tuple_key
             end
         end
