@@ -148,10 +148,6 @@ function utils.extract_key(tuple, key_parts)
     return key
 end
 
-function utils.extract_jsonpath_keys(tuple, index_parts, key_def)
-    return key_def:extract_key(tuple)
-end
-
 function utils.merge_primary_key_parts(key_parts, pk_parts)
     local merged_parts = {}
     local key_fieldnos = {}

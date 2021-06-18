@@ -187,11 +187,8 @@ function select_plan.new(space, conditions, opts)
             scan_condition_num = nil
 
             if scan_after_tuple ~= nil then
-                scan_value = utils.extract_jsonpath_keys(
-                    scan_after_tuple,
-                    scan_index.parts,
-                    keydef_lib.new(scan_index.parts)
-                )
+                local key_def = keydef_lib.new(scan_index.parts)
+                scan_value = key_def:extract_key(scan_after_tuple)
             else
                 scan_value = nil
             end
