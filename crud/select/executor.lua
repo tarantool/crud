@@ -58,10 +58,8 @@ function executor.execute(space, index, filter_func, opts)
             value = opts.after_tuple
         else
             local key_def = keydef_lib.new(index.parts)
-            local after_tuple_key = key_def:extract_key(opts.after_tuple)
-
-            if key_def:compare_with_key(opts.after_tuple, opts.scan_value) == 0 then
-                value = after_tuple_key
+            if key_def:compare_with_key(opts.after_tuple, opts.scan_value) < 0 then
+                value = key_def:extract_key(opts.after_tuple)
             end
         end
     end
