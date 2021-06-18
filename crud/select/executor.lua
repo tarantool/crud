@@ -59,7 +59,6 @@ function executor.execute(space, index, filter_func, opts)
         else
             local key_def = keydef_lib.new(index.parts)
             local after_tuple_key = key_def:extract_key(opts.after_tuple)
-            --local after_tuple_key = utils.extract_jsonpath_keys(opts.after_tuple, index.parts, key_def)
 
             if key_def:compare_with_key(opts.after_tuple, opts.scan_value) == 0 then
                 value = after_tuple_key
