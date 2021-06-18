@@ -12,9 +12,6 @@ local ShardingError = errors.new_class('ShardingError',  {capture_stack = false}
 local GetSpaceFormatError = errors.new_class('GetSpaceFormatError',  {capture_stack = false})
 local FilterFieldsError = errors.new_class('FilterFieldsError',  {capture_stack = false})
 
-local compat = require('crud.common.compat')
-local keydef_lib = compat.require('tuple.keydef', 'key_def')
-
 local utils = {}
 
 local space_format_cache = setmetatable({}, {__mode = 'k'})
@@ -152,20 +149,26 @@ function utils.extract_key(tuple, key_parts)
 end
 
 function utils.extract_jsonpath_keys(tuple, index_parts, key_def)
-    key_def = key_def or keydef_lib.new(index_parts)
+    local keys = {}
 
     -- We have case, when we get already extracted values in
     -- tuple variable, and we will get error like this:
     -- 'Tuple field [5] required by space format is missing'.
-    local ok, extracted_values = pcall(function()
-        return key_def:extract_key(tuple)
-    end)
-
-    if ok == false then
-        return tuple
+    -- For example, we can get tuple {'Yellow'} (already extrated jsonpath key)
+    -- and index parts like this: {{fieldno = 3, path = data.color}}.
+    -- When we try to key_def:extract_key, we wil get error.
+    for _, part in ipairs(index_parts) do
+        if part.path ~= nil and type(tuple[part.fieldno]) == 'table' then
+            keys = key_def:extract_key(tuple)
+            break
+        end
     end
 
-    return extracted_values
+    if #keys == 0 then
+        return utils.extract_key(tuple, index_parts)
+    end
+
+    return keys
 end
 
 function utils.merge_primary_key_parts(key_parts, pk_parts)

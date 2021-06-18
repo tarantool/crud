@@ -4,6 +4,9 @@ local compare_conditions = require('crud.compare.conditions')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
+local compat = require('crud.common.compat')
+local keydef_lib = compat.require('tuple.keydef', 'key_def')
+
 local select_plan = {}
 
 local IndexTypeError = errors.new_class('IndexTypeError', {capture_stack = false})
@@ -184,7 +187,11 @@ function select_plan.new(space, conditions, opts)
             scan_condition_num = nil
 
             if scan_after_tuple ~= nil then
-                scan_value = utils.extract_jsonpath_keys(scan_after_tuple, scan_index.parts)
+                scan_value = utils.extract_jsonpath_keys(
+                    scan_after_tuple,
+                    scan_index.parts,
+                    keydef_lib.new(scan_index.parts)
+                )
             else
                 scan_value = nil
             end

@@ -3,6 +3,9 @@ local errors = require('errors')
 local dev_checks = require('crud.common.dev_checks')
 local select_comparators = require('crud.compare.comparators')
 
+local compat = require('crud.common.compat')
+local keydef_lib = compat.require('tuple.keydef', 'key_def')
+
 local utils = require('crud.common.utils')
 
 local ExecuteSelectError = errors.new_class('ExecuteSelectError')
@@ -25,7 +28,7 @@ local function scroll_to_after_tuple(gen, space, scan_index, tarantool_iter, aft
             return nil
         end
 
-        if scroll_comparator(tuple, after_tuple) then
+        if scroll_comparator(tuple, after_tuple, false, true) then
             return tuple
         end
     end
@@ -56,8 +59,13 @@ function executor.execute(space, index, filter_func, opts)
         else
             local cmp_operator = select_comparators.get_cmp_operator(opts.tarantool_iter)
             local scan_comparator = select_comparators.gen_tuples_comparator(cmp_operator, index.parts)
-            local after_tuple_key = utils.extract_jsonpath_keys(opts.after_tuple, index.parts)
-            if scan_comparator(after_tuple_key, opts.scan_value) then
+            local after_tuple_key = utils.extract_jsonpath_keys(
+                opts.after_tuple,
+                index.parts,
+                keydef_lib.new(index.parts)
+            )
+
+            if scan_comparator(after_tuple_key, opts.scan_value, true, true) then
                 value = after_tuple_key
             end
         end
