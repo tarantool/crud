@@ -65,7 +65,7 @@ function executor.execute(space, index, filter_func, opts)
                 keydef_lib.new(index.parts)
             )
 
-            if scan_comparator(after_tuple_key, opts.scan_value, true, true) then
+            if scan_comparator(after_tuple_key, opts.scan_value) then
                 value = after_tuple_key
             end
         end
