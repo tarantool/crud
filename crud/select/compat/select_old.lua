@@ -211,6 +211,11 @@ function select_module.pairs(space_name, user_conditions, opts)
         error(string.format("Failed to generate iterator: %s", err))
     end
 
+    local tuples_limit = opts.first
+    if tuples_limit ~= nil then
+        tuples_limit = math.abs(tuples_limit)
+    end
+
     local gen = function(_, iter)
         local tuple, err = iter:get()
         if tuple == nil then
@@ -232,7 +237,13 @@ function select_module.pairs(space_name, user_conditions, opts)
         return iter, result
     end
 
-    return fun.iter(gen, nil, iter)
+    local gen, param, state = fun.iter(gen, nil, iter)
+
+    if tuples_limit ~= nil then
+        gen, param, state = gen:take_n(tuples_limit)
+    end
+
+    return gen, param, state
 end
 
 function select_module.call(space_name, user_conditions, opts)
