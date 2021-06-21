@@ -3,7 +3,12 @@ local errors = require('errors')
 local dev_checks = require('crud.common.dev_checks')
 local select_comparators = require('crud.compare.comparators')
 local compat = require('crud.common.compat')
-local has_keydef, keydef_lib = pcall(compat.require, 'tuple.keydef', 'key_def')
+local has_keydef = compat.exists('tuple.keydef', 'key_def')
+
+local keydef_lib
+if has_keydef then
+    keydef_lib = compat.require('tuple.keydef', 'key_def')
+end
 
 local utils = require('crud.common.utils')
 

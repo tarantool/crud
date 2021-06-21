@@ -2,7 +2,12 @@ local comparators = require('crud.compare.comparators')
 local collations = require('crud.common.collations')
 
 local compat = require('crud.common.compat')
-local keydef_lib = compat.require('tuple.keydef', 'key_def')
+local has_keydef = compat.exists('tuple.keydef', 'key_def')
+
+local keydef_lib
+if has_keydef then
+    keydef_lib = compat.require('tuple.keydef', 'key_def')
+end
 
 -- As "tuple.key_def" doesn't support collation_id
 -- we manually change it to collation

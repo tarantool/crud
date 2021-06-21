@@ -5,7 +5,12 @@ local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
 local compat = require('crud.common.compat')
-local has_keydef, keydef_lib = pcall(compat.require, 'tuple.keydef', 'key_def')
+local has_keydef = compat.exists('tuple.keydef', 'key_def')
+
+local keydef_lib
+if has_keydef then
+    keydef_lib = compat.require('tuple.keydef', 'key_def')
+end
 
 local select_plan = {}
 

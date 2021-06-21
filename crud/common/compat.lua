@@ -30,4 +30,21 @@ function compat.require(module_name, builtin_module_name)
     return module
 end
 
+function compat.exists(module_name, builtin_module_name)
+    local module_cached = rawget(_G, string.format('__crud_%s_cached', module_name))
+    if module_cached ~= nil then
+        return true
+    end
+
+    if package.search(module_name) then
+        return true
+    end
+
+    if package.loaded[builtin_module_name] ~= nil then
+        return true
+    end
+
+    return false
+end
+
 return compat

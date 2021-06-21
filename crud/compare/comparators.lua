@@ -5,7 +5,12 @@ local type_comparators = require('crud.compare.type_comparators')
 local utils = require('crud.common.utils')
 
 local compat = require('crud.common.compat')
-local has_keydef, keydef_lib = pcall(compat.require, 'tuple.keydef', 'key_def')
+local has_keydef = compat.exists('tuple.keydef', 'key_def')
+
+local keydef_lib
+if has_keydef then
+    keydef_lib = compat.require('tuple.keydef', 'key_def')
+end
 
 local operators = compare_conditions.operators
 
