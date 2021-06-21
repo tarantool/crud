@@ -165,6 +165,10 @@ local function new(replicasets, space, index_id, func_name, func_args, opts)
     end
 
     local keydef = Keydef.new(space, opts.field_names, index_id)
+    -- When built-in merger is used with external keydef, `merger_lib.new(keydef)`
+    -- fails. It's simply fixed by casting `keydef` to 'struct key_def&'.
+    keydef = ffi.cast('struct key_def&', keydef)
+
     local merger = merger_lib.new(keydef, merger_sources, {
         reverse = reverse_tarantool_iters[opts.tarantool_iter],
     })
