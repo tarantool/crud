@@ -5,9 +5,6 @@ local vshard = require('vshard')
 local schema = require('crud.common.schema')
 local dev_checks = require('crud.common.dev_checks')
 
-local compat = require('crud.common.compat')
-local has_keydef, keydef_lib = pcall(compat.require, 'tuple.keydef', 'key_def')
-
 local FlattenError = errors.new_class("FlattenError", {capture_stack = false})
 local UnflattenError = errors.new_class("UnflattenError", {capture_stack = false})
 local ParseOperationsError = errors.new_class('ParseOperationsError',  {capture_stack = false})
