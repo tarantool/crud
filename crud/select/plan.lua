@@ -191,7 +191,7 @@ function select_plan.new(space, conditions, opts)
                     local key_def = keydef_lib.new(scan_index.parts)
                     scan_value = key_def:extract_key(scan_after_tuple)
                 else
-                    scan_value = utils.extract_key(scan_after_tuple)
+                    scan_value = utils.extract_key(scan_after_tuple, index.parts)
                 end
             else
                 scan_value = nil
