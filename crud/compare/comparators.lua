@@ -2,10 +2,12 @@ local errors = require('errors')
 
 local compare_conditions = require('crud.compare.conditions')
 local type_comparators = require('crud.compare.type_comparators')
-local operators = compare_conditions.operators
+local utils = require('crud.common.utils')
 
 local compat = require('crud.common.compat')
-local keydef_lib = compat.require('tuple.keydef', 'key_def')
+local has_keydef, keydef_lib = pcall(compat.require, 'tuple.keydef', 'key_def')
+
+local operators = compare_conditions.operators
 
 local ComparatorsError = errors.new_class('ComparatorsError')
 
@@ -154,12 +156,21 @@ function comparators.gen_tuples_comparator(cmp_operator, key_parts, field_names,
     )
 
     local keys_comparator = comparators.gen_func(cmp_operator, updated_key_parts)
-    local key_def = keydef_lib.new(updated_key_parts)
+
+    local key_def
+    if has_keydef then
+        key_def = keydef_lib.new(updated_key_parts)
+    end
 
     return function(lhs, rhs)
-        local lhs_key = key_def:extract_key(lhs)
-        local rhs_key = key_def:extract_key(rhs)
+        if has_keydef then
+            local lhs_key = key_def:extract_key(lhs)
+            local rhs_key = key_def:extract_key(rhs)
+            return keys_comparator(lhs_key, rhs_key)
+        end
 
+        local lhs_key = utils.extract_key(lhs, updated_key_parts)
+        local rhs_key = utils.extract_key(rhs, updated_key_parts)
         return keys_comparator(lhs_key, rhs_key)
     end
 end

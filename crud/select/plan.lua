@@ -5,7 +5,7 @@ local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
 local compat = require('crud.common.compat')
-local keydef_lib = compat.require('tuple.keydef', 'key_def')
+local has_keydef, keydef_lib = pcall(compat.require, 'tuple.keydef', 'key_def')
 
 local select_plan = {}
 
@@ -187,8 +187,12 @@ function select_plan.new(space, conditions, opts)
             scan_condition_num = nil
 
             if scan_after_tuple ~= nil then
-                local key_def = keydef_lib.new(scan_index.parts)
-                scan_value = key_def:extract_key(scan_after_tuple)
+                if has_keydef then
+                    local key_def = keydef_lib.new(scan_index.parts)
+                    scan_value = key_def:extract_key(scan_after_tuple)
+                else
+                    scan_value = utils.extract_key(scan_after_tuple)
+                end
             else
                 scan_value = nil
             end
