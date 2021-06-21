@@ -1,3 +1,5 @@
+local ffi = require('ffi')
+
 local comparators = require('crud.compare.comparators')
 local collations = require('crud.common.collations')
 
@@ -53,6 +55,10 @@ local function new(space, field_names, index_id)
                 space_format, field_names, primary_index.parts
         )
         keydef = keydef:merge(keydef_lib.new(normalize_parts(updated_parts)))
+    end
+
+    if keydef_lib.__is_external then
+        keydef = ffi.cast('struct key_def&', keydef)
     end
 
     if field_names == nil then
