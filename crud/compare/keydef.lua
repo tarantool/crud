@@ -1,17 +1,8 @@
-local ffi = require('ffi')
-
 local comparators = require('crud.compare.comparators')
 local collations = require('crud.common.collations')
 
 local compat = require('crud.common.compat')
 local keydef_lib = compat.require('tuple.keydef', 'key_def')
-local merger_lib = compat.require('tuple.merger', 'merger')
-
--- When built-in merger is used with external keydef, `merger_lib.new(keydef)`
--- fails. It's simply fixed by casting `keydef` to 'struct key_def&'.
--- This cast can be performed only when keydef is external, but merger is built-in.
--- Otherwise, it leads to different errors (e.g. for Tarantool 1.10).
-local keyef_needs_cast = keydef_lib.__is_external and not merger_lib.__is_external
 
 -- As "tuple.key_def" doesn't support collation_id
 -- we manually change it to collation
@@ -62,10 +53,6 @@ local function new(space, field_names, index_id)
                 space_format, field_names, primary_index.parts
         )
         keydef = keydef:merge(keydef_lib.new(normalize_parts(updated_parts)))
-    end
-
-    if keyef_needs_cast then
-        keydef = ffi.cast('struct key_def&', keydef)
     end
 
     if field_names == nil then

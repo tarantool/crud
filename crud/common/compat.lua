@@ -15,13 +15,9 @@ function compat.require(module_name, builtin_module_name)
         -- leads to ignoring errors other than 'No LuaRocks module found'
         log.info('%q module is used', module_name)
         module = require(module_name)
-
-        module.__is_external = true
     else
         log.info('%q module is not found. Built-in %q is used', module_name, builtin_module_name)
         module = require(builtin_module_name)
-
-        module.__is_external = false
     end
 
     rawset(_G, module_cached_name, module)
