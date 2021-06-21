@@ -38,13 +38,17 @@ local function scroll_to_after_tuple(gen, space, scan_index, tarantool_iter, aft
     end
 end
 
-local function generate_value(after_tuple, scan_value, index_parts, tarantool_iter)
-    if has_keydef then
+local generate_value
+
+if has_keydef then
+    generate_value = function(after_tuple, scan_value, index_parts, tarantool_iter)
         local key_def = keydef_lib.new(index_parts)
         if key_def:compare_with_key(after_tuple, scan_value) < 0 then
             return key_def:extract_key(after_tuple)
         end
-    else
+    end
+else
+    generate_value = function(after_tuple, scan_value, index_parts, tarantool_iter)
         local cmp_operator = select_comparators.get_cmp_operator(tarantool_iter)
         local scan_comparator = select_comparators.gen_tuples_comparator(cmp_operator, index_parts)
         local after_tuple_key = utils.extract_key(after_tuple, index_parts)
