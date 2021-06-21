@@ -6,6 +6,8 @@ local collations = require('crud.common.collations')
 local compat = require('crud.common.compat')
 local keydef_lib = compat.require('tuple.keydef', 'key_def')
 
+local has_builtin_keydef, keydef_ctype = pcall(ffi.typeof, 'struct key_def&')
+
 -- As "tuple.key_def" doesn't support collation_id
 -- we manually change it to collation
 local function normalize_parts(index_parts)
@@ -57,8 +59,8 @@ local function new(space, field_names, index_id)
         keydef = keydef:merge(keydef_lib.new(normalize_parts(updated_parts)))
     end
 
-    if keydef_lib.__is_external then
-        keydef = ffi.cast('struct key_def&', keydef)
+    if has_builtin_keydef then
+        keydef = ffi.cast(keydef_ctype, keydef)
     end
 
     if field_names == nil then
