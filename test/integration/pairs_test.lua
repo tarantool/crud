@@ -254,6 +254,49 @@ pgroup:add('test_le_condition_with_index', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1})) -- in age order
 end)
 
+pgroup:add('test_first', function(g)
+    local customers = helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    -- w/ tomap
+    local objects, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        local objects = {}
+        for _, object in crud.pairs('customers', nil, {first = 2, use_tomap = true}) do
+            table.insert(objects, object)
+        end
+        return objects
+    ]])
+    t.assert_equals(err, nil)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1, 2}))
+
+    local tuples, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        local tuples = {}
+        for _, tuple in crud.pairs('customers', nil, {first = 2}) do
+            table.insert(tuples, tuple)
+        end
+        return tuples
+    ]])
+    t.assert_equals(err, nil)
+    t.assert_equals(tuples, {
+        {1, 477, 'Elizabeth', 'Jackson', 12, 'New York'},
+        {2, 401, 'Mary', 'Brown', 46, 'Los Angeles'},
+    })
+end)
+
 pgroup:add('test_negative_first', function(g)
     local customers = helpers.insert_objects(g, 'customers',{
         {

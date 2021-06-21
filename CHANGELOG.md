@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 * Compatibility with Tarantool versions that don't support key_def and merger modules.
+* Ignoring `opts.first` on `crud.pairs` call
 
 ## [0.7.0] - 2021-05-27
 
