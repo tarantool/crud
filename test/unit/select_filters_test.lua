@@ -9,6 +9,8 @@ local collations = require('crud.common.collations')
 local t = require('luatest')
 local g = t.group('select_filters')
 
+local crud_utils = require('crud.common.utils')
+
 local helpers = require('test.helper')
 
 g.before_all = function()
@@ -43,10 +45,47 @@ g.before_all = function()
         unique = false,
         if_not_exists = true,
     })
+
+    if crud_utils.tarantool_supports_jsonpath_indexes() then
+        local cars_space = box.schema.space.create('cars', {
+            format = {
+                {name = 'id', type = 'map'},
+                {name = 'bucket_id', type = 'unsigned'},
+                {name = 'age', type = 'number'},
+                {name = 'manufacturer', type = 'string'},
+                {name = 'data', type = 'map'}
+            },
+            if_not_exists = true,
+        })
+
+        -- primary index
+        cars_space:create_index('id_ind', {
+            parts = {
+                {1, 'unsigned', path = 'car_id.signed'},
+            },
+            if_not_exists = true,
+        })
+
+        cars_space:create_index('bucket_id', {
+            parts = { 'bucket_id' },
+            unique = false,
+            if_not_exists = true,
+        })
+
+        cars_space:create_index('data_index', {
+            parts = {
+                {5, 'str', path = 'car.color'},
+                {5, 'str', path = 'car.model'},
+            },
+            unique = false,
+            if_not_exists = true,
+        })
+    end
 end
 
 g.after_all(function()
     box.space.customers:drop()
+    box.space.cars:drop()
 end)
 
 g.test_empty_conditions = function()
@@ -815,5 +854,34 @@ return M]]
     t.assert_equals({ filter_func(box.tuple.new({{field_1 = 5, f2 = 3}, {fld_1 = "jsonpath_test"}, 23})) }, {false, false})
 end
 
+g.test_jsonpath_indexes = function()
+    t.skip_if(
+        not crud_utils.tarantool_supports_jsonpath_indexes(),
+        "Jsonpath indexes supported since 2.6.3/2.7.2/2.8.1"
+    )
+
+    local conditions = {
+        cond_funcs.gt('id', 20),
+        cond_funcs.eq('data_index', {'Yellow', 'BMW'})
+    }
+
+    local plan, err = select_plan.new(box.space.cars, conditions)
+    t.assert_equals(err, nil)
+
+    local filter_conditions, err = select_filters.internal.parse(box.space.cars, conditions, {
+        scan_condition_num = plan.scan_condition_num,
+        tarantool_iter = plan.tarantool_iter,
+    })
+
+    t.assert_equals(err, nil)
+
+    local data_condition = filter_conditions[1]
+    t.assert_type(data_condition, 'table')
+    t.assert_equals(data_condition.fields, {"[5]car.color", "[5]car.model"})
+    t.assert_equals(data_condition.operator, compare_conditions.operators.EQ)
+    t.assert_equals(data_condition.values, {'Yellow', 'BMW'})
+    t.assert_equals(data_condition.types, {'string', 'string'})
+    t.assert_equals(data_condition.early_exit_is_possible, false)
+end
 
 -- luacheck: pop
