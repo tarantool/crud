@@ -39,7 +39,6 @@ function executor.execute(space, index, filter_func, opts)
         after_tuple = '?table',
         tarantool_iter = 'number',
         limit = '?number',
-        conditions = '?table'
     })
 
     opts = opts or {}
