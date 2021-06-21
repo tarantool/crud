@@ -2,9 +2,8 @@ local errors = require('errors')
 
 local dev_checks = require('crud.common.dev_checks')
 local select_comparators = require('crud.compare.comparators')
-
 local compat = require('crud.common.compat')
-local keydef_lib = compat.require('tuple.keydef', 'key_def')
+local has_keydef, keydef_lib = pcall(compat.require, 'tuple.keydef', 'key_def')
 
 local utils = require('crud.common.utils')
 
@@ -57,9 +56,18 @@ function executor.execute(space, index, filter_func, opts)
         if value == nil then
             value = opts.after_tuple
         else
-            local key_def = keydef_lib.new(index.parts)
-            if key_def:compare_with_key(opts.after_tuple, opts.scan_value) < 0 then
-                value = key_def:extract_key(opts.after_tuple)
+            if has_keydef then
+                local key_def = keydef_lib.new(index.parts)
+                if key_def:compare_with_key(opts.after_tuple, opts.scan_value) < 0 then
+                    value = key_def:extract_key(opts.after_tuple)
+                end
+            else
+                local cmp_operator = select_comparators.get_cmp_operator(opts.tarantool_iter)
+                local scan_comparator = select_comparators.gen_tuples_comparator(cmp_operator, index.parts)
+                local after_tuple_key = utils.extract_key(opts.after_tuple, index.parts)
+                if scan_comparator(after_tuple_key, opts.scan_value) then
+                    value = after_tuple_key
+                end
             end
         end
     end
