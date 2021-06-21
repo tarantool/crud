@@ -7,6 +7,8 @@ local compat = require('crud.common.compat')
 local keydef_lib = compat.require('tuple.keydef', 'key_def')
 local merger_lib = compat.require('tuple.merger', 'merger')
 
+local keyef_needs_cast = keydef_lib.__is_external and not merger_lib.__is_external
+
 -- As "tuple.key_def" doesn't support collation_id
 -- we manually change it to collation
 local function normalize_parts(index_parts)
@@ -58,7 +60,7 @@ local function new(space, field_names, index_id)
         keydef = keydef:merge(keydef_lib.new(normalize_parts(updated_parts)))
     end
 
-    if keydef_lib.__is_external and not merger_lib.__is_external then
+    if keyef_needs_cast then
         keydef = ffi.cast('struct key_def&', keydef)
     end
 
