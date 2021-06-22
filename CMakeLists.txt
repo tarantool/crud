@@ -36,5 +36,5 @@ execute_process(
 )
 
 execute_process(
-    COMMAND bash "-c" "tarantoolctl rocks install tuple-merger 0.0.1"
+    COMMAND bash "-c" "tarantoolctl rocks install tuple-merger 0.0.2"
 )
