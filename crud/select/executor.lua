@@ -77,13 +77,9 @@ function executor.execute(space, index, filter_func, opts)
 
     local value = opts.scan_value
     if opts.after_tuple ~= nil then
-        if value == nil then
-            value = opts.after_tuple
-        else
-            local new_value = generate_value(opts.after_tuple, opts.scan_value, index.parts, opts.tarantool_iter)
-            if new_value ~= nil then
-                value = new_value
-            end
+        local new_value = generate_value(opts.after_tuple, opts.scan_value, index.parts, opts.tarantool_iter)
+        if new_value ~= nil then
+            value = new_value
         end
     end
 
