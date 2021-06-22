@@ -136,7 +136,6 @@ local reverse_tarantool_iters = {
 local function new(replicasets, space, index_id, func_name, func_args, opts)
     opts = opts or {}
     local call_opts = opts.call_opts
-
     local mode = call_opts.mode or 'read'
     local vshard_call_name = call.get_vshard_call_name(mode, call_opts.prefer_replica, call_opts.balance)
 

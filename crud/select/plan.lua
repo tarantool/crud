@@ -4,6 +4,14 @@ local compare_conditions = require('crud.compare.conditions')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
+local compat = require('crud.common.compat')
+local has_keydef = compat.exists('tuple.keydef', 'key_def')
+
+local keydef_lib
+if has_keydef then
+    keydef_lib = compat.require('tuple.keydef', 'key_def')
+end
+
 local select_plan = {}
 
 local IndexTypeError = errors.new_class('IndexTypeError', {capture_stack = false})
@@ -184,7 +192,12 @@ function select_plan.new(space, conditions, opts)
             scan_condition_num = nil
 
             if scan_after_tuple ~= nil then
-                scan_value = utils.extract_key(scan_after_tuple, scan_index.parts)
+                if has_keydef then
+                    local key_def = keydef_lib.new(scan_index.parts)
+                    scan_value = key_def:extract_key(scan_after_tuple)
+                else
+                    scan_value = utils.extract_key(scan_after_tuple, scan_index.parts)
+                end
             else
                 scan_value = nil
             end

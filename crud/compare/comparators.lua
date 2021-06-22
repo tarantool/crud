@@ -2,9 +2,17 @@ local errors = require('errors')
 
 local compare_conditions = require('crud.compare.conditions')
 local type_comparators = require('crud.compare.type_comparators')
-local operators = compare_conditions.operators
-
 local utils = require('crud.common.utils')
+
+local compat = require('crud.common.compat')
+local has_keydef = compat.exists('tuple.keydef', 'key_def')
+
+local keydef_lib
+if has_keydef then
+    keydef_lib = compat.require('tuple.keydef', 'key_def')
+end
+
+local operators = compare_conditions.operators
 
 local ComparatorsError = errors.new_class('ComparatorsError')
 
@@ -102,7 +110,8 @@ function comparators.update_key_parts_by_field_names(space_format, field_names, 
         local field_name = space_format[part.fieldno].name
         local updated_part = {type = part.type,
                               fieldno = fields_positions[field_name],
-                              is_nullable = part.is_nullable}
+                              is_nullable = part.is_nullable,
+                              path = part.path}
         table.insert(updated_key_parts, updated_part)
     end
 
@@ -150,13 +159,22 @@ function comparators.gen_tuples_comparator(cmp_operator, key_parts, field_names,
     local updated_key_parts = comparators.update_key_parts_by_field_names(
             space_format, field_names, key_parts
     )
+
     local keys_comparator = comparators.gen_func(cmp_operator, updated_key_parts)
 
-    return function(lhs, rhs)
-        local lhs_key = utils.extract_key(lhs, updated_key_parts)
-        local rhs_key = utils.extract_key(rhs, updated_key_parts)
-
-        return keys_comparator(lhs_key, rhs_key)
+    if has_keydef then
+        local key_def = keydef_lib.new(updated_key_parts)
+        return function(lhs, rhs)
+            local lhs_key = key_def:extract_key(lhs)
+            local rhs_key = key_def:extract_key(rhs)
+            return keys_comparator(lhs_key, rhs_key)
+        end
+    else
+        return function(lhs, rhs)
+            local lhs_key = utils.extract_key(lhs, updated_key_parts)
+            local rhs_key = utils.extract_key(rhs, updated_key_parts)
+            return keys_comparator(lhs_key, rhs_key)
+        end
     end
 end
 
