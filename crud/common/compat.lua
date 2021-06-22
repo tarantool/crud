@@ -11,7 +11,7 @@ function compat.require(module_name, builtin_module_name)
     if module_cached ~= nil then
         module = module_cached
     elseif package.search(module_name) then
-        -- we don't use pcall(require, modile_name) here because it
+        -- we don't use pcall(require, module_name) here because it
         -- leads to ignoring errors other than 'No LuaRocks module found'
         log.info('%q module is used', module_name)
         module = require(module_name)
@@ -21,11 +21,6 @@ function compat.require(module_name, builtin_module_name)
     end
 
     rawset(_G, module_cached_name, module)
-
-    local hotreload = package.loaded['cartridge.hotreload']
-    if hotreload ~= nil then
-        hotreload.whitelist_globals({module_cached_name})
-    end
 
     return module
 end
