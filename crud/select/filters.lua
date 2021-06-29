@@ -81,6 +81,7 @@ local function parse(space, conditions, opts)
     dev_checks('table', '?table', {
         scan_condition_num = '?number',
         tarantool_iter = 'number',
+        after_tuple = '?table',
     })
 
     conditions = conditions ~= nil and conditions or {}
@@ -95,6 +96,22 @@ local function parse(space, conditions, opts)
     end
 
     local filter_conditions = {}
+
+    if opts.after_tuple ~= nil and #conditions > 0 then
+        if opts.tarantool_iter == box.index.EQ or opts.tarantool_iter == box.index.REQ then
+            local index = space_indexes[conditions[1].operand]
+
+            table.insert(filter_conditions, {
+                fields = get_index_fieldnos(index),
+                operator = '==',
+                values = conditions[1].values,
+                types = get_index_fields_types(index),
+                early_exit_is_possible = true,
+                values_opts = get_values_opts(index),
+            })
+        end
+    end
+
     for i, condition in ipairs(conditions) do
         if i ~= opts.scan_condition_num then
             -- Index check (including one and multicolumn)
@@ -649,17 +666,23 @@ function filters.gen_func(space, conditions, opts)
     dev_checks('table', '?table', {
         tarantool_iter = 'number',
         scan_condition_num = '?number',
+        after_tuple = '?table',
     })
 
     local filter_conditions, err = parse(space, conditions, {
         scan_condition_num = opts.scan_condition_num,
         tarantool_iter = opts.tarantool_iter,
+        after_tuple = opts.after_tuple,
     })
     if err ~= nil then
         return nil, GenFiltersError:new("Failed to generate filters for specified conditions: %s", err)
     end
 
+    --print("FILTER CONDITIONS: ")
+    --print(utils.table_to_string(filter_conditions))
     local filter_code = gen_filter_code(filter_conditions)
+    --print("FILTER CODE: ")
+    --print(utils.table_to_string(filter_code))
     local filter_func = compile(filter_code)
 
     return filter_func

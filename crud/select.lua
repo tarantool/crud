@@ -58,6 +58,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
     local filter_func, err = select_filters.gen_func(space, conditions, {
         tarantool_iter = opts.tarantool_iter,
         scan_condition_num = opts.scan_condition_num,
+        after_tuple = opts.after_tuple,
     })
     if err ~= nil then
         return nil, SelectError:new("Failed to generate tuples filter: %s", err)

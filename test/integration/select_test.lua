@@ -898,16 +898,47 @@ pgroup:add('test_multipart_primary_index', function(g)
     })
 
     local conditions = {{'=', 'primary', 0}}
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions})
+    local result_0, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result_0.rows, result_0.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {1, 2, 3}))
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions,
+                                                                           {after = result_0.rows[1]}})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {1, 2, 3}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {2, 3}))
+
+    -- Works correctly only when we run only one instance (idk)
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions,
+                                                                           {after = result_0.rows[3], first = -2}})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {1, 2}))
 
     local conditions = {{'=', 'primary', {0, 2}}}
     local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {3}))
+
+    local conditions_ge = {{'>=', 'primary', 0}}
+    local result_ge_0, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions_ge})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result_ge_0.rows, result_ge_0.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {1, 2, 3, 4, 5}))
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions_ge,
+                                                                           {after = result_ge_0.rows[1]}})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {2, 3, 4, 5}))
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions_ge,
+                                                                           {after = result_ge_0.rows[3], first = -3}})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {1, 2}))
 end)
 
 pgroup:add('test_select_partial_result_bad_input', function(g)
@@ -1424,8 +1455,6 @@ pgroup:add('test_jsonpath_index_field_pagination', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {1, 2}))
 
---[==[
-    -- Uncomment after https://github.com/tarantool/crud/issues/170
     -- Pagination (secondary index - 1 field)
     local result, err = g.cluster.main_server.net_box:call('crud.select',
         {'cars', {{'==', 'data_index', 'Yellow'}}, {first = 2}})
@@ -1445,7 +1474,6 @@ pgroup:add('test_jsonpath_index_field_pagination', function(g)
     local result, err = g.cluster.main_server.net_box:call('crud.select',
         {'cars', {{'==', 'data_index', 'Yellow'}}, {first = -2, after = result.rows[1]}})
     t.assert_equals(err, nil)
-]==]
 
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {1, 2}))
