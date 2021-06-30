@@ -182,12 +182,10 @@ function select_plan.new(space, conditions, opts)
         return nil, err
     end
 
-    -- We duplicate this condition so that it works in `filters.gen_func`
-    -- (see function `parse`) - therefore it does not process `conditions`
-    -- (and not converted them to `filtter_conditions` array) with an array
-    -- index equal to opts.scan_condition_num. This condition, together with
-    -- the cobination "inversion" of the scan iterator (see lines below),
-    -- is needed for correct pagination when using a partial index.
+    -- Since we use pagination we should continue iteration since after tuple.
+    -- Such iterator could be run only with index:pairs(key(after_tuple), 'GT/LT').
+    -- To preserve original condition we should manually inject it in `filter_conditions`
+    -- See function `parse` in crud/select/filters.lua file for details.
     if scan_after_tuple ~= nil then
         if scan_iter == box.index.REQ or scan_iter == box.index.EQ then
             table.insert(conditions, conditions[scan_condition_num])
@@ -216,6 +214,8 @@ function select_plan.new(space, conditions, opts)
         end
     end
 
+    -- Moreover, for correct pagination we change iterator
+    -- to continue iterating in direct and reverse order.
     if scan_after_tuple ~= nil then
         if scan_iter == box.index.LE then
             scan_iter = box.index.LT
