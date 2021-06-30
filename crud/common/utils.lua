@@ -524,47 +524,4 @@ function utils.flatten_obj_reload(space_name, obj)
     return schema.wrap_func_reload(flatten_obj, space_name, obj)
 end
 
-function utils.table_to_string(tbl)
-    if tbl == nil then
-        print("ERROR: NIL!")
-        return
-    end
-
-    if type(tbl) == 'cdata' then
-        tbl = tbl:totable()
-    end
-
-    if type(tbl) ~= 'table' then
-        print("ERROR: Invalid type!: Type: ", type(tbl))
-        return
-    end
-
-    local result = "{"
-    for k, v in pairs(tbl) do
-        -- Check the key type (ignore any numerical keys - assume its an array)
-        if type(k) == "string" then
-            result = result.."[\""..k.."\"]".."="
-        end
-
-        -- Check the value type
-        if type(v) == "table" then
-            result = result..utils.table_to_string(v)
-        elseif type(v) == "boolean" then
-            result = result..tostring(v)
-        else
-            if v == box.NULL then
-                result = result.."\"null\""
-            else
-                result = result.."\""..v.."\""
-            end
-        end
-        result = result..","
-    end
-    -- Remove leading commas from the result
-    if result ~= "" then
-        result = result:sub(1, result:len()-1)
-    end
-    return result.."}"
-end
-
 return utils
