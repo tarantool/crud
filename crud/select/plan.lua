@@ -208,7 +208,7 @@ function select_plan.new(space, conditions, opts)
 
     -- get sharding key value
     local sharding_key
-    if scan_value ~= nil and (scan_iter == box.index.EQ or scan_iter == box.index.REQ) then
+    if scan_value ~= nil and scan_after_tuple == nil and (scan_iter == box.index.EQ or scan_iter == box.index.REQ) then
         sharding_key = extract_sharding_key_from_scan_value(scan_value, scan_index, sharding_index)
     end
 
