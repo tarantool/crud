@@ -909,7 +909,6 @@ pgroup:add('test_multipart_primary_index', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {2, 3}))
 
-    -- Works correctly only when we run only one instance (idk)
     local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions,
                                                                            {after = result_0.rows[3], first = -2}})
     t.assert_equals(err, nil)
