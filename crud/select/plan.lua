@@ -182,6 +182,12 @@ function select_plan.new(space, conditions, opts)
         return nil, err
     end
 
+    -- We duplicate this condition so that it works in `filters.gen_func`
+    -- (see function `parse`) - therefore it does not process `conditions`
+    -- (and not converted them to `filtter_conditions` array) with an array
+    -- index equal to opts.scan_condition_num. This condition, together with
+    -- the cobination "inversion" of the scan iterator (see lines below),
+    -- is needed for correct pagination when using a partial index.
     if scan_after_tuple ~= nil then
         if scan_iter == box.index.REQ or scan_iter == box.index.EQ then
             table.insert(conditions, conditions[scan_condition_num])
@@ -210,8 +216,6 @@ function select_plan.new(space, conditions, opts)
         end
     end
 
-    local sharding_index = primary_index -- XXX: only sharding by primary key is supported
-
     if scan_after_tuple ~= nil then
         if scan_iter == box.index.LE then
             scan_iter = box.index.LT
@@ -221,6 +225,8 @@ function select_plan.new(space, conditions, opts)
             scan_iter = box.index.LT
         end
     end
+
+    local sharding_index = primary_index -- XXX: only sharding by primary key is supported
 
     -- get sharding key value
     local sharding_key
