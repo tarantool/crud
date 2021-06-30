@@ -81,7 +81,6 @@ local function parse(space, conditions, opts)
     dev_checks('table', '?table', {
         scan_condition_num = '?number',
         tarantool_iter = 'number',
-        after_tuple = '?table',
     })
 
     conditions = conditions ~= nil and conditions or {}
@@ -96,7 +95,6 @@ local function parse(space, conditions, opts)
     end
 
     local filter_conditions = {}
-
     for i, condition in ipairs(conditions) do
         if i ~= opts.scan_condition_num then
             -- Index check (including one and multicolumn)
@@ -651,13 +649,11 @@ function filters.gen_func(space, conditions, opts)
     dev_checks('table', '?table', {
         tarantool_iter = 'number',
         scan_condition_num = '?number',
-        after_tuple = '?table',
     })
 
     local filter_conditions, err = parse(space, conditions, {
         scan_condition_num = opts.scan_condition_num,
         tarantool_iter = opts.tarantool_iter,
-        after_tuple = opts.after_tuple,
     })
     if err ~= nil then
         return nil, GenFiltersError:new("Failed to generate filters for specified conditions: %s", err)
