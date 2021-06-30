@@ -678,11 +678,7 @@ function filters.gen_func(space, conditions, opts)
         return nil, GenFiltersError:new("Failed to generate filters for specified conditions: %s", err)
     end
 
-    --print("FILTER CONDITIONS: ")
-    --print(utils.table_to_string(filter_conditions))
     local filter_code = gen_filter_code(filter_conditions)
-    --print("FILTER CODE: ")
-    --print(utils.table_to_string(filter_code))
     local filter_func = compile(filter_code)
 
     return filter_func
