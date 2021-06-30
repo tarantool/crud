@@ -97,21 +97,6 @@ local function parse(space, conditions, opts)
 
     local filter_conditions = {}
 
-    if opts.after_tuple ~= nil and #conditions > 0 then
-        if opts.tarantool_iter == box.index.EQ or opts.tarantool_iter == box.index.REQ then
-            local index = space_indexes[conditions[1].operand]
-
-            table.insert(filter_conditions, {
-                fields = get_index_fieldnos(index),
-                operator = '==',
-                values = conditions[1].values,
-                types = get_index_fields_types(index),
-                early_exit_is_possible = true,
-                values_opts = get_values_opts(index),
-            })
-        end
-    end
-
     for i, condition in ipairs(conditions) do
         if i ~= opts.scan_condition_num then
             -- Index check (including one and multicolumn)

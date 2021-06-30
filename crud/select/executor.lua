@@ -83,16 +83,6 @@ function executor.execute(space, index, filter_func, opts)
         end
     end
 
-    if opts.after_tuple ~= nil then
-        if opts.tarantool_iter == box.index.LE then
-            opts.tarantool_iter = box.index.LT
-        elseif opts.tarantool_iter == box.index.EQ then
-            opts.tarantool_iter = box.index.GE
-        elseif opts.tarantool_iter == box.index.REQ then
-            opts.tarantool_iter = box.index.LT
-        end
-    end
-
     local tuple
     local gen = index:pairs(value, {iterator = opts.tarantool_iter})
 
