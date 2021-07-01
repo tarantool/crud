@@ -19,7 +19,7 @@ crud.select('developers', nil, { first = 6 })
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
-  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
@@ -44,7 +44,7 @@ crud.select('developers', {{'>=', 'age', 30}})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
-  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
@@ -67,7 +67,7 @@ crud.select('developers', {{'==', 'full_name', {"Alexey", "Adams"}}})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
-  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
@@ -87,7 +87,7 @@ crud.select('developers', {{'==', 'full_name', "Alexey"}})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
-  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
@@ -110,7 +110,7 @@ crud.select('developers', {{'==', 'surname', "Adams"}})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
-  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
@@ -131,7 +131,7 @@ crud.select('developers', {{'==', 'surname', "Adams"}, {'>=', 'age', 25}})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
-  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
@@ -149,7 +149,7 @@ crud.select('developers', {{'>=', 'age', 30}, {'==', 'surname', "Adams"}})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
-  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
@@ -173,7 +173,7 @@ res, err = crud.select('developers', nil, { first = 3 })
 res
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
-  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
@@ -198,7 +198,7 @@ res
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
-  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
@@ -223,7 +223,7 @@ res
 --- Got first three objects
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
-  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
@@ -237,7 +237,7 @@ res
 --- Got the next three objects
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
-  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
@@ -263,7 +263,7 @@ res
 --- Got first page (first three objects)
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
-  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
@@ -277,7 +277,7 @@ res
 --- Got the next page (next three objects)
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
-  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
@@ -291,7 +291,7 @@ res
 --- Got first page again
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
-  - {'name': 'bucked_id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'surname', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
@@ -314,7 +314,7 @@ Using `fields` parameters allows to reduce amount of data transferred from stora
 format = box.space.developers:format()
 format
 - {'name': 'id', 'type': 'unsigned'}
-- {'name': 'bucked_id', 'type': 'unsigned'}
+- {'name': 'bucket_id', 'type': 'unsigned'}
 - {'name': 'name', 'type': 'string'}
 - {'name': 'surname', 'type': 'string'}
 - {'name': 'age', 'type': 'number'}
@@ -342,7 +342,7 @@ We got `name` field as it was specified, `age` field because space was scanned b
 format = box.space.developers:format()
 format
 - {'name': 'id', 'type': 'unsigned'} 
-- {'name': 'bucked_id', 'type': 'unsigned'}
+- {'name': 'bucket_id', 'type': 'unsigned'}
 - {'name': 'name', 'type': 'string'}
 - {'name': 'surname', 'type': 'string'}
 - {'name': 'age', 'type': 'number'}

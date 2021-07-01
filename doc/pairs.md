@@ -219,7 +219,7 @@ Using `fields` parameters allows to reduce amount of data transferred from stora
 format = box.space.developers:format()
 format
 - {'name': 'id', 'type': 'unsigned'}
-- {'name': 'bucked_id', 'type': 'unsigned'}
+- {'name': 'bucket_id', 'type': 'unsigned'}
 - {'name': 'name', 'type': 'string'}
 - {'name': 'surname', 'type': 'string'} 
 - {'name': 'age', 'type': 'number'}
@@ -251,7 +251,7 @@ We got `name` field as it was specified, `age` field because space was scanned b
 format = box.space.developers:format()
 format
 - {'name': 'id', 'type': 'unsigned'}
-- {'name': 'bucked_id', 'type': 'unsigned'}
+- {'name': 'bucket_id', 'type': 'unsigned'}
 - {'name': 'name', 'type': 'string'}
 - {'name': 'surname', 'type': 'string'}
 - {'name': 'age', 'type': 'number'}
