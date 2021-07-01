@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
-* Pagination with composite indexes
+* Invalid results for pagination queries when filtering on
+  a part of a composite index
 
 ### Added
 
