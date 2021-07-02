@@ -904,20 +904,20 @@ pgroup:add('test_multipart_primary_index', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {1, 2, 3}))
 
     local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions,
-                                                                           {after = result_0.rows[1]}})
+                                                                          {after = result_0.rows[1]}})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {2, 3}))
 
     local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions,
-                                                                           {after = result_0.rows[3], first = -2}})
+                                                                          {after = result_0.rows[3], first = -2}})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {1, 2}))
 
     local new_conditions = {{'=', 'y', 1}, {'=', 'primary', 0}}
     local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', new_conditions,
-                                                                            {after = result_0.rows[3], first = -2}})
+                                                                          {after = result_0.rows[3], first = -2}})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {2}))
@@ -935,13 +935,13 @@ pgroup:add('test_multipart_primary_index', function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {1, 2, 3, 4, 5}))
 
     local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions_ge,
-                                                                           {after = result_ge_0.rows[1]}})
+                                                                          {after = result_ge_0.rows[1]}})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {2, 3, 4, 5}))
 
     local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions_ge,
-                                                                           {after = result_ge_0.rows[3], first = -3}})
+                                                                          {after = result_ge_0.rows[3], first = -3}})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {1, 2}))
