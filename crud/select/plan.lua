@@ -182,6 +182,16 @@ function select_plan.new(space, conditions, opts)
         return nil, err
     end
 
+    -- Since we use pagination we should continue iteration since after tuple.
+    -- Such iterator could be run only with index:pairs(key(after_tuple), 'GT/LT').
+    -- To preserve original condition we should manually inject it in `filter_conditions`
+    -- See function `parse` in crud/select/filters.lua file for details.
+    if scan_after_tuple ~= nil then
+        if scan_iter == box.index.REQ or scan_iter == box.index.EQ then
+            table.insert(conditions, conditions[scan_condition_num])
+        end
+    end
+
     if opts.first ~= nil then
         total_tuples_count = math.abs(opts.first)
 
@@ -201,6 +211,18 @@ function select_plan.new(space, conditions, opts)
             else
                 scan_value = nil
             end
+        end
+    end
+
+    -- Moreover, for correct pagination we change iterator
+    -- to continue iterating in direct and reverse order.
+    if scan_after_tuple ~= nil then
+        if scan_iter == box.index.LE then
+            scan_iter = box.index.LT
+        elseif scan_iter == box.index.EQ then
+            scan_iter = box.index.GE
+        elseif scan_iter == box.index.REQ then
+            scan_iter = box.index.LT
         end
     end
 

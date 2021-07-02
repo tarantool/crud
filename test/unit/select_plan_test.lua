@@ -256,7 +256,29 @@ g.test_first = function()
     t.assert_equals(plan.scan_value, {777}) -- after_tuple id
     t.assert_equals(plan.after_tuple, after_tuple)
     t.assert_equals(plan.scan_condition_num, nil)
-    t.assert_equals(plan.tarantool_iter, box.index.LE) -- inverted iterator
+    t.assert_equals(plan.tarantool_iter, box.index.LT) -- inverted iterator
+    t.assert_equals(plan.total_tuples_count, 10)
+    t.assert_equals(plan.sharding_key, nil)
+    t.assert_equals(plan.field_names, nil)
+
+    -- select by primary key, eq condition
+    -- first 10 after_tuple 777
+    local conditions = { cond_funcs.eq('age', 90) }
+    local plan, err = select_plan.new(box.space.customers, conditions, {
+        first = 10,
+        after_tuple = after_tuple,
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_type(plan, 'table')
+
+    t.assert_equals(plan.conditions, conditions)
+    t.assert_equals(plan.space_name, 'customers')
+    t.assert_equals(plan.index_id, 1)
+    t.assert_equals(plan.scan_value, {90}) -- after_tuple id
+    t.assert_equals(plan.after_tuple, after_tuple)
+    t.assert_equals(plan.scan_condition_num, 1)
+    t.assert_equals(plan.tarantool_iter, box.index.GE) -- inverted iterator
     t.assert_equals(plan.total_tuples_count, 10)
     t.assert_equals(plan.sharding_key, nil)
     t.assert_equals(plan.field_names, nil)
