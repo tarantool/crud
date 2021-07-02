@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.8.0] - 02-07-21
+
 ### Fixed
 
 * Invalid results for pagination queries when filtering on
