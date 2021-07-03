@@ -9,7 +9,7 @@ local schema = require('crud.common.schema')
 local has_keydef, Keydef = pcall(require, 'crud.compare.keydef')
 local select_comparators = require('crud.compare.comparators')
 
-local BorderError = errors.new_class('Border',  {capture_stack = false})
+local BorderError = errors.new_class('BorderError',  {capture_stack = false})
 
 local borders = {}
 

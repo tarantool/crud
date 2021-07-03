@@ -8,7 +8,7 @@ local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
 
-local ReplaceError = errors.new_class('Replace', { capture_stack = false })
+local ReplaceError = errors.new_class('ReplaceError', { capture_stack = false })
 
 local replace = {}
 
