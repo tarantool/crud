@@ -8,7 +8,7 @@ local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
 
-local GetError = errors.new_class('Get',  {capture_stack = false})
+local GetError = errors.new_class('GetError',  {capture_stack = false})
 
 local get = {}
 

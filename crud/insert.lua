@@ -8,7 +8,7 @@ local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
 
-local InsertError = errors.new_class('Insert',  {capture_stack = false})
+local InsertError = errors.new_class('InsertError',  {capture_stack = false})
 
 local insert = {}
 
