@@ -5,7 +5,7 @@ local vshard = require('vshard')
 local dev_checks = require('crud.common.dev_checks')
 local call = require('crud.common.call')
 
-local TruncateError = errors.new_class('Truncate',  {capture_stack = false})
+local TruncateError = errors.new_class('TruncateError',  {capture_stack = false})
 
 local truncate = {}
 
