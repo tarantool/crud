@@ -375,6 +375,52 @@ function utils.get_bucket_id_fieldno(space, shard_index_name)
     return bucket_id_index.parts[1].fieldno
 end
 
+-- NOTE: it is like get_bucket_id_fieldno()
+-- but it uses space's format instead of index
+function utils.get_fieldno_by_name(space_format, field_name)
+    field_name = field_name or 'bucket_id'
+    local fieldno
+    for i, field_format in ipairs(space_format) do
+        if field_format.name == field_name then
+            fieldno = i
+            break
+        end
+    end
+    if fieldno == nil then
+        return nil, ShardingError:new('%q field is not found in a space format', field_name)
+    end
+
+    return fieldno
+end
+
+--- Get a map with fieldno of passed field's names.
+--
+-- @function get_keys_fieldno_map
+--
+-- @param table space_format
+--  A space format
+--
+-- @param keys
+--  A table with field names.
+--
+-- @return[1] table
+-- @treturn[2] nil
+-- @treturn[2] table Error description
+--
+function utils.get_keys_fieldno_map(space_format, field_names)
+    dev_checks('table', 'table')
+    local t = {}
+    for _, field_name in ipairs(field_names) do
+        local fieldno, err = utils.get_fieldno_by_name(space_format, field_name)
+        if fieldno == nil then
+            return {}, err
+        end
+        t[fieldno] = true
+    end
+
+    return t
+end
+
 local uuid_t = ffi.typeof('struct tt_uuid')
 function utils.is_uuid(value)
     return ffi.istype(uuid_t, value)
@@ -522,6 +568,16 @@ end
 
 function utils.flatten_obj_reload(space_name, obj)
     return schema.wrap_func_reload(flatten_obj, space_name, obj)
+end
+
+function utils.get_index_fieldno_map(index_obj)
+    local t = {}
+    for i, part in index_obj.parts do
+        local fieldno = part[i].fieldno
+        t[fieldno] = true
+    end
+
+    return t
 end
 
 return utils

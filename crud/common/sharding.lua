@@ -7,6 +7,8 @@ local utils = require('crud.common.utils')
 
 local sharding = {}
 
+local sharding_key_cache
+
 function sharding.key_get_bucket_id(key, specified_bucket_id)
     if specified_bucket_id ~= nil then
         return specified_bucket_id
@@ -49,6 +51,24 @@ function sharding.tuple_set_and_return_bucket_id(tuple, space, specified_bucket_
 
     local bucket_id = tuple[bucket_id_fieldno]
     return bucket_id
+end
+
+-- Get sharding key (actually field names) for all spaces in schema
+-- and cache it's value to speedup access.
+function sharding.get_ddl_sharding_key(space_name)
+    if box.space._ddl_sharding_key == nil then
+        return nil
+    end
+
+    if sharding_key_cache == nil then
+        sharding_key_cache = box.space._ddl_sharding_key:select{}
+    end
+
+    if space_name ~= nil then
+        return sharding_key_cache[space_name]
+    else
+        return sharding_key_cache
+    end
 end
 
 return sharding
