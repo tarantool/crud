@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+* Support calculating `bucket_id` based on `ddl.sharding_key`.
 * Added jsonpath indexes support for queries
 * `tuple-merger` module updated to 0.0.2
 
