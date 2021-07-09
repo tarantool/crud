@@ -22,7 +22,17 @@ function sharding.tuple_get_bucket_id(tuple, space, specified_bucket_id)
         return specified_bucket_id
     end
 
-    local key = utils.extract_key(tuple, space.index[0].parts)
+    local primary_index = space.index[0]
+    local key
+    local sharding_key = sharding.get_ddl_sharding_key(space.name)
+    if sharding_key ~= nil then
+        local space_format = space:format()
+        local sharding_key_fieldno_map = utils.get_keys_fieldno_map(space_format, sharding_key)
+        key = utils.extract_sharding_key(tuple, primary_index.parts, sharding_key_fieldno_map)
+    else
+        key = utils.extract_key(tuple, primary_index.parts)
+    end
+
     return sharding.key_get_bucket_id(key)
 end
 

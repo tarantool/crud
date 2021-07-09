@@ -140,6 +140,17 @@ function utils.unflatten(tuple, space_format)
     return object
 end
 
+function utils.extract_sharding_key(tuple, key_parts, sharding_fieldno_map)
+    local key = {}
+    for i, part in pairs(key_parts) do
+        local fieldno = part.fieldno
+        if sharding_fieldno_map[fieldno] ~= nil then
+            key[i] = tuple[fieldno]
+        end
+    end
+    return key
+end
+
 function utils.extract_key(tuple, key_parts)
     local key = {}
     for i, part in ipairs(key_parts) do
