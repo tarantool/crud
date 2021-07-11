@@ -487,6 +487,34 @@ crud.truncate('customers', {timeout = 2})
 ...
 ```
 
+### Len
+
+```lua
+-- Calculates the number of tuples in the space
+local result, err = crud.len(space_name, opts)
+```
+
+where:
+
+* `space_name` (`string`) - name of the space
+* `opts`:
+  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+
+Returns number or nil with error.
+
+**Example:**
+
+```lua
+#crud.select('customers')
+---
+- 5
+...
+crud.len('customers', {timeout = 2})
+---
+- 5
+...
+```
+
 ## Cartridge roles
 
 `cartridge.roles.crud-storage` is a Tarantool Cartridge role that depends on the
