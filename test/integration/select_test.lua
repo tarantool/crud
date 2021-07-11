@@ -1507,28 +1507,3 @@ pgroup:add('test_jsonpath_index_field_pagination', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {2, 3}))
 end)
-
-pgroup:add('test_len', function(g)
-    helpers.insert_objects(g, 'developers', {
-        {
-            id = 1, name = "Alexey", last_name = "Smith",
-            age = 20, additional = { a = { b = 140 } },
-        }, {
-            id = 2, name = "Sergey", last_name = "Choppa",
-            age = 21, additional = { a = { b = 120 } },
-        }, {
-            id = 3, name = "Mikhail", last_name = "Crossman",
-            age = 42, additional = {},
-        }, {
-            id = 4, name = "Pavel", last_name = "White",
-            age = 51, additional = { a = { b = 50 } },
-        }, {
-            id = 5, name = "Tatyana", last_name = "May",
-            age = 17, additional = { a = 55 },
-        },
-    })
-
-    local result, err = g.cluster.main_server.net_box:call('crud.len', {'developers'})
-    t.assert_equals(err, nil)
-    t.assert_equals(result, 5)
-end)
