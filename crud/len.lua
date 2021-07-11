@@ -21,10 +21,8 @@ local function len_on_storage(space_name)
         return nil, LenError:new("Space %q doesn't exist", space_name)
     end
 
-    -- add_space_schema_hash is false because
-    -- reloading space format on router can't avoid len error on storage
     return schema.wrap_box_space_func_result(space, 'len', {}, {
-        add_space_schema_hash = false,
+        add_space_schema_hash = true,
     })
 end
 
@@ -38,9 +36,6 @@ end
 local function call_len_on_router(space_name, opts)
     dev_checks('string', {
         timeout = '?number',
-        prefer_replica = '?boolean',
-        balance = '?boolean',
-        mode = '?string',
     })
 
     opts = opts or {}
@@ -50,12 +45,14 @@ local function call_len_on_router(space_name, opts)
         return nil, LenError:new("Space %q doesn't exist", space_name), true
     end
 
-    local results, err = call.map(LEN_FUNC_NAME, {space_name}, {
+    local replicasets = vshard.router.routeall()
+    local call_opts = {
+        mode = 'read',
+        replicasets = replicasets,
         timeout = opts.timeout,
-        mode = opts.mode or 'read',
-        prefer_replica = opts.prefer_replica,
-        balance = opts.balance,
-    })
+    }
+
+    local results, err = call.map(LEN_FUNC_NAME, {space_name}, call_opts)
 
     if err ~= nil then
         return nil, LenError:new("Failed to call len on storage-side: %s", err)
@@ -63,7 +60,7 @@ local function call_len_on_router(space_name, opts)
 
     local total_len = 0
     for _, replicaset_results in pairs(results) do
-        if replicaset_results[1] ~= nil then
+        if replicaset_results[1] ~= nil and replicaset_results[1].res ~= nil then
             total_len = total_len + replicaset_results[1].res
         end
     end
@@ -71,7 +68,7 @@ local function call_len_on_router(space_name, opts)
     return total_len
 end
 
---- Len of the specified space
+--- Calculates the number of tuples in the space
 --
 -- @function call
 --
@@ -81,22 +78,13 @@ end
 -- @tparam ?number opts.timeout
 --  Function call timeout
 --
--- @tparam ?boolean opts.prefer_replica
---  Call on replica if it's possible
---
--- @tparam ?boolean opts.balance
---  Use replica according to round-robin load balancing
---
--- @return[1] object
+-- @return[1] number
 -- @treturn[2] nil
 -- @treturn[2] table Error description
 --
 function len.call(space_name, opts)
     checks('string', {
         timeout = '?number',
-        prefer_replica = '?boolean',
-        balance = '?boolean',
-        mode = '?string',
     })
 
     return schema.wrap_func_reload(call_len_on_router, space_name, opts)
