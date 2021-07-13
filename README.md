@@ -490,7 +490,8 @@ crud.truncate('customers', {timeout = 2})
 ### Len
 
 ```lua
--- Calculates the number of tuples in the space
+-- Calculates the number of tuples in the space for memtx engine
+-- Calculates the maximum approximate number of tuples in the space for vinyl engine
 local result, err = crud.len(space_name, opts)
 ```
 
@@ -504,6 +505,8 @@ Returns number or nil with error.
 
 **Example:**
 
+Using `memtx`:
+
 ```lua
 #crud.select('customers')
 ---
@@ -512,6 +515,22 @@ Returns number or nil with error.
 crud.len('customers', {timeout = 2})
 ---
 - 5
+...
+```
+
+Using `vinyl`:
+
+```lua
+crud.len('customers')
+---
+- 0
+...
+crud.delete('customers', 1)
+---
+...
+crud.len('customers')
+---
+- 1
 ...
 ```
 
