@@ -5,7 +5,7 @@ local t = require('luatest')
 local helpers = require('test.helper')
 
 local pgroup = helpers.pgroup.new('len', {
-    engine = {'memtx', 'vinyl'},
+    engine = {'memtx'},
 })
 
 pgroup:set_before_all(function(g)
@@ -20,8 +20,6 @@ pgroup:set_before_all(function(g)
     })
 
     g.cluster:start()
-
-    g.space_format = g.cluster.servers[2].net_box.space.customers:format()
 end)
 
 pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
@@ -63,7 +61,7 @@ pgroup:add('test_len', function(g)
             age = 81, city = "Chicago",
             bucket_id = bucket_id
         }, {
-            id = 5, name = "Jhon", last_name = "May",
+            id = 5, name = "John", last_name = "May",
             age = 38, city = "New York",
             bucket_id = other_bucket_id
         },
