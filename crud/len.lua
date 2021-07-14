@@ -2,7 +2,7 @@ local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
 
-local call = require('crud.common.call')
+local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
 local LenError = errors.new_class('LenError',  {capture_stack = false})
@@ -14,12 +14,7 @@ local LEN_FUNC_NAME = '_crud.len_on_storage'
 local function len_on_storage(space_name)
     dev_checks('string')
 
-    local space = box.space[space_name]
-    if space == nil then
-        return nil, LenError:new("Space %q doesn't exist", space_name)
-    end
-
-    return space:len()
+    return box.space[space_name]:len()
 end
 
 function len.init()
@@ -48,12 +43,12 @@ function len.call(space_name, opts)
 
     opts = opts or {}
 
-    local replicasets = vshard.router.routeall()
-    local results, err = call.map(LEN_FUNC_NAME, {space_name}, {
-        mode = 'write',
-        replicasets = replicasets,
-        timeout = opts.timeout,
-    })
+    local space = utils.get_space(space_name, vshard.router.routeall())
+    if space == nil then
+        return nil, LenError:new("Space %q doesn't exist", space_name)
+    end
+
+    local results, err = vshard.router.map_callrw(LEN_FUNC_NAME, {space_name}, opts)
 
     if err ~= nil then
         return nil, LenError:new("Failed to call len on storage-side: %s", err)
