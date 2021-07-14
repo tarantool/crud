@@ -21,10 +21,13 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
+      - name: Setup Tarantool CE
+        uses: tarantool/setup-tarantool@v1
+        with:
+          tarantool-version: ${{ matrix.tarantool-version }}
+
       - name: Install requirements for community
         run: |
-          curl -L https://tarantool.io/installer.sh | sudo VER=${{ matrix.tarantool-version }} bash
-          sudo apt install -y tarantool-dev
           tarantool --version
           ./deps.sh
 
