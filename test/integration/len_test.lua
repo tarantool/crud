@@ -36,41 +36,24 @@ pgroup:add('test_len_non_existent_space', function(g)
 end)
 
 pgroup:add('test_len', function(g)
-    local bucket_id = 1
-    local other_bucket_id, err = helpers.get_other_storage_bucket_id(g.cluster, bucket_id)
-    t.assert(other_bucket_id ~= nil, err)
+    local customers = {}
+    local expected_len = 100
 
-    -- let's insert five tuples on different replicasets
-    -- (two tuples on one replica and three on the other)
-    -- to check that  the total length will be calculated on the router
-    helpers.insert_objects(g, 'customers', {
-        {
-            id = 1, name = "Elizabeth", last_name = "Jackson",
-            age = 33, city = "New York",
-            bucket_id = bucket_id,
-        }, {
-            id = 2, name = "Mary", last_name = "Brown",
-            age = 33, city = "Los Angeles",
-            bucket_id = other_bucket_id,
-        },  {
-            id = 3, name = "David", last_name = "Smith",
-            age = 33, city = "Los Angeles",
-            bucket_id = bucket_id
-        }, {
-            id = 4, name = "William", last_name = "White",
-            age = 81, city = "Chicago",
-            bucket_id = bucket_id
-        }, {
-            id = 5, name = "John", last_name = "May",
-            age = 38, city = "New York",
-            bucket_id = other_bucket_id
-        },
-    })
+    -- let's insert a large number of tuples in a simple loop that gives
+    -- really high probability that there is at least one tuple on each storage
+    for i = 1, expected_len do
+        table.insert(customers, {
+            id = i, name = tostring(i), last_name = tostring(i),
+            age = i, city = tostring(i),
+        })
+    end
+
+    helpers.insert_objects(g, 'customers', customers)
 
     local result, err = g.cluster.main_server.net_box:call('crud.len', {'customers'})
 
     t.assert_equals(err, nil)
-    t.assert_equals(result, 5)
+    t.assert_equals(result, expected_len)
 end)
 
 pgroup:add('test_len_empty_space', function(g)
