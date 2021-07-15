@@ -35,8 +35,8 @@ function checkers.vshard_call_mode(p)
     return p == 'write' or p == 'read'
 end
 
-local function select_on_storage(space_name, index_id, conditions, opts)
-    dev_checks('string', 'number', '?table', {
+local function select_on_storage(space_name, index_name, conditions, opts)
+    dev_checks('string', 'string|number', '?table', {
         scan_value = 'table',
         after_tuple = '?table',
         tarantool_iter = 'number',
@@ -50,9 +50,9 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         return nil, SelectError:new("Space %q doesn't exist", space_name)
     end
 
-    local index = space.index[index_id]
+    local index = space.index[index_name]
     if index == nil then
-        return nil, SelectError:new("Index with ID %s doesn't exist", index_id)
+        return nil, SelectError:new("Index with ID %s doesn't exist", index_name)
     end
 
     local filter_func, err = select_filters.gen_func(space, conditions, {
