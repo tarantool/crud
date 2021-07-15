@@ -497,7 +497,8 @@ local result, err = crud.len(space_name, opts)
 
 where:
 
-* `space_name` (`string`) - name of the space
+* `space_name` (`string|number`) - name of the space as well
+  as numerical id of the space
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
 

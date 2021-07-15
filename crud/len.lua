@@ -12,7 +12,7 @@ local len = {}
 local LEN_FUNC_NAME = '_crud.len_on_storage'
 
 local function len_on_storage(space_name)
-    dev_checks('string')
+    dev_checks('string|number')
 
     return box.space[space_name]:len()
 end
@@ -27,7 +27,7 @@ end
 -- @function call
 --
 -- @param string space_name
---  A space name
+--  A space name as well as numerical id
 --
 -- @tparam ?number opts.timeout
 --  Function call timeout
@@ -37,7 +37,7 @@ end
 -- @treturn[2] table Error description
 --
 function len.call(space_name, opts)
-    checks('string', {
+    checks('string|number', {
         timeout = '?number',
     })
 
