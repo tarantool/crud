@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+* `crud.len()` function to calculate the number of tuples
+  in the space for memtx engine and calculate the maximum
+  approximate number of tuples in the space for vinyl engine.
+
 ## [0.8.0] - 02-07-21
 
 ### Fixed
