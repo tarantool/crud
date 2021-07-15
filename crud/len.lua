@@ -26,7 +26,7 @@ end
 --
 -- @function call
 --
--- @param string space_name
+-- @param string|number space_name
 --  A space name as well as numerical id
 --
 -- @tparam ?number opts.timeout
