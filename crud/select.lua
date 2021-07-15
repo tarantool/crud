@@ -36,7 +36,7 @@ function checkers.vshard_call_mode(p)
 end
 
 local function select_on_storage(space_name, index_name, conditions, opts)
-    dev_checks('string', 'string|number', '?table', {
+    dev_checks('string|number', 'string|number', '?table', {
         scan_value = 'table',
         after_tuple = '?table',
         tarantool_iter = 'number',

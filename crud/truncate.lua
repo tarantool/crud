@@ -12,7 +12,7 @@ local truncate = {}
 local TRUNCATE_FUNC_NAME = '_crud.truncate_on_storage'
 
 local function truncate_on_storage(space_name)
-    dev_checks('string')
+    dev_checks('string|number')
 
     local space = box.space[space_name]
     if space == nil then
@@ -31,7 +31,7 @@ end
 -- @function call
 --
 -- @param string space_name
---  A space name
+--  A space name as well as numerical id
 --
 -- @tparam ?number opts.timeout
 --  Function call timeout
@@ -41,7 +41,7 @@ end
 -- @treturn[2] table Error description
 --
 function truncate.call(space_name, opts)
-    checks('string', {
+    checks('string|number', {
         timeout = '?number',
     })
 

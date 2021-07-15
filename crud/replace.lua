@@ -15,7 +15,7 @@ local replace = {}
 local REPLACE_FUNC_NAME = '_crud.replace_on_storage'
 
 local function replace_on_storage(space_name, tuple, opts)
-    dev_checks('string', 'table', {
+    dev_checks('string|number', 'table', {
         add_space_schema_hash = '?boolean',
         fields = '?table',
     })
@@ -44,7 +44,7 @@ end
 -- need_reload indicates if reloading schema could help
 -- see crud.common.schema.wrap_func_reload()
 local function call_replace_on_router(space_name, tuple, opts)
-    dev_checks('string', 'table', {
+    dev_checks('string|number', 'table', {
         timeout = '?number',
         bucket_id = '?number|cdata',
         add_space_schema_hash = '?boolean',
@@ -101,7 +101,7 @@ end
 -- @function tuple
 --
 -- @param string space_name
---  A space name
+--  A space name as well as numerical id
 --
 -- @param table tuple
 --  Tuple
@@ -118,7 +118,7 @@ end
 -- @treturn[2] table Error description
 --
 function replace.tuple(space_name, tuple, opts)
-    checks('string', 'table', {
+    checks('string|number', 'table', {
         timeout = '?number',
         bucket_id = '?number|cdata',
         add_space_schema_hash = '?boolean',
@@ -133,7 +133,7 @@ end
 -- @function object
 --
 -- @param string space_name
---  A space name
+--  A space name as well as numerical id
 --
 -- @param table obj
 --  Object
@@ -146,7 +146,7 @@ end
 -- @treturn[2] table Error description
 --
 function replace.object(space_name, obj, opts)
-    checks('string', 'table', '?table')
+    checks('string|number', 'table', '?table')
 
     opts = opts or {}
 

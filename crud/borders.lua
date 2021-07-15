@@ -17,7 +17,7 @@ local STAT_FUNC_NAME = '_crud.get_border_on_storage'
 
 
 local function get_border_on_storage(border_name, space_name, index_name, field_names)
-    dev_checks('string', 'string', 'string|number', '?table')
+    dev_checks('string', 'string|number', 'string|number', '?table')
 
     assert(border_name == 'min' or border_name == 'max')
 
@@ -67,7 +67,7 @@ else
 end
 
 local function call_get_border_on_router(border_name, space_name, index_name, opts)
-    checks('string', 'string', '?string|number', {
+    checks('string', 'string|number', '?string|number', {
         timeout = '?number',
         fields = '?table',
     })
@@ -161,7 +161,7 @@ end
 -- @function min
 --
 -- @param string space_name
---  A space name
+--  A space name as well as numerical id
 --
 -- @param ?string index_name
 --  An index name as well as numerical id (by default, primary index is used)
@@ -184,7 +184,7 @@ end
 -- @function min
 --
 -- @param string space_name
---  A space name
+--  A space name as well as numerical id
 --
 -- @param ?string index_name
 --  An index name as well as numerical id (by default, primary index is used)
