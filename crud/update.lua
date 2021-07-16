@@ -8,14 +8,14 @@ local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
 
-local UpdateError = errors.new_class('Update',  {capture_stack = false})
+local UpdateError = errors.new_class('UpdateError',  {capture_stack = false})
 
 local update = {}
 
 local UPDATE_FUNC_NAME = '_crud.update_on_storage'
 
 local function update_on_storage(space_name, key, operations, field_names)
-    dev_checks('string', '?', 'table', '?table')
+    dev_checks('string|number', '?', 'table', '?table')
 
     local space = box.space[space_name]
     if space == nil then
@@ -60,7 +60,7 @@ end
 -- need_reload indicates if reloading schema could help
 -- see crud.common.schema.wrap_func_reload()
 local function call_update_on_router(space_name, key, user_operations, opts)
-    dev_checks('string', '?', 'table', {
+    dev_checks('string|number', '?', 'table', {
         timeout = '?number',
         bucket_id = '?number|cdata',
         fields = '?table',
@@ -120,7 +120,7 @@ end
 -- @function call
 --
 -- @param string space_name
---  A space name
+--  A space name as well as numerical id
 --
 -- @param key
 --  Primary key value
@@ -141,7 +141,7 @@ end
 -- @treturn[2] table Error description
 --
 function update.call(space_name, key, user_operations, opts)
-    checks('string', '?', 'table', {
+    checks('string|number', '?', 'table', {
         timeout = '?number',
         bucket_id = '?number|cdata',
         fields = '?table',

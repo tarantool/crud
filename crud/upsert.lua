@@ -15,7 +15,7 @@ local upsert = {}
 local UPSERT_FUNC_NAME = '_crud.upsert_on_storage'
 
 local function upsert_on_storage(space_name, tuple, operations, opts)
-    dev_checks('string', 'table', 'table', {
+    dev_checks('string|number', 'table', 'table', {
         add_space_schema_hash = '?boolean',
     })
 
@@ -42,7 +42,7 @@ end
 -- need_reload indicates if reloading schema could help
 -- see crud.common.schema.wrap_func_reload()
 local function call_upsert_on_router(space_name, tuple, user_operations, opts)
-    dev_checks('string', '?', 'table', {
+    dev_checks('string|number', '?', 'table', {
         timeout = '?number',
         bucket_id = '?number|cdata',
         add_space_schema_hash = '?boolean',
@@ -102,7 +102,7 @@ end
 -- @function tuple
 --
 -- @param string space_name
---  A space name
+--  A space name as well as numerical id
 --
 -- @param table tuple
 --  Tuple
@@ -123,7 +123,7 @@ end
 -- @treturn[2] table Error description
 --
 function upsert.tuple(space_name, tuple, user_operations, opts)
-    checks('string', '?', 'table', {
+    checks('string|number', '?', 'table', {
         timeout = '?number',
         bucket_id = '?number|cdata',
         add_space_schema_hash = '?boolean',
@@ -138,7 +138,7 @@ end
 -- @function object
 --
 -- @param string space_name
---  A space name
+--  A space name as well as numerical id
 --
 -- @param table obj
 --  Object
@@ -155,7 +155,7 @@ end
 -- @treturn[2] table Error description
 --
 function upsert.object(space_name, obj, user_operations, opts)
-    checks('string', 'table', 'table', '?table')
+    checks('string|number', 'table', 'table', '?table')
 
     opts = opts or {}
 

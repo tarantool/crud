@@ -66,7 +66,7 @@ local result, err = crud.insert_object(space_name, object, opts)
 
 where:
 
-* `space_name` (`string`) - name of the space to insert an object
+* `space_name` (`string|number`) - name or numerical id of the space to insert an object
 * `tuple` / `object` (`table`) - tuple/object to insert
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
@@ -110,7 +110,7 @@ local object, err = crud.get(space_name, key, opts)
 
 where:
 
-* `space_name` (`string`) - name of the space
+* `space_name` (`string|number`) - name or numerical id of the space
 * `key` (`any`) - primary key value
 * `opts`:
   * `fields` (`?table`) - field names for getting only a subset of fields
@@ -147,7 +147,7 @@ local object, err = crud.update(space_name, key, operations, opts)
 
 where:
 
-* `space_name` (`string`) - name of the space
+* `space_name` (`string|number`) - name or numerical id of the space
 * `key` (`any`) - primary key value
 * `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/#box-space-update)
 * `opts`:
@@ -180,7 +180,7 @@ local object, err = crud.delete(space_name, key, opts)
 
 where:
 
-* `space_name` (`string`) - name of the space
+* `space_name` (`string|number`) - name or numerical id of the space
 * `key` (`any`) - primary key value
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
@@ -214,7 +214,7 @@ local result, err = crud.replace_object(space_name, object, opts)
 
 where:
 
-* `space_name` (`string`) - name of the space
+* `space_name` (`string|number`) - name or numerical id of the space
 * `tuple` / `object` (`table`) - tuple/object to insert or replace exist one
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
@@ -261,7 +261,7 @@ local result, err = crud.upsert_object(space_name, tuple, operations, opts)
 
 where:
 
-* `space_name` (`string`) - name of the space
+* `space_name` (`string|number`) - name or numerical id of the space
 * `tuple` / `object` (`table`) - tuple/object to insert if there is no existing tuple which matches the key fields
 * `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/#box-space-update) if there is an existing tuple which matches the key fields of tuple
 * `opts`:
@@ -312,7 +312,7 @@ local objects, err = crud.select(space_name, conditions, opts)
 
 where:
 
-* `space_name` (`string`) - name of the space
+* `space_name` (`string|number`) - name or numerical id of the space
 * `conditions` (`?table`) - array of [select conditions](#select-conditions)
 * `opts`:
   * `first` (`?number`) - the maximum count of the objects to return.
@@ -464,7 +464,7 @@ local result, err = crud.truncate(space_name, opts)
 
 where:
 
-* `space_name` (`string`) - name of the space
+* `space_name` (`string|number`) - name or numerical id of the space
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
 

@@ -9,15 +9,15 @@ local schema = require('crud.common.schema')
 local has_keydef, Keydef = pcall(require, 'crud.compare.keydef')
 local select_comparators = require('crud.compare.comparators')
 
-local BorderError = errors.new_class('Border',  {capture_stack = false})
+local BorderError = errors.new_class('BorderError',  {capture_stack = false})
 
 local borders = {}
 
 local STAT_FUNC_NAME = '_crud.get_border_on_storage'
 
 
-local function get_border_on_storage(border_name, space_name, index_id, field_names)
-    dev_checks('string', 'string', 'number', '?table')
+local function get_border_on_storage(border_name, space_name, index_name, field_names)
+    dev_checks('string', 'string|number', 'string|number', '?table')
 
     assert(border_name == 'min' or border_name == 'max')
 
@@ -26,9 +26,9 @@ local function get_border_on_storage(border_name, space_name, index_id, field_na
         return nil, BorderError:new("Space %q doesn't exist", space_name)
     end
 
-    local index = space.index[index_id]
+    local index = space.index[index_name]
     if index == nil then
-        return nil, BorderError:new("Index %q of space doesn't exist", index_id, space_name)
+        return nil, BorderError:new("Index %q of space doesn't exist", index_name, space_name)
     end
 
     local function get_index_border(index)
@@ -67,7 +67,7 @@ else
 end
 
 local function call_get_border_on_router(border_name, space_name, index_name, opts)
-    checks('string', 'string', '?string|number', {
+    checks('string', 'string|number', '?string|number', {
         timeout = '?number',
         fields = '?table',
     })
@@ -161,10 +161,10 @@ end
 -- @function min
 --
 -- @param string space_name
---  A space name
+--  A space name as well as numerical id
 --
 -- @param ?string index_name
---  An index name (by default, primary index is used)
+--  An index name as well as numerical id (by default, primary index is used)
 --
 -- @tparam ?number opts.timeout
 --  Function call timeout
@@ -175,8 +175,8 @@ end
 -- @return[1] result
 -- @treturn[2] nil
 -- @treturn[2] table Error description
-function borders.min(space_name, index_id, opts)
-    return get_border('min', space_name, index_id, opts)
+function borders.min(space_name, index_name, opts)
+    return get_border('min', space_name, index_name, opts)
 end
 
 --- Find the maximum value in the specified index
@@ -184,10 +184,10 @@ end
 -- @function min
 --
 -- @param string space_name
---  A space name
+--  A space name as well as numerical id
 --
 -- @param ?string index_name
---  An index name (by default, primary index is used)
+--  An index name as well as numerical id (by default, primary index is used)
 --
 -- @tparam ?number opts.timeout
 --  Function call timeout
@@ -198,8 +198,8 @@ end
 -- @return[1] result
 -- @treturn[2] nil
 -- @treturn[2] table Error description
-function borders.max(space_name, index_id, opts)
-    return get_border('max', space_name, index_id, opts)
+function borders.max(space_name, index_name, opts)
+    return get_border('max', space_name, index_name, opts)
 end
 
 return borders

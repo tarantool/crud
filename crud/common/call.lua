@@ -5,7 +5,7 @@ local dev_checks = require('crud.common.dev_checks')
 local utils = require('crud.common.utils')
 local fiber_clock = require('fiber').clock
 
-local CallError = errors.new_class('Call')
+local CallError = errors.new_class('CallError')
 local NotInitializedError = errors.new_class('NotInitialized')
 
 local call = {}

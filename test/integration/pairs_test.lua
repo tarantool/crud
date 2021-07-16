@@ -334,7 +334,7 @@ pgroup:add('test_empty_space', function(g)
     t.assert_equals(count, 0)
 end)
 
-pgroup:add('test_luafun_compatipility', function(g)
+pgroup:add('test_luafun_compatibility', function(g)
     helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
