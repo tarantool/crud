@@ -3,6 +3,7 @@ local errors = require('errors')
 local compare_conditions = require('crud.compare.conditions')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
+local sharding = require('crud.common.sharding')
 
 local compat = require('crud.common.compat')
 local has_keydef = compat.exists('tuple.keydef', 'key_def')
@@ -48,7 +49,7 @@ local function get_index_for_condition(space_indexes, space_format, condition)
     end
 end
 
-local function extract_sharding_key_from_scan_value(scan_value, scan_index, sharding_index)
+local function extract_sharding_key_from_scan_value(scan_value, scan_index, sharding_index, space_format, space_name)
     if #scan_value < #sharding_index.parts then
         return nil
     end
@@ -64,6 +65,11 @@ local function extract_sharding_key_from_scan_value(scan_value, scan_index, shar
 
     -- check that sharding key is included in the scan index fields
     local sharding_key = {}
+    local ddl_sharding_key = sharding.get_ddl_sharding_key(space_name)
+    local sharding_key_fieldno_map = {}
+    if ddl_sharding_key ~= nil then
+        sharding_key_fieldno_map = utils.get_keys_fieldno_map(space_format, ddl_sharding_key)
+    end
     for _, sharding_key_part in ipairs(sharding_index.parts) do
         local fieldno = sharding_key_part.fieldno
 
@@ -79,7 +85,14 @@ local function extract_sharding_key_from_scan_value(scan_value, scan_index, shar
             return nil
         end
 
-        table.insert(sharding_key, field_value)
+        -- check if a field is a part of DDL sharding key
+        if next(sharding_key_fieldno_map) ~= nil then
+            if sharding_key_fieldno_map[fieldno] == true then
+                table.insert(sharding_key, field_value)
+            end
+        else
+            table.insert(sharding_key, field_value)
+        end
     end
 
     return sharding_key
@@ -231,7 +244,8 @@ function select_plan.new(space, conditions, opts)
     -- get sharding key value
     local sharding_key
     if scan_value ~= nil and (scan_iter == box.index.EQ or scan_iter == box.index.REQ) then
-        sharding_key = extract_sharding_key_from_scan_value(scan_value, scan_index, sharding_index)
+        sharding_key = extract_sharding_key_from_scan_value(scan_value, scan_index, sharding_index,
+                                                            space_format, space_name)
     end
 
     if sharding_key ~= nil and opts.force_map_call ~= true then

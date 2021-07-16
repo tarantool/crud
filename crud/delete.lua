@@ -12,6 +12,9 @@ local DeleteError = errors.new_class('Delete',  {capture_stack = false})
 
 local delete = {}
 
+local sharding_key_missed_in_index
+local primary_and_sharding_key_matched
+
 local DELETE_FUNC_NAME = '_crud.delete_on_storage'
 
 local function delete_on_storage(space_name, key, field_names)
@@ -51,8 +54,56 @@ local function call_delete_on_router(space_name, key, opts)
         return nil, DeleteError:new("Space %q doesn't exist", space_name), true
     end
 
+    local primary_index = space.index[0]
+    local space_format = space:format()
+
     if box.tuple.is(key) then
         key = key:totable()
+    end
+
+    local ddl_sharding_key = sharding.get_ddl_sharding_key(space_name)
+    if ddl_sharding_key ~= nil then
+        local sharding_key_fieldno_map, err = utils.get_keys_fieldno_map(space_format, ddl_sharding_key)
+        if next(sharding_key_fieldno_map) == nil then
+            return nil, err
+        end
+
+        -- Make sure fields used in sharding key are present in primary index
+        -- TODO: how to invalidate sharding_key_missed_in_index?
+        -- luacheck: globals sharding_key_missed_in_index
+        if sharding_key_missed_in_index == nil then
+            local primary_index_fieldno = utils.get_index_fieldno_map(primary_index)
+            for fieldno in pairs(sharding_key_fieldno_map) do
+                if primary_index_fieldno[fieldno] == false then
+                    sharding_key_missed_in_index = true
+                    break
+                end
+            end
+        end
+        if sharding_key_missed_in_index == true and opts.bucket_id == nil then
+            return nil, DeleteError:new("Sharding key is missed in primary index, specify bucket_id"), true
+        end
+
+        -- Make sure fields used in primary key are present in sharding key
+        local updated_key = {}
+        if type(key) == 'number' then
+            local fieldno = primary_index.parts[key].fieldno
+            primary_and_sharding_key_matched = sharding_key_fieldno_map[fieldno] or false
+        else
+            for i, k in pairs(key) do
+                local fieldno = primary_index.parts[i].fieldno
+                primary_and_sharding_key_matched = sharding_key_fieldno_map[fieldno] or false
+                if primary_and_sharding_key_matched == false then
+                    break
+                end
+                table.insert(updated_key, k)
+            end
+        end
+        if primary_and_sharding_key_matched == false then
+            return nil, DeleteError:new("Primary key is not a part of sharding key"), true
+        end
+
+        key = updated_key
     end
 
     local bucket_id = sharding.key_get_bucket_id(key, opts.bucket_id)
