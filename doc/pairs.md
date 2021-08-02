@@ -3,6 +3,7 @@
 With ``crud.pairs``, you can iterate across a distributed space.  
 The arguments are the same as [``crud.select``](https://github.com/tarantool/crud/blob/master/doc/select.md), except of the ``use_tomap`` parameter.  
 Below are examples that may help you.
+Examples schema is similar to the [select documentation](select.md/#examples-space-format)
 
 ## Getting space
 
