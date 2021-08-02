@@ -85,7 +85,7 @@ We have an ``age_index`` index. Example below gets a list of ``customers`` over 
 **Example:**
 
 ```lua
-crud.select('developers', {{'>=', 'age', 30}})
+crud.select('developers', {{'>=', 'age_index', 30}})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
@@ -100,6 +100,17 @@ crud.select('developers', {{'>=', 'age', 30}})
 ```
 
 **Note:** results are sorted by age, because first condition is ``age`` index.
+
+**Note**: index is named ``age_index``, but we can still query by the field name ``age``
+and the search will be done using index without a full scan. If the names of index and
+field match, the search will also be performed using index.
+
+These two queries are equivalent, the search will be done using index in both cases:
+
+```lua
+crud.select('developers', {{'>=', 'age_index', 30}})
+crud.select('developers', {{'>=', 'age', 30}})
+```
 
 ### Select using composite index
 
