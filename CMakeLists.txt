@@ -24,6 +24,7 @@ add_custom_target(luacheck
 
 find_package(LuaTest)
 find_package(LuaCov)
+find_package(LuaCovCoveralls)
 
 set(CODE_COVERAGE_REPORT "${PROJECT_SOURCE_DIR}/luacov.report.out")
 set(CODE_COVERAGE_STATS "${PROJECT_SOURCE_DIR}/luacov.stats.out")
@@ -41,6 +42,19 @@ add_custom_target(coverage
   BYPRODUCTS ${CODE_COVERAGE_REPORT}
   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
   COMMENT "Generate code coverage stats"
+)
+
+if(DEFINED ENV{GITHUB_TOKEN})
+  set(COVERALLS_COMMAND ${LUACOVCOVERALLS} -v -r ${PROJECT_SOURCE_DIR} --repo-token $ENV{GITHUB_TOKEN})
+else()
+  set(COVERALLS_COMMAND ${CMAKE_COMMAND} -E echo "Skipped uploading to coveralls.io: no token.")
+endif()
+
+add_custom_target(coveralls
+  COMMAND ${COVERALLS_COMMAND}
+  DEPENDS ${CODE_COVERAGE_STATS}
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+  COMMENT "Send code coverage data to the coveralls.io service"
 )
 
 ## Install ####################################################################
