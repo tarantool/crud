@@ -1,5 +1,9 @@
 # CRUD
 
+[![Run static analysis](https://github.com/tarantool/crud/actions/workflows/check_on_push.yaml/badge.svg)](https://github.com/tarantool/crud/actions/workflows/check_on_push.yaml)
+[![Run tests](https://github.com/tarantool/crud/actions/workflows/test_on_push.yaml/badge.svg)](https://github.com/tarantool/crud/actions/workflows/test_on_push.yaml)
+[![Coverage Status](https://coveralls.io/repos/github/tarantool/crud/badge.svg?branch=master)](https://coveralls.io/github/tarantool/crud?branch=master)
+
 The `CRUD` module allows to perform CRUD operations on the cluster.
 It also provides the `crud-storage` role for
 [Tarantool Cartridge](https://github.com/tarantool/cartridge).
