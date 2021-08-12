@@ -16,6 +16,8 @@ jobs:
         include:
           - tarantool-version: "2.7"
             remove-merger: true
+          - tarantool-version: "2.7"
+            coveralls: true
       fail-fast: false
     runs-on: [ubuntu-latest]
     steps:
@@ -40,9 +42,15 @@ jobs:
         run: sudo kill -9 $(sudo lsof -t -i tcp:8084) || true
 
       - run: cmake -S . -B build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run tests and code coverage analysis
         run: make -C build coverage
+
+      - name: Send code coverage to coveralls.io
+        run: make -C build coveralls
+        if: ${{ matrix.coveralls }}
 
   run-tests-ee:
     if: github.event_name == 'push'
