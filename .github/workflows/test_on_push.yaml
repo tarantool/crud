@@ -39,8 +39,10 @@ jobs:
       - name: Stop Mono server
         run: sudo kill -9 $(sudo lsof -t -i tcp:8084) || true
 
-      - name: Run tests
-        run: .rocks/bin/luatest -v
+      - run: cmake -S . -B build
+
+      - name: Run tests and code coverage analysis
+        run: make -C build coverage
 
   run-tests-ee:
     if: github.event_name == 'push'
@@ -68,5 +70,7 @@ jobs:
       - name: Stop Mono server
         run: sudo kill -9 $(sudo lsof -t -i tcp:8084) || true
 
-      - name: Run tests
-        run: .rocks/bin/luatest -v
+      - run: cmake -S . -B build
+
+      - name: Run tests and code coverage analysis
+        run: make -C build coverage

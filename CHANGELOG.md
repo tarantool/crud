@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+* Added integration with luacov that allows to generate report with code
+  coverage statistics.
 * `crud.len()` function to calculate the number of tuples
   in the space for memtx engine and calculate the maximum
   approximate number of tuples in the space for vinyl engine.
