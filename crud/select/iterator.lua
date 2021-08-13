@@ -7,7 +7,7 @@ local utils = require('crud.common.utils')
 local UpdateTuplesError = errors.new_class('UpdateTuplesError')
 local GetTupleError = errors.new_class('GetTupleError')
 
-local Heap = require('crud.common.heap')
+local Heap = require('vshard.heap')
 
 local Iterator = {}
 Iterator.__index = Iterator
@@ -48,7 +48,7 @@ function Iterator.new(opts)
         tuples_by_replicasets = {},
         next_tuple_indexes = {},
 
-        heap = Heap.new({ comparator = opts.comparator }),
+        heap = Heap.new(opts.comparator),
         tuples_count = 0,
 
         update_tuples_channel = fiber.channel(1),
@@ -63,7 +63,7 @@ function Iterator.new(opts)
 end
 
 function Iterator:has_next()
-    if self.heap:size() == 0 and self.empty_replicasets_count >= self.replicasets_count then
+    if self.heap:count() == 0 and self.empty_replicasets_count >= self.replicasets_count then
         return false
     end
 
@@ -119,8 +119,9 @@ local function update_replicasets_tuples(iter, after_tuple, replicaset_uuid)
         local next_tuple = get_next_replicaset_tuple(iter, replicaset_uuid)
 
         if next_tuple ~= nil then
-            iter.heap:add(next_tuple, {
-                replicaset_uuid = replicaset_uuid
+            iter.heap:push({
+                obj = next_tuple,
+                meta = {replicaset_uuid = replicaset_uuid},
             })
         end
     end
@@ -182,9 +183,11 @@ function Iterator:get()
         if next_tuple_index <= replicaset_tuples_count then
             local next_tuple = get_next_replicaset_tuple(self, last_tuple_replicaset_uuid)
 
-            self.heap:add(next_tuple, {
-                replicaset_uuid = last_tuple_replicaset_uuid
+            self.heap:push({
+                obj = next_tuple,
+                meta = {replicaset_uuid = last_tuple_replicaset_uuid},
             })
+
         elseif not self.empty_replicasets[last_tuple_replicaset_uuid] then
             self:_update_replicasets_tuples(
                 tuple,
