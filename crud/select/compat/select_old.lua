@@ -141,6 +141,10 @@ local function build_select_iterator(space_name, user_conditions, opts)
         cmp_operator, cmp_key_parts, plan.field_names, space_format
     )
 
+    local function comparator(node1, node2)
+        return not tuples_comparator(node1.obj, node2.obj)
+    end
+
     -- filter space format by plan.field_names (user defined fields + primary key + scan key)
     -- to pass it user as metadata
     local filtered_space_format, err = utils.get_fields_format(space_format, plan.field_names)
@@ -152,7 +156,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         space_name = space_name,
         space_format = filtered_space_format,
         iteration_func = select_iteration,
-        comparator = tuples_comparator,
+        comparator = comparator,
 
         plan = plan,
 
