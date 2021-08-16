@@ -1,5 +1,6 @@
 local select_plan = require('crud.select.plan')
 local compare_conditions = require('crud.compare.conditions')
+local utils = require('crud.common.utils')
 local cond_funcs = compare_conditions.funcs
 
 local t = require('luatest')
@@ -332,4 +333,12 @@ g.test_construct_after = function()
     t.assert_equals(plan.tarantool_iter, box.index.LT) -- inverted iterator
     t.assert_equals(plan.sharding_key, nil)
     t.assert_equals(plan.field_names, expected_field_names)
+end
+
+g.test_table_count = function()
+    t.assert_equals(utils.table_count({'Leo', 'Tula', 76, 777}), 4)
+    t.assert_equals(utils.table_count({'Ivan', nil, 76, 777}), 3)
+    t.assert_equals(utils.table_count({'Ivan', 'Peter', 'Fyodor', 'Alexander'}), 4)
+    t.assert_equals(utils.table_count(
+        {['Ivan'] = 1, ['Peter'] = 2, ['Fyodor'] = 3, ['Alexander'] = 4}), 4)
 end
