@@ -130,13 +130,8 @@ g.test_insert = function()
         fibers[i]:join()
     end
 
-    log.error('INSERT')
-    log.error('Fibers count - %d', fiber_count)
-    log.error('Connection count - %d', connection_count)
-    log.error('Timeout  - %f', timeout)
-    log.error('Requests - %d', report.count)
-    log.error('Errors - %s', #report.errors)
-    log.error('RPS - %f', report.count / timeout)
+    log.error('\nINSERT: requests %d, rps %d, errors %d',
+        report.count, report.count / timeout, #report.errors)
 end
 
 g.test_select = function()
@@ -167,11 +162,6 @@ g.test_select = function()
         fibers[i]:join()
     end
 
-    log.error('SELECT')
-    log.error('Fibers count - %d', fiber_count)
-    log.error('Connection count - %d', connection_count)
-    log.error('Timeout  - %f', timeout)
-    log.error('Requests - %d', report.count)
-    log.error('Errors - %s', #report.errors)
-    log.error('RPS - %f', report.count / timeout)
+    log.error('\nSELECT: requests %d, rps %d, errors %d',
+        report.count, report.count / timeout, #report.errors)
 end
