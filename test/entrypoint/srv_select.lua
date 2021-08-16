@@ -192,6 +192,9 @@ package.preload['customers-storage'] = function()
     }
 end
 
+local box_opts = {
+    readahead = 10 * 1024 * 1024,
+}
 local ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
     advertise_uri = 'localhost:3301',
     http_port = 8081,
@@ -200,8 +203,9 @@ local ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
         'cartridge.roles.crud-router',
         'cartridge.roles.crud-storage',
         'customers-storage',
-    },
-})
+    }},
+    box_opts
+)
 
 if not ok then
     log.error('%s', err)
