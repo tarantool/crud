@@ -1061,7 +1061,9 @@ pgroup.test_opts_not_damaged = function(g)
 
         local upsert_opts = ...
 
-        local _, err = crud.upsert_object('customers', {id = 2, name = 'Alex', age = 30}, {{'+', 'age', 1}}, upsert_opts)
+        local _, err = crud.upsert_object('customers',
+            {id = 2, name = 'Alex', age = 30}, {{'+', 'age', 1}},
+            upsert_opts)
 
         return upsert_opts, err
     ]], {upsert_opts})
