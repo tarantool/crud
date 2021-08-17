@@ -1364,7 +1364,7 @@ pgroup:add('test_jsonpath_index_field', function(g)
 
     t.assert_equals(objects, expected_objects)
 
-    -- Seconday jsonpath index (full)
+    -- Secondary jsonpath index (full)
     local result, err = g.cluster.main_server.net_box:call('crud.select',
         {'cars', {{'==', 'data_index', {'Yellow', 'Mercedes'}}}, {fields = {'id', 'age'}}})
     t.assert_equals(err, nil)
