@@ -160,12 +160,7 @@ function upsert.object(space_name, obj, user_operations, opts)
     opts = opts or {}
 
     -- upsert can fail if router uses outdated schema to flatten object
-    opts = {
-        timeout = opts.timeout,
-        bucket_id = opts.bucket_id,
-        fields = opts.fields,
-        add_space_schema_hash = true
-    }
+    opts = utils.make_options(opts, true)
 
     local tuple, err = utils.flatten_obj_reload(space_name, obj)
     if err ~= nil then

@@ -524,4 +524,13 @@ function utils.flatten_obj_reload(space_name, obj)
     return schema.wrap_func_reload(flatten_obj, space_name, obj)
 end
 
+function utils.make_options(opts, add_space_schema_hash_value)
+    return {
+        timeout = opts.timeout,
+        bucket_id = opts.bucket_id,
+        fields = opts.fields,
+        add_space_schema_hash = add_space_schema_hash_value
+    }
+end
+
 return utils
