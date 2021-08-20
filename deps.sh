@@ -15,5 +15,5 @@ tarantoolctl rocks install https://raw.githubusercontent.com/keplerproject/luafi
 tarantoolctl rocks install https://raw.githubusercontent.com/moteus/lua-path/master/rockspecs/lua-path-scm-0.rockspec
 tarantoolctl rocks install https://raw.githubusercontent.com/moteus/luacov-coveralls/master/rockspecs/luacov-coveralls-scm-0.rockspec
 
-tarantoolctl rocks install cartridge 2.5.1
+tarantoolctl rocks install cartridge 2.7.1
 tarantoolctl rocks make
