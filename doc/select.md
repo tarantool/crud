@@ -6,7 +6,52 @@
 
 **Note:** If you specify sharding key or ``bucket_id`` select will be performed on single node. Otherwise Map-Reduce over all nodes will be occurred.
 
-Below are examples of filtering data using these conditions. 
+Below are examples of filtering data using these conditions.
+
+### Examples schema
+
+```lua
+box.space.developers:format()
+---
+- {'name': 'id', 'type': 'unsigned'}
+- {'name': 'bucket_id', 'type': 'unsigned'}
+- {'name': 'name', 'type': 'string'}
+- {'name': 'surname', 'type': 'string'}
+- {'name': 'age', 'type': 'number'}
+...
+box.space.developers.index
+- 0: &0
+    unique: true
+    parts:
+    - type: unsigned
+      is_nullable: false
+      fieldno: 1
+    id: 0
+    type: TREE
+    name: primary_index
+  1: &1
+    unique: false
+    parts:
+    - type: number
+      is_nullable: false
+      fieldno: 5
+    id: 1
+    type: TREE
+    name: age_index
+  2: &2
+    unique: false
+    parts:
+    - type: string
+      is_nullable: false
+      fieldno: 3
+    - type: string
+      is_nullable: false
+      fieldno: 4
+    id: 2
+    type: TREE
+    name: full_name
+...
+```
 
 ### Getting space
 
@@ -35,12 +80,12 @@ crud.select('developers', nil, { first = 6 })
 
 ### Select using index
 
-Let's say we have a ``age`` index. Example below gets a list of ``customers`` over 30 years old.
+We have an ``age_index`` index. Example below gets a list of ``customers`` over 30 years old.
 
 **Example:**
 
 ```lua
-crud.select('developers', {{'>=', 'age', 30}})
+crud.select('developers', {{'>=', 'age_index', 30}})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
@@ -55,6 +100,17 @@ crud.select('developers', {{'>=', 'age', 30}})
 ```
 
 **Note:** results are sorted by age, because first condition is ``age`` index.
+
+**Note**: index is named ``age_index``, but we can still query by the field name ``age``
+and the search will be done using index without a full scan. If the names of index and
+field match, the search will also be performed using index.
+
+These two queries are equivalent, the search will be done using index in both cases:
+
+```lua
+crud.select('developers', {{'>=', 'age_index', 30}})
+crud.select('developers', {{'>=', 'age', 30}})
+```
 
 ### Select using composite index
 
@@ -331,7 +387,7 @@ res
   - [6, 'Alexey', 31]
   - [4, 'Mikhail', 51]
 ```
-We got `name` field as it was specified, `age` field because space was scanned by `age` index and primary key `id`.
+We got `name` field as it was specified, `age` field because space was scanned by `age_index` index and primary key `id`.
 
 `after` tuple should contain the same fields as we receive on `select` call with such `fields` parameters.
 
