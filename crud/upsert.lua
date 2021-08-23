@@ -157,8 +157,6 @@ end
 function upsert.object(space_name, obj, user_operations, opts)
     checks('string', 'table', 'table', '?table')
 
-    opts = opts or {}
-
     -- upsert can fail if router uses outdated schema to flatten object
     opts = utils.make_options(opts, true)
 

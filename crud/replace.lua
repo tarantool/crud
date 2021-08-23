@@ -148,8 +148,6 @@ end
 function replace.object(space_name, obj, opts)
     checks('string', 'table', '?table')
 
-    opts = opts or {}
-
     -- replace can fail if router uses outdated schema to flatten object
     opts = utils.make_options(opts, true)
 
