@@ -76,7 +76,7 @@ end
 
 pgroup.test_opts_not_damaged = function(g)
     local truncate_opts = {timeout = 1}
-    local new_truncate_opts, err = g.cluster.main_server.net_box:eval([[
+    local new_truncate_opts, err = g.cluster.main_server:eval([[
         local crud = require('crud')
 
         local truncate_opts = ...

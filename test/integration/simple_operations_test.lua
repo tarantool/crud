@@ -1011,7 +1011,7 @@ end
 pgroup.test_opts_not_damaged = function(g)
     -- insert
     local insert_opts = {timeout = 1, bucket_id = 655, fields = {'name', 'age'}}
-    local new_insert_opts, err = g.cluster.main_server.net_box:eval([[
+    local new_insert_opts, err = g.cluster.main_server:eval([[
         local crud = require('crud')
 
         local insert_opts = ...
@@ -1026,7 +1026,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- insert_object
     local insert_opts = {timeout = 1, bucket_id = 477, fields = {'name', 'age'}}
-    local new_insert_opts, err = g.cluster.main_server.net_box:eval([[
+    local new_insert_opts, err = g.cluster.main_server:eval([[
         local crud = require('crud')
 
         local insert_opts = ...
@@ -1041,7 +1041,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- upsert
     local upsert_opts = {timeout = 1, bucket_id = 907, fields = {'name', 'age'}}
-    local new_upsert_opts, err = g.cluster.main_server.net_box:eval([[
+    local new_upsert_opts, err = g.cluster.main_server:eval([[
         local crud = require('crud')
 
         local upsert_opts = ...
@@ -1056,7 +1056,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- upsert_object
     local upsert_opts = {timeout = 1, bucket_id = 401, fields = {'name', 'age'}}
-    local new_upsert_opts, err = g.cluster.main_server.net_box:eval([[
+    local new_upsert_opts, err = g.cluster.main_server:eval([[
         local crud = require('crud')
 
         local upsert_opts = ...
@@ -1073,7 +1073,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- get
     local get_opts = {timeout = 1, bucket_id = 401, fields = {'name', 'age'}}
-    local new_get_opts, err = g.cluster.main_server.net_box:eval([[
+    local new_get_opts, err = g.cluster.main_server:eval([[
         local crud = require('crud')
 
         local get_opts = ...
@@ -1088,7 +1088,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- update
     local update_opts = {timeout = 1, bucket_id = 401, fields = {'name', 'age'}}
-    local new_update_opts, err = g.cluster.main_server.net_box:eval([[
+    local new_update_opts, err = g.cluster.main_server:eval([[
         local crud = require('crud')
 
         local update_opts = ...
@@ -1103,7 +1103,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- replace
     local replace_opts = {timeout = 1, bucket_id = 655, fields = {'name', 'age'}}
-    local new_replace_opts, err = g.cluster.main_server.net_box:eval([[
+    local new_replace_opts, err = g.cluster.main_server:eval([[
         local crud = require('crud')
 
         local replace_opts = ...
@@ -1118,7 +1118,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- replace_object
     local replace_opts = {timeout = 1, bucket_id = 477, fields = {'name', 'age'}}
-    local new_replace_opts, err = g.cluster.main_server.net_box:eval([[
+    local new_replace_opts, err = g.cluster.main_server:eval([[
         local crud = require('crud')
 
         local replace_opts = ...
@@ -1133,7 +1133,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- delete
     local delete_opts = {timeout = 1, bucket_id = 401, fields = {'name', 'age'}}
-    local new_delete_opts, err = g.cluster.main_server.net_box:eval([[
+    local new_delete_opts, err = g.cluster.main_server:eval([[
         local crud = require('crud')
 
         local delete_opts = ...

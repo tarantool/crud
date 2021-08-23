@@ -331,7 +331,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- min
     local min_opts = {timeout = 1, fields = {'name', 'age'}}
-    local new_min_opts, err = g.cluster.main_server.net_box:eval([[
+    local new_min_opts, err = g.cluster.main_server:eval([[
         local crud = require('crud')
 
         local min_opts = ...
@@ -346,7 +346,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- max
     local max_opts = {timeout = 1, fields = {'name', 'age'}}
-    local new_max_opts, err = g.cluster.main_server.net_box:eval([[
+    local new_max_opts, err = g.cluster.main_server:eval([[
         local crud = require('crud')
 
         local max_opts = ...
