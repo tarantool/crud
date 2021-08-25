@@ -413,7 +413,7 @@ local result, err = crud.min(space_name, 'age', opts)
   - [1, 477, 'Elizabeth', 12]
 
 -- Find the maximum value in the specified index
-local result, err = crud.min(space_name, 'age', opts)
+local result, err = crud.max(space_name, 'age', opts)
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
