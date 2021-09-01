@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 
+* Remove support of Tarantool versions that have no builtin tuple-keydef
+  module.
 * Tarantool versions 2.{4,5,6} have reached EOL and removed from regression
   testing. It means that methods `crud.min()` and `crud.max` won't work for old
   versions (< 1.10.8) anymore.
