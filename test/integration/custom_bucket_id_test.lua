@@ -41,7 +41,7 @@ local function get_other_storage_bucket_id(g, key)
 
     local res_bucket_id, err = helpers.get_other_storage_bucket_id(g.cluster, bucket_id)
 
-    t.assert(res_bucket_id ~= nil, err)
+    t.assert_not_equals(res_bucket_id, nil, err)
     return res_bucket_id
 end
 
@@ -51,7 +51,7 @@ local function check_get(g, space_name, id, bucket_id, tuple)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 0)
 
     -- get w/ right bucket_id
@@ -60,7 +60,7 @@ local function check_get(g, space_name, id, bucket_id, tuple)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(result.rows, {tuple})
 end
 
@@ -79,7 +79,7 @@ pgroup:add('test_update', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 1)
 
     -- update w/ default bucket_id
@@ -88,7 +88,7 @@ pgroup:add('test_update', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     -- tuple not found, update returned nil
     t.assert_equals(#result.rows, 0)
 
@@ -98,7 +98,7 @@ pgroup:add('test_update', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 1)
 end)
 
@@ -112,7 +112,7 @@ pgroup:add('test_delete', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 1)
 
     -- delete w/ default bucket_id
@@ -121,7 +121,7 @@ pgroup:add('test_delete', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     -- since delete returns nil for vinyl,
     -- just get tuple to check it wasn't deleted
 
@@ -131,7 +131,7 @@ pgroup:add('test_delete', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     -- tuple wasn't deleted
     t.assert_equals(#result.rows, 1)
 
@@ -141,7 +141,7 @@ pgroup:add('test_delete', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
 
     -- get w/ right bucket_id
     local result, err = g.cluster.main_server.net_box:call('crud.get', {
@@ -149,7 +149,7 @@ pgroup:add('test_delete', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     -- tuple was deleted
     t.assert_equals(#result.rows, 0)
 end)
@@ -167,7 +167,7 @@ pgroup:add('test_insert_object', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(result.rows, {tuple})
 
     check_get(g, 'customers', object.id, bucket_id, tuple)
@@ -185,7 +185,7 @@ pgroup:add('test_insert_object_bucket_id_opt', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(result.rows, {tuple})
 
     check_get(g, 'customers', object.id, bucket_id, tuple)
@@ -212,7 +212,7 @@ pgroup:add('test_insert_object_bucket_id_specified_twice', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(result.rows, {tuple})
 
     check_get(g, 'customers', object.id, bucket_id, tuple)
@@ -229,7 +229,7 @@ pgroup:add('test_insert', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(result.rows, {tuple})
 
     check_get(g, 'customers', tuple[1], bucket_id, tuple)
@@ -248,7 +248,7 @@ pgroup:add('test_insert_bucket_id_opt', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(result.rows, {tuple_with_bucket_id})
 
     check_get(g, 'customers', tuple[1], bucket_id, tuple_with_bucket_id)
@@ -273,7 +273,7 @@ pgroup:add('test_insert_bucket_id_specified_twice', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(result.rows, {tuple})
 
     check_get(g, 'customers', tuple[1], bucket_id, tuple)
@@ -292,7 +292,7 @@ pgroup:add('test_replace_object', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(result.rows, {tuple})
 
     check_get(g, 'customers', object.id, bucket_id, tuple)
@@ -310,7 +310,7 @@ pgroup:add('test_replace_object_bucket_id_opt', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(result.rows, {tuple})
 
     check_get(g, 'customers', object.id, bucket_id, tuple)
@@ -337,7 +337,7 @@ pgroup:add('test_replace_object_bucket_id_specified_twice', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(result.rows, {tuple})
 
     check_get(g, 'customers', object.id, bucket_id, tuple)
@@ -354,7 +354,7 @@ pgroup:add('test_replace', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(result.rows, {tuple})
 
     check_get(g, 'customers', tuple[1], bucket_id, tuple)
@@ -373,7 +373,7 @@ pgroup:add('test_replace_bucket_id_opt', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(result.rows, {tuple_with_bucket_id})
 
     check_get(g, 'customers', tuple[1], bucket_id, tuple_with_bucket_id)
@@ -398,7 +398,7 @@ pgroup:add('test_replace_bucket_id_specified_twice', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(result.rows, {tuple})
 
     check_get(g, 'customers', tuple[1], bucket_id, tuple)
@@ -417,7 +417,7 @@ pgroup:add('test_upsert_object', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 0)
 
     check_get(g, 'customers', object.id, bucket_id, tuple)
@@ -435,7 +435,7 @@ pgroup:add('test_upsert_object_bucket_id_opt', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 0)
 
     check_get(g, 'customers', object.id, bucket_id, tuple)
@@ -462,7 +462,7 @@ pgroup:add('test_upsert_object_bucket_id_specified_twice', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 0)
 
     check_get(g, 'customers', object.id, bucket_id, tuple)
@@ -479,7 +479,7 @@ pgroup:add('test_upsert', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 0)
 
     check_get(g, 'customers', tuple[1], bucket_id, tuple)
@@ -498,7 +498,7 @@ pgroup:add('test_upsert_bucket_id_opt', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 0)
 
     check_get(g, 'customers', tuple[1], bucket_id, tuple_with_bucket_id)
@@ -523,7 +523,7 @@ pgroup:add('test_upsert_bucket_id_specified_twice', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 0)
 
     check_get(g, 'customers', tuple[1], bucket_id, tuple)
@@ -539,7 +539,7 @@ pgroup:add('test_select', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 1)
 
     local conditions = {{'==', 'id', tuple[1]}}
@@ -550,7 +550,7 @@ pgroup:add('test_select', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     -- tuple not found
     t.assert_equals(#result.rows, 0)
 
@@ -560,7 +560,7 @@ pgroup:add('test_select', function(g)
     })
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     -- tuple is found
     t.assert_equals(#result.rows, 1)
 end)

@@ -62,7 +62,7 @@ pgroup:add('test_truncate', function(g)
 
     local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil})
     t.assert_equals(err, nil)
-    t.assert(#result.rows > 0)
+    t.assert_gt(#result.rows, 0)
 
     local result, err = g.cluster.main_server.net_box:call('crud.truncate', {'customers'})
     t.assert_equals(err, nil)
@@ -70,5 +70,5 @@ pgroup:add('test_truncate', function(g)
 
     local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil})
     t.assert_equals(err, nil)
-    t.assert(#result.rows == 0)
+    t.assert_equals(#result.rows, 0)
 end)

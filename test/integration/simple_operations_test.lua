@@ -111,7 +111,7 @@ pgroup:add('test_insert_object_get', function(g)
     local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 1})
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {{id = 1, name = 'Fedor', age = 59, bucket_id = 477}})
 
@@ -148,7 +148,7 @@ pgroup:add('test_insert_get', function(g)
     local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 2})
 
     t.assert_equals(err, nil)
-    t.assert(result ~= nil)
+    t.assert_not_equals(result, nil)
     t.assert_equals(result.rows, {{2, 401, 'Ivan', 20}})
 
     -- insert again

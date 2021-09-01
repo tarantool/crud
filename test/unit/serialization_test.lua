@@ -39,7 +39,7 @@ g.test_flatten = function()
     }
 
     local tuple, err = utils.flatten(object, space_format)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     t.assert_equals(tuple, {1, 1024, 'Marilyn', 50})
 
 
@@ -51,7 +51,7 @@ g.test_flatten = function()
     }
 
     local tuple, err = utils.flatten(object, space_format, 1025)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     t.assert_equals(tuple, {1, 1025, 'Marilyn', 50})
 
     -- non-nullable field name is nil
@@ -63,8 +63,8 @@ g.test_flatten = function()
     }
 
     local tuple, err = utils.flatten(object, space_format)
-    t.assert(tuple == nil)
-    t.assert(err ~= nil)
+    t.assert_equals(tuple, nil)
+    t.assert_not_equals(err, nil)
     t.assert_str_contains(err.err, 'Field "name" isn\'t nullable')
 
     -- system field bucket_id is nil
@@ -76,7 +76,7 @@ g.test_flatten = function()
     }
 
     local tuple, err = utils.flatten(object, space_format)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     t.assert_equals(tuple, {1, nil, 'Marilyn', 50})
 
     -- nullable field is nil
@@ -88,7 +88,7 @@ g.test_flatten = function()
     }
 
     local tuple, err = utils.flatten(object, space_format)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     t.assert_equals(tuple, {1, 1024, 'Marilyn', nil})
 
     -- unknown field is specififed
@@ -112,7 +112,7 @@ g.test_unflatten = function()
     -- ok
     local tuple = {1, 1024, 'Marilyn', 50}
     local object, err = utils.unflatten(tuple, space_format)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     t.assert_equals(object, {
         id = 1,
         bucket_id = 1024,
@@ -123,14 +123,14 @@ g.test_unflatten = function()
     -- non-nullable field id nil
     local tuple = {1, nil, 'Marilyn', 50}
     local object, err = utils.unflatten(tuple, space_format)
-    t.assert(object == nil)
-    t.assert(err ~= nil)
+    t.assert_equals(object, nil)
+    t.assert_not_equals(err, nil)
     t.assert_str_contains(err.err, "Field 2 isn't nullable")
 
     -- nullable field is nil
     local tuple = {1, 1024, 'Marilyn', nil}
     local object, err = utils.unflatten(tuple, space_format)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     t.assert_equals(object, {
         id = 1,
         bucket_id = 1024,
@@ -141,7 +141,7 @@ g.test_unflatten = function()
     -- extra field
     local tuple = {1, 1024, 'Marilyn', 50, 'one-bad-value'}
     local object, err = utils.unflatten(tuple, space_format)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     t.assert_equals(object, {
         id = 1,
         bucket_id = 1024,
