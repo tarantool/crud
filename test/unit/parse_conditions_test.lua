@@ -15,7 +15,7 @@ g.test_parse = function()
     }
 
     local conditions, err = compare_conditions.parse(user_conditions)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     t.assert_equals(conditions, {
         cond_funcs.eq('aaaa', nil),
         cond_funcs.eq('bbb', {12, 'aaaa'}),
@@ -113,7 +113,7 @@ g.test_jsonpath_parse = function()
     }
 
     local conditions, err = compare_conditions.parse(user_conditions)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     t.assert_equals(conditions, {
         cond_funcs.eq('[\'name\']', 'Alexey'),
         cond_funcs.eq('["name"].a.b', 'Sergey'),

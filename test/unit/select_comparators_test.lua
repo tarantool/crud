@@ -9,7 +9,7 @@ g.test_eq_no_collations = function()
     local func_eq, err = select_comparators.gen_func(operators.EQ, {
         {}, {}, {},
     })
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
 
     -- check that index length is used
     t.assert(func_eq({1, 2, 3}, {1, 2, 3, 4}))
@@ -29,7 +29,7 @@ g.test_lt_no_collations = function()
     local func_lt, err = select_comparators.gen_func(operators.LT, {
         {}, {}, {},
     })
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
 
     t.assert(not func_lt({1}, {1}))
     t.assert(func_lt({1}, {1, 2}))
@@ -64,7 +64,7 @@ g.test_gt_no_collations = function()
     local func_gt, err = select_comparators.gen_func(operators.GT, {
         {}, {}, {},
     })
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
 
     t.assert(not func_gt({1}, {1}))
     t.assert(func_gt({1, 2}, {1}))
@@ -83,7 +83,7 @@ g.test_ge_no_collations = function()
     local func_ge, err = select_comparators.gen_func(operators.GE, {
         {}, {}, {},
     })
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
 
     t.assert(func_ge({1}, {1}))
     t.assert(func_ge({1, 2}, {1}))
@@ -111,9 +111,9 @@ g.test_unicode_collations = function()
     }
 
     local func_eq_unicode, err = select_comparators.gen_func(operators.GE, unicode_parts)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     local func_eq_unicode_ci, err = select_comparators.gen_func(operators.GE, unicode_ci_parts)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
 
     t.assert(func_eq_unicode({'a'}, {'a'}))
     t.assert(func_eq_unicode_ci({'a'}, {'a'}))
@@ -122,24 +122,24 @@ g.test_unicode_collations = function()
     t.assert(func_eq_unicode_ci({'a', 'A', 'a'}, {'A', 'Á', 'Ä'}))
 
     local func_lt_unicode, err = select_comparators.gen_func(operators.LT, unicode_parts)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     t.assert(func_lt_unicode({'a', 'A', 'a'}, {'A', 'Á', 'Ä'}, 3))
 
     local func_gt_unicode, err = select_comparators.gen_func(operators.GT, unicode_parts)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     t.assert(not func_gt_unicode({'a', 'A', 'a'}, {'A', 'Á', 'Ä'}, 3))
 
     local func_ge_unicode, err = select_comparators.gen_func(operators.GE, unicode_parts)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     local func_ge_unicode_ci, err = select_comparators.gen_func(operators.GE, unicode_ci_parts)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     t.assert(not func_ge_unicode({'a', 'A', 'a'}, {'A', 'Á', 'Ä'}, 3))
     t.assert(func_ge_unicode_ci({'a', 'A', 'a'}, {'A', 'Á', 'Ä'}, 3))
 
     local func_le_unicode, err = select_comparators.gen_func(operators.LE, unicode_parts)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     local func_le_unicode_ci, err = select_comparators.gen_func(operators.LE, unicode_ci_parts)
-    t.assert(err == nil)
+    t.assert_equals(err, nil)
     t.assert(not func_le_unicode({'A', 'Á', 'Ä'}, {'a', 'A', 'a'}, 3))
     t.assert(func_le_unicode_ci({'A', 'Á', 'Ä'}, {'a', 'A', 'a'}, 3))
 end

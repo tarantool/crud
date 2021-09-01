@@ -280,7 +280,7 @@ end)
 pgroup:add('test_equal_secondary_keys', function(g)
     local bucket_id = 1
     local other_bucket_id, err = helpers.get_other_storage_bucket_id(g.cluster, bucket_id)
-    t.assert(other_bucket_id ~= nil, err)
+    t.assert_not_equals(other_bucket_id, nil, err)
 
     -- let's insert two tuples on different replicasets to check that
     -- they will be compared by index + primary fields on router

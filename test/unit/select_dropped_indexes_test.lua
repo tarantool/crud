@@ -65,7 +65,7 @@ g.before_all = function()
     customers.index.index5_dropped:drop()
 
     -- We need this check to make sure that test actually covers a problem.
-    t.assert(#box.space.customers.index ~= table.maxn(box.space.customers.index))
+    t.assert_not_equals(#box.space.customers.index, table.maxn(box.space.customers.index))
 end
 
 g.after_all = function()
