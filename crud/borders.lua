@@ -6,8 +6,7 @@ local dev_checks = require('crud.common.dev_checks')
 local call = require('crud.common.call')
 local utils = require('crud.common.utils')
 local schema = require('crud.common.schema')
-local has_keydef, Keydef = pcall(require, 'crud.compare.keydef')
-local select_comparators = require('crud.compare.comparators')
+local Keydef = require('crud.compare.keydef')
 
 local BorderError = errors.new_class('BorderError',  {capture_stack = false})
 
@@ -45,25 +44,14 @@ function borders.init()
    _G._crud.get_border_on_storage = get_border_on_storage
 end
 
-local is_closer
-
-if has_keydef then
-    is_closer = function (compare_sign, keydef, tuple, res_tuple)
-        if res_tuple == nil then
-            return true
-        end
-
-        local cmp = keydef:compare(tuple, res_tuple)
-
-        return cmp * compare_sign > 0
+local is_closer = function (compare_sign, keydef, tuple, res_tuple)
+    if res_tuple == nil then
+        return true
     end
-else
-    is_closer = function (_, comparator, tuple, res_tuple)
-        if res_tuple == nil then
-            return true
-        end
-        return comparator(tuple, res_tuple)
-    end
+
+    local cmp = keydef:compare(tuple, res_tuple)
+
+    return cmp * compare_sign > 0
 end
 
 local function call_get_border_on_router(border_name, space_name, index_name, opts)
@@ -112,20 +100,7 @@ local function call_get_border_on_router(border_name, space_name, index_name, op
     end
 
     local compare_sign = border_name == 'max' and 1 or -1
-    local comparator
-    if has_keydef then
-        comparator = Keydef.new(space, field_names, index.id)
-    else
-        local tarantool_iter
-        if compare_sign > 0 then
-            tarantool_iter = box.index.GT
-        else
-            tarantool_iter = box.index.LT
-        end
-        local key_parts = utils.merge_primary_key_parts(index.parts, primary_index.parts)
-        local cmp_operator = select_comparators.get_cmp_operator(tarantool_iter)
-        comparator = select_comparators.gen_tuples_comparator(cmp_operator, key_parts, field_names, space:format())
-    end
+    local keydef = Keydef.new(space, field_names, index.id)
 
     local res_tuple = nil
     for _, storage_result in pairs(results) do
@@ -136,7 +111,7 @@ local function call_get_border_on_router(border_name, space_name, index_name, op
         end
 
         local tuple = storage_result.res
-        if tuple ~= nil and is_closer(compare_sign, comparator, tuple, res_tuple) then
+        if tuple ~= nil and is_closer(compare_sign, keydef, tuple, res_tuple) then
             res_tuple = tuple
         end
     end
