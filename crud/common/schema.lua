@@ -5,7 +5,7 @@ local vshard = require('vshard')
 local errors = require('errors')
 local log = require('log')
 
-local ReloadSchemaError = errors.new_class('ReloadSchemaError',  {capture_stack = false})
+local ReloadSchemaError = errors.new_class('ReloadSchemaError', {capture_stack = false})
 
 local const = require('crud.common.const')
 local dev_checks = require('crud.common.dev_checks')

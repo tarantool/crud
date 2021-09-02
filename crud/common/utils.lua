@@ -7,10 +7,10 @@ local dev_checks = require('crud.common.dev_checks')
 
 local FlattenError = errors.new_class("FlattenError", {capture_stack = false})
 local UnflattenError = errors.new_class("UnflattenError", {capture_stack = false})
-local ParseOperationsError = errors.new_class('ParseOperationsError',  {capture_stack = false})
-local ShardingError = errors.new_class('ShardingError',  {capture_stack = false})
-local GetSpaceFormatError = errors.new_class('GetSpaceFormatError',  {capture_stack = false})
-local FilterFieldsError = errors.new_class('FilterFieldsError',  {capture_stack = false})
+local ParseOperationsError = errors.new_class('ParseOperationsError', {capture_stack = false})
+local ShardingError = errors.new_class('ShardingError', {capture_stack = false})
+local GetSpaceFormatError = errors.new_class('GetSpaceFormatError', {capture_stack = false})
+local FilterFieldsError = errors.new_class('FilterFieldsError', {capture_stack = false})
 
 local utils = {}
 

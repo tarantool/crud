@@ -15,7 +15,7 @@ end
 local select_plan = {}
 
 local IndexTypeError = errors.new_class('IndexTypeError', {capture_stack = false})
-local FilterFieldsError = errors.new_class('FilterFieldsError',  {capture_stack = false})
+local FilterFieldsError = errors.new_class('FilterFieldsError', {capture_stack = false})
 
 local function index_is_allowed(index)
     return index.type == 'TREE'
