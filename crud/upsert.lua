@@ -8,7 +8,7 @@ local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
 
-local UpsertError = errors.new_class('UpsertError',  { capture_stack = false})
+local UpsertError = errors.new_class('UpsertError', { capture_stack = false})
 
 local upsert = {}
 

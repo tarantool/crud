@@ -8,7 +8,7 @@ local utils = require('crud.common.utils')
 local schema = require('crud.common.schema')
 local Keydef = require('crud.compare.keydef')
 
-local BorderError = errors.new_class('BorderError',  {capture_stack = false})
+local BorderError = errors.new_class('BorderError', {capture_stack = false})
 
 local borders = {}
 
