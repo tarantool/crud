@@ -5,7 +5,7 @@ local vshard = require('vshard')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
-local LenError = errors.new_class('LenError',  {capture_stack = false})
+local LenError = errors.new_class('LenError', {capture_stack = false})
 
 local len = {}
 
