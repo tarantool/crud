@@ -8,6 +8,47 @@ The `CRUD` module allows to perform CRUD operations on the cluster.
 It also provides the `crud-storage` role for
 [Tarantool Cartridge](https://github.com/tarantool/cartridge).
 
+# Supported Tarantool versions
+
+CRUD depends on Tarantool features like key_def, merger, UUID modules and JSON
+paths support. We do our best to provide uniform support for all supported
+Tarantool version with help of compatibility layer, runtime feature detection
+etc. but anyway some Tarantool versions has limited support in CRUD. Please
+consult with a list below to choose a Tarantool version compatible with CRUD
+module before use:
+
+- 1.10: since 1.10.7-91-g9ee14eca5 with tuple-merger<sup>1</sup> and
+  tuple-keydef<sup>2</sup> modules, without UUID keys comparison and without
+  Jsonpath indexes
+- 2.2: since 2.2.0-268-gc7915eccd with key_def and merger modules, without
+  UUID keys comparison and without Jsonpath indexes
+- 2.3: since 2.3.2-99-g487289ad2 with key_def and merger modules, without UUID
+  keys comparison and without Jsonpath indexes
+- 2.5: since 2.5.0-275-g9be50ae74 with key_def and merger modules and without
+  Jsonpath indexes
+- 2.6: since 2.6.2-99-gf92b9e21
+- 2.7: since 2.7.1-102-g84edc33fb
+- 2.8: since 2.8.0-113-gb3d4648d8
+
+1. Differences from the built-in merger module - https://github.com/tarantool/tuple-merger#backward-and-forward-compatibility-guarantees
+2. Differences from the built-in key_def module - https://github.com/tarantool/tuple-keydef#differences-from-the-built-in-module
+
+For more information see the table below that describes Tarantool's versions
+and features for what CRUD module depends on:
+
+| Branch | merger                           | tuple-merger         | key_def      | tuple-keydef         | UUID         | JSON paths            |
+|--------|----------------------------------|----------------------|--------------|----------------------|--------------|-----------------------|
+| 1.10   | Unsupported                      | 1.10.7-91-g9ee14eca5 | Unsupported  | 1.10.7-85-g840c13293 | Unsupported  | Unsupported           |
+| 2.2    | 2.2.0-268-gc7915eccd             | Unsupported          | All versions | Unsupported          | Unsupported  | Unsupported           |
+| 2.3    | 2.3.2-99-g487289ad2<sup>1</sup>  | Unsupported          | All version  | Unsupported          | Unsupported  | Unsupported           |
+| 2.5    | 2.5.0-275-g9be50ae74<sup>1</sup> | 2.5.1-150-g98ff9aae0 | All version  | 2.5.1-145-geea90d7ce | All versions | Unsupported           |
+| 2.6    | All versions                     | 2.6.0-193-g3dc6a76c8 | All version  | 2.6.0-188-g4a12985f1 | All versions | 2.6.2-99-gf92b9e21    |
+| 2.7    | All versions                     | All versions         | All version  | All versions         | All versions | 2.7.1-102-g84edc33fb  |
+| 2.8    | All versions                     | All versions         | All version  | All versions         | All versions | 2.8.0-113-gb3d4648d8  |
+
+1. merger has been added in 2.2.0-268-gc7915eccd, but usage was blocked due to
+   Tarantool's SEGFAULT, see https://github.com/tarantool/tarantool/issues/4954
+
 ## API
 
 The CRUD operations should be called from router.
