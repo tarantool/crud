@@ -113,7 +113,7 @@ function conditions.parse(user_conditions)
         local cond_func = funcs_by_symbols[operator_symbol]
         if cond_func == nil then
             return nil, ParseConditionError:new(
-                "condition[1] %q isn't a valid condition oprator, (condition %s)", operator_symbol, i
+                "condition[1] %q isn't a valid condition operator, (condition %s)", operator_symbol, i
             )
         end
 

@@ -86,7 +86,7 @@ g.test_parse_errors = function()
     local _, err = compare_conditions.parse(user_conditions)
     t.assert_str_contains(
         err.err,
-        'condition[1] "===" isn\'t a valid condition oprator, (condition 2)'
+        'condition[1] "===" isn\'t a valid condition operator, (condition 2)'
     )
 
     -- bad operand
