@@ -14,7 +14,7 @@ if '2' <= _TARANTOOL and _TARANTOOL <= '2.3.3' then
     -- See https://github.com/tarantool/tarantool/issues/4954
     select_module = require('crud.select.compat.select_old')
 elseif not package.search('tuple.merger') and package.loaded['merger'] == nil then
-    -- we don't use pcall(require, modile_name) here because it
+    -- we don't use pcall(require, module_name) here because it
     -- leads to ignoring errors other than 'No LuaRocks module found'
 
     -- "merger" isn't supported here
