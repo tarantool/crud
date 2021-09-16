@@ -230,4 +230,13 @@ function helpers.get_other_storage_bucket_id(cluster, bucket_id)
     ]], {bucket_id})
 end
 
+function helpers.update_cache(cluster, space_name)
+    return cluster.main_server.net_box:eval([[
+        local sharding_key = require('crud.common.sharding_key')
+
+        local space_name = ...
+        return sharding_key.update_cache(space_name)
+    ]], {space_name})
+end
+
 return helpers
