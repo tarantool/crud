@@ -421,6 +421,19 @@ function utils.get_bucket_id_fieldno(space, shard_index_name)
     return bucket_id_index.parts[1].fieldno
 end
 
+-- Build a map with field names as a keys and fieldno's
+-- as a values using space format as a source.
+function utils.get_format_fieldno_map(space_format)
+    dev_checks('table')
+
+    local fieldno_map = {}
+    for fieldno, field_format in ipairs(space_format) do
+        fieldno_map[field_format.name] = fieldno
+    end
+
+    return fieldno_map
+end
+
 local uuid_t = ffi.typeof('struct tt_uuid')
 function utils.is_uuid(value)
     return ffi.istype(uuid_t, value)
