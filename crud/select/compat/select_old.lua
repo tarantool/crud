@@ -8,6 +8,7 @@ local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
+local sharding_key_module = require('crud.common.sharding_key')
 
 local compare_conditions = require('crud.compare.conditions')
 local select_plan = require('crud.select.plan')
@@ -102,6 +103,10 @@ local function build_select_iterator(space_name, user_conditions, opts)
         return nil, SelectError:new("Space %q doesn't exist", space_name), true
     end
     local space_format = space:format()
+    local sharding_key_as_index_obj, err = sharding_key_module.fetch_on_router(space_name)
+    if err ~= nil then
+        return nil, err
+    end
 
     -- plan select
     local plan, err = select_plan.new(space, conditions, {
@@ -109,6 +114,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         after_tuple = opts.after,
         field_names = opts.field_names,
         force_map_call = opts.force_map_call,
+        sharding_key_as_index_obj = sharding_key_as_index_obj,
     })
 
     if err ~= nil then

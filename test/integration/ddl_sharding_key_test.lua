@@ -3,6 +3,7 @@ local crud = require('crud')
 local t = require('luatest')
 
 local helpers = require('test.helper')
+local storage_stat = require('test.helpers.storage_stat')
 
 local ok = pcall(require, 'ddl')
 if not ok then
@@ -46,6 +47,9 @@ pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
 pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers_name_key')
+    helpers.truncate_space_on_cluster(g.cluster, 'customers_name_key_uniq_index')
+    helpers.truncate_space_on_cluster(g.cluster, 'customers_name_key_non_uniq_index')
+    helpers.truncate_space_on_cluster(g.cluster, 'customers_secondary_idx_name_key')
 end)
 
 pgroup.test_insert_object = function(g)
@@ -245,4 +249,128 @@ pgroup.test_upsert = function(g)
     -- There is no tuple on s2 replicaset.
     local result = conn_s2.space['customers_name_key']:get({1, 'John'})
     t.assert_equals(result, nil)
+end
+
+-- The main purpose of testcase is to verify that CRUD will calculate bucket_id
+-- using secondary sharding key (name) correctly and will get tuple on storage
+-- in replicaset s2.
+-- bucket_id was calculated using function below:
+--     function(key)
+--         return require('vshard.hash').strcrc32(key) % 3000 + 1
+--     end
+-- where 3000 is a default number of buckets used in vshard.
+pgroup.test_select = function(g)
+    -- bucket_id is 234, storage is s-2
+    local tuple = {8, 234, 'Ptolemy', 20}
+
+    -- Put tuple to s2 replicaset.
+    local conn_s2 = g.cluster:server('s2-master').net_box
+    local result = conn_s2.space['customers_name_key']:insert(tuple)
+    t.assert_not_equals(result, nil)
+
+    local conditions = {{'==', 'name', 'Ptolemy'}}
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+        'customers_name_key', conditions,
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#result.rows, 1)
+    t.assert_equals(result.rows[1], tuple)
+end
+
+-- TODO: After enabling support of sharding keys that are not equal to primary
+-- keys, we should handle it differently: it is not enough to look just on scan
+-- value, we should traverse all conditions. Now missed cases lead to
+-- map-reduce. Will be resolved in #213.
+pgroup.test_select_wont_lead_map_reduce = function(g)
+    local space_name = 'customers_name_key_uniq_index'
+
+    local conn_s1 = g.cluster:server('s1-master').net_box
+    local conn_s2 = g.cluster:server('s2-master').net_box
+
+    -- bucket_id is 477, storage is s-2
+    local result = conn_s2.space[space_name]:insert({1, 477, 'Viktor Pelevin', 58})
+    t.assert_not_equals(result, nil)
+    -- bucket_id is 401, storage is s-1
+    local result = conn_s1.space[space_name]:insert({2, 401, 'Isaac Asimov', 72})
+    t.assert_not_equals(result, nil)
+    -- bucket_id is 2804, storage is s-2
+    local result = conn_s2.space[space_name]:insert({3, 2804, 'Aleksandr Solzhenitsyn', 89})
+    t.assert_not_equals(result, nil)
+    -- bucket_id is 1161, storage is s-2
+    local result = conn_s2.space[space_name]:insert({4, 1161, 'James Joyce', 59})
+    t.assert_not_equals(result, nil)
+
+    local stat_a = storage_stat.collect(g.cluster)
+
+    -- Select a tuple with name 'Viktor Pelevin'.
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+        space_name, {{'==', 'name', 'Viktor Pelevin'}}
+    })
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 1)
+
+    local stat_b = storage_stat.collect(g.cluster)
+
+    -- Check a number of select() requests made by CRUD on cluster's storages
+    -- after calling select() on a router. Make sure only a single storage has
+    -- a single select() request. Otherwise we lead map-reduce.
+    t.assert_equals(storage_stat.diff(stat_b, stat_a), {
+        ['s-1'] = {
+            select_requests = 0,
+        },
+        ['s-2'] = {
+            select_requests = 1,
+        },
+    })
+end
+
+pgroup.test_select_secondary_idx = function(g)
+    local tuple = {2, box.NULL, 'Ivan', 20}
+
+    -- insert tuple
+    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+        'customers_secondary_idx_name_key', tuple
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 1)
+
+    local conditions = {{'==', 'name', 'Ivan'}}
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+        'customers_secondary_idx_name_key', conditions,
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#result.rows, 1)
+    t.assert_equals(result.rows[1], {2, 1366, 'Ivan', 20})
+end
+
+pgroup.test_select_non_unique_index = function(g)
+    local space_name = 'customers_name_key_non_uniq_index'
+    local customers = helpers.insert_objects(g, space_name, {
+        {id = 1, name = 'Viktor Pelevin', age = 58},
+        {id = 2, name = 'Isaac Asimov', age = 72},
+        {id = 3, name = 'Aleksandr Solzhenitsyn', age = 89},
+        {id = 4, name = 'James Joyce', age = 59},
+        {id = 5, name = 'Oscar Wilde', age = 46},
+        -- First tuple with name 'Ivan Bunin'.
+        {id = 6, name = 'Ivan Bunin', age = 83},
+        {id = 7, name = 'Ivan Turgenev', age = 64},
+        {id = 8, name = 'Alexander Ostrovsky', age = 63},
+        {id = 9, name = 'Anton Chekhov', age = 44},
+        -- Second tuple with name 'Ivan Bunin'.
+        {id = 10, name = 'Ivan Bunin', age = 83},
+    })
+    t.assert_equals(#customers, 10)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+        space_name, {{'==', 'name', 'Ivan Bunin'}}
+    })
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 2)
 end
