@@ -7,6 +7,7 @@ local dev_checks = require('crud.common.dev_checks')
 local cache = require('crud.common.sharding_key_cache')
 local utils = require('crud.common.utils')
 
+local ShardingKeyError = errors.new_class("ShardingKeyError", {capture_stack = false})
 local FetchShardingKeyError = errors.new_class('FetchShardingKeyError', {capture_stack = false})
 local WrongShardingConfigurationError = errors.new_class('WrongShardingConfigurationError',  {capture_stack = false})
 
@@ -134,12 +135,83 @@ function sharding_key_module.fetch_on_router(space_name)
     return cache.sharding_key_as_index_obj_map[space_name]
 end
 
+-- Make sure sharding key definition is a part of primary key.
+local function is_part_of_pk(space_name, primary_index_parts, sharding_key_as_index_obj)
+    dev_checks('string', 'table', 'table')
+
+    if cache.is_part_of_pk[space_name] ~= nil then
+        return cache.is_part_of_pk[space_name]
+    end
+
+    local is_part_of_pk = true
+    local pk_fieldno_map = utils.get_index_fieldno_map(primary_index_parts)
+    for _, part in ipairs(sharding_key_as_index_obj.parts) do
+        if pk_fieldno_map[part.fieldno] == nil then
+            is_part_of_pk = false
+            break
+        end
+    end
+    cache.is_part_of_pk[space_name] = is_part_of_pk
+
+    return is_part_of_pk
+end
+
+-- Build an array with sharding key values. Function extracts those values from
+-- primary key that are part of sharding key (passed as index object).
+local function extract_from_index(primary_key, primary_index_parts, sharding_key_as_index_obj)
+    dev_checks('table', 'table', 'table')
+
+    local primary_index_fieldno_map = utils.get_index_fieldno_map(primary_index_parts)
+
+    local sharding_key = {}
+    for _, part in ipairs(sharding_key_as_index_obj.parts) do
+        -- part_number cannot be nil because earlier we checked that tuple
+        -- field names defined in sharding key definition are part of primary
+        -- key.
+        local part_number = primary_index_fieldno_map[part.fieldno]
+        assert(part_number ~= nil)
+        local field_value = primary_key[part_number]
+        table.insert(sharding_key, field_value)
+    end
+
+    return sharding_key
+end
+
+-- Extract sharding key from pk.
+-- Returns a table with sharding key or pair of nil and error.
+function sharding_key_module.extract_from_pk(space_name, primary_index_parts, primary_key)
+    dev_checks('string', 'table', '?')
+
+    local sharding_key_as_index_obj, err = sharding_key_module.fetch_on_router(space_name)
+    if err ~= nil then
+        return nil, err
+    end
+    if sharding_key_as_index_obj == nil then
+        return primary_key
+    end
+
+    local res = is_part_of_pk(space_name, primary_index_parts, sharding_key_as_index_obj)
+    if res == false then
+        return nil, ShardingKeyError:new(
+            "Sharding key for space %q is missed in primary index, specify bucket_id",
+            space_name
+        )
+    end
+    if type(primary_key) ~= 'table' then
+        primary_key = {primary_key}
+    end
+
+    return extract_from_index(primary_key, primary_index_parts, sharding_key_as_index_obj)
+end
+
 function sharding_key_module.init()
    _G._crud.fetch_on_storage = sharding_key_module.fetch_on_storage
 end
 
 sharding_key_module.internal = {
     as_index_object = as_index_object,
+    extract_from_index = extract_from_index,
+    is_part_of_pk = is_part_of_pk,
 }
 
 return sharding_key_module

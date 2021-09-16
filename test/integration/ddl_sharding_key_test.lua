@@ -1,5 +1,5 @@
 local fio = require('fio')
-
+local crud = require('crud')
 local t = require('luatest')
 
 local helpers = require('test.helper')
@@ -42,7 +42,245 @@ pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers_name_key_uniq_index')
     helpers.truncate_space_on_cluster(g.cluster, 'customers_name_key_non_uniq_index')
     helpers.truncate_space_on_cluster(g.cluster, 'customers_secondary_idx_name_key')
+    helpers.truncate_space_on_cluster(g.cluster, 'customers_age_key')
 end)
+
+local function check_get(g, space_name, id, name)
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        space_name, {id, name}
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+end
+
+pgroup.test_insert_object_get = function(g)
+    -- insert_object
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.insert_object', {'customers_name_key', {id = 1, name = 'Fedor', age = 59}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {is_nullable = false, name = 'id', type = 'unsigned'},
+        {is_nullable = false, name = 'bucket_id', type = 'unsigned'},
+        {is_nullable = false, name = 'name', type = 'string'},
+        {is_nullable = false, name = 'age', type = 'number'},
+    })
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 1, bucket_id = 86, name = 'Fedor', age = 59}})
+
+    -- get
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers_name_key', {1, 'Fedor'}})
+
+    t.assert_equals(err, nil)
+    t.assert(result ~= nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{age = 59, bucket_id = 86, id = 1, name = "Fedor"}})
+
+    -- insert_object again
+    local obj, err = g.cluster.main_server.net_box:call(
+        'crud.insert_object', {'customers_name_key', {id = 1, name = 'Alexander', age = 37}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(obj.rows, {{1, 1690, "Alexander", 37}})
+end
+
+pgroup.test_insert_get = function(g)
+    -- insert
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.insert', {'customers_name_key', {2, box.NULL, 'Ivan', 20}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {is_nullable = false, name = 'id', type = 'unsigned'},
+        {is_nullable = false, name = 'bucket_id', type = 'unsigned'},
+        {is_nullable = false, name = 'name', type = 'string'},
+        {is_nullable = false, name = 'age', type = 'number'},
+    })
+    t.assert_equals(result.rows, {{2, 1366, "Ivan", 20}})
+
+    -- get
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers_name_key', {2, 'Ivan'}})
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(result.rows, {{2, 1366, "Ivan", 20}})
+end
+
+pgroup.test_update = function(g)
+    local tuple = {2, box.NULL, 'Ivan', 20}
+
+    local update_operations = {
+        {'+', 'age', 10},
+    }
+
+    -- insert tuple
+    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+        'customers_name_key', tuple
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 1)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.update', {
+        'customers_name_key', {2, 'Ivan'}, update_operations,
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 1)
+
+    -- get
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers_name_key', {2, 'Ivan'}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{age = 30, bucket_id = 1366, id = 2, name = "Ivan"}})
+end
+
+pgroup.test_delete = function(g)
+    local tuple = {2, box.NULL, 'Ivan', 20}
+
+    -- insert tuple
+    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+        'customers_name_key', tuple
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 1)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.delete', {
+        'customers_name_key', {2, 'Ivan'},
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers_name_key', {2, 'Ivan'}
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 0)
+end
+
+pgroup.test_insert = function(g)
+    local tuple = {2, box.NULL, 'Ivan', 20}
+
+    -- insert
+    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+        'customers_name_key', tuple,
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(result.rows[1], {2, 1366, "Ivan", 20})
+
+    check_get(g, 'customers_name_key', 2, 'Ivan')
+end
+
+pgroup.test_replace = function(g)
+    local tuple = {2, box.NULL, 'Jane', 21}
+
+    -- replace
+    local result, err = g.cluster.main_server.net_box:call('crud.replace', {
+        'customers_name_key', tuple
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(result.rows[1], {2, 1538, "Jane", 21})
+
+    check_get(g, 'customers_name_key', 2, 'Jane')
+end
+
+pgroup.test_replace_object = function(g)
+    -- get
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers_name_key', {44, 'Ivan'}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {is_nullable = false, name = 'id', type = 'unsigned'},
+        {is_nullable = false, name = 'bucket_id', type = 'unsigned'},
+        {is_nullable = false, name = 'name', type = 'string'},
+        {is_nullable = false, name = 'age', type = 'number'},
+    })
+    t.assert_equals(#result.rows, 0)
+
+    -- replace_object
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.replace_object', {'customers_name_key', {id = 44, name = 'John Doe', age = 25}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 44, bucket_id = 1035, name = 'John Doe', age = 25}})
+
+    -- replace_object
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.replace_object', {'customers_name_key', {id = 44, name = 'Jane Doe', age = 18}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 44, bucket_id = 2194, name = 'Jane Doe', age = 18}})
+end
+
+pgroup.test_upsert_object = function(g)
+    -- upsert_object first time
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.upsert_object', {'customers_name_key', {id = 66, name = 'Jack Sparrow', age = 25}, {
+             {'+', 'age', 25},
+    }})
+
+    t.assert_equals(#result.rows, 0)
+    t.assert_equals(result.metadata, {
+        {is_nullable = false, name = 'id', type = 'unsigned'},
+        {is_nullable = false, name = 'bucket_id', type = 'unsigned'},
+        {is_nullable = false, name = 'name', type = 'string'},
+        {is_nullable = false, name = 'age', type = 'number'},
+    })
+    t.assert_equals(err, nil)
+
+    -- get
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers_name_key', {66, 'Jack Sparrow'}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 66, bucket_id = 2719, name = 'Jack Sparrow', age = 25}})
+
+    -- upsert_object the same query second time when tuple exists
+    local result, err = g.cluster.main_server.net_box:call(
+       'crud.upsert_object', {'customers_name_key', {id = 66, name = 'Jack Sparrow', age = 25}, {
+            {'+', 'age', 25},
+    }})
+
+    t.assert_equals(#result.rows, 0)
+    t.assert_equals(err, nil)
+
+    -- get
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers_name_key', {66, 'Jack Sparrow'}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{age = 50, bucket_id = 2719, id = 66, name = "Jack Sparrow"}})
+end
+
+pgroup.test_upsert = function(g)
+    local tuple = {1, box.NULL, 'John', 25}
+
+    -- upsert
+    local result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+        'customers_name_key', tuple, {}
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 0)
+
+    check_get(g, 'customers_name_key', 1, 'John')
+end
 
 pgroup.test_select = function(g)
     local tuple = {2, box.NULL, 'Ivan', 20}
@@ -65,6 +303,73 @@ pgroup.test_select = function(g)
     t.assert_equals(err, nil)
     t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 1)
+end
+
+pgroup.test_incomplete_sharding_key_delete = function(g)
+    local tuple = {2, box.NULL, 'Viktor Pelevin', 58}
+
+    -- insert tuple
+    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+        'customers_age_key', tuple
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 1)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.delete', {
+        'customers_age_key', {58, 'Viktor Pelevin'}
+    })
+
+    t.assert_str_contains(err.err,
+        "Sharding key for space \"customers_age_key\" is missed in primary index, specify bucket_id")
+    t.assert_equals(result, nil)
+end
+
+pgroup.test_incomplete_sharding_key_get = function(g)
+    local tuple = {2, box.NULL, 'Viktor Pelevin', 58}
+
+    -- insert tuple
+    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+        'customers_age_key', tuple
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 1)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers_age_key', {58, 'Viktor Pelevin'}
+    })
+
+    t.assert_str_contains(err.err,
+        "Sharding key for space \"customers_age_key\" is missed in primary index, specify bucket_id")
+    t.assert_equals(result, nil)
+end
+
+pgroup.test_incomplete_sharding_key_update = function(g)
+    local tuple = {2, box.NULL, 'Viktor Pelevin', 58}
+
+    -- insert tuple
+    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+        'customers_age_key', tuple
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 1)
+
+    local update_operations = {
+        {'=', 'age', 60},
+    }
+
+    local result, err = g.cluster.main_server.net_box:call('crud.update', {
+        'customers_age_key', {2, 'Viktor Pelevin'}, update_operations,
+    })
+
+    t.assert_str_contains(err.err,
+        "Sharding key for space \"customers_age_key\" is missed in primary index, specify bucket_id")
+    t.assert_equals(result, nil)
 end
 
 -- Right now CRUD's plan for select doesn't support sharding key and it leads
@@ -178,4 +483,70 @@ pgroup.test_non_unique_index = function(g)
     t.assert_equals(err, nil)
     t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 2)
+end
+
+pgroup.test_get_secondary_idx = function(g)
+    local tuple = {4, box.NULL, 'Leo', 44}
+
+    -- insert tuple
+    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+        'customers_secondary_idx_name_key', tuple
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 1)
+
+    -- get
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers_secondary_idx_name_key', {'Leo'}})
+
+    t.assert_str_contains(err.err,
+        "Sharding key for space \"customers_secondary_idx_name_key\" is missed in primary index, specify bucket_id")
+    t.assert_equals(result, nil)
+end
+
+pgroup.test_update_secondary_idx = function(g)
+    local tuple = {6, box.NULL, 'Victor', 58}
+
+    -- insert tuple
+    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+        'customers_secondary_idx_name_key', tuple
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 1)
+
+    local update_operations = {
+        {'=', 'age', 58},
+    }
+
+    local result, err = g.cluster.main_server.net_box:call('crud.update', {
+        'customers_secondary_idx_name_key', {'Victor'}, update_operations,
+    })
+
+    t.assert_str_contains(err.err,
+        "Sharding key for space \"customers_secondary_idx_name_key\" is missed in primary index, specify bucket_id")
+    t.assert_equals(result, nil)
+end
+
+pgroup.test_delete_secondary_idx = function(g)
+    local tuple = {8, box.NULL, 'Alexander', 37}
+
+    -- insert tuple
+    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+        'customers_secondary_idx_name_key', tuple
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 1)
+
+    local result, err = g.cluster.main_server.net_box:call('crud.delete', {
+        'customers_secondary_idx_name_key', {'Alexander'}
+    })
+
+    t.assert_str_contains(err.err,
+        "Sharding key for space \"customers_secondary_idx_name_key\" is missed in primary index, specify bucket_id")
+    t.assert_equals(result, nil)
 end

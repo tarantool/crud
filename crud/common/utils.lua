@@ -375,6 +375,20 @@ function utils.get_bucket_id_fieldno(space, shard_index_name)
     return bucket_id_index.parts[1].fieldno
 end
 
+-- Build a map with field number as a keys and part number
+-- as a values using index parts as a source.
+function utils.get_index_fieldno_map(index_parts)
+    dev_checks('table')
+
+    local fieldno_map = {}
+    for i, part in ipairs(index_parts) do
+        local fieldno = part.fieldno
+        fieldno_map[fieldno] = i
+    end
+
+    return fieldno_map
+end
+
 -- Build a map with field names as a keys and fieldno's
 -- as a values using space format as a source.
 function utils.get_format_fieldno_map(space_format)

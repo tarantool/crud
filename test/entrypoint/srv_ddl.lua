@@ -95,11 +95,17 @@ package.preload['customers-storage'] = function()
             table.insert(customers_secondary_idx_name_key_schema.indexes, secondary_index)
             table.insert(customers_secondary_idx_name_key_schema.indexes, bucket_id_index)
 
+            local customers_age_key_schema = table.deepcopy(customers_schema)
+            customers_age_key_schema.sharding_key = {'age'}
+            table.insert(customers_age_key_schema.indexes, primary_index)
+            table.insert(customers_age_key_schema.indexes, bucket_id_index)
+
             local schema = {
                 spaces = {
                     customers_name_key = customers_name_key_schema,
                     customers_name_key_uniq_index = customers_name_key_uniq_index_schema,
                     customers_name_key_non_uniq_index = customers_name_key_non_uniq_index_schema,
+                    customers_age_key = customers_age_key_schema,
                     customers_secondary_idx_name_key = customers_secondary_idx_name_key_schema,
                 }
             }
@@ -110,6 +116,11 @@ package.preload['customers-storage'] = function()
                     error(err)
                 end
             end
+
+            rawset(_G, 'set_sharding_key', function(space_name, sharding_key_def)
+                local fieldno_sharding_key = 2
+                box.space['_ddl_sharding_key']:update(space_name, {{'=', fieldno_sharding_key, sharding_key_def}})
+            end)
         end,
     }
 end
