@@ -37,6 +37,14 @@ package.preload['customers-storage'] = function()
                     {path = 'name', is_nullable = false, type = 'string'},
                 },
             }
+            local primary_index_id = {
+                name = 'id',
+                type = 'TREE',
+                unique = true,
+                parts = {
+                    {path = 'id', is_nullable = false, type = 'unsigned'},
+                },
+            }
             local bucket_id_index = {
                 name = 'bucket_id',
                 type = 'TREE',
@@ -45,15 +53,54 @@ package.preload['customers-storage'] = function()
                     {path = 'bucket_id', is_nullable = false, type = 'unsigned'},
                 }
             }
+            local name_index = {
+                name = 'name',
+                type = 'TREE',
+                unique = true,
+                parts = {
+                    {path = 'name', is_nullable = false, type = 'string'},
+                },
+            }
+            local secondary_index = {
+                name = 'secondary',
+                type = 'TREE',
+                unique = false,
+                parts = {
+                    {path = 'id', is_nullable = false, type = 'unsigned'},
+                    {path = 'name', is_nullable = false, type = 'string'},
+                },
+            }
 
             local customers_name_key_schema = table.deepcopy(customers_schema)
             customers_name_key_schema.sharding_key = {'name'}
             table.insert(customers_name_key_schema.indexes, primary_index)
             table.insert(customers_name_key_schema.indexes, bucket_id_index)
 
+            local customers_name_key_uniq_index_schema = table.deepcopy(customers_schema)
+            customers_name_key_uniq_index_schema.sharding_key = {'name'}
+            table.insert(customers_name_key_uniq_index_schema.indexes, primary_index)
+            table.insert(customers_name_key_uniq_index_schema.indexes, bucket_id_index)
+            table.insert(customers_name_key_uniq_index_schema.indexes, name_index)
+
+            local customers_name_key_non_uniq_index_schema = table.deepcopy(customers_schema)
+            customers_name_key_non_uniq_index_schema.sharding_key = {'name'}
+            name_index.unique = false
+            table.insert(customers_name_key_non_uniq_index_schema.indexes, primary_index)
+            table.insert(customers_name_key_non_uniq_index_schema.indexes, bucket_id_index)
+            table.insert(customers_name_key_non_uniq_index_schema.indexes, name_index)
+
+            local customers_secondary_idx_name_key_schema = table.deepcopy(customers_schema)
+            customers_secondary_idx_name_key_schema.sharding_key = {'name'}
+            table.insert(customers_secondary_idx_name_key_schema.indexes, primary_index_id)
+            table.insert(customers_secondary_idx_name_key_schema.indexes, secondary_index)
+            table.insert(customers_secondary_idx_name_key_schema.indexes, bucket_id_index)
+
             local schema = {
                 spaces = {
                     customers_name_key = customers_name_key_schema,
+                    customers_name_key_uniq_index = customers_name_key_uniq_index_schema,
+                    customers_name_key_non_uniq_index = customers_name_key_non_uniq_index_schema,
+                    customers_secondary_idx_name_key = customers_secondary_idx_name_key_schema,
                 }
             }
 

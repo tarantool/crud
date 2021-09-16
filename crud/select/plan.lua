@@ -126,6 +126,7 @@ function select_plan.new(space, conditions, opts)
         after_tuple = '?table|cdata',
         field_names = '?table',
         force_map_call = '?boolean',
+        sharding_key_as_index_obj = '?table',
     })
 
     conditions = conditions ~= nil and conditions or {}
@@ -226,17 +227,12 @@ function select_plan.new(space, conditions, opts)
         end
     end
 
-    local sharding_index = primary_index -- XXX: only sharding by primary key is supported
+    local sharding_index = opts.sharding_key_as_index_obj or primary_index
 
     -- get sharding key value
     local sharding_key
     if scan_value ~= nil and (scan_iter == box.index.EQ or scan_iter == box.index.REQ) then
         sharding_key = extract_sharding_key_from_scan_value(scan_value, scan_index, sharding_index)
-    end
-
-    if sharding_key ~= nil and opts.force_map_call ~= true then
-        total_tuples_count = 1
-        scan_iter = box.index.REQ
     end
 
     local plan = {

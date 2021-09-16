@@ -159,7 +159,6 @@ g.test_is_scan_by_full_sharding_key_eq = function()
 
     t.assert_equals(err, nil)
 
-    t.assert_equals(plan.total_tuples_count, 1)
     t.assert_equals(plan.sharding_key, {15})
 
     -- id is a part of scan index
@@ -173,7 +172,6 @@ g.test_is_scan_by_full_sharding_key_eq = function()
 
     t.assert_equals(plan.index_id, 3) -- index name_id is used
     t.assert_equals(plan.scan_value, {'Ivan', 11})
-    t.assert_equals(plan.total_tuples_count, 1)
     t.assert_equals(plan.sharding_key, {11})
 
     -- other index is first
@@ -221,7 +219,6 @@ g.test_is_scan_by_full_sharding_key_eq = function()
 
     t.assert_equals(err, nil)
 
-    t.assert_equals(plan.total_tuples_count, 1)
     t.assert_equals(plan.sharding_key, {1, 0})
 end
 
