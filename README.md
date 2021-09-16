@@ -53,11 +53,58 @@ crud.unflatten_rows(res.rows, res.metadata)
 **Notes:**
 
 * A space should have a format.
-* By default, `bucket_id` is computed as `vshard.router.bucket_id_strcrc32(key)`,
-  where `key` is the primary key value.
-  Custom bucket ID can be specified as `opts.bucket_id` for each operation.
-  For operations that accepts tuple/object bucket ID can be specified as
-  tuple/object field as well as `opts.bucket_id` value.
+
+**Sharding key and bucket id calculation**
+
+*Sharding key* is a set of tuple field values used for calculation *bucket ID*.
+*Sharding key definition* is a set of tuple field names that describe what
+tuple field should be a part of sharding key. *Bucket ID* determines which
+replicaset stores certain data. Function that used for calculation bucket ID is
+named *sharding function*.
+
+By default CRUD calculates bucket ID using primary key and a function
+`vshard.router.bucket_id_strcrc32(key)`, it happen automatically and doesn't
+require any actions from user side. User can calculate bucket ID on outside and
+pass it as an option to CRUD methods that accepts tuple or object (see option
+`bucket_id` below).
+
+Starting from 0.10.0 users who don't want to use primary key as a sharding key
+may set custom sharding key definition as a part of [DDL
+schema](https://github.com/tarantool/ddl#input-data-format) or insert manually
+to the space `_ddl_sharding_key` (for both cases consider a DDL module
+documentation). As soon as sharding key for a certain space is available in
+`_ddl_sharding_key` space CRUD will use it for bucket ID calculation
+automatically. Note that CRUD methods `delete()`, `get()` and `update()`
+requires that sharding key must be a part of primary key.
+
+Table below describe what operations supports custom sharding key:
+
+| CRUD method                      | Sharding key support       |
+| -------------------------------- | -------------------------- |
+| `get()`                          | Yes                        |
+| `insert()` / `insert_object()`   | Yes                        |
+| `delete()`                       | Yes                        |
+| `replace()` / `replace_object()` | Yes                        |
+| `upsert()` / `upsert_object()`   | Yes                        |
+| `select()` / `pairs()`           | Yes                        |
+| `update()`                       | Yes                        |
+| `upsert()` / `upsert_object()`   | Yes                        |
+| `replace() / replace_object()`   | Yes                        |
+| `min()` / `max()`                | No (not required)          |
+| `cut_rows()` / `cut_objects()`   | No (not required)          |
+| `truncate()`                     | No (not required)          |
+| `len()`                          | No (not required)          |
+
+Current limitations for using custom sharding key:
+
+- It's not possible to update sharding keys automatically when schema is
+updated on storages, see [#212](https://github.com/tarantool/crud/issues/212).
+However it is possible to do it manually with
+`sharding_key.update_sharding_keys_cache()`.
+- CRUD select may lead map reduce in some cases, see
+[#213](https://github.com/tarantool/crud/issues/213).
+- No support of JSON path for sharding key, see
+[#219](https://github.com/tarantool/crud/issues/219).
 
 ### Insert
 

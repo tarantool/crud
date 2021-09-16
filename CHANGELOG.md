@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * `crud.len()` function to calculate the number of tuples
   in the space for memtx engine and calculate the maximum
   approximate number of tuples in the space for vinyl engine.
+* CRUD operations calculates bucket id automatically using sharding
+  key specified with DDL schema or in `_ddl_sharding_key` space.
+  NOTE: CRUD methods delete(), get() and update() requires that sharding key
+  must be a part of primary key.
 
 ## [0.8.0] - 02-07-21
 
