@@ -44,6 +44,5 @@ g.test_insert = function()
     ]])
 
     t.assert_equals(results, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
-    t.assert_str_contains(err.err, "crud isn't initialized on replicaset")
+    t.assert_str_contains(err.err, "Procedure '_crud.fetch_on_storage' is not defined", true)
 end

@@ -4,6 +4,7 @@ local errors = require('errors')
 local BucketIDError = errors.new_class("BucketIDError", {capture_stack = false})
 
 local utils = require('crud.common.utils')
+local sharding_key_module = require('crud.common.sharding_key')
 
 local sharding = {}
 
@@ -20,7 +21,16 @@ function sharding.tuple_get_bucket_id(tuple, space, specified_bucket_id)
         return specified_bucket_id
     end
 
-    local key = utils.extract_key(tuple, space.index[0].parts)
+    local sharding_index_parts = space.index[0].parts
+    local sharding_key_as_index_obj, err = sharding_key_module.fetch_on_router(space.name)
+    if err ~= nil then
+        return nil, err
+    end
+    if sharding_key_as_index_obj ~= nil then
+        sharding_index_parts = sharding_key_as_index_obj.parts
+    end
+    local key = utils.extract_key(tuple, sharding_index_parts)
+
     return sharding.key_get_bucket_id(key)
 end
 
@@ -44,7 +54,10 @@ function sharding.tuple_set_and_return_bucket_id(tuple, space, specified_bucket_
     end
 
     if tuple[bucket_id_fieldno] == nil then
-        tuple[bucket_id_fieldno] = sharding.tuple_get_bucket_id(tuple, space)
+        tuple[bucket_id_fieldno], err = sharding.tuple_get_bucket_id(tuple, space)
+        if err ~= nil then
+            return nil, err
+        end
     end
 
     local bucket_id = tuple[bucket_id_fieldno]
