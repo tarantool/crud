@@ -126,6 +126,7 @@ function select_plan.new(space, conditions, opts)
         after_tuple = '?table|cdata',
         field_names = '?table',
         force_map_call = '?boolean',
+        sharding_key_as_index_obj = '?table',
     })
 
     conditions = conditions ~= nil and conditions or {}
@@ -226,7 +227,7 @@ function select_plan.new(space, conditions, opts)
         end
     end
 
-    local sharding_index = primary_index -- XXX: only sharding by primary key is supported
+    local sharding_index = opts.sharding_key_as_index_obj or primary_index
 
     -- get sharding key value
     local sharding_key
