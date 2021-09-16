@@ -152,6 +152,11 @@ function sharding_key_module.fetch_on_router(space_name, timeout)
         "Fetching sharding key for space '%s' is failed", space_name)
 end
 
+function sharding_key_module.update_cache(space_name)
+    cache.drop_caches()
+    return sharding_key_module.fetch_on_router(space_name)
+end
+
 -- Make sure sharding key definition is a part of primary key.
 local function is_part_of_pk(space_name, primary_index_parts, sharding_key_as_index_obj)
     dev_checks('string', 'table', 'table')
