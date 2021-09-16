@@ -323,4 +323,13 @@ function helpers.tarantool_version_at_least(wanted_major, wanted_minor,
     return true
 end
 
+function helpers.update_cache(cluster, space_name)
+    return cluster.main_server.net_box:eval([[
+        local sharding_key = require('crud.common.sharding_key')
+
+        local space_name = ...
+        return sharding_key.update_cache(space_name)
+    ]], {space_name})
+end
+
 return helpers
