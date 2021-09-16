@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+* CRUD operations calculates bucket id automatically using sharding
+  key specified with DDL schema or in `_ddl_sharding_key` space.
+  NOTE: CRUD methods delete(), get() and update() requires that sharding key
+  must be a part of primary key.
+
 ### Changed
 
 ### Fixed
