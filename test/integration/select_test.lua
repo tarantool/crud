@@ -7,11 +7,12 @@ local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
 
-local pgroup = helpers.pgroup.new('select', {
-    engine = {'memtx', 'vinyl'},
+local pgroup = t.group('select', {
+    {engine = 'memtx'},
+    {engine = 'vinyl'},
 })
 
-pgroup:set_before_all(function(g)
+pgroup.before_all(function(g)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_select'),
@@ -27,16 +28,16 @@ pgroup:set_before_all(function(g)
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
 end)
 
-pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
-pgroup:set_before_each(function(g)
+pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
     helpers.truncate_space_on_cluster(g.cluster, 'developers')
     helpers.truncate_space_on_cluster(g.cluster, 'cars')
 end)
 
 
-pgroup:add('test_non_existent_space', function(g)
+pgroup.test_non_existent_space = function(g)
     -- insert
     local obj, err = g.cluster.main_server.net_box:call(
        'crud.select', {'non_existent_space'}
@@ -44,9 +45,9 @@ pgroup:add('test_non_existent_space', function(g)
 
     t.assert_equals(obj, nil)
     t.assert_str_contains(err.err, "Space \"non_existent_space\" doesn't exist")
-end)
+end
 
-pgroup:add('test_not_valid_value_type', function(g)
+pgroup.test_not_valid_value_type = function(g)
     local conditions = {
         {'=', 'id', 'not_number'}
     }
@@ -61,9 +62,9 @@ pgroup:add('test_not_valid_value_type', function(g)
 
     t.assert_equals(obj, nil)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type: expected unsigned")
-end)
+end
 
-pgroup:add('test_select_all', function(g)
+pgroup.test_select_all = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -122,9 +123,9 @@ pgroup:add('test_select_all', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(#objects, 0)
-end)
+end
 
-pgroup:add('test_select_all_with_first', function(g)
+pgroup.test_select_all_with_first = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -158,9 +159,9 @@ pgroup:add('test_select_all_with_first', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(#objects, 0)
-end)
+end
 
-pgroup:add('test_negative_first', function(g)
+pgroup.test_negative_first = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -257,9 +258,9 @@ pgroup:add('test_negative_first', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {6}))
-end)
+end
 
-pgroup:add('test_negative_first_with_batch_size', function(g)
+pgroup.test_negative_first_with_batch_size = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -368,9 +369,9 @@ pgroup:add('test_negative_first_with_batch_size', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {6}))
-end)
+end
 
-pgroup:add('test_select_all_with_batch_size', function(g)
+pgroup.test_select_all_with_batch_size = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -421,9 +422,9 @@ pgroup:add('test_select_all_with_batch_size', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1, 2, 3, 4, 5, 6}))
-end)
+end
 
-pgroup:add('test_select_by_primary_index', function(g)
+pgroup.test_select_by_primary_index = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -452,9 +453,9 @@ pgroup:add('test_select_by_primary_index', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3}))
-end)
+end
 
-pgroup:add('test_eq_condition_with_index', function(g)
+pgroup.test_eq_condition_with_index = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -500,9 +501,9 @@ pgroup:add('test_eq_condition_with_index', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {5, 7})) -- in id order
-end)
+end
 
-pgroup:add('test_ge_condition_with_index', function(g)
+pgroup.test_ge_condition_with_index = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -539,9 +540,9 @@ pgroup:add('test_ge_condition_with_index', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 4})) -- in age order
-end)
+end
 
-pgroup:add('test_le_condition_with_index',function(g)
+pgroup.test_le_condition_with_index = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -578,9 +579,9 @@ pgroup:add('test_le_condition_with_index',function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1})) -- in age order
-end)
+end
 
-pgroup:add('test_lt_condition_with_index', function(g)
+pgroup.test_lt_condition_with_index = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -617,9 +618,9 @@ pgroup:add('test_lt_condition_with_index', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {})) -- in age order
-end)
+end
 
-pgroup:add('test_multiple_conditions', function(g)
+pgroup.test_multiple_conditions = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Rodriguez",
@@ -661,9 +662,9 @@ pgroup:add('test_multiple_conditions', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2})) -- in age order
-end)
+end
 
-pgroup:add('test_composite_index', function(g)
+pgroup.test_composite_index = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Rodriguez",
@@ -724,9 +725,9 @@ pgroup:add('test_composite_index', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2})) -- in full_name order
-end)
+end
 
-pgroup:add('test_composite_primary_index', function(g)
+pgroup.test_composite_primary_index = function(g)
     local book_translation = helpers.insert_objects(g, 'book_translation', {
         {
             id = 5,
@@ -756,9 +757,9 @@ pgroup:add('test_composite_primary_index', function(g)
             {'book_translation', conditions, {first = 1, after = result.rows[1]}})
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
-end)
+end
 
-pgroup:add('test_select_with_batch_size_1', function(g)
+pgroup.test_select_with_batch_size_1 = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -820,9 +821,9 @@ pgroup:add('test_select_with_batch_size_1', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {8, 2, 4}))
-end)
+end
 
-pgroup:add('test_select_by_full_sharding_key', function(g)
+pgroup.test_select_by_full_sharding_key = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -844,9 +845,9 @@ pgroup:add('test_select_by_full_sharding_key', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3}))
-end)
+end
 
-pgroup:add('test_select_with_collations', function(g)
+pgroup.test_select_with_collations = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -886,9 +887,9 @@ pgroup:add('test_select_with_collations', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 4}))
-end)
+end
 
-pgroup:add('test_multipart_primary_index', function(g)
+pgroup.test_multipart_primary_index = function(g)
     local coords = helpers.insert_objects(g, 'coord', {
         { x = 0, y = 0 }, -- 1
         { x = 0, y = 1 }, -- 2
@@ -945,9 +946,9 @@ pgroup:add('test_multipart_primary_index', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {1, 2}))
-end)
+end
 
-pgroup:add('test_select_partial_result_bad_input', function(g)
+pgroup.test_select_partial_result_bad_input = function(g)
     helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -971,9 +972,9 @@ pgroup:add('test_select_partial_result_bad_input', function(g)
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Space format doesn\'t contain field named "mame"')
-end)
+end
 
-pgroup:add('test_select_partial_result', function(g)
+pgroup.test_select_partial_result = function(g)
     helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -1127,9 +1128,9 @@ pgroup:add('test_select_partial_result', function(g)
     t.assert_equals(err, nil)
     objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, expected_customers)
-end)
+end
 
-pgroup:add('test_cut_selected_rows', function(g)
+pgroup.test_cut_selected_rows = function(g)
     helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -1193,9 +1194,9 @@ pgroup:add('test_cut_selected_rows', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, expected_customers)
-end)
+end
 
-pgroup:add('test_select_force_map_call', function(g)
+pgroup.test_select_force_map_call = function(g)
     local key = 1
 
     local first_bucket_id = g.cluster.main_server.net_box:eval([[
@@ -1237,9 +1238,9 @@ pgroup:add('test_select_force_map_call', function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     table.sort(objects, function(obj1, obj2) return obj1.bucket_id < obj2.bucket_id end)
     t.assert_equals(objects, customers)
-end)
+end
 
-pgroup:add('test_jsonpath', function(g)
+pgroup.test_jsonpath = function(g)
     helpers.insert_objects(g, 'developers', {
         {
             id = 1, name = "Alexey", last_name = "Smith",
@@ -1291,9 +1292,9 @@ pgroup:add('test_jsonpath', function(g)
         {id = 2, name = "Sergey", last_name = "Choppa"},
     }
     t.assert_equals(objects, expected_objects)
-end)
+end
 
-pgroup:add('test_jsonpath_index_field', function(g)
+pgroup.test_jsonpath_index_field = function(g)
     t.skip_if(
         not crud_utils.tarantool_supports_jsonpath_indexes(),
         "Jsonpath indexes supported since 2.6.3/2.7.2/2.8.1"
@@ -1378,9 +1379,9 @@ pgroup:add('test_jsonpath_index_field', function(g)
     }}
 
     t.assert_equals(objects, expected_objects)
-end)
+end
 
-pgroup:add('test_jsonpath_index_field_pagination', function(g)
+pgroup.test_jsonpath_index_field_pagination = function(g)
     t.skip_if(
         not crud_utils.tarantool_supports_jsonpath_indexes(),
         "Jsonpath indexes supported since 2.6.3/2.7.2/2.8.1"
@@ -1506,4 +1507,4 @@ pgroup:add('test_jsonpath_index_field_pagination', function(g)
 
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(cars, {2, 3}))
-end)
+end

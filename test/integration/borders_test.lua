@@ -6,11 +6,12 @@ local crud = require('crud')
 
 local helpers = require('test.helper')
 
-local pgroup = helpers.pgroup.new('borders', {
-    engine = {'memtx', 'vinyl'},
+local pgroup = t.group('borders', {
+    {engine = 'memtx'},
+    {engine = 'vinyl'},
 })
 
-pgroup:set_before_all(function(g)
+pgroup.before_all(function(g)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_select'),
@@ -26,14 +27,14 @@ pgroup:set_before_all(function(g)
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
 end)
 
-pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
-pgroup:set_before_each(function(g)
+pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
 end)
 
 
-pgroup:add('test_non_existent_space', function(g)
+pgroup.test_non_existent_space = function(g)
     -- min
     local result, err = g.cluster.main_server.net_box:call(
        'crud.min', {'non_existent_space'}
@@ -49,9 +50,9 @@ pgroup:add('test_non_existent_space', function(g)
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Space \"non_existent_space\" doesn't exist")
-end)
+end
 
-pgroup:add('test_non_existent_index', function(g)
+pgroup.test_non_existent_index = function(g)
     -- min
     local result, err = g.cluster.main_server.net_box:call(
        'crud.min', {'customers', 'non_existent_index'}
@@ -81,9 +82,9 @@ pgroup:add('test_non_existent_index', function(g)
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Index \"13\" of space \"customers\" doesn't exist")
-end)
+end
 
-pgroup:add('test_empty_space', function(g)
+pgroup.test_empty_space = function(g)
     -- min
     local result, err = g.cluster.main_server.net_box:call(
        'crud.min', {'customers'}
@@ -115,9 +116,9 @@ pgroup:add('test_empty_space', function(g)
 
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
-end)
+end
 
-pgroup:add('test_min', function(g)
+pgroup.test_min = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -195,9 +196,9 @@ pgroup:add('test_min', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {{name = "David", last_name = "Smith"}})
-end)
+end
 
-pgroup:add('test_max', function(g)
+pgroup.test_max = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -275,9 +276,9 @@ pgroup:add('test_max', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {{name = "William", last_name = "White"}})
-end)
+end
 
-pgroup:add('test_equal_secondary_keys', function(g)
+pgroup.test_equal_secondary_keys = function(g)
     local bucket_id = 1
     local other_bucket_id, err = helpers.get_other_storage_bucket_id(g.cluster, bucket_id)
     t.assert_not_equals(other_bucket_id, nil, err)
@@ -309,4 +310,4 @@ pgroup:add('test_equal_secondary_keys', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2}))
-end)
+end

@@ -8,11 +8,12 @@ local fiber = require('fiber')
 local crud = require('crud')
 local crud_utils = require('crud.common.utils')
 
-local pgroup = helpers.pgroup.new('updated_schema', {
-    engine = {'memtx', 'vinyl'},
+local pgroup = t.group('updated_schema', {
+    {engine = 'memtx'},
+    {engine = 'vinyl'},
 })
 
-pgroup:set_before_all(function(g)
+pgroup.before_all(function(g)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_update_schema'),
@@ -26,9 +27,9 @@ pgroup:set_before_all(function(g)
     g.cluster:start()
 end)
 
-pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
-pgroup:set_before_each(function(g)
+pgroup.before_each(function(g)
     helpers.drop_space_on_cluster(g.cluster, 'customers')
     -- force schema update on router
     g.cluster.main_server.net_box:eval([[
@@ -47,7 +48,7 @@ pgroup:set_before_each(function(g)
     ]])
 end)
 
-pgroup:add('test_insert_non_existent_space', function(g)
+pgroup.test_insert_non_existent_space = function(g)
     -- non-existent space err
     local obj, err = g.cluster.main_server.net_box:call(
        'crud.insert', {'customers', {11, nil, 'XXX'}}
@@ -70,9 +71,9 @@ pgroup:add('test_insert_non_existent_space', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_insert_object_non_existent_space', function(g)
+pgroup.test_insert_object_non_existent_space = function(g)
     -- non-existent space err
     local obj, err = g.cluster.main_server.net_box:call(
        'crud.insert_object', {'customers', {id = 11, value = 'XXX'}}
@@ -95,9 +96,9 @@ pgroup:add('test_insert_object_non_existent_space', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_get_non_existent_space', function(g)
+pgroup.test_get_non_existent_space = function(g)
     -- non-existent space err
     local obj, err = g.cluster.main_server.net_box:call(
        'crud.get', {'customers', 1}
@@ -120,9 +121,9 @@ pgroup:add('test_get_non_existent_space', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_delete_non_existent_space', function(g)
+pgroup.test_delete_non_existent_space = function(g)
     -- non-existent space err
     local obj, err = g.cluster.main_server.net_box:call(
        'crud.delete', {'customers', 11}
@@ -145,9 +146,9 @@ pgroup:add('test_delete_non_existent_space', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_update_non_existent_space', function(g)
+pgroup.test_update_non_existent_space = function(g)
     -- non-existent space err
     local obj, err = g.cluster.main_server.net_box:call(
        'crud.update', {'customers', 11, {{'=', 'value', 'YYY'}}}
@@ -177,9 +178,9 @@ pgroup:add('test_update_non_existent_space', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_replace_non_existent_space', function(g)
+pgroup.test_replace_non_existent_space = function(g)
     -- non-existent space err
     local obj, err = g.cluster.main_server.net_box:call(
         'crud.replace', {'customers', {11, nil, 'XXX'}}
@@ -202,9 +203,9 @@ pgroup:add('test_replace_non_existent_space', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_replace_object_non_existent_space', function(g)
+pgroup.test_replace_object_non_existent_space = function(g)
     -- non-existent space err
     local obj, err = g.cluster.main_server.net_box:call(
         'crud.replace_object', {'customers', {id = 11, value = 'XXX'}}
@@ -227,9 +228,9 @@ pgroup:add('test_replace_object_non_existent_space', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_upsert_non_existent_space', function(g)
+pgroup.test_upsert_non_existent_space = function(g)
     -- non-existent space err
     local obj, err = g.cluster.main_server.net_box:call(
         'crud.upsert', {'customers', {11, nil, 'XXX'}, {{'=', 'value', 'YYY'}}}
@@ -252,9 +253,9 @@ pgroup:add('test_upsert_non_existent_space', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_upsert_object_non_existent_space', function(g)
+pgroup.test_upsert_object_non_existent_space = function(g)
     -- non-existent space err
     local obj, err = g.cluster.main_server.net_box:call(
         'crud.upsert_object', {'customers', {id = 11, value = 'XXX'}, {{'=', 'value', 'YYY'}}}
@@ -277,9 +278,9 @@ pgroup:add('test_upsert_object_non_existent_space', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_select_non_existent_space', function(g)
+pgroup.test_select_non_existent_space = function(g)
     -- non-existent space err
     local obj, err = g.cluster.main_server.net_box:call(
         'crud.select', {'customers'}
@@ -302,9 +303,9 @@ pgroup:add('test_select_non_existent_space', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_borders_non_existent_space', function(g)
+pgroup.test_borders_non_existent_space = function(g)
     for _, border_func_name in ipairs({'crud.max', 'crud.min'}) do
         -- non-existent space err
         local obj, err = g.cluster.main_server.net_box:call(
@@ -331,9 +332,9 @@ pgroup:add('test_borders_non_existent_space', function(g)
         t.assert_is_not(obj, nil)
         t.assert_equals(err, nil)
     end
-end)
+end
 
-pgroup:add('test_insert_no_bucket_id_index', function(g)
+pgroup.test_insert_no_bucket_id_index = function(g)
     -- create space w/o bucket_id index
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('create_space')
@@ -360,9 +361,9 @@ pgroup:add('test_insert_no_bucket_id_index', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_replace_no_bucket_id_index', function(g)
+pgroup.test_replace_no_bucket_id_index = function(g)
     -- create space w/o bucket_id index
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('create_space')
@@ -389,9 +390,9 @@ pgroup:add('test_replace_no_bucket_id_index', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_upsert_no_bucket_id_index', function(g)
+pgroup.test_upsert_no_bucket_id_index = function(g)
     -- create space w/o bucket_id index
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('create_space')
@@ -418,9 +419,9 @@ pgroup:add('test_upsert_no_bucket_id_index', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_insert_field_type_changed', function(g)
+pgroup.test_insert_field_type_changed = function(g)
     -- create space w/ bucket_id index
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('create_space')
@@ -449,9 +450,9 @@ pgroup:add('test_insert_field_type_changed', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_replace_field_type_changed', function(g)
+pgroup.test_replace_field_type_changed = function(g)
     -- create space w/ bucket_id index
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('create_space')
@@ -480,9 +481,9 @@ pgroup:add('test_replace_field_type_changed', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_upsert_field_type_changed', function(g)
+pgroup.test_upsert_field_type_changed = function(g)
     -- create space w/ bucket_id index
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('create_space')
@@ -511,9 +512,9 @@ pgroup:add('test_upsert_field_type_changed', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_update_field_added', function(g)
+pgroup.test_update_field_added = function(g)
     -- create space w/ bucket_id index and insert tuple
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('create_space')
@@ -552,9 +553,9 @@ pgroup:add('test_update_field_added', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_upsert_field_added', function(g)
+pgroup.test_upsert_field_added = function(g)
     -- create space w/ bucket_id index and insert tuple
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('create_space')
@@ -587,9 +588,9 @@ pgroup:add('test_upsert_field_added', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_select_field_added', function(g)
+pgroup.test_select_field_added = function(g)
     -- create space w/ bucket_id index and insert tuple
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('create_space')
@@ -616,9 +617,9 @@ pgroup:add('test_select_field_added', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_insert_object_field_type_changed', function(g)
+pgroup.test_insert_object_field_type_changed = function(g)
     -- create space w/ bucket_id index
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('create_space')
@@ -647,9 +648,9 @@ pgroup:add('test_insert_object_field_type_changed', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_replace_object_field_type_changed', function(g)
+pgroup.test_replace_object_field_type_changed = function(g)
     -- create space w/ bucket_id index
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('create_space')
@@ -678,9 +679,9 @@ pgroup:add('test_replace_object_field_type_changed', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_upsert_object_field_type_changed', function(g)
+pgroup.test_upsert_object_field_type_changed = function(g)
     -- create space w/ bucket_id index
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('create_space')
@@ -709,9 +710,9 @@ pgroup:add('test_upsert_object_field_type_changed', function(g)
 
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup:add('test_borders_value_index_added', function(g)
+pgroup.test_borders_value_index_added = function(g)
     -- create space w/ bucket_id index
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('create_space')
@@ -743,9 +744,9 @@ pgroup:add('test_borders_value_index_added', function(g)
         t.assert_is_not(obj, nil)
         t.assert_equals(err, nil)
     end
-end)
+end
 
-pgroup:add('test_alter_index_parts', function(g)
+pgroup.test_alter_index_parts = function(g)
     -- create space w/ bucket_id index
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('create_space')
@@ -793,4 +794,4 @@ pgroup:add('test_alter_index_parts', function(g)
         t.assert_equals(objects[i + 1].number, 9 - i)
         t.assert_equals(objects[i + 1].value, tostring(i))
     end
-end)
+end

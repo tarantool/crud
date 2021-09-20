@@ -6,11 +6,12 @@ local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
 
-local pgroup = helpers.pgroup.new('pairs', {
-    engine = {'memtx', 'vinyl'},
+local pgroup = t.group('pairs', {
+    {engine = 'memtx'},
+    {engine = 'vinyl'},
 })
 
-pgroup:set_before_all(function(g)
+pgroup.before_all(function(g)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_select'),
@@ -26,14 +27,14 @@ pgroup:set_before_all(function(g)
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
 end)
 
-pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
-pgroup:set_before_each(function(g)
+pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
 end)
 
 
-pgroup:add('test_pairs_no_conditions', function(g)
+pgroup.test_pairs_no_conditions = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -134,9 +135,9 @@ pgroup:add('test_pairs_no_conditions', function(g)
 
     t.assert_equals(err, nil)
     t.assert_equals(#objects, 0)
-end)
+end
 
-pgroup:add('test_ge_condition_with_index', function(g)
+pgroup.test_ge_condition_with_index = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -193,9 +194,9 @@ pgroup:add('test_ge_condition_with_index', function(g)
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 4})) -- in age order
-end)
+end
 
-pgroup:add('test_le_condition_with_index', function(g)
+pgroup.test_le_condition_with_index = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -252,9 +253,9 @@ pgroup:add('test_le_condition_with_index', function(g)
 
     t.assert_equals(err, nil)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1})) -- in age order
-end)
+end
 
-pgroup:add('test_first', function(g)
+pgroup.test_first = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -295,9 +296,9 @@ pgroup:add('test_first', function(g)
         {1, 477, 'Elizabeth', 'Jackson', 12, 'New York'},
         {2, 401, 'Mary', 'Brown', 46, 'Los Angeles'},
     })
-end)
+end
 
-pgroup:add('test_negative_first', function(g)
+pgroup.test_negative_first = function(g)
     local customers = helpers.insert_objects(g, 'customers',{
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -320,9 +321,9 @@ pgroup:add('test_negative_first', function(g)
             crud.pairs('customers', nil, {first = -10})
         ]])
     end)
-end)
+end
 
-pgroup:add('test_empty_space', function(g)
+pgroup.test_empty_space = function(g)
     local count = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         local count = 0
@@ -332,9 +333,9 @@ pgroup:add('test_empty_space', function(g)
         return count
     ]])
     t.assert_equals(count, 0)
-end)
+end
 
-pgroup:add('test_luafun_compatibility', function(g)
+pgroup.test_luafun_compatibility = function(g)
     helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -361,9 +362,9 @@ pgroup:add('test_luafun_compatibility', function(g)
         return count
     ]])
     t.assert_equals(count, 3)
-end)
+end
 
-pgroup:add('test_pairs_partial_result', function(g)
+pgroup.test_pairs_partial_result = function(g)
     helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -585,9 +586,9 @@ pgroup:add('test_pairs_partial_result', function(g)
         return objects
     ]], {conditions, fields})
     t.assert_equals(objects, expected_customers)
-end)
+end
 
-pgroup:add('test_pairs_cut_result', function(g)
+pgroup.test_pairs_cut_result = function(g)
     helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -653,9 +654,9 @@ pgroup:add('test_pairs_cut_result', function(g)
     ]], {conditions, fields})
      t.assert_equals(tuples.metadata, nil)
     t.assert_equals(tuples.rows, expected_customers)
-end)
+end
 
-pgroup:add('test_pairs_force_map_call', function(g)
+pgroup.test_pairs_force_map_call = function(g)
     local key = 1
 
     local first_bucket_id = g.cluster.main_server.net_box:eval([[
@@ -713,4 +714,4 @@ pgroup:add('test_pairs_force_map_call', function(g)
     ]], {conditions})
     table.sort(objects, function(obj1, obj2) return obj1.bucket_id < obj2.bucket_id end)
     t.assert_equals(objects, customers)
-end)
+end
