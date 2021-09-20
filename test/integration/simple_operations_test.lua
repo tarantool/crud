@@ -5,11 +5,12 @@ local crud = require('crud')
 
 local helpers = require('test.helper')
 
-local pgroup = helpers.pgroup.new('simple_operations', {
-    engine = {'memtx', 'vinyl'},
+local pgroup = t.group('simple_operations', {
+    {engine = 'memtx'},
+    {engine = 'vinyl'},
 })
 
-pgroup:set_before_all(function(g)
+pgroup.before_all(function(g)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_simple_operations'),
@@ -23,14 +24,14 @@ pgroup:set_before_all(function(g)
     g.cluster:start()
 end)
 
-pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
-pgroup:set_before_each(function(g)
+pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
     helpers.truncate_space_on_cluster(g.cluster, 'tags')
 end)
 
-pgroup:add('test_non_existent_space', function(g)
+pgroup.test_non_existent_space = function(g)
     local result, err = g.cluster.main_server.net_box:call(
         'crud.insert', {'non_existent_space', {0, box.NULL, 'Fedor', 59}})
 
@@ -90,9 +91,9 @@ pgroup:add('test_non_existent_space', function(g)
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
-end)
+end
 
-pgroup:add('test_insert_object_get', function(g)
+pgroup.test_insert_object_get = function(g)
     -- insert_object
     local result, err = g.cluster.main_server.net_box:call(
         'crud.insert_object', {'customers', {id = 1, name = 'Fedor', age = 59}})
@@ -128,9 +129,9 @@ pgroup:add('test_insert_object_get', function(g)
 
     t.assert_equals(obj, nil)
     t.assert_str_contains(err.err, "Field \"age\" isn't nullable")
-end)
+end
 
-pgroup:add('test_insert_get', function(g)
+pgroup.test_insert_get = function(g)
     -- insert
     local result, err = g.cluster.main_server.net_box:call(
         'crud.insert', {'customers', {2, box.NULL, 'Ivan', 20}})
@@ -165,9 +166,9 @@ pgroup:add('test_insert_get', function(g)
 
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
-end)
+end
 
-pgroup:add('test_update', function(g)
+pgroup.test_update = function(g)
     -- insert tuple
     local result, err = g.cluster.main_server.net_box:call(
         'crud.insert_object', {'customers', {id = 22, name = 'Leo', age = 72}})
@@ -222,9 +223,9 @@ pgroup:add('test_update', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {{id = 22, name = 'Leo', age = 72, bucket_id = 655}})
-end)
+end
 
-pgroup:add('test_delete', function(g)
+pgroup.test_delete = function(g)
     -- insert tuple
     local result, err = g.cluster.main_server.net_box:call(
         'crud.insert_object', {'customers', {id = 33, name = 'Mayakovsky', age = 36}})
@@ -261,9 +262,9 @@ pgroup:add('test_delete', function(g)
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type:")
-end)
+end
 
-pgroup:add('test_replace_object', function(g)
+pgroup.test_replace_object = function(g)
     -- get
     local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 44})
 
@@ -291,9 +292,9 @@ pgroup:add('test_replace_object', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {{id = 44, name = 'Jane Doe', age = 18, bucket_id = 2805}})
-end)
+end
 
-pgroup:add('test_replace', function(g)
+pgroup.test_replace = function(g)
     local result, err = g.cluster.main_server.net_box:call(
         'crud.replace', {'customers', {45, box.NULL, 'John Fedor', 99}})
 
@@ -312,9 +313,9 @@ pgroup:add('test_replace', function(g)
 
     t.assert_equals(err, nil)
     t.assert_equals(result.rows, {{45, 392, 'John Fedor', 100}})
-end)
+end
 
-pgroup:add('test_upsert_object', function(g)
+pgroup.test_upsert_object = function(g)
     -- upsert_object first time
     local result, err = g.cluster.main_server.net_box:call(
         'crud.upsert_object', {'customers', {id = 66, name = 'Jack Sparrow', age = 25}, {
@@ -354,9 +355,9 @@ pgroup:add('test_upsert_object', function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {{id = 66, name = 'Leo Tolstoy', age = 50, bucket_id = 486}})
-end)
+end
 
-pgroup:add('test_upsert', function(g)
+pgroup.test_upsert = function(g)
     -- upsert tuple first time
     local result, err = g.cluster.main_server.net_box:call(
        'crud.upsert', {'customers', {67, box.NULL, 'Saltykov-Shchedrin', 63}, {
@@ -391,9 +392,9 @@ pgroup:add('test_upsert', function(g)
 
     t.assert_equals(err, nil)
     t.assert_equals(result.rows, {{67, 1143, 'Mikhail Saltykov-Shchedrin', 63}})
-end)
+end
 
-pgroup:add('test_intermediate_nullable_fields_update', function(g)
+pgroup.test_intermediate_nullable_fields_update = function(g)
     local result, err = g.cluster.main_server.net_box:call(
         'crud.insert', {'developers', {1, box.NULL}})
     t.assert_equals(err, nil)
@@ -485,9 +486,9 @@ pgroup:add('test_intermediate_nullable_fields_update', function(g)
             extra_12 = 'extra_value_12'
         }
     })
-end)
+end
 
-pgroup:add('test_object_with_nullable_fields', function(g)
+pgroup.test_object_with_nullable_fields = function(g)
     -- Insert
     local result, err = g.cluster.main_server.net_box:call(
         'crud.insert_object', {'tags', {id = 1, is_green = true}})
@@ -595,9 +596,9 @@ pgroup:add('test_object_with_nullable_fields', function(g)
             is_yellow = box.NULL,
         }
     })
-end)
+end
 
-pgroup:add('test_get_partial_result', function(g)
+pgroup.test_get_partial_result = function(g)
     -- insert_object
     local result, err = g.cluster.main_server.net_box:call(
             'crud.insert_object', {
@@ -627,9 +628,9 @@ pgroup:add('test_get_partial_result', function(g)
         {name = 'name', type = 'string'},
     })
     t.assert_equals(result.rows, {{1, 'Elizabeth'}})
-end)
+end
 
-pgroup:add('test_insert_tuple_partial_result', function(g)
+pgroup.test_insert_tuple_partial_result = function(g)
     -- insert
     local result, err = g.cluster.main_server.net_box:call( 'crud.insert', {
         'customers', {1, box.NULL, 'Elizabeth', 24}, {fields = {'id', 'name'}}
@@ -641,9 +642,9 @@ pgroup:add('test_insert_tuple_partial_result', function(g)
         {name = 'name', type = 'string'},
     })
     t.assert_equals(result.rows, {{1, 'Elizabeth'}})
-end)
+end
 
-pgroup:add('test_insert_object_partial_result', function(g)
+pgroup.test_insert_object_partial_result = function(g)
     -- insert_object
     local result, err = g.cluster.main_server.net_box:call(
             'crud.insert_object', {
@@ -659,9 +660,9 @@ pgroup:add('test_insert_object_partial_result', function(g)
         {name = 'name', type = 'string'},
     })
     t.assert_equals(result.rows, {{1, 'Elizabeth'}})
-end)
+end
 
-pgroup:add('test_delete_partial_result', function(g)
+pgroup.test_delete_partial_result = function(g)
     -- insert_object
     local result, err = g.cluster.main_server.net_box:call(
             'crud.insert_object', {
@@ -699,9 +700,9 @@ pgroup:add('test_delete_partial_result', function(g)
     else
         t.assert_equals(#result.rows, 0)
     end
-end)
+end
 
-pgroup:add('test_update_partial_result', function(g)
+pgroup.test_update_partial_result = function(g)
     -- insert_object
     local result, err = g.cluster.main_server.net_box:call(
             'crud.insert_object', {
@@ -731,9 +732,9 @@ pgroup:add('test_update_partial_result', function(g)
         {name = 'age', type = 'number'},
     })
     t.assert_equals(result.rows, {{1, 24}})
-end)
+end
 
-pgroup:add('test_replace_tuple_partial_result', function(g)
+pgroup.test_replace_tuple_partial_result = function(g)
     local result, err = g.cluster.main_server.net_box:call(
             'crud.replace', {
                 'customers',
@@ -764,9 +765,9 @@ pgroup:add('test_replace_tuple_partial_result', function(g)
         {name = 'age', type = 'number'},
     })
     t.assert_equals(result.rows, {{1, 24}})
-end)
+end
 
-pgroup:add('test_replace_object_partial_result', function(g)
+pgroup.test_replace_object_partial_result = function(g)
     -- get
     local result, err = g.cluster.main_server.net_box:call('crud.get', {
         'customers', 1
@@ -814,9 +815,9 @@ pgroup:add('test_replace_object_partial_result', function(g)
     })
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {{id = 1, age = 24}})
-end)
+end
 
-pgroup:add('test_upsert_tuple_partial_result', function(g)
+pgroup.test_upsert_tuple_partial_result = function(g)
     -- upsert tuple first time
     local result, err = g.cluster.main_server.net_box:call('crud.upsert', {
         'customers',
@@ -846,9 +847,9 @@ pgroup:add('test_upsert_tuple_partial_result', function(g)
         {name = 'id', type = 'unsigned'},
         {name = 'age', type = 'number'},
     })
-end)
+end
 
-pgroup:add('test_upsert_object_partial_result', function(g)
+pgroup.test_upsert_object_partial_result = function(g)
     -- upsert_object first time
     local result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
             'customers',
@@ -878,9 +879,9 @@ pgroup:add('test_upsert_object_partial_result', function(g)
         {name = 'id', type = 'unsigned'},
         {name = 'age', type = 'number'},
     })
-end)
+end
 
-pgroup:add('test_partial_result_with_nullable_fields', function(g)
+pgroup.test_partial_result_with_nullable_fields = function(g)
     -- Insert
     local result, err = g.cluster.main_server.net_box:call(
             'crud.insert_object', {'tags', {id = 1, is_green = true}})
@@ -917,9 +918,9 @@ pgroup:add('test_partial_result_with_nullable_fields', function(g)
     })
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {{id = 1, is_sweet = box.NULL, is_green = true}})
-end)
+end
 
-pgroup:add('test_partial_result_bad_input', function(g)
+pgroup.test_partial_result_bad_input = function(g)
     -- insert_object
     local result, err = g.cluster.main_server.net_box:call(
             'crud.insert_object', {
@@ -1005,5 +1006,4 @@ pgroup:add('test_partial_result_bad_input', function(g)
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Space format doesn\'t contain field named "lastname"')
-end)
-
+end

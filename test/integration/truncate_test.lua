@@ -4,11 +4,12 @@ local t = require('luatest')
 
 local helpers = require('test.helper')
 
-local pgroup = helpers.pgroup.new('truncate', {
-    engine = {'memtx', 'vinyl'},
+local pgroup = t.group('truncate', {
+    {engine = 'memtx'},
+    {engine = 'vinyl'},
 })
 
-pgroup:set_before_all(function(g)
+pgroup.before_all(function(g)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_select'),
@@ -24,14 +25,14 @@ pgroup:set_before_all(function(g)
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
 end)
 
-pgroup:set_after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
-pgroup:set_before_each(function(g)
+pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
 end)
 
 
-pgroup:add('test_non_existent_space', function(g)
+pgroup.test_non_existent_space = function(g)
     -- insert
     local obj, err = g.cluster.main_server.net_box:call(
        'crud.truncate', {'non_existent_space'}
@@ -39,9 +40,9 @@ pgroup:add('test_non_existent_space', function(g)
 
     t.assert_equals(obj, nil)
     t.assert_str_contains(err.err, "Space \"non_existent_space\" doesn't exist")
-end)
+end
 
-pgroup:add('test_truncate', function(g)
+pgroup.test_truncate = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -71,4 +72,4 @@ pgroup:add('test_truncate', function(g)
     local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil})
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
-end)
+end

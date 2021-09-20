@@ -15,9 +15,6 @@ end
 
 local helpers = {}
 
-local pgroup = require('test.pgroup')
-helpers.pgroup = pgroup
-
 local ok, cartridge_helpers = pcall(require, 'cartridge.test-helpers')
 if not ok then
     log.error('Please, install cartridge rock to run tests')
