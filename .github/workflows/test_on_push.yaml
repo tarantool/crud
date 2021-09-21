@@ -56,7 +56,9 @@ jobs:
     if: github.event_name == 'push'
     strategy:
       matrix:
-        bundle_version: [ "1.10.11-0-gf0b0e7ecf-r422", "2.7.3-0-gdddf926c3-r422" ]
+        # We need 1.10.6 here to check that module works with
+        # old Tarantool versions that don't have "tuple-keydef"/"tuple-merger" support.
+        bundle_version: [ "1.10.6-1-g52c786b", "1.10.10-0-gaea7ae77a-r399", "2.7.2-0-g4d8c06890-r399" ]
       fail-fast: false
     runs-on: [ ubuntu-latest ]
     steps:
