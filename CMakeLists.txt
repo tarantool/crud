@@ -51,6 +51,9 @@ else()
 endif()
 
 add_custom_target(coveralls
+  # Replace absolute paths with relative ones.
+  # In command line: sed -i -e 's@'"$(realpath .)"'/@@'.
+  COMMAND sed -i -e "\"s@\"'${PROJECT_SOURCE_DIR}'\"/@@\"" ${CODE_COVERAGE_STATS}
   COMMAND ${COVERALLS_COMMAND}
   DEPENDS ${CODE_COVERAGE_STATS}
   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
