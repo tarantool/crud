@@ -6,3 +6,5 @@ myapp/
 .tarantool.cookie
 CMakeCache.txt
 CMakeFiles/
+luacov.report.out
+luacov.stats.out
