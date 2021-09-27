@@ -20,14 +20,14 @@ Please consult with a list below to choose a Tarantool version compatible with
 CRUD module before use:
 
 - 1.10: since 1.10.7-91 with limited merger <sup>1</sup> and
-  keydef<sup>2</sup> modules support, without UUID keys comparison, Jsonpath
+  keydef<sup>2</sup> modules support, without UUID keys comparison, JSON path
   indexes, JSON path updates and limited support of absent nullable fields.
 - 2.2: since 2.2.0-268 with limited merger module support, without UUID keys
-  comparison, Jsonpath indexes, JSON path updates and limited support of absent
+  comparison, JSON path indexes, JSON path updates and limited support of absent
   nullable fields.
-- 2.3: since 2.3.2-99 without UUID keys comparison, Jsonpath indexes and
+- 2.3: since 2.3.2-99 without UUID keys comparison, JSON path indexes and
   limited support of absent nullable fields.
-- 2.5: since 2.5.0-275 with key_def and merger modules and without Jsonpath
+- 2.5: since 2.5.0-275 with key_def and merger modules and without JSON path
   indexes and limited support of absent nullable fields.
 - 2.6: since 2.6.2-99 with limited support of absent nullable fields.
 - 2.7: since 2.7.1-102 with limited support of absent nullable fields.
@@ -38,8 +38,6 @@ CRUD module before use:
 
 <details>
   <summary>Support of features used by CRUD in Tarantool versions</summary>
-
----
 
 For more information see the table below that describes Tarantool's versions
 and features for what CRUD module depends on.
