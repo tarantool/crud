@@ -58,24 +58,26 @@ CRUD module before use:
 1. Differences from the built-in merger module - https://github.com/tarantool/tuple-merger#backward-and-forward-compatibility-guarantees
 2. Differences from the built-in key_def module - https://github.com/tarantool/tuple-keydef#differences-from-the-built-in-module
 
-For more information see the table below that describes Tarantool's versions
-and features for what CRUD module depends on.
-
 <details>
   <summary>Support of features used by CRUD in Tarantool versions</summary>
 
+---
+
+For more information see the table below that describes Tarantool's versions
+and features for what CRUD module depends on.
+
 | Branch | merger                  | tuple-merger | key_def      | tuple-keydef | UUID         | JSON paths  | JSON path updates | abs. nullable fields  |
 |--------|-------------------------|--------------|--------------|--------------|--------------|-------------|-------------------|-----------------------|
-| 1.10   | Unsupported             | 1.10.7-91    | Unsupported  | 1.10.7-85    | Unsupported  | Unsupported | Unsupported       | Partially<sup>1</sup>
-| 2.2    | Unsupported<sup>1</sup> | Unsupported  | All versions | Unsupported  | Unsupported  | Unsupported | Unsupported       | Partially<sup>1</sup>
-| 2.3    | 2.3.2-99<sup>1</sup>    | Unsupported  | All versions | Unsupported  | Unsupported  | Unsupported | 2.3.0-316         | Partially<sup>1</sup>
-| 2.5    | 2.5.0-275<sup>1</sup>   | 2.5.1-150    | All versions | 2.5.1-145    | All versions | Unsupported | All versions      | Partially<sup>1</sup>
-| 2.6    | All versions            | 2.6.0-193    | All versions | 2.6.0-188    | All versions | 2.6.2-99    | All versions      | Partially<sup>1</sup>
-| 2.7    | All versions            | All versions | All versions | All versions | All versions | 2.7.1-102   | All versions      | Partially<sup>1</sup>
+| 1.10   | Unsupported             | 1.10.7-91    | Unsupported  | 1.10.7-85    | Unsupported  | Unsupported | Unsupported       | Partially<sup>2</sup>
+| 2.2    | Unsupported<sup>1</sup> | Unsupported  | All versions | Unsupported  | Unsupported  | Unsupported | Unsupported       | Partially<sup>2</sup>
+| 2.3    | 2.3.2-99<sup>1</sup>    | Unsupported  | All versions | Unsupported  | Unsupported  | Unsupported | 2.3.0-316         | Partially<sup>2</sup>
+| 2.5    | 2.5.0-275<sup>1</sup>   | 2.5.1-150    | All versions | 2.5.1-145    | All versions | Unsupported | All versions      | Partially<sup>2</sup>
+| 2.6    | All versions            | 2.6.0-193    | All versions | 2.6.0-188    | All versions | 2.6.2-99    | All versions      | Partially<sup>2</sup>
+| 2.7    | All versions            | All versions | All versions | All versions | All versions | 2.7.1-102   | All versions      | Partially<sup>2</sup>
 | 2.8    | All versions            | All versions | All versions | All versions | All versions | 2.8.0-113   | All versions      | 2.8.0-307
 
-1. merger has been added in 2.2.0-268-gc7915eccd, however support was limited
-   due to [#4954](https://github.com/tarantool/tarantool/issues/4954).
+1. Module merger has been added in 2.2.0-268-gc7915eccd, however support was
+   limited due to [#4954](https://github.com/tarantool/tarantool/issues/4954).
 2. Absent nullable fields partially supported for 1.10+,
    see [6c30483](https://github.com/tarantool/tarantool/commit/e17a53843fa19603213d5a0f4d08750335223436)
    and [Add intermediate nullable fields on update if not present in tuple](https://github.com/tarantool/crud/issues/113).
