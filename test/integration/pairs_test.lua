@@ -715,3 +715,42 @@ pgroup.test_pairs_force_map_call = function(g)
     table.sort(objects, function(obj1, obj2) return obj1.bucket_id < obj2.bucket_id end)
     t.assert_equals(objects, customers)
 end
+
+pgroup.test_pairs_timeout = function(g)
+    local customers = helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 81, city = "Chicago",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    local raw_rows = {
+        {1, 477, 'Elizabeth', 'Jackson', 12, 'New York'},
+        {2, 401, 'Mary', 'Brown', 46, 'Los Angeles'},
+        {3, 2804, 'David', 'Smith', 33, 'Los Angeles'},
+        {4, 1161, 'William', 'White', 81, 'Chicago'},
+    }
+
+    local objects = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        local objects = {}
+        for _, object in crud.pairs('customers', nil, {timeout = 1}) do
+            table.insert(objects, object)
+        end
+
+        return objects
+    ]])
+    t.assert_equals(objects, raw_rows)
+end
