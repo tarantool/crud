@@ -16,28 +16,6 @@ best to provide uniform support for all supported Tarantool version with help
 of compatibility layer, runtime feature detection etc. but anyway some
 Tarantool versions has limited support in CRUD.
 
-## Per CRUD method
-
-Table below helps to understand what Tarantool features used by CRUD methods.
-
-| CRUD method                     | Tarantool version |
-| ------------------------------- | ----------------- |
-| `get()`                         | FIXME
-| `insert()` / `insert_object()`  | FIXME
-| `delete()`                      | FIXME
-| `replace()` / `replace_object()`| FIXME
-| `upsert()` / `upsert_object()`  | FIXME
-| `select()` / `pairs()`          | FIXME
-| `update()`                      | FIXME
-| `upsert()` / `upsert_object()`  | FIXME
-| `replace()` / `replace_object()`| FIXME
-| `min()` / `max()`               | FIXME
-| `cut_rows()` / `cut_objects()`  | FIXME
-| `truncate()`                    | FIXME
-| `len()`                         | FIXME
-
-## Per Tarantool branch
-
 Please consult with a list below to choose a Tarantool version compatible with
 CRUD module before use:
 
