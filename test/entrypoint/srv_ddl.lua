@@ -7,6 +7,7 @@ local log = require('log')
 local errors = require('errors')
 local cartridge = require('cartridge')
 local ddl = require('ddl')
+local crud_utils = require('crud.common.utils')
 
 package.preload['customers-storage'] = function()
     return {
@@ -110,10 +111,46 @@ package.preload['customers-storage'] = function()
                 }
             }
 
+            -- DDL module doesn't support map and array types and JSON path in
+            -- sharding key, see https://github.com/tarantool/ddl/issues/81,
+            -- so we create space with jsonpath index manually.
+            local function create_space_with_jsonpath()
+                local customers_jsonpath_key = box.schema.space.create('customers_jsonpath_key', {
+                    format = {
+                        {name = 'id', is_nullable = false, type = 'map'},
+                        {name = 'bucket_id', is_nullable = false, type = 'unsigned'},
+                        {name = 'name', is_nullable = false, type = 'string'},
+                        {name = 'age', is_nullable = false, type = 'number'},
+                        {name = 'data', is_nullable = false, type = 'map'},
+                    },
+                    if_not_exists = true,
+                    engine = engine,
+                })
+                customers_jsonpath_key:create_index('pk', {
+                    parts = {
+                        {1, 'unsigned', path = 'customer_id.unsigned'},
+                        {5, 'unsigned', path = 'customer.weight'},
+                    },
+                    if_not_exists = true,
+                })
+                customers_jsonpath_key:create_index('bucket_id', {
+                    parts = { 'bucket_id' },
+                    unique = false,
+                    if_not_exists = true,
+                })
+                box.space['_ddl_sharding_key']:insert({
+                        'customers_jsonpath_key',
+                        {'name'}
+                })
+            end
+
             if not box.info.ro then
                 local ok, err = ddl.set_schema(schema)
                 if not ok then
                     error(err)
+                end
+                if crud_utils.tarantool_supports_jsonpath_indexes() then
+                    create_space_with_jsonpath()
                 end
             end
 

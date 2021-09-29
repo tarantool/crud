@@ -1,5 +1,6 @@
 local fio = require('fio')
 local crud = require('crud')
+local crud_utils = require('crud.common.utils')
 local t = require('luatest')
 
 local helpers = require('test.helper')
@@ -43,6 +44,9 @@ pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers_name_key_non_uniq_index')
     helpers.truncate_space_on_cluster(g.cluster, 'customers_secondary_idx_name_key')
     helpers.truncate_space_on_cluster(g.cluster, 'customers_age_key')
+    if crud_utils.tarantool_supports_jsonpath_indexes() then
+        helpers.truncate_space_on_cluster(g.cluster, 'customers_jsonpath_key')
+    end
 end)
 
 local function check_get(g, space_name, id, name)
@@ -568,4 +572,82 @@ pgroup.test_update_cache = function(g)
     end)
     sharding_key_as_index_obj = helpers.update_cache(g.cluster, space_name)
     t.assert_equals(sharding_key_as_index_obj, {parts = {{fieldno = 3}}})
+end
+
+pgroup.test_jsonpath_insert = function(g)
+    t.skip('JSONpath is unsupported, see issue #219')
+
+    local space_name = 'customers_jsonpath_key'
+    local customers = helpers.insert_objects(g, space_name, {
+        {
+            id = {customer_id = {unsigned = 1}},
+            name = 'Viktor Pelevin',
+            age = 58,
+            data = {customer = {weight = 82}},
+        },
+        {
+            id = {customer_id = {unsigned = 2}},
+            name = 'Isaac Asimov',
+            age = 72,
+            data = {customer = {weight = 70}},
+        },
+        {
+            id = {customer_id = {unsigned = 3}},
+            name = 'Aleksandr Solzhenitsyn',
+            age = 89,
+            data = {customer = {weight = 78}},
+        },
+        {
+            id = {customer_id = {unsigned = 4}},
+            name = 'James Joyce',
+            age = 59,
+            data = {customer = {weight = 82}},
+        },
+        {
+            id = {customer_id = {unsigned = 5}},
+            name = 'Oscar Wilde',
+            age = 46,
+            data = {customer = {weight = 79}},
+        },
+    })
+    t.assert_equals(#customers, 5)
+end
+
+pgroup.test_jsonpath_delete = function(g)
+    t.skip('JSONpath is unsupported, see issue #219')
+
+    local space_name = 'customers_jsonpath_key'
+    local customers = helpers.insert_objects(g, space_name, {
+        {
+            id = {customer_id = {unsigned = 1}},
+            name = 'Viktor Pelevin',
+            age = 58,
+            data = {customer = {weight = 82}},
+        },
+        {
+            id = {customer_id = {unsigned = 2}},
+            name = 'Isaac Asimov',
+            age = 72,
+            data = {customer = {weight = 70}},
+        },
+        {
+            id = {customer_id = {unsigned = 3}},
+            name = 'Aleksandr Solzhenitsyn',
+            age = 89,
+            data = {customer = {weight = 78}},
+        },
+        {
+            id = {customer_id = {unsigned = 4}},
+            name = 'James Joyce',
+            age = 59,
+            data = {customer = {weight = 82}},
+        },
+        {
+            id = {customer_id = {unsigned = 5}},
+            name = 'Oscar Wilde',
+            age = 46,
+            data = {customer = {weight = 79}},
+        },
+    })
+    t.assert_equals(#customers, 5)
 end
