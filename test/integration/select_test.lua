@@ -1563,8 +1563,8 @@ pgroup.test_opts_not_damaged = function(g)
     local after = {"Mary", 46, 2}
 
     local select_opts = {
-        bucket_id = 1161, batch_size = 105,
-        first = 2, after = after,
+        timeout = 1, bucket_id = 1161,
+        batch_size = 105, first = 2, after = after,
         fields = fields, mode = 'read', prefer_replica = false,
         balance = false, force_map_call = false,
     }

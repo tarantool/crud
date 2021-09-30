@@ -744,10 +744,12 @@ pgroup.test_pairs_timeout = function(g)
 
     local objects = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
+
         local objects = {}
         for _, object in crud.pairs('customers', nil, {timeout = 1}) do
             table.insert(objects, object)
         end
+
         return objects
     ]])
     t.assert_equals(objects, raw_rows)
@@ -782,8 +784,8 @@ pgroup.test_opts_not_damaged = function(g)
     local after = {"Mary", 46, 2}
 
     local pairs_opts = {
-        bucket_id = 1161, batch_size = 105,
-        first = 2, after = after,
+        timeout = 1, bucket_id = 1161,
+        batch_size = 105, first = 2, after = after,
         fields = fields, mode = 'read', prefer_replica = false,
         balance = false, force_map_call = false, use_tomap = true,
     }
