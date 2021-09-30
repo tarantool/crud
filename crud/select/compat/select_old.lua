@@ -46,7 +46,7 @@ local function select_iteration(space_name, plan, opts)
 
     local results, err = call.map(common.SELECT_FUNC_NAME, storage_select_args, {
         replicasets = opts.replicasets,
-        timeout = opts.timeout,
+        timeout = call_opts.timeout,
         mode = call_opts.mode or 'read',
         prefer_replica = call_opts.prefer_replica,
         balance = call_opts.balance,
@@ -194,7 +194,6 @@ function select_module.pairs(space_name, user_conditions, opts)
     local iterator_opts = {
         after = opts.after,
         first = opts.first,
-        timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
         force_map_call = opts.force_map_call,
@@ -275,7 +274,6 @@ function select_module.call(space_name, user_conditions, opts)
     local iterator_opts = {
         after = opts.after,
         first = opts.first,
-        timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
         force_map_call = opts.force_map_call,

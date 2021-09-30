@@ -146,7 +146,6 @@ function select_module.pairs(space_name, user_conditions, opts)
     local iterator_opts = {
         after = opts.after,
         first = opts.first,
-        timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
         force_map_call = opts.force_map_call,
@@ -211,7 +210,6 @@ local function select_module_call_xc(space_name, user_conditions, opts)
     local iterator_opts = {
         after = opts.after,
         first = opts.first,
-        timeout = opts.timeout,
         batch_size = opts.batch_size,
         bucket_id = opts.bucket_id,
         force_map_call = opts.force_map_call,
