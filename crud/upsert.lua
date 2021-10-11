@@ -158,7 +158,7 @@ function upsert.object(space_name, obj, user_operations, opts)
     checks('string', 'table', 'table', '?table')
 
     -- upsert can fail if router uses outdated schema to flatten object
-    opts = utils.make_options(opts, true)
+    opts = utils.merge_options(opts, {add_space_schema_hash = true})
 
     local tuple, err = utils.flatten_obj_reload(space_name, obj)
     if err ~= nil then

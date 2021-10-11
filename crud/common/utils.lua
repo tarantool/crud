@@ -1,6 +1,7 @@
 local errors = require('errors')
 local ffi = require('ffi')
 local vshard = require('vshard')
+local fun = require('fun')
 
 local schema = require('crud.common.schema')
 local dev_checks = require('crud.common.dev_checks')
@@ -524,17 +525,13 @@ function utils.flatten_obj_reload(space_name, obj)
     return schema.wrap_func_reload(flatten_obj, space_name, obj)
 end
 
-function utils.make_options(opts, add_space_schema_hash_value)
-    if opts == nil then
-        return {add_space_schema_hash  = add_space_schema_hash_value}
-    end
-
-    return {
-        timeout = opts.timeout,
-        bucket_id = opts.bucket_id,
-        fields = opts.fields,
-        add_space_schema_hash = add_space_schema_hash_value
-    }
+-- Merge two options map.
+--
+-- `opts_a` and/or `opts_b` can be `nil`.
+--
+-- If `opts_a.foo` and `opts_b.foo` exists, prefer `opts_b.foo`.
+function utils.merge_options(opts_a, opts_b)
+    return fun.chain(opts_a or {}, opts_b or {}):tomap()
 end
 
 return utils
