@@ -73,3 +73,19 @@ pgroup.test_truncate = function(g)
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
 end
+
+pgroup.test_opts_not_damaged = function(g)
+    local truncate_opts = {timeout = 1}
+    local new_truncate_opts, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local truncate_opts = ...
+
+        local _, err = crud.truncate('customers', truncate_opts)
+
+        return truncate_opts, err
+    ]], {truncate_opts})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_truncate_opts, truncate_opts)
+end

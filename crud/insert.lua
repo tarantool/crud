@@ -144,10 +144,8 @@ end
 function insert.object(space_name, obj, opts)
     checks('string', 'table', '?table')
 
-    opts = opts or {}
-
     -- insert can fail if router uses outdated schema to flatten object
-    opts.add_space_schema_hash = true
+    opts = utils.merge_options(opts, {add_space_schema_hash = true})
 
     local tuple, err = utils.flatten_obj_reload(space_name, obj)
     if err ~= nil then

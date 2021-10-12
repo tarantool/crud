@@ -62,3 +62,19 @@ pgroup.test_len_empty_space = function(g)
     t.assert_equals(err, nil)
     t.assert_equals(result, 0)
 end
+
+pgroup.test_opts_not_damaged = function(g)
+    local len_opts = {timeout = 1}
+    local new_len_opts, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local len_opts = ...
+
+        local _, err = crud.len('customers', len_opts)
+
+        return len_opts, err
+    ]], {len_opts})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_len_opts, len_opts)
+end

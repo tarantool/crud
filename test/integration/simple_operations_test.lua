@@ -1007,3 +1007,142 @@ pgroup.test_partial_result_bad_input = function(g)
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Space format doesn\'t contain field named "lastname"')
 end
+
+pgroup.test_opts_not_damaged = function(g)
+    -- insert
+    local insert_opts = {timeout = 1, bucket_id = 655, fields = {'name', 'age'}}
+    local new_insert_opts, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local insert_opts = ...
+
+        local _, err = crud.insert('customers', {22, box.NULL, 'Elizabeth', 24}, insert_opts)
+
+        return insert_opts, err
+    ]], {insert_opts})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_insert_opts, insert_opts)
+
+    -- insert_object
+    local insert_opts = {timeout = 1, bucket_id = 477, fields = {'name', 'age'}}
+    local new_insert_opts, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local insert_opts = ...
+
+        local _, err = crud.insert_object('customers', {id = 1, name = 'Fedor', age = 59}, insert_opts)
+
+        return insert_opts, err
+    ]], {insert_opts})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_insert_opts, insert_opts)
+
+    -- upsert
+    local upsert_opts = {timeout = 1, bucket_id = 907, fields = {'name', 'age'}}
+    local new_upsert_opts, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local upsert_opts = ...
+
+        local _, err = crud.upsert('customers', {33, box.NULL, 'Peter', 35}, {{'+', 'age', 1}}, upsert_opts)
+
+        return upsert_opts, err
+    ]], {upsert_opts})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_upsert_opts, upsert_opts)
+
+    -- upsert_object
+    local upsert_opts = {timeout = 1, bucket_id = 401, fields = {'name', 'age'}}
+    local new_upsert_opts, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local upsert_opts = ...
+
+        local _, err = crud.upsert_object('customers',
+            {id = 2, name = 'Alex', age = 30}, {{'+', 'age', 1}},
+            upsert_opts)
+
+        return upsert_opts, err
+    ]], {upsert_opts})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_upsert_opts, upsert_opts)
+
+    -- get
+    local get_opts = {timeout = 1, bucket_id = 401, fields = {'name', 'age'}}
+    local new_get_opts, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local get_opts = ...
+
+        local _, err = crud.get('customers', 2, get_opts)
+
+        return get_opts, err
+    ]], {get_opts})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_get_opts, get_opts)
+
+    -- update
+    local update_opts = {timeout = 1, bucket_id = 401, fields = {'name', 'age'}}
+    local new_update_opts, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local update_opts = ...
+
+        local _, err = crud.update('customers', 2, {{'+', 'age', 10}}, update_opts)
+
+        return update_opts, err
+    ]], {update_opts})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_update_opts, update_opts)
+
+    -- replace
+    local replace_opts = {timeout = 1, bucket_id = 655, fields = {'name', 'age'}}
+    local new_replace_opts, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local replace_opts = ...
+
+        local _, err = crud.replace('customers', {22, box.NULL, 'Elizabeth', 25}, replace_opts)
+
+        return replace_opts, err
+    ]], {replace_opts})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_replace_opts, replace_opts)
+
+    -- replace_object
+    local replace_opts = {timeout = 1, bucket_id = 477, fields = {'name', 'age'}}
+    local new_replace_opts, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local replace_opts = ...
+
+        local _, err = crud.replace_object('customers', {id = 1, name = 'Fedor', age = 60}, replace_opts)
+
+        return replace_opts, err
+    ]], {replace_opts})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_replace_opts, replace_opts)
+
+    -- delete
+    local delete_opts = {timeout = 1, bucket_id = 401, fields = {'name', 'age'}}
+    local new_delete_opts, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local delete_opts = ...
+
+        local _, err = crud.delete('customers', 2, delete_opts)
+
+        return delete_opts, err
+    ]], {delete_opts})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_delete_opts, delete_opts)
+end

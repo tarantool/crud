@@ -311,3 +311,51 @@ pgroup.test_equal_secondary_keys = function(g)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2}))
 end
+
+pgroup.test_opts_not_damaged = function(g)
+    helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 21, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 12, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 8, city = "Chicago",
+        },
+    })
+
+    -- min
+    local min_opts = {timeout = 1, fields = {'name', 'age'}}
+    local new_min_opts, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local min_opts = ...
+
+        local _, err = crud.min('customers', nil, min_opts)
+
+        return min_opts, err
+    ]], {min_opts})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_min_opts, min_opts)
+
+    -- max
+    local max_opts = {timeout = 1, fields = {'name', 'age'}}
+    local new_max_opts, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local max_opts = ...
+
+        local _, err = crud.max('customers', nil, max_opts)
+
+        return max_opts, err
+    ]], {min_opts})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_max_opts, max_opts)
+end

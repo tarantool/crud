@@ -754,3 +754,54 @@ pgroup.test_pairs_timeout = function(g)
     ]])
     t.assert_equals(objects, raw_rows)
 end
+
+pgroup.test_opts_not_damaged = function(g)
+    local customers = helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "Los Angeles",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "London",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 46, city = "Chicago",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    local expected_customers = {
+        {id = 3, name = "David", age = 33},
+        {id = 4, name = "William", age = 46},
+    }
+
+    -- after tuple should be in `fields` format + primary key
+    local fields = {'name', 'age'}
+    local after = {"Mary", 46, 2}
+
+    local pairs_opts = {
+        timeout = 1, bucket_id = 1161,
+        batch_size = 105, first = 2, after = after,
+        fields = fields, mode = 'read', prefer_replica = false,
+        balance = false, force_map_call = false, use_tomap = true,
+    }
+    local new_pairs_opts, objects = g.cluster.main_server:eval([[
+         local crud = require('crud')
+
+         local pairs_opts = ...
+
+         local objects = {}
+         for _, object in crud.pairs('customers', nil, pairs_opts) do
+             table.insert(objects, object)
+         end
+
+         return pairs_opts, objects
+     ]], {pairs_opts})
+
+    t.assert_equals(objects, expected_customers)
+    t.assert_equals(new_pairs_opts, pairs_opts)
+end

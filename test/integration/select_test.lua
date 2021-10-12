@@ -1538,3 +1538,46 @@ pgroup.test_select_timeout = function(g)
         {4, 1161, "William", "White", 81, "Chicago"},
     })
 end
+
+pgroup.test_opts_not_damaged = function(g)
+    local customers = helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "Los Angeles",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "London",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 46, city = "Chicago",
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    -- after tuple should be in `fields` format + primary key
+    local fields = {'name', 'age'}
+    local after = {"Mary", 46, 2}
+
+    local select_opts = {
+        timeout = 1, bucket_id = 1161,
+        batch_size = 105, first = 2, after = after,
+        fields = fields, mode = 'read', prefer_replica = false,
+        balance = false, force_map_call = false,
+    }
+    local new_select_opts, err = g.cluster.main_server:eval([[
+         local crud = require('crud')
+
+         local select_opts = ...
+
+         local _, err = crud.select('customers', nil, select_opts)
+
+         return select_opts, err
+     ]], {select_opts})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_select_opts, select_opts)
+end
