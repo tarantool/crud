@@ -65,6 +65,14 @@ local function build_select_iterator(space_name, user_conditions, opts)
     -- set replicasets to select from
     local replicasets_to_select = replicasets
 
+    if opts.bucket_id ~= nil then
+        local err
+        replicasets_to_select, err = common.get_replicasets_by_sharding_key(opts.bucket_id)
+        if err ~= nil then
+            return nil, err, true
+        end
+    end
+
     if plan.sharding_key ~= nil and opts.force_map_call ~= true then
         local bucket_id = sharding.key_get_bucket_id(plan.sharding_key, opts.bucket_id)
 
