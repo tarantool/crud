@@ -179,6 +179,76 @@ function helpers.call_on_servers(cluster, aliases, func)
     end
 end
 
+-- Call given function for each server with the 'crud-storage'
+-- role.
+--
+-- 'func' accepts a server object, a replicaset config and all
+-- arguments passed after 'func'.
+--
+-- Usage example:
+--
+--  | local res = {}
+--  | helpers.call_on_storages(g.cluster, function(server, replicaset, res)
+--  |     local instance_res = server.net_box:call(<...>)
+--  |     res[replicaset.alias] = res[replicaset.alias] + instance_res
+--  | end)
+--  | t.assert_equals(res, {['s-1'] = 5, ['s-2'] = 6})
+function helpers.call_on_storages(cluster, func, ...)
+    -- Accumulate storages into a map from the storage alias to
+    -- the replicaset object. Only storages, skip other instances.
+    --
+    -- Example:
+    --
+    --  | {
+    --  |     ['s1-master'] = {
+    --  |         alias = 's-1',
+    --  |         roles = <...>,
+    --  |         servers = {
+    --  |             {
+    --  |                 alias = 's1-master',
+    --  |                 env = <...>,
+    --  |                 instance_uuid = <...>,
+    --  |             },
+    --  |             <...>
+    --  |         },
+    --  |         uuid = <...>,
+    --  |     }
+    --  |     ['s1-replica'] = <...>,
+    --  |     ['s2-master'] = <...>,
+    --  |     ['s2-replica'] = <...>,
+    --  | }
+    --
+    -- NB: The 'servers' field contains server configs. They are
+    -- not the same as server objects: say, there is no 'net_box'
+    -- field here.
+    local alias_map = {}
+    for _, replicaset in ipairs(cluster.replicasets) do
+        -- Whether it is a storage replicaset?
+        local has_crud_storage_role = false
+        for _, role in ipairs(replicaset.roles) do
+            if role == 'crud-storage' then
+                has_crud_storage_role = true
+                break
+            end
+        end
+
+        -- If so, add servers of the replicaset into the mapping.
+        if has_crud_storage_role then
+            for _, server in ipairs(replicaset.servers) do
+                alias_map[server.alias] = replicaset
+            end
+        end
+    end
+
+    -- Call given function for each storage node.
+    for _, server in ipairs(cluster.servers) do
+        local replicaset_alias = alias_map[server.alias]
+        if replicaset_alias ~= nil then
+            func(server, replicaset_alias, ...)
+        end
+    end
+end
+
 function helpers.assert_ge(actual, expected, message)
     if not (actual >= expected) then
         local err = string.format('expected: %s >= %s', actual, expected)
