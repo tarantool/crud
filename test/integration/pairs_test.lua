@@ -5,6 +5,7 @@ local t = require('luatest')
 local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
+local storage_stat = require('test.helpers.storage_stat')
 
 local pgroup = t.group('pairs', {
     {engine = 'memtx'},
@@ -25,6 +26,13 @@ pgroup.before_all(function(g)
     g.cluster:start()
 
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
+
+    helpers.call_on_storages(g.cluster, function(server)
+        server.net_box:eval([[
+            local storage_stat = require('test.helpers.storage_stat')
+            storage_stat.init_on_storage()
+        ]])
+    end)
 end)
 
 pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
@@ -758,15 +766,19 @@ end
 pgroup.test_opts_not_damaged = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
+            -- bucket_id is 477, storage is s-2
             id = 1, name = "Elizabeth", last_name = "Jackson",
             age = 12, city = "Los Angeles",
         }, {
+            -- bucket_id is 401, storage is s-2
             id = 2, name = "Mary", last_name = "Brown",
             age = 46, city = "London",
         }, {
+            -- bucket_id is 2804, storage is s-1
             id = 3, name = "David", last_name = "Smith",
             age = 33, city = "Los Angeles",
         }, {
+            -- bucket_id is 1161, storage is s-2
             id = 4, name = "William", last_name = "White",
             age = 46, city = "Chicago",
         },
@@ -775,7 +787,6 @@ pgroup.test_opts_not_damaged = function(g)
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
     local expected_customers = {
-        {id = 3, name = "David", age = 33},
         {id = 4, name = "William", age = 46},
     }
 
@@ -804,4 +815,81 @@ pgroup.test_opts_not_damaged = function(g)
 
     t.assert_equals(objects, expected_customers)
     t.assert_equals(new_pairs_opts, pairs_opts)
+end
+
+-- gh-220: bucket_id argument is ignored when it cannot be deduced
+-- from provided select/pairs conditions.
+pgroup.test_pairs_no_map_reduce = function(g)
+    local customers = helpers.insert_objects(g, 'customers', {
+        {
+            -- bucket_id is 477, storage is s-2
+            id = 1, name = 'Elizabeth', last_name = 'Jackson',
+            age = 12, city = 'New York',
+        }, {
+            -- bucket_id is 401, storage is s-2
+            id = 2, name = 'Mary', last_name = 'Brown',
+            age = 46, city = 'Los Angeles',
+        }, {
+            -- bucket_id is 2804, storage is s-1
+            id = 3, name = 'David', last_name = 'Smith',
+            age = 33, city = 'Los Angeles',
+        }, {
+            -- bucket_id is 1161, storage is s-2
+            id = 4, name = 'William', last_name = 'White',
+            age = 81, city = 'Chicago',
+        },
+    })
+
+    table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
+
+    local stat_a = storage_stat.collect(g.cluster)
+
+    -- Case: no conditions, just bucket id.
+    local rows = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        return crud.pairs(...):totable()
+    ]], {
+        'customers',
+        nil,
+        {bucket_id = 2804, timeout = 1},
+    })
+    t.assert_equals(rows, {
+        {3, 2804, 'David', 'Smith', 33, 'Los Angeles'},
+    })
+
+    local stat_b = storage_stat.collect(g.cluster)
+    t.assert_equals(storage_stat.diff(stat_b, stat_a), {
+        ['s-1'] = {
+            select_requests = 1,
+        },
+        ['s-2'] = {
+            select_requests = 0,
+        },
+    })
+
+    -- Case: EQ on secondary index, which is not in the sharding
+    -- index (primary index in the case).
+    local rows = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+
+        return crud.pairs(...):totable()
+    ]], {
+        'customers',
+        {{'==', 'age', 81}},
+        {bucket_id = 1161, timeout = 1},
+    })
+    t.assert_equals(rows, {
+        {4, 1161, 'William', 'White', 81, 'Chicago'},
+    })
+
+    local stat_c = storage_stat.collect(g.cluster)
+    t.assert_equals(storage_stat.diff(stat_c, stat_b), {
+        ['s-1'] = {
+            select_requests = 0,
+        },
+        ['s-2'] = {
+            select_requests = 1,
+        },
+    })
 end

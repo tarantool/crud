@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 * Damaging of opts table by CRUD methods.
+* Ignoring of `bucket_id` option in `crud.select()`/`crud.pairs()` (#220).
 
 ### Added
 
