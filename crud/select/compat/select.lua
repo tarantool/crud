@@ -65,8 +65,40 @@ local function build_select_iterator(space_name, user_conditions, opts)
     -- set replicasets to select from
     local replicasets_to_select = replicasets
 
-    if plan.sharding_key ~= nil and opts.force_map_call ~= true then
+    -- Whether to call one storage replicaset or perform
+    -- map-reduce?
+    --
+    -- If map-reduce is requested explicitly, ignore provided
+    -- bucket_id and fetch data from all storage replicasets.
+    --
+    -- Otherwise:
+    --
+    -- 1. If particular replicaset is pointed by a caller (using
+    --    the bucket_id option[^1]), crud MUST fetch data only
+    --    from this storage replicaset: disregarding whether other
+    --    storages have tuples that fit given condition.
+    --
+    -- 2. If a replicaset may be deduced from conditions
+    --    (conditions -> sharding key -> bucket id -> replicaset),
+    --    fetch data only from the replicaset. It does not change
+    --    the result[^2], but significantly reduces network
+    --    pressure.
+    --
+    -- 3. Fallback to map-reduce otherwise.
+    --
+    -- [^1]: We can change meaning of this option in a future,
+    --       see gh-190. But now bucket_id points a storage
+    --       replicaset, not a virtual bucket.
+    --
+    -- [^2]: It is correct statement only if we'll turn a blind
+    --       eye to resharding. However, AFAIU, the optimization
+    --       does not make the result less consistent (sounds
+    --       weird, huh?).
+    local perform_map_reduce = opts.force_map_call == true or
+        (opts.bucket_id == nil and plan.sharding_key == nil)
+    if not perform_map_reduce then
         local bucket_id = sharding.key_get_bucket_id(plan.sharding_key, opts.bucket_id)
+        assert(bucket_id ~= nil)
 
         local err
         replicasets_to_select, err = common.get_replicasets_by_sharding_key(bucket_id)

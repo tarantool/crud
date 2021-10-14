@@ -118,8 +118,13 @@ local function build_select_iterator(space_name, user_conditions, opts)
     -- set replicasets to select from
     local replicasets_to_select = replicasets
 
-    if plan.sharding_key ~= nil and opts.force_map_call ~= true then
+    -- See explanation of this logic in
+    -- crud/select/compat/select.lua.
+    local perform_map_reduce = opts.force_map_call == true or
+        (opts.bucket_id == nil and plan.sharding_key == nil)
+    if not perform_map_reduce then
         local bucket_id = sharding.key_get_bucket_id(plan.sharding_key, opts.bucket_id)
+        assert(bucket_id ~= nil)
 
         local err
         replicasets_to_select, err = common.get_replicasets_by_sharding_key(bucket_id)
