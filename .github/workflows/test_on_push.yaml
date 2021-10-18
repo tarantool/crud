@@ -11,7 +11,9 @@ jobs:
       github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
     strategy:
       matrix:
-        tarantool-version: ["1.10", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7"]
+        # We need 1.10.6 here to check that module works with
+        # old Tarantool versions that don't have "tuple-keydef"/"tuple-merger" support.
+        tarantool-version: ["1.10.6", "1.10", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7"]
         remove-merger: [false]
         include:
           - tarantool-version: "2.7"
@@ -23,10 +25,22 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
-      - name: Setup Tarantool CE
+      - name: Setup Tarantool CE (~= 1.10.6)
         uses: tarantool/setup-tarantool@v1
+        if: matrix.tarantool-version != '1.10.6'
         with:
           tarantool-version: ${{ matrix.tarantool-version }}
+
+      - name: Setup Tarantool CE 1.10.6
+        if: matrix.tarantool-version == '1.10.6'
+        run: |
+          curl -L https://tarantool.io/release/1.10/installer.sh | bash
+          sudo apt install -y tarantool=1.10.6.0.g5372cd2fa-1 tarantool-dev=1.10.6.0.g5372cd2fa-1
+
+      - name: Fix luarocks in Tarantool CE 1.10.6
+        if: matrix.tarantool-version == '1.10.6'
+        run: |
+          sudo patch -p1 /usr/share/tarantool/luarocks/manif.lua luarocks.patch
 
       - name: Install requirements for community
         run: |
@@ -56,9 +70,7 @@ jobs:
     if: github.event_name == 'push'
     strategy:
       matrix:
-        # We need 1.10.6 here to check that module works with
-        # old Tarantool versions that don't have "tuple-keydef"/"tuple-merger" support.
-        bundle_version: [ "1.10.6-1-g52c786b", "1.10.10-0-gaea7ae77a-r399", "2.7.2-0-g4d8c06890-r399" ]
+        bundle_version: [ "1.10.11-0-gf0b0e7ecf-r422", "2.7.3-0-gdddf926c3-r422" ]
       fail-fast: false
     runs-on: [ ubuntu-latest ]
     steps:
