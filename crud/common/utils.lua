@@ -210,6 +210,35 @@ local function determine_enabled_features()
     -- since Tarantool 2.6.3 / 2.7.2 / 2.8.1
     enabled_tarantool_features.jsonpath_indexes = major >= 3 or (major >= 2 and ((minor >= 6 and patch >= 3)
         or (minor >= 7 and patch >= 2) or (minor >= 8 and patch >= 1) or minor >= 9))
+
+    -- The merger module was implemented in 2.2.1, see [1].
+    -- However it had the critical problem [2], which leads to
+    -- segfault at attempt to use the module from a fiber serving
+    -- iproto request. So we don't use it in versions before the
+    -- fix.
+    --
+    -- [1]: https://github.com/tarantool/tarantool/issues/3276
+    -- [2]: https://github.com/tarantool/tarantool/issues/4954
+    enabled_tarantool_features.builtin_merger =
+        (major == 2 and minor == 3 and patch >= 3) or
+        (major == 2 and minor == 4 and patch >= 2) or
+        (major == 2 and minor == 5 and patch >= 1) or
+        (major >= 2 and minor >= 6) or
+        (major >= 3)
+
+    -- The external merger module leans on a set of relatively
+    -- new APIs in tarantool. So it works only on tarantool
+    -- versions, which offer those APIs.
+    --
+    -- See README of the module:
+    -- https://github.com/tarantool/tuple-merger
+    enabled_tarantool_features.external_merger =
+        (major == 1 and minor == 10 and patch >= 8) or
+        (major == 2 and minor == 4 and patch >= 3) or
+        (major == 2 and minor == 5 and patch >= 2) or
+        (major == 2 and minor == 6 and patch >= 1) or
+        (major == 2 and minor >= 7) or
+        (major >= 3)
 end
 
 function utils.tarantool_supports_fieldpaths()
@@ -234,6 +263,22 @@ function utils.tarantool_supports_jsonpath_indexes()
     end
 
     return enabled_tarantool_features.jsonpath_indexes
+end
+
+function utils.tarantool_has_builtin_merger()
+    if enabled_tarantool_features.builtin_merger == nil then
+        determine_enabled_features()
+    end
+
+    return enabled_tarantool_features.builtin_merger
+end
+
+function utils.tarantool_supports_external_merger()
+    if enabled_tarantool_features.external_merger == nil then
+        determine_enabled_features()
+    end
+
+    return enabled_tarantool_features.external_merger
 end
 
 local function add_nullable_fields_recursive(operations, operations_map, space_format, tuple, id)
