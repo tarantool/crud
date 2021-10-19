@@ -432,11 +432,11 @@ pgroup.test_intermediate_nullable_fields_update = function(g)
     -- However since 2.8 Tarantool could update intermediate nullable fields
     -- (https://github.com/tarantool/tarantool/issues/3378).
     -- So before 2.8 update returns an error but after it update is correct.
-    if _TARANTOOL > "2.8" then
+    if helpers.tarantool_version_at_least(2, 8) then
         local _, err = g.cluster.main_server.net_box:call('crud.update',
             {'developers', 1, {{'=', '[5].a.b[1]', 3}, {'=', 'extra_5', 'extra_value_5'}}})
         t.assert_equals(err, nil)
-    elseif _TARANTOOL >= "2.3" then
+    elseif helpers.tarantool_version_at_least(2, 3) then
         local _, err = g.cluster.main_server.net_box:call('crud.update',
             {'developers', 1, {{'=', '[5].a.b[1]', 3}, {'=', 'extra_5', 'extra_value_5'}}})
         t.assert_equals(err.err, "Failed to update: Field ''extra_5'' was not found in the tuple")

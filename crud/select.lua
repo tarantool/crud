@@ -1,5 +1,6 @@
 local errors = require('errors')
 
+local utils = require('crud.common.utils')
 local select_executor = require('crud.select.executor')
 local select_filters = require('crud.select.filters')
 local dev_checks = require('crud.common.dev_checks')
@@ -9,18 +10,12 @@ local SelectError = errors.new_class('SelectError')
 
 local select_module
 
-if '2' <= _TARANTOOL and _TARANTOOL <= '2.3.3' then
-    -- "merger" segfaults here
-    -- See https://github.com/tarantool/tarantool/issues/4954
-    select_module = require('crud.select.compat.select_old')
-elseif not package.search('tuple.merger') and package.loaded['merger'] == nil then
-    -- we don't use pcall(require, modile_name) here because it
-    -- leads to ignoring errors other than 'No LuaRocks module found'
-
-    -- "merger" isn't supported here
-    select_module = require('crud.select.compat.select_old')
-else
+local has_merger = (utils.tarantool_supports_external_merger() and
+    package.search('tuple.merger')) or utils.tarantool_has_builtin_merger()
+if has_merger then
     select_module = require('crud.select.compat.select')
+else
+    select_module = require('crud.select.compat.select_old')
 end
 
 local function make_cursor(data)
