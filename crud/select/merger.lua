@@ -163,6 +163,14 @@ local function new(replicasets, space, index_id, func_name, func_args, opts)
         table.insert(merger_sources, source)
     end
 
+    -- Trick for performance.
+    --
+    -- No need to create merger, key_def and pass tuples over the
+    -- merger, when we have only one tuple source.
+    if #merger_sources == 1 then
+        return merger_sources[1]
+    end
+
     local keydef = Keydef.new(space, opts.field_names, index_id)
     -- When built-in merger is used with external keydef, `merger_lib.new(keydef)`
     -- fails. It's simply fixed by casting `keydef` to 'struct key_def&'.
