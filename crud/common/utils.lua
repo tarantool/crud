@@ -711,4 +711,41 @@ function utils.update_storage_call_error_description(err, func_name, replicaset_
     return err
 end
 
+--- Insert each value from values to list
+--
+-- @function list_extend
+--
+-- @param table list
+--  List to be extended
+--
+-- @param table values
+--  Values to be inserted to list
+--
+-- @return[1] list
+--  List with old values and inserted values
+function utils.list_extend(list, values)
+    dev_checks('table', 'table')
+
+    for _, value in ipairs(values) do
+        table.insert(list, value)
+    end
+
+    return list
+end
+
+function utils.list_slice(list, start_index, end_index)
+    dev_checks('table', 'number', '?number')
+
+    if end_index == nil then
+        end_index = table.maxn(list)
+    end
+
+    local slice = {}
+    for i = start_index, end_index do
+        table.insert(slice, list[i])
+    end
+
+    return slice
+end
+
 return utils

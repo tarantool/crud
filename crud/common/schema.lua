@@ -244,4 +244,16 @@ function schema.result_needs_reload(space, result)
     return result.space_schema_hash ~= get_space_schema_hash(space)
 end
 
+function schema.batching_result_needs_reload(space, results, tuples_count)
+    local storage_errs_count = 0
+    local space_schema_hash = get_space_schema_hash(space)
+    for _, result in ipairs(results) do
+        if result.space_schema_hash ~= nil and result.space_schema_hash ~= space_schema_hash then
+            storage_errs_count = storage_errs_count + 1
+        end
+    end
+
+    return storage_errs_count == tuples_count
+end
+
 return schema

@@ -103,6 +103,57 @@ pgroup.test_insert = function(g)
     t.assert_equals(result, nil)
 end
 
+pgroup.test_insert_object_many = function(g)
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.insert_object_many', {'customers_name_key', {{id = 1, name = 'Augustus', age = 48}}})
+    t.assert_equals(err, nil)
+
+    t.assert_equals(result.metadata, {
+        {is_nullable = false, name = 'id', type = 'unsigned'},
+        {is_nullable = false, name = 'bucket_id', type = 'unsigned'},
+        {is_nullable = false, name = 'name', type = 'string'},
+        {is_nullable = false, name = 'age', type = 'number'},
+    })
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 1, bucket_id = 782, name = 'Augustus', age = 48}})
+
+    local conn_s1 = g.cluster:server('s1-master').net_box
+    -- There is no tuple on s1 that we inserted before using crud.insert_object_many().
+    local result = conn_s1.space['customers_name_key']:get({1, 'Augustus'})
+    t.assert_equals(result, nil)
+
+    local conn_s2 = g.cluster:server('s2-master').net_box
+    -- There is a tuple on s2 that we inserted before using crud.insert_object_many().
+    local result = conn_s2.space['customers_name_key']:get({1, 'Augustus'})
+    t.assert_equals(result, {1, 782, 'Augustus', 48})
+
+end
+
+pgroup.test_insert_many = function(g)
+    -- Insert a tuple.
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.insert_many', {'customers_name_key', {{2, box.NULL, 'Ivan', 20}}})
+    t.assert_equals(err, nil)
+    t.assert_equals(result.metadata, {
+        {is_nullable = false, name = 'id', type = 'unsigned'},
+        {is_nullable = false, name = 'bucket_id', type = 'unsigned'},
+        {is_nullable = false, name = 'name', type = 'string'},
+        {is_nullable = false, name = 'age', type = 'number'},
+    })
+    t.assert_equals(#result.rows, 1)
+    t.assert_equals(result.rows[1], {2, 1366, 'Ivan', 20})
+
+    -- There is a tuple on s2 that we inserted before using crud.insert_many().
+    local conn_s2 = g.cluster:server('s2-master').net_box
+    local result = conn_s2.space['customers_name_key']:get({2, 'Ivan'})
+    t.assert_equals(result, {2, 1366, 'Ivan', 20})
+
+    -- There is no tuple on s1 that we inserted before using crud.insert_many().
+    local conn_s1 = g.cluster:server('s1-master').net_box
+    local result = conn_s1.space['customers_name_key']:get({2, 'Ivan'})
+    t.assert_equals(result, nil)
+end
+
 pgroup.test_replace = function(g)
     -- bucket_id is 596, storage is s-2
     local tuple = {7, 596, 'Dimitrion', 20}
