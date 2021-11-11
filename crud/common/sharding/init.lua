@@ -130,6 +130,17 @@ function sharding.result_needs_sharding_reload(err)
     return err.class_name == sharding_utils.ShardingHashMismatchError.name
 end
 
+function sharding.batching_result_needs_sharding_reload(errs, tuples_count)
+    local sharding_errs_count = 0
+    for _, err in ipairs(errs) do
+        if err.class_name == sharding_utils.ShardingHashMismatchError.name then
+            sharding_errs_count = sharding_errs_count + 1
+        end
+    end
+
+    return sharding_errs_count == tuples_count
+end
+
 function sharding.wrap_method(method, space_name, ...)
     local i = 0
 
@@ -183,6 +194,67 @@ function sharding.wrap_select_method(method, space_name, ...)
     end
 
     return res, err
+end
+
+--- Split tuples by replicaset for specified space
+--
+-- @function split_tuples_by_replicaset
+--
+-- @param table tuples
+--  Tuples to split
+--
+-- @param table space
+--  Specified space
+--
+-- @return[1] batches
+--  Map where key is a replicaset and value
+--  is table of tuples related to this replicaset
+function sharding.split_tuples_by_replicaset(tuples, space)
+    dev_checks('table', 'table')
+
+    local batches = {}
+
+    local sharding_func_hash
+    local sharding_key_hash
+    local skip_sharding_hash_check
+    local sharding_data
+    local err
+    for _, tuple in ipairs(tuples) do
+        sharding_data, err = sharding.tuple_set_and_return_bucket_id(tuple, space)
+        if err ~= nil then
+            return nil, BucketIDError:new("Failed to get bucket ID: %s", err)
+        end
+
+        if sharding_data.sharding_func_hash ~= nil then
+            sharding_func_hash = sharding_data.sharding_func_hash
+        end
+
+        if sharding_data.sharding_key_hash ~= nil then
+            sharding_key_hash = sharding_data.sharding_key_hash
+        end
+
+        if sharding_data.skip_sharding_hash_check ~= true then
+            skip_sharding_hash_check = false
+        end
+
+        local replicaset, err = vshard.router.route(sharding_data.bucket_id)
+        if replicaset == nil then
+            return nil, GetReplicasetsError:new(
+                    "Failed to get replicaset for bucket_id %s: %s",
+                    sharding_data.bucket_id, err.err)
+        end
+
+        local tuples_by_replicaset = batches[replicaset] or {}
+        table.insert(tuples_by_replicaset, tuple)
+        batches[replicaset] = tuples_by_replicaset
+    end
+
+    return {
+        batches = batches,
+        sharding_func_hash = sharding_func_hash,
+        sharding_key_hash = sharding_key_hash,
+        skip_sharding_hash_check = skip_sharding_hash_check,
+    }
 end
 
 return sharding

@@ -16,6 +16,7 @@ It also provides the `crud-storage` and `crud-router` roles for
 - [Quickstart](#quickstart)
 - [API](#api)
   - [Insert](#insert)
+  - [Insert many](#insert-many)
   - [Get](#get)
   - [Update](#update)
   - [Delete](#delete)
@@ -231,6 +232,143 @@ crud.insert_object('customers', {
   rows:
   - [2, 401, 'Elizabeth', 24]
 ...
+```
+
+### Insert many
+
+```lua
+-- Insert batch of tuples
+local result, err = crud.insert_many(space_name, tuples, opts)
+-- Insert batch of objects
+local result, err = crud.insert_object_many(space_name, objects, opts)
+```
+
+where:
+
+* `space_name` (`string`) - name of the space to insert an object
+* `tuples` / `objects` (`table`) - array of tuples/objects to insert
+* `opts`:
+  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `fields` (`?table`) - field names for getting only a subset of fields
+  * `stop_on_error` (`?boolean`) - stop on a first error and report error
+    regarding the failed operation and error about what tuples were not
+    performed, default is `false`
+  * `rollback_on_error` (`?boolean`) - any failed operation will lead to
+    rollback on a storage, where the operation is failed, report error
+    about what tuples were rollback, default is `false`
+
+Returns metadata and array with inserted rows, array of errors.
+Each error object can contain field `operation_data`.
+
+`operation_data` field can contain:
+* tuple for which the error occurred;
+* object with an incorrect format;
+* tuple the operation on which was performed but
+  operation was rollback;
+* tuple the operation on which was not performed
+  because operation was stopped by error.
+
+Right now CRUD cannot provide batch insert with full consistency.
+CRUD offers batch insert with partial consistency. That means
+that full consistency can be provided only on single replicaset
+using `box` transactions.
+
+**Example:**
+
+```lua
+crud.insert_many('customers', {
+  {1, box.NULL, 'Elizabeth', 23},
+  {2, box.NULL, 'Anastasia', 22},
+})
+---
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 477, 'Elizabeth', 23]
+  - [2, 401, 'Anastasia', 22]
+...
+crud.insert_object_many('customers', {
+    {id = 3, name = 'Elizabeth', age = 24},
+    {id = 10, name = 'Anastasia', age = 21},
+})
+---
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [3, 2804, 'Elizabeth', 24]
+  - [10, 569, 'Anastasia', 21]
+
+-- Partial success
+local res, errs = crud.insert_object_many('customers', {
+    {id = 22, name = 'Alex', age = 34},
+    {id = 3, name = 'Anastasia', age = 22},
+    {id = 5, name = 'Sergey', age = 25},
+})
+---
+res
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [5, 1172, 'Sergey', 25],
+  - [22, 655, 'Alex', 34],
+
+#errs              -- 1
+errs[1].class_name -- BatchInsertError
+errs[1].err        -- 'Duplicate key exists <...>'
+errs[1].tuple      -- {3, 2804, 'Anastasia', 22}
+...
+
+-- Partial success with stop and rollback on error
+-- stop_on_error = true, rollback_on_error = true
+-- two error on one storage with rollback, inserts
+-- stop by error on this storage inserts before
+-- error are rollback
+local res, errs =  crud.insert_object_many('customers', {
+    {id = 6, name = 'Alex', age = 34},
+    {id = 92, name = 'Artur', age = 29},
+    {id = 3, name = 'Anastasia', age = 22},
+    {id = 4, name = 'Sergey', age = 25},
+    {id = 9, name = 'Anna', age = 30},
+    {id = 71, name = 'Oksana', age = 29},
+}, {
+    stop_on_error = true,
+    rollback_on_error  = true,
+}})
+---
+res
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [4, 1161, 'Sergey', 25],
+  - [6, 1064, 'Alex', 34],
+#errs              -- 4
+errs[1].class_name -- InsertManyError
+errs[1].err        -- 'Duplicate key exists <...>'
+errs[1].tuple      -- {3, 2804, 'Anastasia', 22}
+
+errs[2].class_name -- NotPerformedError
+errs[2].err        -- 'Operation with tuple was not performed'
+errs[2].tuple      -- {9, 1644, "Anna", 30}
+
+errs[3].class_name -- NotPerformedError
+errs[3].err        -- 'Operation with tuple was not performed'
+errs[3].tuple      -- {71, 1802, "Oksana", 29}
+
+errs[4].class_name -- NotPerformedError
+errs[4].err        -- 'Operation with tuple was rollback'
+errs[4].tuple      -- {92, 2040, "Artur", 29}
 ```
 
 ### Get

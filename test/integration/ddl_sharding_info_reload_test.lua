@@ -30,6 +30,8 @@ local pgroup_func_change = t.group('ddl_sharding_func_reload_after_schema_change
     {engine = 'vinyl'},
 })
 
+local select_limit = 100
+
 local function start_cluster(g)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
@@ -111,6 +113,8 @@ pgroup_key_change.before_each(function(g)
     local conn_s2 = g.cluster:server('s2-master').net_box
     local result = conn_s2.space['customers']:get(0)
     t.assert_equals(result, nil)
+
+    conn_s1.space['customers']:delete(0)
 end)
 
 pgroup_func_change.before_each(function(g)
@@ -135,6 +139,8 @@ pgroup_func_change.before_each(function(g)
     local conn_s2 = g.cluster:server('s2-master').net_box
     local result = conn_s2.space['customers_pk']:get(0)
     t.assert_equals(result, {0, 1, 'Emma', 22})
+
+    conn_s2.space['customers_pk']:delete(0)
 end)
 
 
@@ -286,10 +292,26 @@ end
 local test_tuple = {1, box.NULL, 'Emma', 22}
 local test_object = { id = 1, bucket_id = box.NULL, name = 'Emma', age = 22 }
 
+local test_tuples_batch = {
+    {1, box.NULL, 'Emma', 22},
+    {2, box.NULL, 'Anton', 19},
+    {3, box.NULL, 'Petra', 27},
+}
+local test_objects_batch = {
+    { id = 1, bucket_id = box.NULL, name = 'Emma', age = 22 },
+    { id = 2, bucket_id = box.NULL, name = 'Anton', age = 19 },
+    { id = 3, bucket_id = box.NULL, name = 'Petra', age = 27 },
+}
+
 -- Sharded by "name" and computed with custom sharding function.
 local test_customers_new_result = {
-    s1 = {1, 2861, 'Emma', 22},
-    s2 = nil,
+    s1 = {{1, 2861, 'Emma', 22}},
+    s2 = {},
+}
+
+local test_customers_new_batching_result = {
+    s1 = {{1, 2861, 'Emma', 22}, {2, 2276, 'Anton', 19}},
+    s2 = {{3, 910, 'Petra', 27}},
 }
 
 local new_space_cases = {
@@ -302,6 +324,16 @@ local new_space_cases = {
         func = 'crud.insert_object',
         input = {'customers_new', test_object},
         result = test_customers_new_result,
+    },
+    insert_many = {
+        func = 'crud.insert_many',
+        input = {'customers_new', test_tuples_batch},
+        result = test_customers_new_batching_result,
+    },
+    insert_object_many = {
+        func = 'crud.insert_object_many',
+        input = {'customers_new', test_objects_batch},
+        result = test_customers_new_batching_result,
     },
     replace = {
         func = 'crud.replace',
@@ -341,11 +373,11 @@ for name, case in pairs(new_space_cases) do
 
         -- Assert it is sharded based on updated ddl info.
         local conn_s1 = g.cluster:server('s1-master').net_box
-        local result = conn_s1.space['customers_new']:get(1)
+        local result = conn_s1.space['customers_new']:select(nil, {limit = select_limit})
         t.assert_equals(result, case.result.s1)
 
         local conn_s2 = g.cluster:server('s2-master').net_box
-        local result = conn_s2.space['customers_new']:get(1)
+        local result = conn_s2.space['customers_new']:select(nil, {limit = select_limit})
         t.assert_equals(result, case.result.s2)
     end
 end
@@ -356,18 +388,23 @@ end
 -- Sharded by "age".
 local test_customers_age_tuple = {1, 655, 'Emma', 22}
 local test_customers_age_result = {
-    s1 = nil,
-    s2 = test_customers_age_tuple,
+    s1 = {},
+    s2 = {test_customers_age_tuple},
+}
+
+local test_customers_age_batching_result = {
+    s1 = {{3, 1811, 'Petra', 27}},
+    s2 = {{1, 655, 'Emma', 22}, {2, 1325, 'Anton', 19}},
 }
 
 local function setup_customers_migrated_data(g)
-    if test_customers_age_result.s1 ~= nil then
+    if test_customers_age_result.s1 ~= nil and next(test_customers_age_result.s1) then
         local conn_s1 = g.cluster:server('s1-master').net_box
-        conn_s1.space['customers']:insert(test_customers_age_result.s1)
+        conn_s1.space['customers']:insert(unpack(test_customers_age_result.s1))
     end
-    if test_customers_age_result.s2 ~= nil then
+    if test_customers_age_result.s2 ~= nil and next(test_customers_age_result.s2) then
         local conn_s2 = g.cluster:server('s2-master').net_box
-        conn_s2.space['customers']:insert(test_customers_age_result.s2)
+        conn_s2.space['customers']:insert(unpack(test_customers_age_result.s2))
     end
 end
 
@@ -381,6 +418,16 @@ local schema_change_sharding_key_cases = {
         func = 'crud.insert_object',
         input = {'customers', test_object},
         result = test_customers_age_result,
+    },
+    insert_many = {
+        func = 'crud.insert_many',
+        input = {'customers', test_tuples_batch},
+        result = test_customers_age_batching_result,
+    },
+    insert_object_many = {
+        func = 'crud.insert_object_many',
+        input = {'customers', test_objects_batch},
+        result = test_customers_age_batching_result,
     },
     replace = {
         func = 'crud.replace',
@@ -419,11 +466,11 @@ for name, case in pairs(schema_change_sharding_key_cases) do
         t.assert_equals(err, nil)
 
         local conn_s1 = g.cluster:server('s1-master').net_box
-        local result = conn_s1.space['customers']:get(1)
+        local result = conn_s1.space['customers']:select(nil, {limit = select_limit})
         t.assert_equals(result, case.result.s1)
 
         local conn_s2 = g.cluster:server('s2-master').net_box
-        local result = conn_s2.space['customers']:get(1)
+        local result = conn_s2.space['customers']:select(nil, {limit = select_limit})
         t.assert_equals(result, case.result.s2)
     end
 end
@@ -510,18 +557,27 @@ end
 -- Sharded by 'id' with custom sharding function.
 local test_customers_pk_func_tuple = {1, 44, "Emma", 22}
 local test_customers_pk_func = {
-    s1 = nil,
-    s2 = test_customers_pk_func_tuple,
+    s1 = {},
+    s2 = {test_customers_pk_func_tuple},
+}
+
+local test_customers_pk_batching_func = {
+    s1 = {},
+    s2 = {
+        {1, 44, 'Emma', 22},
+        {2, 45, 'Anton', 19},
+        {3, 46, 'Petra', 27},
+    },
 }
 
 local function setup_customers_pk_migrated_data(g)
-    if test_customers_pk_func.s1 ~= nil then
+    if test_customers_pk_func.s1 ~= nil and next(test_customers_pk_func.s1) then
         local conn_s1 = g.cluster:server('s1-master').net_box
-        conn_s1.space['customers_pk']:insert(test_customers_pk_func.s1)
+        conn_s1.space['customers_pk']:insert(unpack(test_customers_pk_func.s1))
     end
-    if test_customers_pk_func.s2 ~= nil then
+    if test_customers_pk_func.s2 ~= nil and next(test_customers_pk_func.s2) then
         local conn_s2 = g.cluster:server('s2-master').net_box
-        conn_s2.space['customers_pk']:insert(test_customers_pk_func.s2)
+        conn_s2.space['customers_pk']:insert(unpack(test_customers_pk_func.s2))
     end
 end
 
@@ -535,6 +591,16 @@ local schema_change_sharding_func_cases = {
         func = 'crud.insert_object',
         input = {'customers_pk', test_object},
         result = test_customers_pk_func,
+    },
+    insert_many = {
+        func = 'crud.insert_many',
+        input = {'customers_pk', test_tuples_batch},
+        result = test_customers_pk_batching_func,
+    },
+    insert_object_many = {
+        func = 'crud.insert_object_many',
+        input = {'customers_pk', test_objects_batch},
+        result = test_customers_pk_batching_func,
     },
     replace = {
         func = 'crud.replace',
@@ -560,15 +626,18 @@ local schema_change_sharding_func_cases = {
         before_test = setup_customers_pk_migrated_data,
         func = 'crud.delete',
         input = {'customers_pk', 1},
-        result = {},
+        result = {
+            s1 = {},
+            s2 = {},
+        },
     },
     update = {
         before_test = setup_customers_pk_migrated_data,
         func = 'crud.update',
         input = {'customers_pk', 1, {{'+', 4, 1}}},
         result = {
-            s1 = nil,
-            s2 = {1, 44, "Emma", 23},
+            s1 = {},
+            s2 = {{1, 44, "Emma", 23}},
         },
     },
 }
@@ -593,11 +662,11 @@ for name, case in pairs(schema_change_sharding_func_cases) do
         t.assert_equals(err, nil)
 
         local conn_s1 = g.cluster:server('s1-master').net_box
-        local result = conn_s1.space['customers_pk']:get(1)
+        local result = conn_s1.space['customers_pk']:select(nil, {limit = select_limit})
         t.assert_equals(result, case.result.s1)
 
         local conn_s2 = g.cluster:server('s2-master').net_box
-        local result = conn_s2.space['customers_pk']:get(1)
+        local result = conn_s2.space['customers_pk']:select(nil, {limit = select_limit})
         t.assert_equals(result, case.result.s2)
     end
 end

@@ -6,6 +6,9 @@ local utils = require('crud.common.utils')
 local sharding_utils = require('crud.common.sharding.utils')
 local fiber_clock = require('fiber').clock
 
+local BaseIterator = require('crud.common.map_call_cases.base_iter')
+local BasePostprocessor = require('crud.common.map_call_cases.base_postprocessor')
+
 local CallError = errors.new_class('CallError')
 
 local call = {}
@@ -71,6 +74,8 @@ function call.map(func_name, func_args, opts)
         balance = '?boolean',
         timeout = '?number',
         replicasets = '?table',
+        iter = '?table',
+        postprocessor = '?table',
     })
     opts = opts or {}
 
@@ -81,24 +86,27 @@ function call.map(func_name, func_args, opts)
 
     local timeout = opts.timeout or call.DEFAULT_VSHARD_CALL_TIMEOUT
 
-    local replicasets, err
-    if opts.replicasets ~= nil then
-        replicasets = opts.replicasets
-    else
-        replicasets, err = vshard.router.routeall()
-        if replicasets == nil then
-            return nil, CallError:new("Failed to get all replicasets: %s", err.err)
+    local iter = opts.iter
+    if iter == nil then
+        iter, err = BaseIterator:new({func_args = func_args, replicasets = opts.replicasets})
+        if err ~= nil then
+            return nil, err
         end
+    end
+
+    local postprocessor = opts.postprocessor
+    if postprocessor == nil then
+        postprocessor = BasePostprocessor:new()
     end
 
     local futures_by_replicasets = {}
     local call_opts = {is_async = true}
-    for _, replicaset in pairs(replicasets) do
-        local future = replicaset[vshard_call_name](replicaset, func_name, func_args, call_opts)
+    while iter:has_next() do
+        local args, replicaset = iter:get()
+        local future = replicaset[vshard_call_name](replicaset, func_name, args, call_opts)
         futures_by_replicasets[replicaset.uuid] = future
     end
 
-    local results = {}
     local deadline = fiber_clock() + timeout
     for replicaset_uuid, future in pairs(futures_by_replicasets) do
         local wait_timeout = deadline - fiber_clock()
@@ -107,18 +115,25 @@ function call.map(func_name, func_args, opts)
         end
 
         local result, err = future:wait_result(wait_timeout)
-        if err == nil and result[1] == nil then
-            err = result[2]
-        end
 
-        if err ~= nil then
-            return nil, wrap_vshard_err(err, func_name, replicaset_uuid)
-        end
+        local result_info = {
+            key = replicaset_uuid,
+            value = result,
+        }
 
-        results[replicaset_uuid] = result
+        local err_info = {
+            err_wrapper = wrap_vshard_err,
+            err = err,
+            wrapper_args = {func_name, replicaset_uuid},
+        }
+
+        local early_exit = postprocessor:collect(result_info, err_info)
+        if early_exit then
+            break
+        end
     end
 
-    return results
+    return postprocessor:get()
 end
 
 function call.single(bucket_id, func_name, func_args, opts)
