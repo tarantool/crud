@@ -6,7 +6,7 @@ _G.is_initialized = function() return false end
 local log = require('log')
 local errors = require('errors')
 local cartridge = require('cartridge')
-local crud_utils = require('crud.common.utils')
+local helpers = require('test.helper')
 
 package.preload['customers-storage'] = function()
     local engine = os.getenv('ENGINE') or 'memtx'
@@ -59,7 +59,7 @@ package.preload['customers-storage'] = function()
                 if_not_exists = true,
             })
 
-            if crud_utils.tarantool_supports_uuids() then
+            if helpers.tarantool_supports_uuids() then
                 local goods_space = box.schema.space.create('goods', {
                     format = {
                         {name = 'uuid', type = 'uuid'},
@@ -152,7 +152,7 @@ package.preload['customers-storage'] = function()
                 if_not_exists = true,
             })
 
-            if crud_utils.tarantool_supports_jsonpath_indexes() then
+            if helpers.tarantool_supports_jsonpath_indexes() then
                 local cars_space = box.schema.space.create('cars', {
                     format = {
                         {name = 'id', type = 'map'},

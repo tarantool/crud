@@ -2,7 +2,6 @@
 
 local uuid = require('uuid')
 
-local crud_utils = require('crud.common.utils')
 local compare_conditions = require('crud.compare.conditions')
 local cond_funcs = compare_conditions.funcs
 local select_filters = require('crud.select.filters')
@@ -15,7 +14,7 @@ local g = t.group('select_filters_uuid')
 local helpers = require('test.helper')
 
 g.before_all = function()
-    if crud_utils.tarantool_supports_uuids() then
+    if helpers.tarantool_supports_uuids() then
         helpers.box_cfg()
 
         local customers_space = box.schema.space.create('customers', {
@@ -45,7 +44,8 @@ g.after_all(function()
 end)
 
 g.test_parse = function()
-    t.skip_if(not crud_utils.tarantool_supports_uuids(), "UUIDs are not supported on Tarantool <= 2.4.1")
+    t.skip_if(not helpers.tarantool_supports_uuids(),
+        "UUIDs are not supported on Tarantool <= 2.4.1")
 
     -- select by indexed field with conditions by index and field
     local uuid1 = uuid.fromstr('b85f6440-24d7-11eb-8d27-000000000000')
@@ -104,7 +104,8 @@ g.test_parse = function()
 end
 
 g.test_one_condition_uuid = function()
-    t.skip_if(not crud_utils.tarantool_supports_uuids(), "UUIDs are not supported on Tarantool <= 2.4.1")
+    t.skip_if(not helpers.tarantool_supports_uuids(),
+        "UUIDs are not supported on Tarantool <= 2.4.1")
 
     local uuid1 = uuid.fromstr('b85f6440-24d7-11eb-8d27-000000000000')
     local uuid2 = uuid.fromstr('cea48870-24d7-11eb-8d27-111111111111')
@@ -146,7 +147,8 @@ return M]]
 end
 
 g.test_one_condition_uuid_gt = function()
-    t.skip_if(not crud_utils.tarantool_supports_uuids(), "UUIDs are not supported on Tarantool <= 2.4.1")
+    t.skip_if(not helpers.tarantool_supports_uuids(),
+        "UUIDs are not supported on Tarantool <= 2.4.1")
 
     local uuid1 = uuid.fromstr('b85f6440-24d7-11eb-8d27-000000000000')
     local uuid2 = uuid.fromstr('cea48870-24d7-11eb-8d27-111111111111')
@@ -191,7 +193,8 @@ return M]]
 end
 
 g.test_one_condition_uuid_with_nil_value = function()
-    t.skip_if(not crud_utils.tarantool_supports_uuids(), "UUIDs are not supported on Tarantool <= 2.4.1")
+    t.skip_if(not helpers.tarantool_supports_uuids(),
+        "UUIDs are not supported on Tarantool <= 2.4.1")
 
     local uuid1 = uuid.fromstr('b85f6440-24d7-11eb-8d27-000000000000')
     local uuid2 = uuid.fromstr('cea48870-24d7-11eb-8d27-111111111111')
@@ -239,7 +242,8 @@ return M]]
 end
 
 g.test_two_conditions_uuid = function()
-    t.skip_if(not crud_utils.tarantool_supports_uuids(), "UUIDs are not supported on Tarantool <= 2.4.1")
+    t.skip_if(not helpers.tarantool_supports_uuids(),
+        "UUIDs are not supported on Tarantool <= 2.4.1")
 
     local uuid1 = uuid.fromstr('b85f6440-24d7-11eb-8d27-000000000000')
     local uuid2 = uuid.fromstr('cea48870-24d7-11eb-8d27-111111111111')

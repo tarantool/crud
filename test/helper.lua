@@ -300,16 +300,34 @@ function helpers.get_other_storage_bucket_id(cluster, bucket_id)
     ]], {bucket_id})
 end
 
-function helpers.tarantool_version_at_least(wanted_major, wanted_minor,
-        wanted_patch)
-    -- Borrowed from `determine_enabled_features()` from
-    -- crud/common/utils.lua.
+-- Borrowed from `determine_enabled_features()` from
+-- crud/common/utils.lua.
+local function parse_tarantool_version()
     local major_minor_patch = _TARANTOOL:split('-', 1)[1]
     local major_minor_patch_parts = major_minor_patch:split('.', 2)
 
     local major = tonumber(major_minor_patch_parts[1])
     local minor = tonumber(major_minor_patch_parts[2])
     local patch = tonumber(major_minor_patch_parts[3])
+
+    return major, minor, patch
+end
+
+-- Beware: `helpers.tarantool_version_at_least(2, 8, 3)` will
+-- accept any 2.9.* and 3.*.*, but it is not always intended
+-- behaviour.
+--
+-- A bugfix may land to 2.8.3 and 2.9.2 for example, but 2.9.1
+-- will be accepted for the call with 2, 8, 3 arguments.
+--
+-- The suggestion is to don't use this function and add a
+-- `helpers.tarantool_supports_<...>()` helper instead. It should
+-- have its own start border for each relevant release series.
+--
+-- TODO: Replace current usages with the suggested solution.
+function helpers.tarantool_version_at_least(wanted_major, wanted_minor,
+        wanted_patch)
+    local major, minor, patch = parse_tarantool_version()
 
     if major < (wanted_major or 0) then return false end
     if major > (wanted_major or 0) then return true end
@@ -321,6 +339,35 @@ function helpers.tarantool_version_at_least(wanted_major, wanted_minor,
     if patch > (wanted_patch or 0) then return true end
 
     return true
+end
+
+-- UUID storing and indexing was added in 2.4.1, see [1] and
+-- [2].
+--
+-- [1]: https://github.com/tarantool/tarantool/issues/2916
+-- [2]: https://github.com/tarantool/tarantool/issues/4268
+function helpers.tarantool_supports_uuids()
+    local major, minor, patch = parse_tarantool_version()
+
+    return
+        (major == 2 and minor == 4 and patch >= 1) or
+        (major == 2 and minor >= 5) or
+        (major >= 3)
+end
+
+-- Indexes using a JSON path were introduced in 2.1.2, see
+-- [1]. Key changes are [2] and [3].
+--
+-- [1]: https://github.com/tarantool/tarantool/issues/1012
+-- [2]: https://github.com/tarantool/tarantool/commit/4273ec52e122d6d37c8deedf1bc10732a7e40c0e
+-- [3]: https://github.com/tarantool/tarantool/commit/a754980d7feab110b8c82ee15ef13e080afa2882
+function helpers.tarantool_supports_jsonpath_indexes()
+    local major, minor, patch = parse_tarantool_version()
+
+    return
+        (major == 2 and minor == 1 and patch >= 2) or
+        (major == 2 and minor >= 2) or
+        (major >= 3)
 end
 
 return helpers

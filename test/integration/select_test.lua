@@ -1304,7 +1304,7 @@ end
 
 pgroup.test_jsonpath_index_field = function(g)
     t.skip_if(
-        not crud_utils.tarantool_supports_jsonpath_indexes(),
+        not helpers.tarantool_supports_jsonpath_indexes(),
         "JSON path indexes are supported since 2.1.2"
     )
 
@@ -1391,7 +1391,7 @@ end
 
 pgroup.test_jsonpath_index_field_pagination = function(g)
     t.skip_if(
-        not crud_utils.tarantool_supports_jsonpath_indexes(),
+        not helpers.tarantool_supports_jsonpath_indexes(),
         "JSON path indexes are supported since 2.1.2"
     )
 

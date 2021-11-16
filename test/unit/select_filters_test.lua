@@ -9,8 +9,6 @@ local collations = require('crud.common.collations')
 local t = require('luatest')
 local g = t.group('select_filters')
 
-local crud_utils = require('crud.common.utils')
-
 local helpers = require('test.helper')
 
 g.before_all = function()
@@ -46,7 +44,7 @@ g.before_all = function()
         if_not_exists = true,
     })
 
-    if crud_utils.tarantool_supports_jsonpath_indexes() then
+    if helpers.tarantool_supports_jsonpath_indexes() then
         local cars_space = box.schema.space.create('cars', {
             format = {
                 {name = 'id', type = 'map'},
@@ -856,7 +854,7 @@ end
 
 g.test_jsonpath_indexes = function()
     t.skip_if(
-        not crud_utils.tarantool_supports_jsonpath_indexes(),
+        not helpers.tarantool_supports_jsonpath_indexes(),
         "JSON path indexes are supported since 2.1.2"
     )
 

@@ -214,27 +214,6 @@ local function determine_enabled_features()
         (major == 2 and minor >= 4) or
         (major >= 3)
 
-    -- UUID storing and indexing was added in 2.4.1, see [1] and
-    -- [2].
-    --
-    -- [1]: https://github.com/tarantool/tarantool/issues/2916
-    -- [2]: https://github.com/tarantool/tarantool/issues/4268
-    enabled_tarantool_features.uuids =
-        (major == 2 and minor == 4 and patch >= 1) or
-        (major == 2 and minor >= 5) or
-        (major >= 3)
-
-    -- Indexes using a JSON path were introduced in 2.1.2, see
-    -- [1]. Key changes are [2] and [3].
-    --
-    -- [1]: https://github.com/tarantool/tarantool/issues/1012
-    -- [2]: https://github.com/tarantool/tarantool/commit/4273ec52e122d6d37c8deedf1bc10732a7e40c0e
-    -- [3]: https://github.com/tarantool/tarantool/commit/a754980d7feab110b8c82ee15ef13e080afa2882
-    enabled_tarantool_features.jsonpath_indexes =
-        (major == 2 and minor == 1 and patch >= 2) or
-        (major == 2 and minor >= 2) or
-        (major >= 3)
-
     -- The merger module was implemented in 2.2.1, see [1].
     -- However it had the critical problem [2], which leads to
     -- segfault at attempt to use the module from a fiber serving
@@ -271,22 +250,6 @@ function utils.tarantool_supports_fieldpaths()
     end
 
     return enabled_tarantool_features.fieldpaths
-end
-
-function utils.tarantool_supports_uuids()
-    if enabled_tarantool_features.uuids == nil then
-        determine_enabled_features()
-    end
-
-    return enabled_tarantool_features.uuids
-end
-
-function utils.tarantool_supports_jsonpath_indexes()
-    if enabled_tarantool_features.jsonpath_indexes == nil then
-        determine_enabled_features()
-    end
-
-    return enabled_tarantool_features.jsonpath_indexes
 end
 
 function utils.tarantool_has_builtin_merger()
