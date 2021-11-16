@@ -201,15 +201,39 @@ local function determine_enabled_features()
     local minor = tonumber(major_minor_patch_parts[2])
     local patch = tonumber(major_minor_patch_parts[3])
 
-    -- since Tarantool 2.3
-    enabled_tarantool_features.fieldpaths = major >= 2 and (minor > 3 or minor == 3 and patch >= 1)
+    -- Named fields and JSON path fields in the update operation
+    -- were implemented in 2.3.1, see [1]. Key changes are [2],
+    -- [3] and [4].
+    --
+    -- [1]: https://github.com/tarantool/tarantool/issues/1261
+    -- [2]: https://github.com/tarantool/tarantool/commit/9ee5cf82ae579d62543a4bb335dd1e99b00dacf6
+    -- [3]: https://github.com/tarantool/tarantool/commit/940133ae8c33addb37c4d1db9559585587ea08cd
+    -- [4]: https://github.com/tarantool/tarantool/commit/6e97d6a986a446a23c84e5e4777585132607cbb6
+    enabled_tarantool_features.fieldpaths =
+        (major == 2 and minor == 3 and patch >= 1) or
+        (major == 2 and minor >= 4) or
+        (major >= 3)
 
-    -- since Tarantool 2.4
-    enabled_tarantool_features.uuids = major >= 2 and (minor > 4 or minor == 4 and patch >= 1)
+    -- UUID storing and indexing was added in 2.4.1, see [1] and
+    -- [2].
+    --
+    -- [1]: https://github.com/tarantool/tarantool/issues/2916
+    -- [2]: https://github.com/tarantool/tarantool/issues/4268
+    enabled_tarantool_features.uuids =
+        (major == 2 and minor == 4 and patch >= 1) or
+        (major == 2 and minor >= 5) or
+        (major >= 3)
 
-    -- since Tarantool 2.6.3 / 2.7.2 / 2.8.1
-    enabled_tarantool_features.jsonpath_indexes = major >= 3 or (major >= 2 and ((minor >= 6 and patch >= 3)
-        or (minor >= 7 and patch >= 2) or (minor >= 8 and patch >= 1) or minor >= 9))
+    -- Indexes using a JSON path were introduced in 2.1.2, see
+    -- [1]. Key changes are [2] and [3].
+    --
+    -- [1]: https://github.com/tarantool/tarantool/issues/1012
+    -- [2]: https://github.com/tarantool/tarantool/commit/4273ec52e122d6d37c8deedf1bc10732a7e40c0e
+    -- [3]: https://github.com/tarantool/tarantool/commit/a754980d7feab110b8c82ee15ef13e080afa2882
+    enabled_tarantool_features.jsonpath_indexes =
+        (major == 2 and minor == 1 and patch >= 2) or
+        (major == 2 and minor >= 2) or
+        (major >= 3)
 
     -- The merger module was implemented in 2.2.1, see [1].
     -- However it had the critical problem [2], which leads to
