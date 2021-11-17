@@ -18,14 +18,13 @@ g.before_each(function()
         format = sharding_key_format,
         if_not_exists = true
     })
-    box.space._ddl_sharding_key:create_index('pk', {if_not_exists = true})
+    box.space._ddl_sharding_key:create_index('pk')
     box.schema.space.create('fetch_on_storage')
 end)
 
 g.after_each(function()
     -- Cleanup.
     if box.space._ddl_sharding_key ~= nil then
-        box.space._ddl_sharding_key:truncate()
         box.space._ddl_sharding_key:drop()
     end
     box.space.fetch_on_storage:drop()
