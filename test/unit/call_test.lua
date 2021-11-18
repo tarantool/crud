@@ -225,3 +225,32 @@ g.test_map_vshard_calls = function()
         mode = 'read', prefer_replica = true, balance = true,
     })
 end
+
+g.test_any_vshard_call = function()
+    g.clear_vshard_calls()
+    local results, err = g.cluster.main_server.net_box:eval([[
+        local call = require('crud.common.call')
+        return call.any('say_hi_politely', {'dude'}, {})
+    ]])
+
+    t.assert_equals(results, 'HI, dude! I am s2-master')
+    t.assert_equals(err, nil)
+end
+
+g.test_any_vshard_call_timeout = function()
+    local timeout = 0.2
+
+    local results, err = g.cluster.main_server.net_box:eval([[
+        local call = require('crud.common.call')
+
+        local say_hi_timeout, call_timeout = ...
+
+        return call.any('say_hi_sleepily', {say_hi_timeout}, {
+            timeout = call_timeout,
+        })
+    ]], {timeout + 0.1, timeout})
+
+    t.assert_equals(results, nil)
+    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
+    t.assert_str_contains(err.err, "Timeout exceeded")
+end
