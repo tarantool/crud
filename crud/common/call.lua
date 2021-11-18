@@ -145,4 +145,31 @@ function call.single(bucket_id, func_name, func_args, opts)
     return res
 end
 
+function call.any(func_name, func_args, opts)
+    dev_checks('string', '?table', {
+        timeout = '?number',
+    })
+
+    local timeout = opts.timeout or call.DEFAULT_VSHARD_CALL_TIMEOUT
+
+    local replicasets, err = vshard.router.routeall()
+    if replicasets == nil then
+        return nil, CallError:new("Failed to get all replicasets: %s", err.err)
+    end
+    local replicaset = select(2, next(replicasets))
+
+    local res, err = replicaset:call(func_name, func_args, {
+        timeout = timeout,
+    })
+    if err ~= nil then
+        return nil, wrap_vshard_err(err, func_name, replicaset.uuid)
+    end
+
+    if res == box.NULL then
+        return nil
+    end
+
+    return res
+end
+
 return call
