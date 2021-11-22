@@ -48,41 +48,81 @@ local function get_index_for_condition(space_indexes, space_format, condition)
     end
 end
 
-local function extract_sharding_key_from_scan_value(scan_value, scan_index, sharding_index)
-    if #scan_value < #sharding_index.parts then
+local function extract_sharding_key_from_conditions(conditions, sharding_index, space_indexes, fieldno_map)
+    dev_checks('table', 'table', 'table', 'table')
+
+    -- If name is both valid index name and field name,
+    -- it is interpreted as index name.
+    local filled_fields = {}
+    for _, condition in ipairs(conditions) do
+        if condition.operator ~= compare_conditions.operators.EQ then
+            goto continue
+        end
+
+        local index = space_indexes[condition.operand]
+        if index ~= nil then
+            for i, part in ipairs(index.parts) do
+            -- Consider the following case:
+            --     index_0: {'foo', 'bar'},
+            --     index_1: {'baz', 'bar'},
+            --     conditions: {{'==', 'index_0', {1, 2}}, {'==', 'index_1', {3, nil}}}.
+            -- To check that nil parts will not overwrite already filled_fields,
+            -- we verify that filled_fields[part.fieldno] is empty. If there are
+            -- more than one non-null different value in conditions with equal operator,
+            -- request is already in conflict and it doesn't matter what sharding key we
+            -- will return.
+                if filled_fields[part.fieldno] == nil then
+                    filled_fields[part.fieldno] = condition.values[i]
+                end
+            end
+
+            goto continue
+        end
+
+        local fieldno = fieldno_map[condition.operand]
+        if fieldno == nil then
+            goto continue
+        end
+        filled_fields[fieldno] = condition.values[1]
+
+        ::continue::
+    end
+
+    local sharding_key = {}
+    for i, v in ipairs(sharding_index.parts) do
+        if filled_fields[v.fieldno] == nil then
+            return nil
+        end
+
+        sharding_key[i] = filled_fields[v.fieldno]
+    end
+
+    return sharding_key
+end
+
+local function get_sharding_key_from_scan_value(scan_value, scan_index, scan_iter, sharding_index)
+    dev_checks('?', 'table', 'number', 'table')
+
+    if scan_value == nil then
+        return nil
+    end
+
+    if scan_iter ~= box.index.EQ and scan_iter ~= box.index.REQ then
         return nil
     end
 
     if scan_index.id == sharding_index.id then
+        if type(scan_value) ~= 'table' then
+            return scan_value
+        end
+
+        for i, _ in ipairs(sharding_index.parts) do
+            if scan_value[i] == nil then return nil end
+        end
         return scan_value
     end
 
-    local scan_value_fields_values = {}
-    for i, scan_index_part in ipairs(scan_index.parts) do
-        scan_value_fields_values[scan_index_part.fieldno] = scan_value[i]
-    end
-
-    -- check that sharding key is included in the scan index fields
-    local sharding_key = {}
-    for _, sharding_key_part in ipairs(sharding_index.parts) do
-        local fieldno = sharding_key_part.fieldno
-
-        -- sharding key isn't included in scan key
-        if scan_value_fields_values[fieldno] == nil then
-            return nil
-        end
-
-        local field_value = scan_value_fields_values[fieldno]
-
-        -- sharding key contains nil values
-        if field_value == nil then
-            return nil
-        end
-
-        table.insert(sharding_key, field_value)
-    end
-
-    return sharding_key
+    return nil
 end
 
 -- We need to construct after_tuple by field_names
@@ -90,7 +130,9 @@ end
 -- and these fields are ordered by field_names + primary key + scan key
 -- this order can be differ from order in space format
 -- so we need to cast after_tuple to space format for scrolling tuples on storage
-local function construct_after_tuple_by_fields(space_format, field_names, tuple)
+local function construct_after_tuple_by_fields(fieldno_map, field_names, tuple)
+    dev_checks('table', '?table', '?table|cdata')
+
     if tuple == nil then
         return nil
     end
@@ -99,15 +141,10 @@ local function construct_after_tuple_by_fields(space_format, field_names, tuple)
         return tuple
     end
 
-    local positions = {}
     local transformed_tuple = {}
 
-    for i, field in ipairs(space_format) do
-        positions[field.name] = i
-    end
-
     for i, field_name in ipairs(field_names) do
-        local fieldno = positions[field_name]
+        local fieldno = fieldno_map[field_name]
         if fieldno == nil then
             return nil, FilterFieldsError:new(
                     'Space format doesn\'t contain field named %q', field_name
@@ -145,6 +182,8 @@ function select_plan.new(space, conditions, opts)
     local scan_value
     local scan_condition_num
 
+    local fieldno_map = utils.get_format_fieldno_map(space_format)
+
     -- search index to iterate over
     for i, condition in ipairs(conditions) do
         scan_index = get_index_for_condition(space_indexes, space_format, condition)
@@ -177,7 +216,7 @@ function select_plan.new(space, conditions, opts)
     -- handle opts.first
     local total_tuples_count
     local scan_after_tuple, err = construct_after_tuple_by_fields(
-            space_format, field_names, opts.after_tuple
+        fieldno_map, field_names, opts.after_tuple
     )
     if err ~= nil then
         return nil, err
@@ -230,9 +269,11 @@ function select_plan.new(space, conditions, opts)
     local sharding_index = opts.sharding_key_as_index_obj or primary_index
 
     -- get sharding key value
-    local sharding_key
-    if scan_value ~= nil and (scan_iter == box.index.EQ or scan_iter == box.index.REQ) then
-        sharding_key = extract_sharding_key_from_scan_value(scan_value, scan_index, sharding_index)
+    local sharding_key = get_sharding_key_from_scan_value(scan_value, scan_index, scan_iter, sharding_index)
+
+    if sharding_key == nil then
+        sharding_key = extract_sharding_key_from_conditions(conditions, sharding_index,
+                                                            space_indexes, fieldno_map)
     end
 
     local plan = {
@@ -250,5 +291,10 @@ function select_plan.new(space, conditions, opts)
 
     return plan
 end
+
+select_plan.internal = {
+    get_sharding_key_from_scan_value = get_sharding_key_from_scan_value,
+    extract_sharding_key_from_conditions = extract_sharding_key_from_conditions
+}
 
 return select_plan

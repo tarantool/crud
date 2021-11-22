@@ -185,7 +185,7 @@ g.test_is_scan_by_full_sharding_key_eq = function()
     t.assert_equals(err, nil)
 
     t.assert_equals(plan.total_tuples_count, nil)
-    t.assert_equals(plan.sharding_key, nil)
+    t.assert_equals(plan.sharding_key, {15})
 
     -- gt
     local plan, err = select_plan.new(box.space.customers, {
@@ -338,4 +338,208 @@ g.test_table_count = function()
     t.assert_equals(utils.table_count({'Ivan', 'Peter', 'Fyodor', 'Alexander'}), 4)
     t.assert_equals(utils.table_count(
         {['Ivan'] = 1, ['Peter'] = 2, ['Fyodor'] = 3, ['Alexander'] = 4}), 4)
+end
+
+local get_sharding_key_from_scan_value_cases = {
+    for_non_table_value = {
+        -- Input values.
+        scan_value = 2,
+        scan_index = 'id',
+        scan_iter = box.index.EQ,
+        sharding_index = 'id',
+        -- Expected values.
+        sharding_key = 2,
+    },
+    for_empty_value = {
+        -- Input values.
+        scan_value = nil,
+        scan_index = 'id',
+        scan_iter = box.index.EQ,
+        sharding_index = 'id',
+        -- Expected values.
+        sharding_key = nil,
+    },
+    for_ge_iter_returns_nil = {
+        -- Input values.
+        scan_value = 2,
+        scan_index = 'id',
+        scan_iter = box.index.GE,
+        sharding_index = 'id',
+        -- Expected values.
+        sharding_key = nil,
+    },
+    returns_nil_if_sharding_index_is_not_scan_index = {
+        -- Input values.
+        scan_value = 2,
+        scan_index = 'id',
+        scan_iter = box.index.EQ,
+        sharding_index = 'age',
+        -- Expected values.
+        sharding_key = nil,
+    },
+    for_table_value = {
+        -- Input values.
+        scan_value = { 'John', 'Doe' },
+        scan_index = 'age',
+        scan_iter = box.index.EQ,
+        sharding_index = 'age',
+        -- Expected values.
+        sharding_key = { 'John', 'Doe' },
+    },
+    for_partial_table_value_returns_nil = {
+        -- Input values.
+        scan_value = { nil, 'Doe' },
+        scan_index = 'age',
+        scan_iter = box.index.EQ,
+        sharding_index = 'age',
+        -- Expected values.
+        sharding_key = nil,
+    },
+}
+
+for name, case in pairs(get_sharding_key_from_scan_value_cases) do
+    g[('test_get_sharding_key_from_scan_value_%s'):format(name)] = function()
+        local scan_value = case.scan_value
+        local scan_index = box.space.customers.index[case.scan_index]
+        local scan_iter = case.scan_iter
+        local sharding_index = box.space.customers.index[case.sharding_index]
+
+        local get_sharding_key = select_plan.internal.get_sharding_key_from_scan_value
+        local sharding_key = get_sharding_key(scan_value, scan_index, scan_iter, sharding_index)
+        t.assert_equals(sharding_key, case.sharding_key)
+    end
+end
+
+local extract_sharding_key_from_conditions_cases = {
+    pk_field_sharding_key_from_double_equal_sign_pk_condition = {
+        -- Input values.
+        sharding_index = { parts = {{ fieldno = 1 }} },
+        conditions = {{ '==', 'id', 2 }},
+        -- Expected values.
+        sharding_key = { 2 },
+    },
+    pk_field_sharding_key_from_single_equal_sign_pk_condition = {
+        -- Input values.
+        sharding_index = { parts = {{ fieldno = 1 }} },
+        conditions = {{ '=', 'id', 2 }},
+        -- Expected values.
+        sharding_key = { 2 },
+    },
+    pk_field_sharding_key_from_ge_sign_pk_condition_returns_nil = {
+        -- Input values.
+        sharding_index = { parts = {{ fieldno = 1 }} },
+        conditions = {{ '>=', 'id', 2 }},
+        -- Expected values.
+        sharding_key = nil,
+    },
+    pk_field_sharding_key_from_le_sign_pk_condition_returns_nil = {
+        -- Input values.
+        sharding_index = { parts = {{ fieldno = 1 }} },
+        conditions = {{ '<=', 'id', 2 }},
+        -- Expected values.
+        sharding_key = nil,
+    },
+    pk_field_sharding_key_from_gt_sign_pk_condition_returns_nil = {
+        -- Input values.
+        sharding_index = { parts = {{ fieldno = 1 }} },
+        conditions = {{ '<', 'id', 2 }},
+        -- Expected values.
+        sharding_key = nil,
+    },
+    pk_field_sharding_key_from_lt_sign_pk_condition_returns_nil = {
+        -- Input values.
+        sharding_index = { parts = {{ fieldno = 1 }} },
+        conditions = {{ '<', 'id', 2 }},
+        -- Expected values.
+        sharding_key = nil,
+    },
+    field_sharding_key_from_its_non_unique_single_field_secondary_index_condition = {
+        -- Input values.
+        sharding_index = { parts = {{ fieldno = 5 }} },
+        conditions = {{ '==', 'age', 42 }},
+        -- Expected values.
+        sharding_key = { 42 },
+    },
+    field_sharding_key_from_its_multiple_fields_secondary_index_condition = {
+        -- Input values.
+        sharding_index = { parts = {{ fieldno = 3 }} },
+        conditions = {{ '==', 'full_name', { 'John',  'Doe' } }},
+        -- Expected values.
+        sharding_key = { 'John' },
+    },
+    table_sharding_key_from_two_conditions = {
+        -- Input values.
+        sharding_index = { parts = {{ fieldno = 3 }, { fieldno = 5 }} },
+        conditions = {{ '==', 'name', 'John' }, { '==', 'age', 42 }},
+        -- Expected values.
+        sharding_key = { 'John', 42 },
+    },
+    table_sharding_key_from_two_index_conditions = {
+        -- Input values.
+        sharding_index = { parts = {{ fieldno = 3 }, { fieldno = 5 }} },
+        conditions = {{ '==', 'full_name', { 'John',  'Doe' } }, { '==', 'age', 42 }},
+        -- Expected values.
+        sharding_key = { 'John', 42 },
+    },
+    table_sharding_key_from_eq_an_ge_conditions_returns_nil = {
+        -- Input values.
+        sharding_index = { parts = {{ fieldno = 3 }, { fieldno = 5 }} },
+        conditions = {{ '==', 'name', 'John' }, { '>=', 'age', 42 }},
+        -- Expected values.
+        sharding_key = nil,
+    },
+    table_sharding_key_from_partial_conditions = {
+        -- Input values.
+        sharding_index = { parts = {{ fieldno = 1 }, { fieldno = 4 }} },
+        conditions = {{ '==', 'full_name', { nil,  'Doe' } }, { '==', 'id', 1 }},
+        -- Expected values.
+        sharding_key = { 1, 'Doe' },
+    },
+    table_sharding_key_from_conditions_with_nil_and_non_nil_for_same_value = {
+        -- Input values.
+        sharding_index = { parts = {{ fieldno = 3 }, { fieldno = 5 }} },
+        conditions = {{ '==', 'full_name', { 'John',  'Doe' } }, { '==', 'name_id', { nil, 1 } }},
+        -- Expected values.
+        sharding_key = nil,
+    },
+}
+
+for name, case in pairs(extract_sharding_key_from_conditions_cases) do
+    g[('test_extract_%s'):format(name)] = function()
+        local conditions = compare_conditions.parse(case.conditions)
+        local sharding_index = case.sharding_index
+        local space_indexes = box.space.customers.index
+        local space_format = box.space.customers:format()
+        local fieldno_map = utils.get_format_fieldno_map(space_format)
+
+        local extract_sharding_key = select_plan.internal.extract_sharding_key_from_conditions
+        local sharding_key = extract_sharding_key(conditions, sharding_index, space_indexes, fieldno_map)
+        t.assert_equals(sharding_key, case.sharding_key)
+    end
+end
+
+g.before_test('test_extract_sharding_key_from_conditions_for_index_and_field_with_same_name', function()
+    box.space.customers:create_index('city', {
+        parts = { {field = 'id'}, {field = 'city'} },
+        unique = false,
+        if_not_exists = true,
+    })
+end)
+
+g.after_test('test_extract_sharding_key_from_conditions_for_index_and_field_with_same_name', function()
+    box.space.customers.index.city:drop()
+end)
+
+g.test_extract_sharding_key_from_conditions_for_index_and_field_with_same_name = function()
+    local space_indexes = box.space.customers.index
+    local space_format = box.space.customers:format()
+    local fieldno_map = utils.get_format_fieldno_map(space_format)
+
+    local sharding_index = { parts = {{ fieldno = 6 }} }
+
+    local conditions = compare_conditions.parse({{ '==', 'city', { 1, 'New York' } }})
+    local extract_sharding_key = select_plan.internal.extract_sharding_key_from_conditions
+    local sharding_key = extract_sharding_key(conditions, sharding_index, space_indexes, fieldno_map)
+    t.assert_equals(sharding_key, { 'New York' },
+        "Extracted sharding key from index in case of name collision")
 end

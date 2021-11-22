@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 * Use tuple-merger backed select implementation on tarantool 2.10+ (it gives
   less pressure on Lua GC).
+* DDL sharding key now can be extracted from select conditions even if
+  there are no separate index.
 
 ## [0.9.0] - 20-10-21
 

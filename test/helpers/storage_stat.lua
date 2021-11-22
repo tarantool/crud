@@ -95,4 +95,16 @@ function storage_stat.diff(a, b)
     return diff
 end
 
+-- Accepts collect (or diff) return value and returns
+-- total number of select requests across all storages.
+function storage_stat.total(stats)
+    local total = 0
+
+    for _, stat in pairs(stats) do
+        total = total + (stat.select_requests or 0)
+    end
+
+    return total
+end
+
 return storage_stat
