@@ -51,6 +51,8 @@ pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers_name_key_non_uniq_index')
     helpers.truncate_space_on_cluster(g.cluster, 'customers_secondary_idx_name_key')
     helpers.truncate_space_on_cluster(g.cluster, 'customers_age_key')
+    helpers.truncate_space_on_cluster(g.cluster, 'customers_name_age_key_different_indexes')
+    helpers.truncate_space_on_cluster(g.cluster, 'customers_name_age_key_three_fields_index')
 end)
 
 pgroup.test_insert_object = function(g)
@@ -279,13 +281,7 @@ pgroup.test_select = function(g)
     t.assert_equals(result.rows[1], tuple)
 end
 
--- TODO: After enabling support of sharding keys that are not equal to primary
--- keys, we should handle it differently: it is not enough to look just on scan
--- value, we should traverse all conditions. Now missed cases lead to
--- map-reduce. Will be resolved in #213.
-pgroup.test_select_wont_lead_map_reduce = function(g)
-    local space_name = 'customers_name_key_uniq_index'
-
+local prepare_data_name_sharding_key = function(g, space_name)
     local conn_s1 = g.cluster:server('s1-master').net_box
     local conn_s2 = g.cluster:server('s2-master').net_box
 
@@ -301,12 +297,85 @@ pgroup.test_select_wont_lead_map_reduce = function(g)
     -- bucket_id is 1161, storage is s-2
     local result = conn_s2.space[space_name]:insert({4, 1161, 'James Joyce', 59})
     t.assert_not_equals(result, nil)
+end
+
+local prepare_data_name_age_sharding_key = function(g, space_name)
+    local conn_s1 = g.cluster:server('s1-master').net_box
+    local conn_s2 = g.cluster:server('s2-master').net_box
+
+    -- bucket_id is 2310, storage is s-1
+    local result = conn_s1.space[space_name]:insert({1, 2310, 'Viktor Pelevin', 58})
+    t.assert_not_equals(result, nil)
+    -- bucket_id is 63, storage is s-2
+    local result = conn_s2.space[space_name]:insert({2, 63, 'Isaac Asimov', 72})
+    t.assert_not_equals(result, nil)
+    -- bucket_id is 2901, storage is s-1
+    local result = conn_s1.space[space_name]:insert({3, 2901, 'Aleksandr Solzhenitsyn', 89})
+    t.assert_not_equals(result, nil)
+    -- bucket_id is 1365, storage is s-2
+    local result = conn_s2.space[space_name]:insert({4, 1365, 'James Joyce', 59})
+    t.assert_not_equals(result, nil)
+end
+
+local cases = {
+    select_for_indexed_sharding_key = {
+        space_name = 'customers_name_key_uniq_index',
+        prepare_data = prepare_data_name_sharding_key,
+        conditions = {{'==', 'name', 'Viktor Pelevin'}},
+    },
+    select_for_sharding_key_as_index_part = {
+        space_name = 'customers_name_key',
+        prepare_data = prepare_data_name_sharding_key,
+        conditions = {{'==', 'name', 'Viktor Pelevin'}},
+    },
+    select_for_sharding_key_as_several_indexes_parts = {
+        space_name = 'customers_name_age_key_different_indexes',
+        prepare_data = prepare_data_name_age_sharding_key,
+        conditions = {{'==', 'name', 'Viktor Pelevin'}, {'==', 'age', 58}},
+    },
+    select_by_index_cond_for_sharding_key_as_several_indexes_parts = {
+        space_name = 'customers_name_age_key_different_indexes',
+        prepare_data = prepare_data_name_age_sharding_key,
+        conditions = {{'==', 'id', {1, 'Viktor Pelevin'}}, {'==', 'age', 58}},
+    },
+    select_by_partial_index_cond_for_sharding_key_included = {
+        space_name = 'customers_name_age_key_three_fields_index',
+        prepare_data = prepare_data_name_age_sharding_key,
+        conditions = {{'==', 'three_fields', {58, 'Viktor Pelevin', nil}}},
+    },
+}
+
+for name, case in pairs(cases) do
+    pgroup[('test_%s_wont_lead_to_map_reduce'):format(name)] = function(g)
+        case.prepare_data(g, case.space_name)
+
+        local stat_a = storage_stat.collect(g.cluster)
+
+        local result, err = g.cluster.main_server.net_box:call('crud.select', {
+            case.space_name, case.conditions
+        })
+        t.assert_equals(err, nil)
+        t.assert_not_equals(result, nil)
+        t.assert_equals(#result.rows, 1)
+
+        local stat_b = storage_stat.collect(g.cluster)
+
+        -- Check a number of select() requests made by CRUD on cluster's storages
+        -- after calling select() on a router. Make sure only a single storage has
+        -- a single select() request. Otherwise we lead to map-reduce.
+        local stats = storage_stat.diff(stat_b, stat_a)
+        t.assert_equals(storage_stat.total(stats), 1, 'Select request was not a map reduce')
+    end
+end
+
+pgroup.test_select_for_part_of_sharding_key_will_lead_to_map_reduce = function(g)
+    local space_name = 'customers_name_age_key_different_indexes'
+    prepare_data_name_age_sharding_key(g, space_name)
 
     local stat_a = storage_stat.collect(g.cluster)
 
-    -- Select a tuple with name 'Viktor Pelevin'.
     local result, err = g.cluster.main_server.net_box:call('crud.select', {
-        space_name, {{'==', 'name', 'Viktor Pelevin'}}
+        space_name, {{'==', 'age', 58}},
     })
     t.assert_equals(err, nil)
     t.assert_not_equals(result, nil)
@@ -315,16 +384,10 @@ pgroup.test_select_wont_lead_map_reduce = function(g)
     local stat_b = storage_stat.collect(g.cluster)
 
     -- Check a number of select() requests made by CRUD on cluster's storages
-    -- after calling select() on a router. Make sure only a single storage has
-    -- a single select() request. Otherwise we lead map-reduce.
-    t.assert_equals(storage_stat.diff(stat_b, stat_a), {
-        ['s-1'] = {
-            select_requests = 0,
-        },
-        ['s-2'] = {
-            select_requests = 1,
-        },
-    })
+    -- after calling select() on a router. Make sure it was a map-reduce
+    -- since we do not have sharding key values in conditions.
+    local stats = storage_stat.diff(stat_b, stat_a)
+    t.assert_equals(storage_stat.total(stats), 2, 'Select request was a map reduce')
 end
 
 pgroup.test_select_secondary_idx = function(g)

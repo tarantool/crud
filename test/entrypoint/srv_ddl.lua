@@ -61,6 +61,14 @@ package.preload['customers-storage'] = function()
                     {path = 'name', is_nullable = false, type = 'string'},
                 },
             }
+            local age_index = {
+                name = 'age',
+                type = 'TREE',
+                unique = false,
+                parts = {
+                    {path = 'age', is_nullable = false, type = 'number'},
+                },
+            }
             local secondary_index = {
                 name = 'secondary',
                 type = 'TREE',
@@ -68,6 +76,17 @@ package.preload['customers-storage'] = function()
                 parts = {
                     {path = 'id', is_nullable = false, type = 'unsigned'},
                     {path = 'name', is_nullable = false, type = 'string'},
+                },
+            }
+
+            local three_fields_index = {
+                name = 'three_fields',
+                type = 'TREE',
+                unique = false,
+                parts = {
+                    {path = 'age', is_nullable = false, type = 'number'},
+                    {path = 'name', is_nullable = false, type = 'string'},
+                    {path = 'id', is_nullable = false, type = 'unsigned'},
                 },
             }
 
@@ -100,6 +119,18 @@ package.preload['customers-storage'] = function()
             table.insert(customers_age_key_schema.indexes, primary_index)
             table.insert(customers_age_key_schema.indexes, bucket_id_index)
 
+            local customers_name_age_key_different_indexes_schema = table.deepcopy(customers_schema)
+            customers_name_age_key_different_indexes_schema.sharding_key = {'name', 'age'}
+            table.insert(customers_name_age_key_different_indexes_schema.indexes, primary_index)
+            table.insert(customers_name_age_key_different_indexes_schema.indexes, bucket_id_index)
+            table.insert(customers_name_age_key_different_indexes_schema.indexes, age_index)
+
+            local customers_name_age_key_three_fields_index_schema = table.deepcopy(customers_schema)
+            customers_name_age_key_three_fields_index_schema.sharding_key = {'name', 'age'}
+            table.insert(customers_name_age_key_three_fields_index_schema.indexes, primary_index_id)
+            table.insert(customers_name_age_key_three_fields_index_schema.indexes, bucket_id_index)
+            table.insert(customers_name_age_key_three_fields_index_schema.indexes, three_fields_index)
+
             local schema = {
                 spaces = {
                     customers_name_key = customers_name_key_schema,
@@ -107,6 +138,8 @@ package.preload['customers-storage'] = function()
                     customers_name_key_non_uniq_index = customers_name_key_non_uniq_index_schema,
                     customers_secondary_idx_name_key = customers_secondary_idx_name_key_schema,
                     customers_age_key = customers_age_key_schema,
+                    customers_name_age_key_different_indexes = customers_name_age_key_different_indexes_schema,
+                    customers_name_age_key_three_fields_index = customers_name_age_key_three_fields_index_schema,
                 }
             }
 
