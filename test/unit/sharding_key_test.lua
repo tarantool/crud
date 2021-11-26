@@ -1,5 +1,6 @@
 local t = require('luatest')
 local sharding_key_module = require('crud.common.sharding_key')
+local cache = require('crud.common.sharding_key_cache')
 local utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
@@ -29,6 +30,7 @@ g.after_each(function()
         box.space._ddl_sharding_key:drop()
     end
     box.space.fetch_on_storage:drop()
+    cache.drop_caches()
 end)
 
 g.test_as_index_object_positive = function()
@@ -101,4 +103,131 @@ g.test_fetch_on_storage_negative = function()
 
     local metadata_map = sharding_key_module.fetch_on_storage()
     t.assert_equals(metadata_map, nil)
+end
+
+g.test_extract_from_index_sharding_key_direct_order = function()
+    local primary_index_parts = {
+        {fieldno = 1},
+        {fieldno = 2},
+    }
+    local sharding_key_as_index_obj = {
+        parts = {
+            {fieldno = 1},
+            {fieldno = 2},
+        }
+    }
+    local primary_key = {'name', 'age'}
+
+    local extract_from_index = sharding_key_module.internal.extract_from_index
+    local sharding_key = extract_from_index(primary_key,
+                                            primary_index_parts,
+                                            sharding_key_as_index_obj)
+    t.assert_equals(sharding_key, {'name', 'age'})
+end
+
+g.test_extract_from_index_sharding_key_reverse_order = function()
+    local primary_index_parts = {
+        {fieldno = 1},
+        {fieldno = 2},
+    }
+    local sharding_key_as_index_obj = {
+        parts = {
+            {fieldno = 2},
+            {fieldno = 1},
+        }
+    }
+    local primary_key = {'name', 'age'}
+
+    local extract_from_index = sharding_key_module.internal.extract_from_index
+    local sharding_key = extract_from_index(primary_key,
+                                            primary_index_parts,
+                                            sharding_key_as_index_obj)
+    t.assert_equals(sharding_key, {'age', 'name'})
+end
+
+g.test_extract_from_index_sharding_key_single_field = function()
+    local primary_index_parts = {
+        {fieldno = 1},
+        {fieldno = 2},
+        {fieldno = 3},
+    }
+    local sharding_key_as_index_obj = {
+        parts = {
+            {fieldno = 2},
+        }
+    }
+    local primary_key = {'name', 'age', 'location'}
+
+    local extract_from_index = sharding_key_module.internal.extract_from_index
+    local sharding_key = extract_from_index(primary_key,
+                                            primary_index_parts,
+                                            sharding_key_as_index_obj)
+    t.assert_equals(sharding_key, {'age'})
+end
+
+g.test_extract_from_index_sharding_key_none_fields = function()
+    local primary_index_parts = {
+        {fieldno = 1},
+        {fieldno = 3},
+    }
+    local sharding_key_as_index_obj = {
+        parts = {
+            {fieldno = 2},
+        }
+    }
+    local primary_key = {'name', 'age', 'location'}
+
+    local extract_from_index = sharding_key_module.internal.extract_from_index
+    local ok, err = pcall(extract_from_index, primary_key,
+                                              primary_index_parts,
+                                              sharding_key_as_index_obj)
+    t.assert_equals(ok, false)
+    t.assert_str_contains(err, 'assertion failed')
+end
+
+g.test_get_index_fieldno_map = function()
+    local index_parts = {
+        {fieldno = 2},
+        {fieldno = 3},
+    }
+
+    local fieldno_map = utils.get_index_fieldno_map(index_parts)
+    t.assert_equals(fieldno_map, {
+        [2] = 1,
+        [3] = 2
+    })
+end
+
+g.test_is_part_of_pk_positive = function()
+    local space_name = 'is_part_of_pk'
+    local index_parts = {
+        {fieldno = 2},
+        {fieldno = 3},
+    }
+    local sharding_key_as_index_obj = {
+        parts = {
+            {fieldno = 2},
+        }
+    }
+
+    local is_part_of_pk = sharding_key_module.internal.is_part_of_pk
+    local res = is_part_of_pk(space_name, index_parts, sharding_key_as_index_obj)
+    t.assert_equals(res, true)
+end
+
+g.test_is_part_of_pk_negative = function()
+    local space_name = 'is_part_of_pk'
+    local index_parts = {
+        {fieldno = 1},
+        {fieldno = 3},
+    }
+    local sharding_key_as_index_obj = {
+        parts = {
+            {fieldno = 2},
+        }
+    }
+
+    local is_part_of_pk = sharding_key_module.internal.is_part_of_pk
+    local res = is_part_of_pk(space_name, index_parts, sharding_key_as_index_obj)
+    t.assert_equals(res, false)
 end

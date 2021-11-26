@@ -5,6 +5,7 @@ local vshard = require('vshard')
 local call = require('crud.common.call')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
+local sharding_key_module = require('crud.common.sharding_key')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
 
@@ -83,6 +84,16 @@ local function call_update_on_router(space_name, key, user_operations, opts)
         key = key:totable()
     end
 
+    local sharding_key = key
+    if opts.bucket_id == nil then
+        local err
+        local primary_index_parts = space.index[0].parts
+        sharding_key, err = sharding_key_module.extract_from_pk(space_name, primary_index_parts, key, opts.timeout)
+        if err ~= nil then
+            return nil, err
+        end
+    end
+
     local operations = user_operations
     if not utils.tarantool_supports_fieldpaths() then
         operations, err = utils.convert_operations(user_operations, space_format)
@@ -91,7 +102,7 @@ local function call_update_on_router(space_name, key, user_operations, opts)
         end
     end
 
-    local bucket_id = sharding.key_get_bucket_id(key, opts.bucket_id)
+    local bucket_id = sharding.key_get_bucket_id(sharding_key, opts.bucket_id)
     local call_opts = {
         mode = 'write',
         timeout = opts.timeout,
