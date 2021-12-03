@@ -466,4 +466,14 @@ function helpers.reload_roles(srv)
     t.assert_equals({ok, err}, {true, nil})
 end
 
+function helpers.get_map_reduces_stat(router, space_name)
+    return router:eval([[
+        local stats = require('crud').stats(...)
+        if stats.select == nil then
+            return 0
+        end
+        return stats.select.details.map_reduces
+    ]], { space_name })
+end
+
 return helpers

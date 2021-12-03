@@ -3,7 +3,6 @@ local crud = require('crud')
 local t = require('luatest')
 
 local helpers = require('test.helper')
-local storage_stat = require('test.helpers.storage_stat')
 
 local ok = pcall(require, 'ddl')
 if not ok then
@@ -35,12 +34,9 @@ pgroup.before_all(function(g)
     t.assert_equals(type(result), 'table')
     t.assert_equals(err, nil)
 
-    helpers.call_on_storages(g.cluster, function(server)
-        server.net_box:eval([[
-            local storage_stat = require('test.helpers.storage_stat')
-            storage_stat.init_on_storage_for_select()
-        ]])
-    end)
+    g.cluster.main_server.net_box:eval([[
+        require('crud').cfg{ stats = true }
+    ]])
 end)
 
 pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
@@ -367,22 +363,19 @@ for name, case in pairs(cases) do
     pgroup[('test_%s_wont_lead_to_map_reduce'):format(name)] = function(g)
         case.prepare_data(g, case.space_name)
 
-        local stat_a = storage_stat.collect(g.cluster)
+        local router = g.cluster:server('router').net_box
+        local map_reduces_before = helpers.get_map_reduces_stat(router, case.space_name)
 
-        local result, err = g.cluster.main_server.net_box:call('crud.select', {
+        local result, err = router:call('crud.select', {
             case.space_name, case.conditions
         })
         t.assert_equals(err, nil)
         t.assert_not_equals(result, nil)
         t.assert_equals(#result.rows, 1)
 
-        local stat_b = storage_stat.collect(g.cluster)
-
-        -- Check a number of select() requests made by CRUD on cluster's storages
-        -- after calling select() on a router. Make sure only a single storage has
-        -- a single select() request. Otherwise we lead to map-reduce.
-        local stats = storage_stat.diff(stat_b, stat_a)
-        t.assert_equals(storage_stat.total(stats), 1, 'Select request was not a map reduce')
+        local map_reduces_after = helpers.get_map_reduces_stat(router, case.space_name)
+        local diff = map_reduces_after - map_reduces_before
+        t.assert_equals(diff, 0, 'Select request was not a map reduce')
     end
 end
 
@@ -390,22 +383,19 @@ pgroup.test_select_for_part_of_sharding_key_will_lead_to_map_reduce = function(g
     local space_name = 'customers_name_age_key_different_indexes'
     prepare_data_name_age_sharding_key(g, space_name)
 
-    local stat_a = storage_stat.collect(g.cluster)
+    local router = g.cluster:server('router').net_box
+    local map_reduces_before = helpers.get_map_reduces_stat(router, space_name)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+    local result, err = router:call('crud.select', {
         space_name, {{'==', 'age', 58}},
     })
     t.assert_equals(err, nil)
     t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 1)
 
-    local stat_b = storage_stat.collect(g.cluster)
-
-    -- Check a number of select() requests made by CRUD on cluster's storages
-    -- after calling select() on a router. Make sure it was a map-reduce
-    -- since we do not have sharding key values in conditions.
-    local stats = storage_stat.diff(stat_b, stat_a)
-    t.assert_equals(storage_stat.total(stats), 2, 'Select request was a map reduce')
+    local map_reduces_after = helpers.get_map_reduces_stat(router, space_name)
+    local diff = map_reduces_after - map_reduces_before
+    t.assert_equals(diff, 1, 'Select request was a map reduce')
 end
 
 pgroup.test_select_secondary_idx = function(g)
