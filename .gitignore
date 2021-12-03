@@ -8,3 +8,5 @@ CMakeCache.txt
 CMakeFiles/
 luacov.report.out
 luacov.stats.out
+build/*.cmake
+build/Makefile
