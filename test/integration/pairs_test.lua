@@ -5,7 +5,6 @@ local t = require('luatest')
 local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
-local storage_stat = require('test.helpers.storage_stat')
 
 local pgroup = t.group('pairs', {
     {engine = 'memtx'},
@@ -27,12 +26,9 @@ pgroup.before_all(function(g)
 
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
 
-    helpers.call_on_storages(g.cluster, function(server)
-        server.net_box:eval([[
-            local storage_stat = require('test.helpers.storage_stat')
-            storage_stat.init_on_storage_for_select()
-        ]])
-    end)
+    g.cluster.main_server.net_box:eval([[
+        require('crud').cfg{ stats = true }
+    ]])
 end)
 
 pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
@@ -842,10 +838,11 @@ pgroup.test_pairs_no_map_reduce = function(g)
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
-    local stat_a = storage_stat.collect(g.cluster)
+    local router = g.cluster:server('router').net_box
+    local map_reduces_before = helpers.get_map_reduces_stat(router, 'customers')
 
     -- Case: no conditions, just bucket id.
-    local rows = g.cluster.main_server.net_box:eval([[
+    local rows = router:eval([[
         local crud = require('crud')
 
         return crud.pairs(...):totable()
@@ -858,15 +855,9 @@ pgroup.test_pairs_no_map_reduce = function(g)
         {3, 2804, 'David', 'Smith', 33, 'Los Angeles'},
     })
 
-    local stat_b = storage_stat.collect(g.cluster)
-    t.assert_equals(storage_stat.diff(stat_b, stat_a), {
-        ['s-1'] = {
-            requests = 1,
-        },
-        ['s-2'] = {
-            requests = 0,
-        },
-    })
+    local map_reduces_after_1 = helpers.get_map_reduces_stat(router, 'customers')
+    local diff_1 = map_reduces_after_1 - map_reduces_before
+    t.assert_equals(diff_1, 0, 'Select request was not a map reduce')
 
     -- Case: EQ on secondary index, which is not in the sharding
     -- index (primary index in the case).
@@ -883,13 +874,7 @@ pgroup.test_pairs_no_map_reduce = function(g)
         {4, 1161, 'William', 'White', 81, 'Chicago'},
     })
 
-    local stat_c = storage_stat.collect(g.cluster)
-    t.assert_equals(storage_stat.diff(stat_c, stat_b), {
-        ['s-1'] = {
-            requests = 0,
-        },
-        ['s-2'] = {
-            requests = 1,
-        },
-    })
+    local map_reduces_after_2 = helpers.get_map_reduces_stat(router, 'customers')
+    local diff_2 = map_reduces_after_2 - map_reduces_after_1
+    t.assert_equals(diff_2, 0, 'Select request was not a map reduce')
 end

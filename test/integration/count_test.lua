@@ -4,7 +4,6 @@ local clock = require('clock')
 local t = require('luatest')
 
 local helpers = require('test.helper')
-local storage_stat = require('test.helpers.storage_stat')
 
 local pgroup = t.group('count', {
     {engine = 'memtx'},
@@ -24,12 +23,9 @@ pgroup.before_all(function(g)
 
     g.cluster:start()
 
-    helpers.call_on_storages(g.cluster, function(server)
-        server.net_box:eval([[
-            local storage_stat = require('test.helpers.storage_stat')
-            storage_stat.init_on_storage_for_count()
-        ]])
-    end)
+    g.cluster:server('router').net_box:eval([[
+        require('crud').cfg{ stats = true }
+    ]])
 end)
 
 pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
@@ -583,7 +579,8 @@ pgroup.test_count_no_map_reduce = function(g)
         },
     })
 
-    local stat_a = storage_stat.collect(g.cluster)
+    local router = g.cluster:server('router').net_box
+    local map_reduces_before = helpers.get_map_reduces_stat(router, 'customers')
 
     -- Case: no conditions, just bucket id.
     local result, err = g.cluster.main_server.net_box:call('crud.count', {
@@ -594,15 +591,9 @@ pgroup.test_count_no_map_reduce = function(g)
     t.assert_equals(err, nil)
     t.assert_equals(result, 1)
 
-    local stat_b = storage_stat.collect(g.cluster)
-    t.assert_equals(storage_stat.diff(stat_b, stat_a), {
-        ['s-1'] = {
-            requests = 1,
-        },
-        ['s-2'] = {
-            requests = 0,
-        },
-    })
+    local map_reduces_after_1 = helpers.get_map_reduces_stat(router, 'customers')
+    local diff_1 = map_reduces_after_1 - map_reduces_before
+    t.assert_equals(diff_1, 0, 'Count request was not a map reduce')
 
     -- Case: EQ on secondary index, which is not in the sharding
     -- index (primary index in the case).
@@ -614,15 +605,9 @@ pgroup.test_count_no_map_reduce = function(g)
     t.assert_equals(err, nil)
     t.assert_equals(result, 1)
 
-    local stat_c = storage_stat.collect(g.cluster)
-    t.assert_equals(storage_stat.diff(stat_c, stat_b), {
-        ['s-1'] = {
-            requests = 0,
-        },
-        ['s-2'] = {
-            requests = 1,
-        },
-    })
+    local map_reduces_after_2 = helpers.get_map_reduces_stat(router, 'customers')
+    local diff_2 = map_reduces_after_2 - map_reduces_after_1
+    t.assert_equals(diff_2, 0, 'Count request was not a map reduce')
 end
 
 pgroup.test_count_timeout = function(g)
