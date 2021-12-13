@@ -674,6 +674,97 @@ Combinations of `mode`, `prefer_replica` and `balance` options lead to:
   * prefer_replica, balance -
     [vshard call `callbre`](https://www.tarantool.io/en/doc/latest/reference/reference_rock/vshard/vshard_api/#router-api-callbre)
 
+### Statistics
+
+`crud` routers can provide statistics on called operations.
+```lua
+-- Enable statistics collect.
+crud.cfg{ stats = true }
+
+-- Returns table with statistics information.
+crud.stats()
+
+-- Returns table with statistics information for specific space.
+crud.stats('my_space')
+
+-- Disables statistics collect and destroys all collectors.
+crud.cfg{ stats = false }
+
+-- Destroys all statistics collectors and creates them again.
+crud.reset_stats()
+```
+
+You can use `crud.cfg` to check current stats state.
+```lua
+crud.cfg
+---
+- stats: true
+...
+```
+Beware that iterating through `crud.cfg` with pairs is not supported yet,
+refer to [tarantool/crud#265](https://github.com/tarantool/crud/issues/265).
+
+Format is as follows.
+```lua
+crud.stats()
+---
+- spaces:
+    my_space:
+      insert:
+        ok:
+          latency: 0.002
+          count: 19800
+          time: 39.6
+        error:
+          latency: 0.000001
+          count: 4
+          time: 0.000004
+...
+crud.stats('my_space')
+---
+- insert:
+    ok:
+      latency: 0.002
+      count: 19800
+      time: 39.6
+    error:
+      latency: 0.000001
+      count: 4
+      time: 0.000004
+...
+```
+`spaces` section contains statistics for each observed space.
+If operation has never been called for a space, the corresponding
+field will be empty. If no requests has been called for a
+space, it will not be represented. Space data is based on
+client requests rather than storages schema, so requests
+for non-existing spaces are also collected.
+
+Possible statistics operation labels are
+`insert` (for `insert` and `insert_object` calls),
+`get`, `replace` (for `replace` and `replace_object` calls), `update`,
+`upsert` (for `upsert` and `upsert_object` calls), `delete`,
+`select` (for `select` and `pairs` calls), `truncate`, `len`, `count`
+and `borders` (for `min` and `max` calls).
+
+Each operation section contains of different collectors
+for success calls and error (both error throw and `nil, err`)
+returns. `count` is total requests count since instance start
+or stats restart. `latency` is average time of requests execution,
+`time` is the total time of requests execution.
+
+Since `pairs` request behavior differs from any other crud request, its
+statistics collection also has specific behavior. Statistics (`select`
+section) are updated after `pairs` cycle is finished: you
+either have iterated through all records or an error was thrown.
+If your pairs cycle was interrupted with `break`, statistics will
+be collected when pairs objects are cleaned up with Lua garbage
+collector.
+
+Statistics are preserved between package reloads. Statistics are preserved
+between [Tarantool Cartridge role reloads](https://www.tarantool.io/en/doc/latest/book/cartridge/cartridge_api/modules/cartridge.roles/#reload)
+if you use CRUD Cartridge roles.
+
 ## Cartridge roles
 
 `cartridge.roles.crud-storage` is a Tarantool Cartridge role that depends on the

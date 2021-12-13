@@ -378,4 +378,92 @@ function helpers.get_sharding_func_cache_size(cluster)
     ]])
 end
 
+function helpers.simple_functions_params()
+    return {
+        sleep_time = 0.01,
+        error = { err = 'err' },
+        error_msg = 'throw me',
+    }
+end
+
+function helpers.prepare_simple_functions(router)
+    local params = helpers.simple_functions_params()
+
+    local _, err = router:eval([[
+        local clock = require('clock')
+        local fiber = require('fiber')
+
+        local params = ...
+        local sleep_time = params.sleep_time
+        local error_table = params.error
+        local error_msg = params.error_msg
+
+        -- Using `fiber.sleep(time)` between two `clock.monotonic()`
+        -- may return diff less than `time`.
+        sleep_for = function(time)
+            local start = clock.monotonic()
+            while (clock.monotonic() - start) < time do
+                fiber.sleep(time / 10)
+            end
+        end
+
+        return_true = function(space_name)
+            sleep_for(sleep_time)
+            return true
+        end
+
+        return_err = function(space_name)
+            sleep_for(sleep_time)
+            return nil, error_table
+        end
+
+        throws_error = function()
+            sleep_for(sleep_time)
+            error(error_msg)
+        end
+    ]], { params })
+
+    t.assert_equals(err, nil)
+end
+
+function helpers.is_space_exist(router, space_name)
+    local res, err = router:eval([[
+        local vshard = require('vshard')
+        local utils = require('crud.common.utils')
+
+        local space, err = utils.get_space(..., vshard.router.routeall())
+        if err ~= nil then
+            return nil, err
+        end
+        return space ~= nil
+    ]], { space_name })
+
+    t.assert_equals(err, nil)
+    return res
+end
+
+function helpers.reload_package(srv)
+    srv.net_box:eval([[
+        local function startswith(text, prefix)
+            return text:find(prefix, 1, true) == 1
+        end
+
+        for k, _ in pairs(package.loaded) do
+            if startswith(k, 'crud') then
+                package.loaded[k] = nil
+            end
+        end
+
+        crud = require('crud')
+    ]])
+end
+
+function helpers.reload_roles(srv)
+    local ok, err = srv.net_box:eval([[
+        return require('cartridge.roles').reload()
+    ]])
+
+    t.assert_equals({ok, err}, {true, nil})
+end
+
 return helpers
