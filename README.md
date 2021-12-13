@@ -753,6 +753,23 @@ returns. `count` is total requests count since instance start
 or stats restart. `latency` is average time of requests execution,
 `time` is the total time of requests execution.
 
+`select` section additionally contains `details` collectors.
+```lua
+crud.stats('my_space').select.details
+---
+- map_reduces: 4
+  tuples_fetched: 10500
+  tuples_lookup: 238000
+...
+```
+`map_reduces` is the count of planned map reduces (including those not
+executed successfully). `tuples_fetched` is the count of tuples fetched
+from storages during execution, `tuples_lookup` is the count of tuples
+looked up on storages while collecting responses for calls (including
+scrolls for multibatch requests). Details data is updated as part of
+the request process, so you may get new details before `select`/`pairs`
+call is finished and observed with count, latency and time collectors.
+
 Since `pairs` request behavior differs from any other crud request, its
 statistics collection also has specific behavior. Statistics (`select`
 section) are updated after `pairs` cycle is finished: you

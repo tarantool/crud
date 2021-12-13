@@ -9,6 +9,7 @@ local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
+local stats = require('crud.stats')
 
 local compare_conditions = require('crud.compare.conditions')
 local select_plan = require('crud.compare.plan')
@@ -59,6 +60,14 @@ local function select_iteration(space_name, plan, opts)
 
     local tuples = {}
     for replicaset_uuid, replicaset_results in pairs(results) do
+        -- Stats extracted with callback here and not passed
+        -- outside to wrapper because fetch for pairs can be
+        -- called even after pairs() return from generators.
+        local cursor = replicaset_results[1]
+        if cursor.stats ~= nil then
+            stats.update_fetch_stats(cursor.stats, space_name)
+        end
+
         tuples[replicaset_uuid] = replicaset_results[2]
     end
 
@@ -141,6 +150,8 @@ local function build_select_iterator(space_name, user_conditions, opts)
         if err ~= nil then
             return nil, err, true
         end
+    else
+        stats.update_map_reduces(space_name)
     end
 
     -- generate tuples comparator

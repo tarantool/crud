@@ -7,6 +7,7 @@ local compat = require('crud.common.compat')
 local merger_lib = compat.require('tuple.merger', 'merger')
 
 local Keydef = require('crud.compare.keydef')
+local stats = require('crud.stats')
 
 local function bswap_u16(num)
     return bit.rshift(bit.bswap(tonumber(num)), 16)
@@ -93,6 +94,7 @@ local function fetch_chunk(context, state)
     local replicaset = context.replicaset
     local vshard_call_name = context.vshard_call_name
     local timeout = context.timeout or call.DEFAULT_VSHARD_CALL_TIMEOUT
+    local space_name = context.space_name
     local future = state.future
 
     -- The source was entirely drained.
@@ -108,6 +110,14 @@ local function fetch_chunk(context, state)
 
     -- Decode metainfo, leave data to be processed by the merger.
     local cursor = decode_metainfo(buf)
+
+    -- Extract stats info.
+    -- Stats extracted with callback here and not passed
+    -- outside to wrapper because fetch for pairs can be
+    -- called even after pairs() return from generators.
+    if cursor.stats ~= nil then
+        stats.update_fetch_stats(cursor.stats, space_name)
+    end
 
     -- Check whether we need the next call.
     if cursor.is_end then
@@ -157,6 +167,7 @@ local function new(replicasets, space, index_id, func_name, func_args, opts)
             replicaset = replicaset,
             vshard_call_name = vshard_call_name,
             timeout = call_opts.timeout,
+            space_name = space.name,
         }
         local state = {future = future}
         local source = merger_lib.new_buffer_source(fetch_chunk, context, state)
