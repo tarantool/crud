@@ -1,7 +1,9 @@
 local crud = require('crud')
+local stash = require('crud.common.stash')
 
 local function init()
     crud.init_storage()
+    stash.setup_cartridge_reload()
 end
 
 local function stop()

@@ -8,14 +8,6 @@ local g = t.group()
 
 local helpers = require('test.helper')
 
-local function reload(srv)
-    local ok, err = srv.net_box:eval([[
-        return require("cartridge.roles").reload()
-    ]])
-
-    t.assert_equals({ok, err}, {true, nil})
-end
-
 g.before_all(function()
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
@@ -92,7 +84,7 @@ function g.test_router()
         t.assert_equals(last_insert[3], 'A', 'No workload for label A')
     end)
 
-    reload(g.router)
+    helpers.reload_roles(g.router)
 
     local cnt = #g.insertions_passed
     g.cluster:retrying({}, function()
@@ -117,7 +109,7 @@ function g.test_storage()
     -- snapshot with a signal
     g.s1_master.process:kill('USR1')
 
-    reload(g.s1_master)
+    helpers.reload_roles(g.s1_master)
 
     g.cluster:retrying({}, function()
         g.s1_master.net_box:call('box.snapshot')
