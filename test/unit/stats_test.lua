@@ -171,6 +171,19 @@ for name, case in pairs(observe_cases) do
                 },
                 'Other status collectors initialized after observations'
             )
+
+            -- SELECT collectors have additional details section.
+            if op == stats_module.op.SELECT then
+                t.assert_equals(
+                    op_stats.details,
+                    {
+                        tuples_fetched = 0,
+                        tuples_lookup = 0,
+                        map_reduces = 0,
+                    },
+                    'Detail collectors initialized after select observations'
+                )
+            end
         end
     end
 end
@@ -552,4 +565,53 @@ g.test_reset_for_disabled_stats_does_not_init_module = function(g)
 
     local stats_after = g:get_stats()
     t.assert_equals(stats_after, {}, "Stats is still empty")
+end
+
+g.test_fetch_stats_update = function(g)
+    local storage_cursor_stats = { tuples_fetched = 5, tuples_lookup = 25 }
+
+    g.router:eval([[ stats_module.update_fetch_stats(...) ]],
+        { storage_cursor_stats, space_name })
+
+    local op = stats_module.op.SELECT
+    local stats = g:get_stats(space_name)
+
+    t.assert_not_equals(stats[op], nil,
+        'Fetch stats update inits SELECT collectors')
+
+    local details = stats[op].details
+
+    t.assert_equals(details.tuples_fetched, 5,
+        'tuples_fetched is inremented by expected value')
+    t.assert_equals(details.tuples_lookup, 25,
+        'tuples_lookup is inremented by expected value')
+end
+
+g.test_disable_stats_do_not_break_fetch_stats_update_call = function(g)
+    local storage_cursor_stats = { tuples_fetched = 5, tuples_lookup = 25 }
+
+    g:disable_stats()
+
+    local _, err = g.router:eval([[ stats_module.update_fetch_stats(...) ]],
+        { storage_cursor_stats, space_name })
+    t.assert_equals(err, nil)
+end
+
+g.test_map_reduce_increment = function(g)
+    local op = stats_module.op.SELECT
+
+    local _, err = g.router:eval([[ stats_module.update_map_reduces(...) ]], { space_name })
+    t.assert_equals(err, nil)
+
+    local stats = g:get_stats()
+
+    t.assert_equals(stats.spaces[space_name][op].details.map_reduces, 1,
+        "Counter of map reduces incremented")
+end
+
+g.test_disable_stats_do_not_break_map_reduce_update_call = function(g)
+    g:disable_stats()
+
+    local _, err = g.router:eval([[ stats_module.update_map_reduces(...) ]], { space_name })
+    t.assert_equals(err, nil)
 end

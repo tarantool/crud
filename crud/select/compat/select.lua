@@ -8,6 +8,7 @@ local dev_checks = require('crud.common.dev_checks')
 local common = require('crud.select.compat.common')
 local schema = require('crud.common.schema')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
+local stats = require('crud.stats')
 
 local compare_conditions = require('crud.compare.conditions')
 local select_plan = require('crud.compare.plan')
@@ -115,6 +116,8 @@ local function build_select_iterator(space_name, user_conditions, opts)
         if err ~= nil then
             return nil, err, true
         end
+    else
+        stats.update_map_reduces(space_name)
     end
 
     local tuples_limit = opts.first

@@ -4,6 +4,7 @@
 
 local dev_checks = require('crud.common.dev_checks')
 local stash = require('crud.common.stash')
+local op_module = require('crud.stats.operation')
 local registry_utils = require('crud.stats.registry_utils')
 
 local registry = {}
@@ -94,6 +95,58 @@ function registry.observe(latency, space_name, op, status)
     collectors.count = collectors.count + 1
     collectors.time = collectors.time + latency
     collectors.latency = collectors.time / collectors.count
+
+    return true
+end
+
+--- Increase statistics of storage select/pairs calls
+--
+-- @function observe_fetch
+--
+-- @string space_name
+--  Name of space.
+--
+-- @number tuples_fetched
+--  Count of tuples fetched during storage call.
+--
+-- @number tuples_lookup
+--  Count of tuples looked up on storages while collecting response.
+--
+-- @treturn boolean Returns true.
+--
+function registry.observe_fetch(tuples_fetched, tuples_lookup, space_name)
+    dev_checks('number', 'number', 'string')
+
+    local op = op_module.SELECT
+    registry_utils.init_collectors_if_required(internal.registry.spaces, space_name, op)
+    local collectors = internal.registry.spaces[space_name][op].details
+
+    collectors.tuples_fetched = collectors.tuples_fetched + tuples_fetched
+    collectors.tuples_lookup = collectors.tuples_lookup + tuples_lookup
+
+    return true
+end
+
+--- Increase statistics of planned map reduces during select/pairs
+--
+-- @function observe_map_reduces
+--
+-- @number count
+--  Count of map reduces planned.
+--
+-- @string space_name
+--  Name of space.
+--
+-- @treturn boolean Returns true.
+--
+function registry.observe_map_reduces(count, space_name)
+    dev_checks('number', 'string')
+
+    local op = op_module.SELECT
+    registry_utils.init_collectors_if_required(internal.registry.spaces, space_name, op)
+    local collectors = internal.registry.spaces[space_name][op].details
+
+    collectors.map_reduces = collectors.map_reduces + count
 
     return true
 end

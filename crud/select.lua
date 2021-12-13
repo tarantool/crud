@@ -59,7 +59,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
     end
 
     -- execute select
-    local tuples, err = select_executor.execute(space, index, filter_func, {
+    local resp, err = select_executor.execute(space, index, filter_func, {
         scan_value = opts.scan_value,
         after_tuple = opts.after_tuple,
         tarantool_iter = opts.tarantool_iter,
@@ -70,15 +70,20 @@ local function select_on_storage(space_name, index_id, conditions, opts)
     end
 
     local cursor
-    if #tuples < opts.limit or opts.limit == 0 then
+    if resp.tuples_fetched < opts.limit or opts.limit == 0 then
         cursor = {is_end = true}
     else
-        cursor = make_cursor(tuples)
+        cursor = make_cursor(resp.tuples)
     end
+
+    cursor.stats = {
+        tuples_lookup = resp.tuples_lookup,
+        tuples_fetched = resp.tuples_fetched,
+    }
 
     -- getting tuples with user defined fields (if `fields` option is specified)
     -- and fields that are needed for comparison on router (primary key + scan key)
-    return cursor, schema.filter_tuples_fields(tuples, opts.field_names)
+    return cursor, schema.filter_tuples_fields(resp.tuples, opts.field_names)
 end
 
 function select_module.init()

@@ -255,6 +255,62 @@ function stats.wrap(func, op, opts)
     end
 end
 
+local storage_stats_schema = { tuples_fetched = 'number', tuples_lookup = 'number' }
+--- Callback to collect storage tuples stats (select/pairs).
+--
+-- @function update_fetch_stats
+--
+-- @tab storage_stats
+--  Statistics from select storage call.
+--
+-- @number storage_stats.tuples_fetched
+--  Count of tuples fetched during storage call.
+--
+-- @number storage_stats.tuples_lookup
+--  Count of tuples looked up on storages while collecting response.
+--
+-- @string space_name
+--  Name of space.
+--
+-- @treturn boolean Returns `true`.
+--
+function stats.update_fetch_stats(storage_stats, space_name)
+    dev_checks(storage_stats_schema, 'string')
+
+    if not stats.is_enabled() then
+        return true
+    end
+
+    registry.observe_fetch(
+        storage_stats.tuples_fetched,
+        storage_stats.tuples_lookup,
+        space_name
+    )
+
+    return true
+end
+
+--- Callback to collect planned map reduces stats (select/pairs).
+--
+-- @function update_map_reduces
+--
+-- @string space_name
+--  Name of space.
+--
+-- @treturn boolean Returns `true`.
+--
+function stats.update_map_reduces(space_name)
+    dev_checks('string')
+
+    if not stats.is_enabled() then
+        return true
+    end
+
+    registry.observe_map_reduces(1, space_name)
+
+    return true
+end
+
 --- Table with CRUD operation lables.
 --
 -- @tfield string INSERT

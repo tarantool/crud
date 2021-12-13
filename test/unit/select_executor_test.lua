@@ -105,7 +105,7 @@ g.test_one_condition_no_index = function()
         tarantool_iter = plan.tarantool_iter,
         scan_condition_num = plan.scan_condition_num,
     })
-    t.assert_equals(get_ids(results), {2, 3})
+    t.assert_equals(get_ids(results.tuples), {2, 3})
 
     -- after tuple 2
     local after_tuple = space:frommap(customers[2]):totable()
@@ -115,7 +115,7 @@ g.test_one_condition_no_index = function()
         after_tuple = after_tuple,
         tarantool_iter = plan.tarantool_iter,
     })
-    t.assert_equals(get_ids(results), {3})
+    t.assert_equals(get_ids(results.tuples), {3})
 
     -- after tuple 3
     local after_tuple = space:frommap(customers[3]):totable()
@@ -125,7 +125,7 @@ g.test_one_condition_no_index = function()
         after_tuple = after_tuple,
         tarantool_iter = plan.tarantool_iter,
     })
-    t.assert_equals(#results, 0)
+    t.assert_equals(#results.tuples, 0)
 end
 
 g.test_one_condition_with_index = function()
@@ -164,7 +164,7 @@ g.test_one_condition_with_index = function()
         scan_value = plan.scan_value,
         tarantool_iter = plan.tarantool_iter,
     })
-    t.assert_equals(get_ids(results), {3, 2, 4}) -- in age order
+    t.assert_equals(get_ids(results.tuples), {3, 2, 4}) -- in age order
 
     -- after tuple 3
     local after_tuple = space:frommap(customers[3]):totable()
@@ -174,7 +174,7 @@ g.test_one_condition_with_index = function()
         after_tuple = after_tuple,
         tarantool_iter = plan.tarantool_iter,
     })
-    t.assert_equals(get_ids(results), {2, 4}) -- in age order
+    t.assert_equals(get_ids(results.tuples), {2, 4}) -- in age order
 end
 
 g.test_multiple_conditions = function()
@@ -220,7 +220,7 @@ g.test_multiple_conditions = function()
         scan_value = plan.scan_value,
         tarantool_iter = plan.tarantool_iter,
     })
-    t.assert_equals(get_ids(results), {5, 2})  -- in age order
+    t.assert_equals(get_ids(results.tuples), {5, 2})  -- in age order
 
     -- after tuple 5
     local after_tuple = space:frommap(customers[5]):totable()
@@ -230,7 +230,7 @@ g.test_multiple_conditions = function()
         after_tuple = after_tuple,
         tarantool_iter = plan.tarantool_iter,
     })
-    t.assert_equals(get_ids(results), {2})
+    t.assert_equals(get_ids(results.tuples), {2})
 end
 
 g.test_composite_index = function()
@@ -271,7 +271,7 @@ g.test_composite_index = function()
         scan_value = plan.scan_value,
         tarantool_iter = plan.tarantool_iter,
     })
-    t.assert_equals(get_ids(results), {2, 1, 4}) -- in full_name order
+    t.assert_equals(get_ids(results.tuples), {2, 1, 4}) -- in full_name order
 
     -- after tuple 2
     local after_tuple = space:frommap(customers[2]):totable()
@@ -281,7 +281,7 @@ g.test_composite_index = function()
         after_tuple = after_tuple,
         tarantool_iter = plan.tarantool_iter,
     })
-    t.assert_equals(get_ids(results), {1, 4})
+    t.assert_equals(get_ids(results.tuples), {1, 4})
 end
 
 g.test_get_by_id = function()
@@ -319,7 +319,7 @@ g.test_get_by_id = function()
         scan_value = plan.scan_value,
         tarantool_iter = plan.tarantool_iter,
     })
-    t.assert_equals(get_ids(results), {2})
+    t.assert_equals(get_ids(results.tuples), {2})
 end
 
 g.test_early_exit = function()
@@ -360,7 +360,7 @@ g.test_early_exit = function()
         scan_value = plan.scan_value,
         tarantool_iter = plan.tarantool_iter,
     })
-    t.assert_equals(get_ids(results), {4, 2})
+    t.assert_equals(get_ids(results.tuples), {4, 2})
 end
 
 g.test_select_all = function()
@@ -397,7 +397,7 @@ g.test_select_all = function()
         scan_value = plan.scan_value,
         tarantool_iter = plan.tarantool_iter,
     })
-    t.assert_equals(get_ids(results), {1, 2, 3, 4})
+    t.assert_equals(get_ids(results.tuples), {1, 2, 3, 4})
 end
 
 g.test_limit = function()
@@ -435,7 +435,7 @@ g.test_limit = function()
         tarantool_iter = plan.tarantool_iter,
         limit = 0,
     })
-    t.assert_equals(#results, 0)
+    t.assert_equals(#results.tuples, 0)
 
     -- limit 2
     local results = select_executor.execute(space, index, filter_func, {
@@ -443,5 +443,5 @@ g.test_limit = function()
         tarantool_iter = plan.tarantool_iter,
         limit = 2,
     })
-    t.assert_equals(get_ids(results), {1, 2})
+    t.assert_equals(get_ids(results.tuples), {1, 2})
 end
