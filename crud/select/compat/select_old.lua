@@ -112,9 +112,14 @@ local function build_select_iterator(space_name, user_conditions, opts)
         return nil, SelectError:new("Space %q doesn't exist", space_name), true
     end
     local space_format = space:format()
-    local sharding_key_as_index_obj, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
-    if err ~= nil then
-        return nil, err
+
+    local sharding_key_as_index_obj = nil
+    -- We don't need sharding info if bucket_id specified.
+    if opts.bucket_id == nil then
+        sharding_key_as_index_obj, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
+        if err ~= nil then
+            return nil, err
+        end
     end
 
     -- plan select
@@ -124,6 +129,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         field_names = opts.field_names,
         force_map_call = opts.force_map_call,
         sharding_key_as_index_obj = sharding_key_as_index_obj,
+        bucket_id = opts.bucket_id,
     })
 
     if err ~= nil then

@@ -168,6 +168,7 @@ function plan.new(space, conditions, opts)
         field_names = '?table',
         force_map_call = '?boolean',
         sharding_key_as_index_obj = '?table',
+        bucket_id = '?number|cdata',
     })
 
     conditions = conditions ~= nil and conditions or {}
@@ -274,14 +275,16 @@ function plan.new(space, conditions, opts)
         end
     end
 
-    local sharding_index = opts.sharding_key_as_index_obj or primary_index
+    local sharding_key = nil
+    if opts.bucket_id == nil then
+        local sharding_index = opts.sharding_key_as_index_obj or primary_index
 
-    -- get sharding key value
-    local sharding_key = get_sharding_key_from_scan_value(scan_value, scan_index, scan_iter, sharding_index)
+        sharding_key = get_sharding_key_from_scan_value(scan_value, scan_index, scan_iter, sharding_index)
 
-    if sharding_key == nil then
-        sharding_key = extract_sharding_key_from_conditions(conditions, sharding_index,
-                                                            space_indexes, fieldno_map)
+        if sharding_key == nil then
+            sharding_key = extract_sharding_key_from_conditions(conditions, sharding_index,
+                                                                space_indexes, fieldno_map)
+        end
     end
 
     local plan = {
