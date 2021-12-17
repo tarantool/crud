@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Integrate CRUD statistics with [`metrics`](https://github.com/tarantool/metrics) (#224).
 
 ### Changed
+* Optimize select with known bucket_id (#234).
 
 ### Fixed
 
