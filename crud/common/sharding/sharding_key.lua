@@ -1,4 +1,5 @@
 local errors = require('errors')
+local log = require('log')
 
 local dev_checks = require('crud.common.dev_checks')
 local cache = require('crud.common.sharding.sharding_metadata_cache')
@@ -96,8 +97,10 @@ function sharding_key_module.extract_from_pk(space_name, sharding_key_as_index_o
     return extract_from_index(primary_key, primary_index_parts, sharding_key_as_index_obj)
 end
 
-function sharding_key_module.construct_as_index_obj_cache(metadata_map)
-    dev_checks('table')
+function sharding_key_module.construct_as_index_obj_cache(metadata_map, specified_space_name)
+    dev_checks('table', 'string')
+
+    local result_err
 
     cache.sharding_key_as_index_obj_map = {}
     for space_name, metadata in pairs(metadata_map) do
@@ -106,12 +109,19 @@ function sharding_key_module.construct_as_index_obj_cache(metadata_map)
                                                                    metadata.space_format,
                                                                    metadata.sharding_key_def)
             if err ~= nil then
-                return err
+                if specified_space_name == space_name then
+                    result_err = err
+                    log.error(err)
+                else
+                    log.warn(err)
+                end
             end
 
             cache.sharding_key_as_index_obj_map[space_name] = sharding_key_as_index_obj
         end
     end
+
+    return result_err
 end
 
 sharding_key_module.internal = {

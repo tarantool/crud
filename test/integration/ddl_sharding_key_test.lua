@@ -694,3 +694,70 @@ pgroup.test_update_cache = function(g)
     t.assert_equals(err, nil)
     t.assert_equals(sharding_key_as_index_obj, {parts = {{fieldno = 3}}})
 end
+
+pgroup.test_update_cache_with_incorrect_key = function(g)
+    -- get data from cache for space with correct sharding key
+    local space_name = 'customers_name_key'
+
+    local sharding_key_as_index_obj, err = helpers.update_sharding_key_cache(g.cluster, space_name)
+    t.assert_equals(err, nil)
+    t.assert_equals(sharding_key_as_index_obj, {parts = {{fieldno = 3}}})
+
+    -- records for all spaces exist
+    sharding_key_as_index_obj = helpers.get_sharding_key_cache(g.cluster)
+    t.assert_equals(sharding_key_as_index_obj, {
+        customers_age_key = {parts = {{fieldno = 4}}},
+        customers_name_age_key_different_indexes = {parts = {{fieldno = 3}, {fieldno = 4}}},
+        customers_name_age_key_three_fields_index = {parts = {{fieldno = 3}, {fieldno = 4}}},
+        customers_name_key = {parts = {{fieldno = 3}}},
+        customers_name_key_non_uniq_index = {parts = {{fieldno = 3}}},
+        customers_name_key_uniq_index = {parts = {{fieldno = 3}}},
+        customers_secondary_idx_name_key = {parts = {{fieldno = 3}}},
+    })
+
+    -- no error just warning
+    local space_name = 'customers_name_key'
+    helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
+        server.net_box:call('set_sharding_key', {space_name, {'non_existent_field'}})
+    end)
+
+    -- we get no error because we sent request for correct space
+    local sharding_key_as_index_obj, err = helpers.update_sharding_key_cache(g.cluster, 'customers_age_key')
+    t.assert_equals(err, nil)
+    t.assert_equals(sharding_key_as_index_obj, {parts = {{fieldno = 4}}})
+
+    -- cache['customers_name_key'] == nil (space with incorrect key)
+    -- other records for correct spaces exist in cache
+    sharding_key_as_index_obj = helpers.get_sharding_key_cache(g.cluster)
+    t.assert_equals(sharding_key_as_index_obj, {
+        customers_age_key = {parts = {{fieldno = 4}}},
+        customers_name_age_key_different_indexes = {parts = {{fieldno = 3}, {fieldno = 4}}},
+        customers_name_age_key_three_fields_index = {parts = {{fieldno = 3}, {fieldno = 4}}},
+        customers_name_key_non_uniq_index = {parts = {{fieldno = 3}}},
+        customers_name_key_uniq_index = {parts = {{fieldno = 3}}},
+        customers_secondary_idx_name_key = {parts = {{fieldno = 3}}},
+    })
+
+    -- get data from cache for space with incorrect sharding key
+    local space_name = 'customers_name_key'
+    helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
+        server.net_box:call('set_sharding_key', {space_name, {'non_existent_field'}})
+    end)
+
+    -- we get an error because we sent request for incorrect space
+    local sharding_key_as_index_obj, err = helpers.update_sharding_key_cache(g.cluster, space_name)
+    t.assert_equals(sharding_key_as_index_obj, nil)
+    t.assert_str_contains(err.err, "No such field (non_existent_field) in a space format (customers_name_key)")
+
+    -- cache['customers_name_key'] == nil (space with incorrect key)
+    -- other records for correct spaces exist in cache
+    sharding_key_as_index_obj = helpers.get_sharding_key_cache(g.cluster)
+    t.assert_equals(sharding_key_as_index_obj, {
+        customers_age_key = {parts = {{fieldno = 4}}},
+        customers_name_age_key_different_indexes = {parts = {{fieldno = 3}, {fieldno = 4}}},
+        customers_name_age_key_three_fields_index = {parts = {{fieldno = 3}, {fieldno = 4}}},
+        customers_name_key_non_uniq_index = {parts = {{fieldno = 3}}},
+        customers_name_key_uniq_index = {parts = {{fieldno = 3}}},
+        customers_secondary_idx_name_key = {parts = {{fieldno = 3}}},
+    })
+end
