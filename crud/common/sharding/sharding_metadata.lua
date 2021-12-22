@@ -68,8 +68,8 @@ end
 -- a sharding metadata by a single one, other fibers will wait while
 -- cache.fetch_lock become unlocked during timeout passed to
 -- _fetch_on_router().
-local _fetch_on_router = locked(function(timeout, metadata_map_name)
-    dev_checks('number', 'string')
+local _fetch_on_router = locked(function(timeout, space_name, metadata_map_name)
+    dev_checks('number', 'string', 'string')
 
     if cache[metadata_map_name] ~= nil then
         return
@@ -86,7 +86,7 @@ local _fetch_on_router = locked(function(timeout, metadata_map_name)
         return
     end
 
-    local err = sharding_key.construct_as_index_obj_cache(metadata_map)
+    local err = sharding_key.construct_as_index_obj_cache(metadata_map, space_name)
     if err ~= nil then
         return err
     end
@@ -107,11 +107,8 @@ local function fetch_on_router(space_name, metadata_map_name, timeout)
     end
 
     local timeout = timeout or const.FETCH_SHARDING_METADATA_TIMEOUT
-    local err = _fetch_on_router(timeout, metadata_map_name)
+    local err = _fetch_on_router(timeout, space_name, metadata_map_name)
     if err ~= nil then
-        if cache[metadata_map_name] ~= nil then
-            return cache[metadata_map_name][space_name]
-        end
         return nil, err
     end
 

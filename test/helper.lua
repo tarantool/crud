@@ -332,4 +332,12 @@ function helpers.update_sharding_key_cache(cluster, space_name)
     ]], {space_name})
 end
 
+function helpers.get_sharding_key_cache(cluster)
+    return cluster.main_server.net_box:eval([[
+        local sharding_metadata_cache = require('crud.common.sharding.sharding_metadata_cache')
+
+        return sharding_metadata_cache[sharding_metadata_cache.SHARDING_KEY_MAP_NAME]
+    ]])
+end
+
 return helpers
