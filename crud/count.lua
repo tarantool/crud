@@ -10,7 +10,7 @@ local filters = require('crud.compare.filters')
 local count_plan = require('crud.compare.plan')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
-local sharding_key_module = require('crud.common.sharding_key')
+local sharding_key_module = require('crud.common.sharding.sharding_key')
 
 local compare_conditions = require('crud.compare.conditions')
 

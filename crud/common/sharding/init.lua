@@ -5,7 +5,7 @@ local BucketIDError = errors.new_class("BucketIDError", {capture_stack = false})
 local GetReplicasetsError = errors.new_class('GetReplicasetsError', {capture_stack = false})
 
 local utils = require('crud.common.utils')
-local sharding_key_module = require('crud.common.sharding_key')
+local sharding_key_module = require('crud.common.sharding.sharding_key')
 
 local sharding = {}
 

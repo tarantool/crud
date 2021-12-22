@@ -1,6 +1,6 @@
 local t = require('luatest')
-local sharding_key_module = require('crud.common.sharding_key')
-local cache = require('crud.common.sharding_key_cache')
+local sharding_key_module = require('crud.common.sharding.sharding_key')
+local cache = require('crud.common.sharding.sharding_key_cache')
 local utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
