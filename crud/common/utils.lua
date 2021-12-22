@@ -2,6 +2,7 @@ local errors = require('errors')
 local ffi = require('ffi')
 local vshard = require('vshard')
 local fun = require('fun')
+local bit = require('bit')
 
 local schema = require('crud.common.schema')
 local dev_checks = require('crud.common.dev_checks')
@@ -16,6 +17,54 @@ local FilterFieldsError = errors.new_class('FilterFieldsError', {capture_stack =
 local utils = {}
 
 local space_format_cache = setmetatable({}, {__mode = 'k'})
+
+-- copy from LuaJIT lj_char.c
+local lj_char_bits = {
+    0,
+    1,  1,  1,  1,  1,  1,  1,  1,  1,  3,  3,  3,  3,  3,  1,  1,
+    1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,
+    2,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,  4,
+    152,152,152,152,152,152,152,152,152,152,  4,  4,  4,  4,  4,  4,
+    4,176,176,176,176,176,176,160,160,160,160,160,160,160,160,160,
+    160,160,160,160,160,160,160,160,160,160,160,  4,  4,  4,  4,132,
+    4,208,208,208,208,208,208,192,192,192,192,192,192,192,192,192,
+    192,192,192,192,192,192,192,192,192,192,192,  4,  4,  4,  4,  1,
+    128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+    128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+    128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+    128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+    128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+    128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+    128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+    128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128
+}
+
+local LJ_CHAR_IDENT = 0x80
+local LJ_CHAR_DIGIT = 0x08
+
+local LUA_KEYWORDS = {
+    ['and'] = true,
+    ['end'] = true,
+    ['in'] = true,
+    ['repeat'] = true,
+    ['break'] = true,
+    ['false'] = true,
+    ['local'] = true,
+    ['return'] = true,
+    ['do'] = true,
+    ['for'] = true,
+    ['nil'] = true,
+    ['then'] = true,
+    ['else'] = true,
+    ['function'] = true,
+    ['not'] = true,
+    ['true'] = true,
+    ['elseif'] = true,
+    ['if'] = true,
+    ['or'] = true,
+    ['until'] = true,
+    ['while'] = true,
+}
 
 function utils.table_count(table)
     dev_checks("table")
@@ -604,6 +653,42 @@ end
 -- If `opts_a.foo` and `opts_b.foo` exists, prefer `opts_b.foo`.
 function utils.merge_options(opts_a, opts_b)
     return fun.chain(opts_a or {}, opts_b or {}):tomap()
+end
+
+local function lj_char_isident(n)
+    return bit.band(lj_char_bits[n + 2], LJ_CHAR_IDENT) == LJ_CHAR_IDENT
+end
+
+local function lj_char_isdigit(n)
+    return bit.band(lj_char_bits[n + 2], LJ_CHAR_DIGIT) == LJ_CHAR_DIGIT
+end
+
+function utils.check_name_isident(name)
+    dev_checks('string')
+
+    -- sharding function name cannot
+    -- be equal to lua keyword
+    if LUA_KEYWORDS[name] then
+        return false
+    end
+
+    -- sharding function name cannot
+    -- begin with a digit
+    local char_number = string.byte(name:sub(1,1))
+    if lj_char_isdigit(char_number) then
+        return false
+    end
+
+    -- sharding func name must be sequence
+    -- of letters, digits, or underscore symbols
+    for i = 1, #name do
+        local char_number = string.byte(name:sub(i,i))
+        if not lj_char_isident(char_number) then
+            return false
+        end
+    end
+
+    return true
 end
 
 return utils
