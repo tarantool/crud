@@ -5,12 +5,13 @@ local call = require('crud.common.call')
 local const = require('crud.common.const')
 local dev_checks = require('crud.common.dev_checks')
 local cache = require('crud.common.sharding.sharding_metadata_cache')
+local sharding_key = require('crud.common.sharding.sharding_key')
 
-local FetchShardingKeyError = errors.new_class('FetchShardingKeyError', {capture_stack = false})
+local FetchShardingMetadataError = errors.new_class('FetchShardingMetadataError', {capture_stack = false})
 
 local FETCH_FUNC_NAME = '_crud.fetch_on_storage'
 
-local sharding_key_module = {}
+local sharding_metadata_module = {}
 
 -- Function decorator that is used to prevent _fetch_on_router() from being
 -- called concurrently by different fibers.
@@ -25,8 +26,8 @@ local function locked(f)
         -- first reason, I'm not sure we need to disclose to users such details
         -- like problems with synchronization objects.
         if not ok then
-            return FetchShardingKeyError:new(
-                "Timeout for fetching sharding key is exceeded")
+            return FetchShardingMetadataError:new(
+                "Timeout for fetching sharding metadata is exceeded")
         end
         local timeout = timeout_deadline - fiber.clock()
         local status, err = pcall(f, timeout, ...)
@@ -39,7 +40,7 @@ end
 
 -- Return a map with metadata or nil when space box.space._ddl_sharding_key is
 -- not available on storage.
-function sharding_key_module.fetch_on_storage()
+function sharding_metadata_module.fetch_on_storage()
     local sharding_key_space = box.space._ddl_sharding_key
     if sharding_key_space == nil then
         return nil
@@ -67,10 +68,10 @@ end
 -- a sharding metadata by a single one, other fibers will wait while
 -- cache.fetch_lock become unlocked during timeout passed to
 -- _fetch_on_router().
-local _fetch_on_router = locked(function(timeout)
-    dev_checks('number')
+local _fetch_on_router = locked(function(timeout, metadata_map_name)
+    dev_checks('number', 'string')
 
-    if cache.sharding_key_as_index_obj_map ~= nil then
+    if cache[metadata_map_name] ~= nil then
         return
     end
 
@@ -81,21 +82,13 @@ local _fetch_on_router = locked(function(timeout)
         return err
     end
     if metadata_map == nil then
-        cache.sharding_key_as_index_obj_map = {}
+        cache[cache.SHARDING_KEY_MAP_NAME] = {}
         return
     end
 
-    cache.sharding_key_as_index_obj_map = {}
-    for space_name, metadata in pairs(metadata_map) do
-        local sharding_key_as_index_obj, err = require(
-                                               'crud.common.sharding.sharding_key'
-                                               ).internal.as_index_object(space_name,
-                                                                          metadata.space_format,
-                                                                          metadata.sharding_key_def)
-        if err ~= nil then
-            return err
-        end
-        cache.sharding_key_as_index_obj_map[space_name] = sharding_key_as_index_obj
+    local err = sharding_key.construct_as_index_obj_cache(metadata_map)
+    if err ~= nil then
+        return err
     end
 end)
 
@@ -108,37 +101,41 @@ end)
 --  that nil without error is a successfull return value.
 --  - nil and error, when something goes wrong on fetching attempt.
 --
-function sharding_key_module.fetch_on_router(space_name, timeout)
-    dev_checks('string', '?number')
-
-    if cache.sharding_key_as_index_obj_map ~= nil then
-        return cache.sharding_key_as_index_obj_map[space_name]
+local function fetch_on_router(space_name, metadata_map_name, timeout)
+    if cache[metadata_map_name] ~= nil then
+        return cache[metadata_map_name][space_name]
     end
 
-    local timeout = timeout or const.FETCH_SHARDING_KEY_TIMEOUT
-    local err = _fetch_on_router(timeout)
+    local timeout = timeout or const.FETCH_SHARDING_METADATA_TIMEOUT
+    local err = _fetch_on_router(timeout, metadata_map_name)
     if err ~= nil then
-        if cache.sharding_key_as_index_obj_map ~= nil then
-            return cache.sharding_key_as_index_obj_map[space_name]
+        if cache[metadata_map_name] ~= nil then
+            return cache[metadata_map_name][space_name]
         end
         return nil, err
     end
 
-    if cache.sharding_key_as_index_obj_map ~= nil then
-        return cache.sharding_key_as_index_obj_map[space_name]
+    if cache[metadata_map_name] ~= nil then
+        return cache[metadata_map_name][space_name]
     end
 
-    return nil, FetchShardingKeyError:new(
+    return nil, FetchShardingMetadataError:new(
         "Fetching sharding key for space '%s' is failed", space_name)
 end
 
-function sharding_key_module.update_cache(space_name)
+function sharding_metadata_module.fetch_sharding_key_on_router(space_name, timeout)
+    dev_checks('string', '?number')
+
+    return fetch_on_router(space_name, cache.SHARDING_KEY_MAP_NAME, timeout)
+end
+
+function sharding_metadata_module.update_sharding_key_cache(space_name)
     cache.drop_caches()
-    return sharding_key_module.fetch_on_router(space_name)
+    return sharding_metadata_module.fetch_sharding_key_on_router(space_name)
 end
 
-function sharding_key_module.init()
-   _G._crud.fetch_on_storage = sharding_key_module.fetch_on_storage
+function sharding_metadata_module.init()
+   _G._crud.fetch_on_storage = sharding_metadata_module.fetch_on_storage
 end
 
-return sharding_key_module
+return sharding_metadata_module

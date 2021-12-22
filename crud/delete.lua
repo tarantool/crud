@@ -6,6 +6,7 @@ local call = require('crud.common.call')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local sharding_key_module = require('crud.common.sharding.sharding_key')
+local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
 
@@ -58,9 +59,16 @@ local function call_delete_on_router(space_name, key, opts)
 
     local sharding_key = key
     if opts.bucket_id == nil then
-        local err
         local primary_index_parts = space.index[0].parts
-        sharding_key, err = sharding_key_module.extract_from_pk(space_name, primary_index_parts, key, opts.timeout)
+
+        local sharding_key_as_index_obj, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
+        if err ~= nil then
+            return nil, err
+        end
+
+        sharding_key, err = sharding_key_module.extract_from_pk(space_name,
+                                                                sharding_key_as_index_obj,
+                                                                primary_index_parts, key)
         if err ~= nil then
             return nil, err
         end

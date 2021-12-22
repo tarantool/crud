@@ -675,19 +675,22 @@ end
 
 pgroup.test_update_cache = function(g)
     local space_name = 'customers_name_key'
-    local sharding_key_as_index_obj = helpers.update_cache(g.cluster, space_name)
+    local sharding_key_as_index_obj, err = helpers.update_sharding_key_cache(g.cluster, space_name)
+    t.assert_equals(err, nil)
     t.assert_equals(sharding_key_as_index_obj, {parts = {{fieldno = 3}}})
 
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('set_sharding_key', {space_name, {'age'}})
     end)
-    sharding_key_as_index_obj = helpers.update_cache(g.cluster, space_name)
+    sharding_key_as_index_obj, err = helpers.update_sharding_key_cache(g.cluster, space_name)
+    t.assert_equals(err, nil)
     t.assert_equals(sharding_key_as_index_obj, {parts = {{fieldno = 4}}})
 
     -- Recover sharding key.
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('set_sharding_key', {space_name, {'name'}})
     end)
-    sharding_key_as_index_obj = helpers.update_cache(g.cluster, space_name)
+    sharding_key_as_index_obj, err = helpers.update_sharding_key_cache(g.cluster, space_name)
+    t.assert_equals(err, nil)
     t.assert_equals(sharding_key_as_index_obj, {parts = {{fieldno = 3}}})
 end
