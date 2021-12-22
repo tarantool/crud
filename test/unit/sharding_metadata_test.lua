@@ -1,6 +1,8 @@
 local t = require('luatest')
+local ffi = require('ffi')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 local sharding_key_module = require('crud.common.sharding.sharding_key')
+local sharding_func_module = require('crud.common.sharding.sharding_func')
 local cache = require('crud.common.sharding.sharding_metadata_cache')
 local utils = require('crud.common.utils')
 
@@ -247,4 +249,156 @@ g.test_is_part_of_pk_negative = function()
     local is_part_of_pk = sharding_key_module.internal.is_part_of_pk
     local res = is_part_of_pk(space_name, index_parts, sharding_key_as_index_obj)
     t.assert_equals(res, false)
+end
+
+g.test_as_callable_object_func_body = function()
+    local sharding_func_def = {body = 'function(key) return key end'}
+
+    local callable_obj, err = sharding_func_module.internal.as_callable_object(sharding_func_def,
+                                                                              'space_name')
+    t.assert_equals(err, nil)
+    t.assert_equals(type(callable_obj), 'function')
+    t.assert_equals(callable_obj(5), 5)
+end
+
+g.test_as_callable_object_G_func = function()
+    local some_module = {
+        sharding_func = function(key) return key % 10 end
+    }
+    local module_name = 'some_module'
+    local sharding_func_def = 'some_module.sharding_func'
+    rawset(_G, module_name, some_module)
+
+    local callable_obj, err = sharding_func_module.internal.as_callable_object(sharding_func_def,
+                                                                              'space_name')
+    t.assert_equals(err, nil)
+    t.assert_equals(callable_obj, some_module.sharding_func)
+
+    rawset(_G, module_name, nil)
+end
+
+g.test_as_callable_object_func_body_negative = function()
+    local sharding_func_def = {body = 'function(key) return key'}
+
+    local callable_obj, err = sharding_func_module.internal.as_callable_object(sharding_func_def,
+                                                                              'space_name')
+    t.assert_equals(callable_obj, nil)
+    t.assert_str_contains(err.err,
+            'Body is incorrect in sharding_func for space (space_name)')
+end
+
+g.test_as_callable_object_G_func_not_exist = function()
+    local sharding_func_def = 'some_module.sharding_func'
+
+    local callable_obj, err = sharding_func_module.internal.as_callable_object(sharding_func_def,
+                                                                              'space_name')
+    t.assert_equals(callable_obj, nil)
+    t.assert_str_contains(err.err,
+            'Wrong sharding function specified in _ddl_sharding_func space for (space_name) space')
+end
+
+g.test_as_callable_object_G_func_keyword = function()
+    local sharding_func_def = 'and'
+    rawset(_G, sharding_func_def, function(key) return key % 10 end)
+
+    local callable_obj, err = sharding_func_module.internal.as_callable_object(sharding_func_def,
+                                                                             'space_name')
+    t.assert_equals(callable_obj, nil)
+    t.assert_str_contains(err.err,
+            'Wrong sharding function specified in _ddl_sharding_func space for (space_name) space')
+
+    rawset(_G, sharding_func_def, nil)
+end
+
+g.test_as_callable_object_G_func_begin_with_digit = function()
+    local sharding_func_def = '5incorrect_name'
+    rawset(_G, sharding_func_def, function(key) return key % 10 end)
+
+    local callable_obj, err = sharding_func_module.internal.as_callable_object(sharding_func_def,
+                                                                              'space_name')
+    t.assert_equals(callable_obj, nil)
+    t.assert_str_contains(err.err,
+            'Wrong sharding function specified in _ddl_sharding_func space for (space_name) space')
+
+    rawset(_G, sharding_func_def, nil)
+end
+
+g.test_as_callable_object_G_func_incorrect_symbol = function()
+    local sharding_func_def = 'incorrect-name'
+    rawset(_G, sharding_func_def, function(key) return key % 10 end)
+
+    local callable_obj, err = sharding_func_module.internal.as_callable_object(sharding_func_def,
+                                                                              'space_name')
+    t.assert_equals(callable_obj, nil)
+    t.assert_str_contains(err.err,
+            'Wrong sharding function specified in _ddl_sharding_func space for (space_name) space')
+
+    rawset(_G, sharding_func_def, nil)
+end
+
+g.test_as_callable_object_invalid_type = function()
+    local sharding_func_def = 5
+
+    local callable_obj, err = sharding_func_module.internal.as_callable_object(sharding_func_def,
+                                                                              'space_name')
+    t.assert_equals(callable_obj, nil)
+    t.assert_str_contains(err.err,
+            'Wrong sharding function specified in _ddl_sharding_func space for (space_name) space')
+end
+
+g.test_is_callable_func = function()
+    local sharding_func_obj = function(key) return key end
+
+    local ok = sharding_func_module.internal.is_callable(sharding_func_obj)
+    t.assert_equals(ok, true)
+end
+
+g.test_is_callable_table_positive = function()
+    local sharding_func_table = setmetatable({}, {
+        __call = function(_, key) return key end
+    })
+
+    local ok = sharding_func_module.internal.is_callable(sharding_func_table)
+    t.assert_equals(ok, true)
+end
+
+g.test_is_callable_table_negative = function()
+    local sharding_func_table = setmetatable({}, {})
+
+    local ok = sharding_func_module.internal.is_callable(sharding_func_table)
+    t.assert_equals(ok, false)
+end
+
+g.test_is_callable_userdata_positive = function()
+    local sharding_func_userdata = newproxy(true)
+    local mt = getmetatable(sharding_func_userdata)
+    mt.__call = function(_, key) return key end
+
+    local ok = sharding_func_module.internal.is_callable(sharding_func_userdata)
+    t.assert_equals(ok, true)
+end
+
+g.test_is_callable_userdata_negative = function()
+    local sharding_func_userdata = newproxy(true)
+    local mt = getmetatable(sharding_func_userdata)
+    mt.__call = {}
+
+    local ok = sharding_func_module.internal.is_callable(sharding_func_userdata)
+    t.assert_equals(ok, false)
+end
+
+g.test_is_callable_cdata = function()
+    ffi.cdef[[
+        typedef struct
+        {
+            int data;
+        } test_check_struct_t;
+    ]]
+    ffi.metatype('test_check_struct_t', {
+        __call = function(_, key) return key end
+    })
+    local sharding_func_cdata = ffi.new('test_check_struct_t')
+
+    local ok = sharding_func_module.internal.is_callable(sharding_func_cdata)
+    t.assert_equals(ok, true)
 end
