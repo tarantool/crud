@@ -77,6 +77,25 @@ documentation). As soon as sharding key for a certain space is available in
 automatically. Note that CRUD methods `delete()`, `get()` and `update()`
 requires that sharding key must be a part of primary key.
 
+You can specify sharding function to calculate bucket_id with
+sharding func definition as a part of [DDL
+schema](https://github.com/tarantool/ddl#input-data-format)
+or insert manually to the space `_ddl_sharding_func`.
+
+CRUD uses `strcrc32` as sharding function by default.
+The reason why using of `strcrc32` is undesirable is that
+this sharding function is not consistent for cdata numbers.
+In particular, it returns 3 different values for normal Lua
+numbers like 123, for `unsigned long long` cdata
+(like `123ULL`, or `ffi.cast('unsigned long long',
+123)`), and for `signed long long` cdata (like `123LL`, or
+`ffi.cast('long long', 123)`).
+
+We cannot change default sharding function `strcrc32`
+due to backward compatibility concerns, but please consider
+using better alternatives for sharding function.
+`mpcrc32` is one of them.
+
 Table below describe what operations supports custom sharding key:
 
 | CRUD method                      | Sharding key support       |
@@ -101,11 +120,22 @@ Current limitations for using custom sharding key:
 - It's not possible to update sharding keys automatically when schema is
   updated on storages, see
   [#212](https://github.com/tarantool/crud/issues/212). However it is possible
-  to do it manually with `require('crud.common.sharding_key').update_cache()`.
+  to do it manually with `require('crud.common.sharding_key').update_cache()`
+  (this function updates both caches: sharding key cache and sharding function
+  cache, but returned value is sharding key from cache).
 - No support of JSON path for sharding key, see
   [#219](https://github.com/tarantool/crud/issues/219).
 - `primary_index_fieldno_map` is not cached, see
   [#243](https://github.com/tarantool/crud/issues/243).
+
+Current limitations for using custom sharding functions:
+
+- It's not possible to update sharding functions automatically when schema is
+  updated on storages, see
+  [#212](https://github.com/tarantool/crud/issues/212). However it is possible
+  to do it manually with `require('crud.common.sharding_func').update_cache()`
+  (this function updates both caches: sharding key cache and sharding function
+  cache, but returned value is sharding function from cache).
 
 ### Insert
 

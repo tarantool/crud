@@ -15,15 +15,31 @@ g.before_each(function()
         {name = 'space_name', type = 'string', is_nullable = false},
         {name = 'sharding_key', type = 'array', is_nullable = false}
     }
-    -- Create a space _ddl_sharding_key with a tuple that
-    -- contains a space name and it's sharding key.
+
+    local sharding_func_format = {
+        {name = 'space_name', type = 'string', is_nullable = false},
+        {name = 'sharding_func_name', type = 'string', is_nullable = true},
+        {name = 'sharding_func_body', type = 'string', is_nullable = true},
+    }
+
     if type(box.cfg) ~= 'table' then
         helpers.box_cfg()
     end
+
+    -- Create a space _ddl_sharding_key with a tuple that
+    -- contains a space name and it's sharding key.
     box.schema.space.create('_ddl_sharding_key', {
         format = sharding_key_format,
     })
     box.space._ddl_sharding_key:create_index('pk')
+
+    -- Create a space _ddl_sharding_func with a tuple that
+    -- contains a space name and it's sharding func name/body.
+    box.schema.space.create('_ddl_sharding_func', {
+        format = sharding_func_format,
+    })
+    box.space._ddl_sharding_func:create_index('pk')
+
     box.schema.space.create('fetch_on_storage')
 end)
 
@@ -32,6 +48,11 @@ g.after_each(function()
     if box.space._ddl_sharding_key ~= nil then
         box.space._ddl_sharding_key:drop()
     end
+
+    if box.space._ddl_sharding_func ~= nil then
+        box.space._ddl_sharding_func:drop()
+    end
+
     box.space.fetch_on_storage:drop()
     cache.drop_caches()
 end)
@@ -88,20 +109,25 @@ end
 g.test_fetch_sharding_metadata_on_storage_positive = function()
     local space_name = 'fetch_on_storage'
     local sharding_key_def = {'name', 'age'}
+    local sharding_func_def = 'sharding_func_name'
 
     box.space._ddl_sharding_key:insert({space_name, sharding_key_def})
+    box.space._ddl_sharding_func:insert({space_name, sharding_func_def})
 
     local metadata_map = sharding_metadata_module.fetch_on_storage()
 
     t.assert_equals(metadata_map, {
         [space_name] = {
             sharding_key_def = sharding_key_def,
+            sharding_func_def = sharding_func_def,
             space_format = {}
         },
     })
 end
 
 g.test_fetch_sharding_key_on_storage_positive = function()
+    box.space._ddl_sharding_func:drop()
+
     local space_name = 'fetch_on_storage'
     local sharding_key_def = {'name', 'age'}
     box.space._ddl_sharding_key:insert({space_name, sharding_key_def})
@@ -116,9 +142,43 @@ g.test_fetch_sharding_key_on_storage_positive = function()
     })
 end
 
-g.test_fetch_sharding_metadata_on_storage_negative = function()
-    -- Test checks return value when _ddl_sharding_key is absent.
+g.test_fetch_sharding_func_name_on_storage_positive = function()
     box.space._ddl_sharding_key:drop()
+
+    local space_name = 'fetch_on_storage'
+    local sharding_func_def = 'sharding_func_name'
+    box.space._ddl_sharding_func:insert({space_name, sharding_func_def})
+
+    local metadata_map = sharding_metadata_module.fetch_on_storage()
+
+    t.assert_equals(metadata_map, {
+        [space_name] = {
+            sharding_func_def = sharding_func_def,
+        },
+    })
+end
+
+g.test_fetch_sharding_func_body_on_storage_positive = function()
+    box.space._ddl_sharding_key:drop()
+
+    local space_name = 'fetch_on_storage'
+    local sharding_func_def = 'function(key) return key end'
+    box.space._ddl_sharding_func:insert({space_name, nil, sharding_func_def})
+
+    local metadata_map = sharding_metadata_module.fetch_on_storage()
+
+    t.assert_equals(metadata_map, {
+        [space_name] = {
+            sharding_func_def = {body = sharding_func_def},
+        },
+    })
+end
+
+g.test_fetch_sharding_metadata_on_storage_negative = function()
+    -- Test checks return value when _ddl_sharding_key
+    -- and _ddl_sharding_func are absent.
+    box.space._ddl_sharding_key:drop()
+    box.space._ddl_sharding_func:drop()
 
     local metadata_map = sharding_metadata_module.fetch_on_storage()
     t.assert_equals(metadata_map, nil)

@@ -1,5 +1,8 @@
 local errors = require('errors')
+local log = require('log')
 
+local dev_checks = require('crud.common.dev_checks')
+local cache = require('crud.common.sharding.sharding_metadata_cache')
 local utils = require('crud.common.utils')
 
 local ShardingFuncError = errors.new_class('ShardingFuncError',  {capture_stack = false})
@@ -72,6 +75,32 @@ local function as_callable_object(sharding_func_def, space_name)
     return nil, ShardingFuncError:new(
             "Wrong sharding function specified in _ddl_sharding_func space for (%s) space", space_name
     )
+end
+
+function sharding_func_module.construct_as_callable_obj_cache(metadata_map, specified_space_name)
+    dev_checks('table', 'string')
+
+    local result_err
+
+    cache.sharding_func_map = {}
+    for space_name, metadata in pairs(metadata_map) do
+        if metadata.sharding_func_def ~= nil then
+            local sharding_func, err = as_callable_object(metadata.sharding_func_def,
+                                                          space_name)
+            if err ~= nil then
+                if specified_space_name == space_name then
+                    result_err = err
+                    log.error(err)
+                else
+                    log.warn(err)
+                end
+            end
+
+            cache.sharding_func_map[space_name] = sharding_func
+        end
+    end
+
+    return result_err
 end
 
 sharding_func_module.internal = {

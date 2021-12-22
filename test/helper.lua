@@ -340,4 +340,42 @@ function helpers.get_sharding_key_cache(cluster)
     ]])
 end
 
+-- it is not possible to get function or table with function
+-- object through net.box that's why we get a sign of record
+-- existence of cache but not the cache itself
+function helpers.update_sharding_func_cache(cluster, space_name)
+    return cluster.main_server.net_box:eval([[
+        local sharding_func = require('crud.common.sharding_func')
+
+        local space_name = ...
+        local sharding_func, err = sharding_func.update_cache(space_name)
+        if sharding_func == nil then
+            return false, err
+        end
+
+        return true, err
+    ]], {space_name})
+end
+
+-- it is not possible to get function or table with function
+-- object through net.box that's why we get size of cache
+-- but not the cache itself
+function helpers.get_sharding_func_cache_size(cluster)
+    return cluster.main_server.net_box:eval([[
+        local sharding_metadata_cache = require('crud.common.sharding.sharding_metadata_cache')
+
+        local cache, err = sharding_metadata_cache[sharding_metadata_cache.SHARDING_FUNC_MAP_NAME]
+        if cache == nil then
+            return nil, err
+        end
+
+        local cnt = 0
+        for _, _ in pairs(cache) do
+            cnt = cnt + 1
+        end
+
+        return cnt, err
+    ]])
+end
+
 return helpers
