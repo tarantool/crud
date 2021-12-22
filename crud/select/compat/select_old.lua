@@ -8,7 +8,7 @@ local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
-local sharding_key_module = require('crud.common.sharding_key')
+local sharding_key_module = require('crud.common.sharding.sharding_key')
 
 local compare_conditions = require('crud.compare.conditions')
 local select_plan = require('crud.compare.plan')

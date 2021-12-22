@@ -13,7 +13,7 @@ local truncate = require('crud.truncate')
 local len = require('crud.len')
 local count = require('crud.count')
 local borders = require('crud.borders')
-local sharding_key = require('crud.common.sharding_key')
+local sharding_key = require('crud.common.sharding.sharding_key')
 local utils = require('crud.common.utils')
 
 local crud = {}

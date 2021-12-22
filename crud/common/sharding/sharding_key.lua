@@ -4,7 +4,7 @@ local errors = require('errors')
 local call = require('crud.common.call')
 local const = require('crud.common.const')
 local dev_checks = require('crud.common.dev_checks')
-local cache = require('crud.common.sharding_key_cache')
+local cache = require('crud.common.sharding.sharding_key_cache')
 local utils = require('crud.common.utils')
 
 local ShardingKeyError = errors.new_class("ShardingKeyError", {capture_stack = false})

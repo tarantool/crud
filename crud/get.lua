@@ -5,7 +5,7 @@ local vshard = require('vshard')
 local call = require('crud.common.call')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
-local sharding_key_module = require('crud.common.sharding_key')
+local sharding_key_module = require('crud.common.sharding.sharding_key')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
 
