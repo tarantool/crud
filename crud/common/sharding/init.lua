@@ -34,7 +34,7 @@ function sharding.tuple_get_bucket_id(tuple, space, specified_bucket_id)
     end
 
     local sharding_index_parts = space.index[0].parts
-    local sharding_key_as_index_obj, err = sharding_metadata_module.fetch_on_router(space.name)
+    local sharding_key_as_index_obj, err = sharding_metadata_module.fetch_sharding_key_on_router(space.name)
     if err ~= nil then
         return nil, err
     end

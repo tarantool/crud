@@ -75,15 +75,9 @@ end
 
 -- Extract sharding key from pk.
 -- Returns a table with sharding key or pair of nil and error.
-function sharding_key_module.extract_from_pk(space_name, primary_index_parts, primary_key, timeout)
-    dev_checks('string', 'table', '?', '?number')
+function sharding_key_module.extract_from_pk(space_name, sharding_key_as_index_obj, primary_index_parts, primary_key)
+    dev_checks('string', '?table', 'table', '?')
 
-    local sharding_key_as_index_obj, err = require(
-                                           'crud.common.sharding.sharding_metadata'
-                                           ).fetch_on_router(space_name, timeout)
-    if err ~= nil then
-        return nil, err
-    end
     if sharding_key_as_index_obj == nil then
         return primary_key
     end
@@ -100,6 +94,24 @@ function sharding_key_module.extract_from_pk(space_name, primary_index_parts, pr
     end
 
     return extract_from_index(primary_key, primary_index_parts, sharding_key_as_index_obj)
+end
+
+function sharding_key_module.construct_as_index_obj_cache(metadata_map)
+    dev_checks('table')
+
+    cache.sharding_key_as_index_obj_map = {}
+    for space_name, metadata in pairs(metadata_map) do
+        if metadata.sharding_key_def ~= nil then
+            local sharding_key_as_index_obj, err = as_index_object(space_name,
+                                                                   metadata.space_format,
+                                                                   metadata.sharding_key_def)
+            if err ~= nil then
+                return err
+            end
+
+            cache.sharding_key_as_index_obj_map[space_name] = sharding_key_as_index_obj
+        end
+    end
 end
 
 sharding_key_module.internal = {

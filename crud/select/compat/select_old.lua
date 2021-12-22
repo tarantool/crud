@@ -103,7 +103,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         return nil, SelectError:new("Space %q doesn't exist", space_name), true
     end
     local space_format = space:format()
-    local sharding_key_as_index_obj, err = sharding_metadata_module.fetch_on_router(space_name)
+    local sharding_key_as_index_obj, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
     if err ~= nil then
         return nil, err
     end

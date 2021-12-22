@@ -83,7 +83,23 @@ g.test_get_format_fieldno_map = function()
     t.assert_equals(fieldno_map, {age = 3, id = 1, name = 2})
 end
 
-g.test_fetch_on_storage_positive = function()
+g.test_fetch_sharding_metadata_on_storage_positive = function()
+    local space_name = 'fetch_on_storage'
+    local sharding_key_def = {'name', 'age'}
+
+    box.space._ddl_sharding_key:insert({space_name, sharding_key_def})
+
+    local metadata_map = sharding_metadata_module.fetch_on_storage()
+
+    t.assert_equals(metadata_map, {
+        [space_name] = {
+            sharding_key_def = sharding_key_def,
+            space_format = {}
+        },
+    })
+end
+
+g.test_fetch_sharding_key_on_storage_positive = function()
     local space_name = 'fetch_on_storage'
     local sharding_key_def = {'name', 'age'}
     box.space._ddl_sharding_key:insert({space_name, sharding_key_def})
@@ -98,7 +114,7 @@ g.test_fetch_on_storage_positive = function()
     })
 end
 
-g.test_fetch_on_storage_negative = function()
+g.test_fetch_sharding_metadata_on_storage_negative = function()
     -- Test checks return value when _ddl_sharding_key is absent.
     box.space._ddl_sharding_key:drop()
 
