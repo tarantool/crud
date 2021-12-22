@@ -162,7 +162,11 @@ local function call_count_on_router(space_name, user_conditions, opts)
     local perform_map_reduce = opts.force_map_call == true or
         (opts.bucket_id == nil and plan.sharding_key == nil)
     if not perform_map_reduce then
-        local bucket_id = sharding.key_get_bucket_id(plan.sharding_key, opts.bucket_id)
+        local bucket_id, err = sharding.key_get_bucket_id(space_name, plan.sharding_key, opts.bucket_id)
+        if err ~= nil then
+            return nil, err
+        end
+
         assert(bucket_id ~= nil)
 
         local err

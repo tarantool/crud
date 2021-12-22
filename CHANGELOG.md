@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   must be a part of primary key.
 * `crud.count()` function to calculate the number of tuples
   in the space according to conditions.
+* Support bucket id calculating using sharding func specified in
+  DDL schema or in `_ddl_sharding_func` space.
 
 ### Fixed
 

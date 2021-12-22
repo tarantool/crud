@@ -9,6 +9,18 @@ local cartridge = require('cartridge')
 local ddl = require('ddl')
 
 package.preload['customers-storage'] = function()
+    -- set sharding func in dot.notation
+    -- in _G for sharding func tests
+    local some_module = {
+        sharding_func =
+        function(key)
+            if key ~= nil and key[1] ~= nil then
+                return key[1] % 10
+            end
+        end
+    }
+    rawset(_G, 'some_module', some_module)
+
     return {
         role_name = 'customers-storage',
         init = function()
@@ -131,6 +143,18 @@ package.preload['customers-storage'] = function()
             table.insert(customers_name_age_key_three_fields_index_schema.indexes, bucket_id_index)
             table.insert(customers_name_age_key_three_fields_index_schema.indexes, three_fields_index)
 
+            local customers_id_key_schema = table.deepcopy(customers_schema)
+            customers_id_key_schema.sharding_key = {'id'}
+            table.insert(customers_id_key_schema.indexes, primary_index)
+            table.insert(customers_id_key_schema.indexes, bucket_id_index)
+            table.insert(customers_id_key_schema.indexes, name_index)
+
+            local customers_body_func_schema = table.deepcopy(customers_id_key_schema)
+            customers_body_func_schema.sharding_func = { body = 'function(key) return key[1] % 10 end' }
+
+            local customers_G_func_schema = table.deepcopy(customers_id_key_schema)
+            customers_G_func_schema.sharding_func = 'some_module.sharding_func'
+
             local schema = {
                 spaces = {
                     customers_name_key = customers_name_key_schema,
@@ -140,6 +164,8 @@ package.preload['customers-storage'] = function()
                     customers_age_key = customers_age_key_schema,
                     customers_name_age_key_different_indexes = customers_name_age_key_different_indexes_schema,
                     customers_name_age_key_three_fields_index = customers_name_age_key_three_fields_index_schema,
+                    customers_G_func = customers_G_func_schema,
+                    customers_body_func = customers_body_func_schema,
                 }
             }
 
@@ -153,6 +179,9 @@ package.preload['customers-storage'] = function()
             rawset(_G, 'set_sharding_key', function(space_name, sharding_key_def)
                 local fieldno_sharding_key = 2
                 box.space['_ddl_sharding_key']:update(space_name, {{'=', fieldno_sharding_key, sharding_key_def}})
+            end)
+            rawset(_G, 'set_sharding_func', function(space_name, fieldno_sharding_func, sharding_func_def)
+                box.space['_ddl_sharding_func']:update(space_name, {{'=', fieldno_sharding_func, sharding_func_def}})
             end)
         end,
     }

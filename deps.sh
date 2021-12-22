@@ -16,4 +16,6 @@ tarantoolctl rocks install https://raw.githubusercontent.com/moteus/lua-path/mas
 tarantoolctl rocks install https://raw.githubusercontent.com/moteus/luacov-coveralls/master/rockspecs/luacov-coveralls-scm-0.rockspec
 
 tarantoolctl rocks install cartridge 2.7.3
+tarantoolctl rocks install ddl 1.6.0
+
 tarantoolctl rocks make

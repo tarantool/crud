@@ -77,7 +77,11 @@ local function call_get_on_router(space_name, key, opts)
         end
     end
 
-    local bucket_id = sharding.key_get_bucket_id(sharding_key, opts.bucket_id)
+    local bucket_id, err = sharding.key_get_bucket_id(space_name, sharding_key, opts.bucket_id)
+    if err ~= nil then
+        return nil, err
+    end
+
     local call_opts = {
         mode = opts.mode or 'read',
         prefer_replica = opts.prefer_replica,
