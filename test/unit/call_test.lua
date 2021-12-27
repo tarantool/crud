@@ -81,6 +81,26 @@ g.test_single_non_existent_func = function()
     t.assert_str_contains(err.err, "Function non_existent_func is not registered")
 end
 
+g.test_map_invalid_mode = function()
+    local results, err = g.cluster.main_server.net_box:eval([[
+        local call = require('crud.common.call')
+        return call.map('say_hi_politely', nil, {mode = 'invalid'})
+    ]])
+
+    t.assert_equals(results, nil)
+    t.assert_str_contains(err.err, "Unknown call mode: invalid")
+end
+
+g.test_single_invalid_mode = function()
+    local results, err = g.cluster.main_server.net_box:eval([[
+        local call = require('crud.common.call')
+        return call.single(1, 'say_hi_politely', nil, {mode = 'invalid'})
+    ]])
+
+    t.assert_equals(results, nil)
+    t.assert_str_contains(err.err, "Unknown call mode: invalid")
+end
+
 g.test_map_no_args = function()
     local results_map, err  = g.cluster.main_server.net_box:eval([[
         local call = require('crud.common.call')
