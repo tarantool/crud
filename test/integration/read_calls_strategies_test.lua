@@ -1,11 +1,34 @@
 local fio = require('fio')
 
 local t = require('luatest')
-local g = t.group('read_calls_strategies')
+
+local pgroup = t.group('read_calls_strategies', {
+    -- mode: write
+    {exp_vshard_call = 'callrw', mode = 'write'},
+
+    -- mode: read
+
+    -- no params -> callro
+    {exp_vshard_call = 'callro'},
+
+    -- not prefer_replica, not balance -> callro
+    {exp_vshard_call = 'callro', prefer_replica = false, balance = false},
+
+    -- not prefer_replica, balance -> callbro
+    {exp_vshard_call = 'callbro', prefer_replica = false, balance = true},
+    {exp_vshard_call = 'callbro', balance = true},
+
+    -- prefer_replica, not balance -> callre
+    {exp_vshard_call = 'callre', prefer_replica = true, balance = false},
+    {exp_vshard_call = 'callre', prefer_replica = true},
+
+    -- prefer_replica, balance -> callbre
+    {exp_vshard_call = 'callbre', prefer_replica = true, balance = true},
+})
 
 local helpers = require('test.helper')
 
-g.before_all(function()
+pgroup.before_all(function(g)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_read_calls_strategies'),
@@ -30,32 +53,47 @@ g.before_all(function()
     g.cluster.main_server.net_box:call('patch_vshard_calls', {vshard_call_names})
 end)
 
-g.after_all(function()
+pgroup.after_all(function(g)
     helpers.stop_cluster(g.cluster)
 end)
 
-g.before_each(function()
+pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
 end)
 
-local function check_get(g, exp_vshard_call, opts)
+pgroup.test_get = function(g)
     g.clear_vshard_calls()
-    local _, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 1, opts})
+    local _, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 1, {
+        mode = g.params.mode,
+        balance = g.params.balance,
+        prefer_replica = g.params.prefer_replica
+    }})
     t.assert_equals(err, nil)
     local vshard_calls = g.get_vshard_calls('call_single_impl')
-    t.assert_equals(vshard_calls, {exp_vshard_call})
+    t.assert_equals(vshard_calls, {g.params.exp_vshard_call})
 end
 
-local function check_select(g, exp_vshard_call, opts)
+pgroup.test_select = function(g)
     g.clear_vshard_calls()
-    local _, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil, opts})
+    local _, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil, {
+        mode = g.params.mode,
+        balance = g.params.balance,
+        prefer_replica = g.params.prefer_replica
+    }})
     t.assert_equals(err, nil)
     local vshard_calls = g.get_vshard_calls('call_impl')
-    t.assert_equals(vshard_calls, {exp_vshard_call, exp_vshard_call})
+    t.assert_equals(vshard_calls, {g.params.exp_vshard_call, g.params.exp_vshard_call})
 end
 
-local function check_pairs(g, exp_vshard_call, opts)
+pgroup.test_pairs = function(g)
     g.clear_vshard_calls()
+
+    local opts = {
+        mode = g.params.mode,
+        balance = g.params.balance,
+        prefer_replica = g.params.prefer_replica
+    }
+
     local _, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
 
@@ -64,77 +102,5 @@ local function check_pairs(g, exp_vshard_call, opts)
     ]], {opts})
     t.assert_equals(err, nil)
     local vshard_calls = g.get_vshard_calls('call_impl')
-    t.assert_equals(vshard_calls, {exp_vshard_call, exp_vshard_call})
-end
-
-g.test_get = function()
-    -- mode: write
-    check_get(g, 'callrw', {mode = 'write'})
-
-    -- mode: read
-
-    -- no params -> callro
-    check_get(g, 'callro')
-
-    -- not prefer_replica, not balance -> callro
-    check_get(g, 'callro', {prefer_replica = false, balance = false})
-
-    -- not prefer_replica, balance -> callbro
-    check_get(g, 'callbro', {prefer_replica = false, balance = true})
-    check_get(g, 'callbro', {balance = true})
-
-    -- prefer_replica, not balance -> callre
-    check_get(g, 'callre', {prefer_replica = true, balance = false})
-    check_get(g, 'callre', {prefer_replica = true})
-
-    -- prefer_replica, balance -> callbre
-    check_get(g, 'callbre', {prefer_replica = true, balance = true})
-end
-
-g.test_select = function()
-    -- mode: write
-    check_select(g, 'callrw', {mode = 'write'})
-
-    -- mode: read
-
-    -- no params -> callro
-    check_select(g, 'callro')
-
-    -- not prefer_replica, not balance -> callro
-    check_select(g, 'callro', {prefer_replica = false, balance = false})
-
-    -- not prefer_replica, balance -> callbro
-    check_select(g, 'callbro', {prefer_replica = false, balance = true})
-    check_select(g, 'callbro', {balance = true})
-
-    -- prefer_replica, not balance -> callre
-    check_select(g, 'callre', {prefer_replica = true, balance = false})
-    check_select(g, 'callre', {prefer_replica = true})
-
-    -- prefer_replica, balance -> callbre
-    check_select(g, 'callbre', {prefer_replica = true, balance = true})
-end
-
-g.test_pairs = function()
-    -- mode: write
-    check_pairs(g, 'callrw', {mode = 'write'})
-
-    -- mode: read
-
-    -- no params -> callro
-    check_pairs(g, 'callro')
-
-    -- not prefer_replica, not balance -> callro
-    check_pairs(g, 'callro', {prefer_replica = false, balance = false})
-
-    -- not prefer_replica, balance -> callbro
-    check_pairs(g, 'callbro', {prefer_replica = false, balance = true})
-    check_pairs(g, 'callbro', {balance = true})
-
-    -- prefer_replica, not balance -> callre
-    check_pairs(g, 'callre', {prefer_replica = true, balance = false})
-    check_pairs(g, 'callre', {prefer_replica = true})
-
-    -- prefer_replica, balance -> callbre
-    check_pairs(g, 'callbre', {prefer_replica = true, balance = true})
+    t.assert_equals(vshard_calls, {g.params.exp_vshard_call, g.params.exp_vshard_call})
 end
