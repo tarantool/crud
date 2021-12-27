@@ -15,6 +15,10 @@ call.DEFAULT_VSHARD_CALL_TIMEOUT = 2
 function call.get_vshard_call_name(mode, prefer_replica, balance)
     dev_checks('string', '?boolean', '?boolean')
 
+    if mode ~= 'write' and mode ~= 'read' then
+        return nil, CallError:new("Unknown call mode: %s", mode)
+    end
+
     if mode == 'write' then
         return 'callrw'
     end
@@ -74,7 +78,10 @@ function call.map(func_name, func_args, opts)
     })
     opts = opts or {}
 
-    local vshard_call_name = call.get_vshard_call_name(opts.mode, opts.prefer_replica, opts.balance)
+    local vshard_call_name, err = call.get_vshard_call_name(opts.mode, opts.prefer_replica, opts.balance)
+    if err ~= nil then
+        return nil, err
+    end
 
     local timeout = opts.timeout or call.DEFAULT_VSHARD_CALL_TIMEOUT
 
@@ -126,7 +133,10 @@ function call.single(bucket_id, func_name, func_args, opts)
         timeout = '?number',
     })
 
-    local vshard_call_name = call.get_vshard_call_name(opts.mode, opts.prefer_replica, opts.balance, opts.mode)
+    local vshard_call_name, err = call.get_vshard_call_name(opts.mode, opts.prefer_replica, opts.balance)
+    if err ~= nil then
+        return nil, err
+    end
 
     local timeout = opts.timeout or call.DEFAULT_VSHARD_CALL_TIMEOUT
 
