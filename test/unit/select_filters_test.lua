@@ -2,8 +2,8 @@
 
 local compare_conditions = require('crud.compare.conditions')
 local cond_funcs = compare_conditions.funcs
-local select_filters = require('crud.select.filters')
-local select_plan = require('crud.select.plan')
+local select_filters = require('crud.compare.filters')
+local select_plan = require('crud.compare.plan')
 local collations = require('crud.common.collations')
 
 local t = require('luatest')

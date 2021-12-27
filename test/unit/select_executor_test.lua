@@ -1,8 +1,8 @@
 local crud = require('crud')
 
-local select_plan = require('crud.select.plan')
+local select_plan = require('crud.compare.plan')
 local select_executor = require('crud.select.executor')
-local select_filters = require('crud.select.filters')
+local select_filters = require('crud.compare.filters')
 
 local compare_conditions = require('crud.compare.conditions')
 local cond_funcs = compare_conditions.funcs

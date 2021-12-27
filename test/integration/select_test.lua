@@ -31,7 +31,7 @@ pgroup.before_all(function(g)
     helpers.call_on_storages(g.cluster, function(server)
         server.net_box:eval([[
             local storage_stat = require('test.helpers.storage_stat')
-            storage_stat.init_on_storage()
+            storage_stat.init_on_storage_for_select()
         ]])
     end)
 end)
@@ -1640,10 +1640,10 @@ pgroup.test_select_no_map_reduce = function(g)
     local stat_b = storage_stat.collect(g.cluster)
     t.assert_equals(storage_stat.diff(stat_b, stat_a), {
         ['s-1'] = {
-            select_requests = 1,
+            requests = 1,
         },
         ['s-2'] = {
-            select_requests = 0,
+            requests = 0,
         },
     })
 
@@ -1662,10 +1662,10 @@ pgroup.test_select_no_map_reduce = function(g)
     local stat_c = storage_stat.collect(g.cluster)
     t.assert_equals(storage_stat.diff(stat_c, stat_b), {
         ['s-1'] = {
-            select_requests = 0,
+            requests = 0,
         },
         ['s-2'] = {
-            select_requests = 1,
+            requests = 1,
         },
     })
 end

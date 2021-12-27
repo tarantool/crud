@@ -38,7 +38,7 @@ pgroup.before_all(function(g)
     helpers.call_on_storages(g.cluster, function(server)
         server.net_box:eval([[
             local storage_stat = require('test.helpers.storage_stat')
-            storage_stat.init_on_storage()
+            storage_stat.init_on_storage_for_select()
         ]])
     end)
 end)
