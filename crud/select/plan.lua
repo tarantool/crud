@@ -16,6 +16,7 @@ local select_plan = {}
 
 local IndexTypeError = errors.new_class('IndexTypeError', {capture_stack = false})
 local FilterFieldsError = errors.new_class('FilterFieldsError', {capture_stack = false})
+local NoIndexesError = errors.new_class('NoIndexesError', {capture_stack = false})
 
 local function index_is_allowed(index)
     return index.type == 'TREE'
@@ -172,6 +173,10 @@ function select_plan.new(space, conditions, opts)
     local space_name = space.name
     local space_indexes = space.index
     local space_format = space:format()
+
+    if space_indexes == nil or next(space_indexes) == nil then
+        return nil, NoIndexesError:new('Space %q has no indexes, space should have primary index', space_name)
+    end
 
     if conditions == nil then -- also cdata<NULL>
         conditions = {}
