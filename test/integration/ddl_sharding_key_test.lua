@@ -281,6 +281,24 @@ pgroup.test_select = function(g)
     t.assert_equals(result.rows[1], tuple)
 end
 
+pgroup.test_count = function(g)
+    -- bucket_id is 234, storage is s-2
+    local tuple = {8, 234, 'Ptolemy', 20}
+
+    -- Put tuple to s2 replicaset.
+    local conn_s2 = g.cluster:server('s2-master').net_box
+    local result = conn_s2.space['customers_name_key']:insert(tuple)
+    t.assert_not_equals(result, nil)
+
+    local conditions = {{'==', 'name', 'Ptolemy'}}
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers_name_key', conditions,
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result, 1)
+end
+
 local prepare_data_name_sharding_key = function(g, space_name)
     local conn_s1 = g.cluster:server('s1-master').net_box
     local conn_s2 = g.cluster:server('s2-master').net_box

@@ -87,6 +87,7 @@ Table below describe what operations supports custom sharding key:
 | `replace()` / `replace_object()` | Yes                        |
 | `upsert()` / `upsert_object()`   | Yes                        |
 | `select()` / `pairs()`           | Yes                        |
+| `count()`                        | Yes                        |
 | `update()`                       | Yes                        |
 | `upsert()` / `upsert_object()`   | Yes                        |
 | `replace() / replace_object()`   | Yes                        |
@@ -583,6 +584,48 @@ crud.delete('customers', 1)
 crud.len('customers')
 ---
 - 1
+...
+```
+
+### Count
+
+`CRUD` supports multi-conditional count, treating a cluster as a single space.
+The same as with `select()` the conditions may include field names or numbers,
+as well as index names. The recommended first condition is a TREE index; this
+helps to reduce the number of tuples to scan. Otherwise a full scan is performed.
+If compared with `len()`, `count()` method scans the entire space to count the
+tuples according user conditions. This method does yield that's why result may
+be approximate. Number of tuples before next `yield()` is under control with
+option `yield_every`.
+
+```lua
+local result, err = crud.count(space_name, conditions, opts)
+```
+
+where:
+
+* `space_name` (`string`) - name of the space
+* `conditions` (`?table`) - array of [conditions](#select-conditions)
+* `opts`:
+  * `yield_every` (`?number`) - number of tuples processed to yield after,
+    `yield_every` should be > 0, default value is 100
+  * `timeout` (`?number`) - `vshard.call` timeout (in seconds), default value is 2
+  * `bucket_id` (`?number|cdata`) - bucket ID
+  * `force_map_call` (`?boolean`) - if `true`
+    then the map call is performed without any optimizations even,
+    default value is `false`
+  * `mode` (`?string`, `read` or `write`) - if `write` is specified then `count` is
+    performed on master, default value is `read`
+  * `prefer_replica` (`?boolean`) - if `true` then the preferred target is one of
+    the replicas, default value is `false`
+  * `balance` (`?boolean`) - use replica according to
+    [vshard load balancing policy](https://www.tarantool.io/en/doc/latest/reference/reference_rock/vshard/vshard_api/#router-api-call),
+    default value is `false`
+
+```lua
+crud.count('customers', {{'<=', 'age', 35}})
+---
+- 5
 ...
 ```
 

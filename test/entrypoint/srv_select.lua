@@ -111,6 +111,7 @@ package.preload['customers-storage'] = function()
             })
             coord_space:create_index('bucket_id', {
                 parts = { {field = 'bucket_id'} },
+                unique = false,
                 if_not_exists = true,
             })
 
