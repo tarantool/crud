@@ -1,4 +1,4 @@
-local select_plan = require('crud.select.plan')
+local select_plan = require('crud.compare.plan')
 
 local compare_conditions = require('crud.compare.conditions')
 local cond_funcs = compare_conditions.funcs

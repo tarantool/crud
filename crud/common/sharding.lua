@@ -2,11 +2,23 @@ local vshard = require('vshard')
 local errors = require('errors')
 
 local BucketIDError = errors.new_class("BucketIDError", {capture_stack = false})
+local GetReplicasetsError = errors.new_class('GetReplicasetsError', {capture_stack = false})
 
 local utils = require('crud.common.utils')
 local sharding_key_module = require('crud.common.sharding_key')
 
 local sharding = {}
+
+function sharding.get_replicasets_by_bucket_id(bucket_id)
+    local replicaset, err = vshard.router.route(bucket_id)
+    if replicaset == nil then
+        return nil, GetReplicasetsError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
+    end
+
+    return {
+        [replicaset.uuid] = replicaset,
+    }
+end
 
 function sharding.key_get_bucket_id(key, specified_bucket_id)
     if specified_bucket_id ~= nil then

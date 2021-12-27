@@ -12,12 +12,15 @@ if has_keydef then
     keydef_lib = compat.require('tuple.keydef', 'key_def')
 end
 
-local select_plan = {}
+local plan = {}
 
 local IndexTypeError = errors.new_class('IndexTypeError', {capture_stack = false})
 local FilterFieldsError = errors.new_class('FilterFieldsError', {capture_stack = false})
 local NoIndexesError = errors.new_class('NoIndexesError', {capture_stack = false})
 
+-- TREE index helps reducing the number of tuples to scan.
+-- Otherwise a full scan is performed. So at least one of
+-- condition indexes or primary index should be of type TREE
 local function index_is_allowed(index)
     return index.type == 'TREE'
 end
@@ -158,7 +161,7 @@ local function construct_after_tuple_by_fields(fieldno_map, field_names, tuple)
     return transformed_tuple
 end
 
-function select_plan.new(space, conditions, opts)
+function plan.new(space, conditions, opts)
     dev_checks('table', '?table', {
         first = '?number',
         after_tuple = '?table|cdata',
@@ -297,9 +300,9 @@ function select_plan.new(space, conditions, opts)
     return plan
 end
 
-select_plan.internal = {
+plan.internal = {
     get_sharding_key_from_scan_value = get_sharding_key_from_scan_value,
     extract_sharding_key_from_conditions = extract_sharding_key_from_conditions
 }
 
-return select_plan
+return plan

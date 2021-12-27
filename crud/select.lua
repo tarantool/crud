@@ -2,7 +2,7 @@ local errors = require('errors')
 
 local utils = require('crud.common.utils')
 local select_executor = require('crud.select.executor')
-local select_filters = require('crud.select.filters')
+local select_filters = require('crud.compare.filters')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
 

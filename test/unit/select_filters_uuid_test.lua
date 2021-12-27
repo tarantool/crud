@@ -5,9 +5,9 @@ local uuid = require('uuid')
 local crud_utils = require('crud.common.utils')
 local compare_conditions = require('crud.compare.conditions')
 local cond_funcs = compare_conditions.funcs
-local select_filters = require('crud.select.filters')
+local select_filters = require('crud.compare.filters')
 local collations = require('crud.common.collations')
-local select_plan = require('crud.select.plan')
+local select_plan = require('crud.compare.plan')
 
 local t = require('luatest')
 local g = t.group('select_filters_uuid')

@@ -11,7 +11,7 @@ local schema = require('crud.common.schema')
 local sharding_key_module = require('crud.common.sharding_key')
 
 local compare_conditions = require('crud.compare.conditions')
-local select_plan = require('crud.select.plan')
+local select_plan = require('crud.compare.plan')
 local select_comparators = require('crud.compare.comparators')
 local common = require('crud.select.compat.common')
 
@@ -133,7 +133,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         assert(bucket_id ~= nil)
 
         local err
-        replicasets_to_select, err = common.get_replicasets_by_sharding_key(bucket_id)
+        replicasets_to_select, err = sharding.get_replicasets_by_bucket_id(bucket_id)
         if err ~= nil then
             return nil, err, true
         end
