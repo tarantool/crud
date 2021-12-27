@@ -11,6 +11,7 @@ local delete = require('crud.delete')
 local select = require('crud.select')
 local truncate = require('crud.truncate')
 local len = require('crud.len')
+local count = require('crud.count')
 local borders = require('crud.borders')
 local sharding_key = require('crud.common.sharding_key')
 local utils = require('crud.common.utils')
@@ -76,6 +77,10 @@ crud.truncate = truncate.call
 -- @function len
 crud.len = len.call
 
+-- @refer count.call
+-- @function count
+crud.count = count.call
+
 -- @refer borders.min
 -- @function min
 crud.min = borders.min
@@ -113,6 +118,7 @@ function crud.init_storage()
     select.init()
     truncate.init()
     len.init()
+    count.init()
     borders.init()
     sharding_key.init()
 end

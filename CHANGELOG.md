@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   key specified with DDL schema or in `_ddl_sharding_key` space.
   NOTE: CRUD methods delete(), get() and update() requires that sharding key
   must be a part of primary key.
+* `crud.count()` function to calculate the number of tuples
+  in the space according to conditions.
 
 ### Fixed
 
