@@ -586,6 +586,21 @@ crud.len('customers')
 ...
 ```
 
+### Call options for crud methods
+
+Combinations of `mode`, `prefer_replica` and `balance` options lead to:
+
+* `mode` == `write` - method performed on master with vshard call `callrw`
+* `mode` == `read`
+  * not prefer_replica, not balance -
+    [vshard call `callro`](https://www.tarantool.io/en/doc/latest/reference/reference_rock/vshard/vshard_api/#router-api-callro)
+  * not prefer_replica, balance -
+    [vshard call `callbro`](https://www.tarantool.io/en/doc/latest/reference/reference_rock/vshard/vshard_api/#router-api-callbro)
+  * prefer_replica, not balance -
+    [vshard call `callre`](https://www.tarantool.io/en/doc/latest/reference/reference_rock/vshard/vshard_api/#router-api-callre)
+  * prefer_replica, balance -
+    [vshard call `callbre`](https://www.tarantool.io/en/doc/latest/reference/reference_rock/vshard/vshard_api/#router-api-callbre)
+
 ## Cartridge roles
 
 `cartridge.roles.crud-storage` is a Tarantool Cartridge role that depends on the
