@@ -55,6 +55,15 @@ pgroup.test_non_existent_space = function(g)
     t.assert_str_contains(err.err, "Space \"non_existent_space\" doesn't exist")
 end
 
+pgroup.test_select_no_index = function(g)
+    local obj, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'no_index_space'}
+    )
+
+    t.assert_equals(obj, nil)
+    t.assert_str_contains(err.err, "Space \"no_index_space\" has no indexes, space should have primary index")
+end
+
 pgroup.test_not_valid_value_type = function(g)
     local conditions = {
         {'=', 'id', 'not_number'}

@@ -13,6 +13,16 @@ package.preload['customers-storage'] = function()
     return {
         role_name = 'customers-storage',
         init = function()
+            box.schema.space.create('no_index_space', {
+                format = {
+                    {name = 'id', type = 'unsigned'},
+                    {name = 'bucket_id', type = 'unsigned'},
+                    {name = 'name', type = 'string'},
+                },
+                if_not_exists = true,
+                engine = engine,
+            })
+
             local customers_space = box.schema.space.create('customers', {
                 format = {
                     {name = 'id', type = 'unsigned'},
