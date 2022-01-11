@@ -13,7 +13,7 @@ local truncate = require('crud.truncate')
 local len = require('crud.len')
 local count = require('crud.count')
 local borders = require('crud.borders')
-local sharding_key = require('crud.common.sharding.sharding_key')
+local sharding_metadata = require('crud.common.sharding.sharding_metadata')
 local utils = require('crud.common.utils')
 
 local crud = {}
@@ -120,7 +120,7 @@ function crud.init_storage()
     len.init()
     count.init()
     borders.init()
-    sharding_key.init()
+    sharding_metadata.init()
 end
 
 function crud.init_router()
