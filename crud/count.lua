@@ -10,7 +10,7 @@ local filters = require('crud.compare.filters')
 local count_plan = require('crud.compare.plan')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
-local sharding_key_module = require('crud.common.sharding.sharding_key')
+local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 
 local compare_conditions = require('crud.compare.conditions')
 
@@ -114,7 +114,7 @@ local function call_count_on_router(space_name, user_conditions, opts)
         return nil, CountError:new("Space %q doesn't exist", space_name), true
     end
 
-    local sharding_key_as_index_obj, err = sharding_key_module.fetch_on_router(space_name)
+    local sharding_key_as_index_obj, err = sharding_metadata_module.fetch_on_router(space_name)
     if err ~= nil then
         return nil, err
     end

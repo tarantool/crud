@@ -1,11 +1,12 @@
 local t = require('luatest')
+local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 local sharding_key_module = require('crud.common.sharding.sharding_key')
-local cache = require('crud.common.sharding.sharding_key_cache')
+local cache = require('crud.common.sharding.sharding_metadata_cache')
 local utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
 
-local g = t.group('sharding_key')
+local g = t.group('sharding_metadata')
 
 g.before_each(function()
     local sharding_key_format = {
@@ -87,7 +88,7 @@ g.test_fetch_on_storage_positive = function()
     local sharding_key_def = {'name', 'age'}
     box.space._ddl_sharding_key:insert({space_name, sharding_key_def})
 
-    local metadata_map = sharding_key_module.fetch_on_storage()
+    local metadata_map = sharding_metadata_module.fetch_on_storage()
 
     t.assert_equals(metadata_map, {
         [space_name] = {
@@ -101,7 +102,7 @@ g.test_fetch_on_storage_negative = function()
     -- Test checks return value when _ddl_sharding_key is absent.
     box.space._ddl_sharding_key:drop()
 
-    local metadata_map = sharding_key_module.fetch_on_storage()
+    local metadata_map = sharding_metadata_module.fetch_on_storage()
     t.assert_equals(metadata_map, nil)
 end
 

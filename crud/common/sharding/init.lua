@@ -5,7 +5,7 @@ local BucketIDError = errors.new_class("BucketIDError", {capture_stack = false})
 local GetReplicasetsError = errors.new_class('GetReplicasetsError', {capture_stack = false})
 
 local utils = require('crud.common.utils')
-local sharding_key_module = require('crud.common.sharding.sharding_key')
+local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 
 local sharding = {}
 
@@ -34,7 +34,7 @@ function sharding.tuple_get_bucket_id(tuple, space, specified_bucket_id)
     end
 
     local sharding_index_parts = space.index[0].parts
-    local sharding_key_as_index_obj, err = sharding_key_module.fetch_on_router(space.name)
+    local sharding_key_as_index_obj, err = sharding_metadata_module.fetch_on_router(space.name)
     if err ~= nil then
         return nil, err
     end

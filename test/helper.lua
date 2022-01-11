@@ -325,10 +325,10 @@ end
 
 function helpers.update_cache(cluster, space_name)
     return cluster.main_server.net_box:eval([[
-        local sharding_key = require('crud.common.sharding.sharding_key')
+        local sharding_metadata = require('crud.common.sharding.sharding_metadata')
 
         local space_name = ...
-        return sharding_key.update_cache(space_name)
+        return sharding_metadata.update_cache(space_name)
     ]], {space_name})
 end
 
