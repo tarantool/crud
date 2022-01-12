@@ -1,3 +1,6 @@
+---- Module
+-- @module crud.insert
+--
 local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
@@ -92,20 +95,20 @@ local function call_insert_on_router(space_name, tuple, opts)
     return utils.format_result({tuple}, space, opts.fields)
 end
 
---- Inserts a tuple to the specified space
+-- Inserts a tuple to the specified space
 --
 -- @function tuple
 --
--- @param string space_name
+-- @string space_name
 --  A space name
 --
--- @param table tuple
+-- @table tuple
 --  Tuple
 --
--- @tparam ?number opts.timeout
+-- @number[opt] opts.timeout
 --  Function call timeout
 --
--- @tparam ?number opts.bucket_id
+-- @number[opt] opts.bucket_id
 --  Bucket ID
 --  (by default, it's vshard.router.bucket_id_strcrc32 of primary key)
 --
@@ -124,17 +127,17 @@ function insert.tuple(space_name, tuple, opts)
     return schema.wrap_func_reload(call_insert_on_router, space_name, tuple, opts)
 end
 
---- Inserts an object to the specified space
+-- Inserts an object to the specified space
 --
 -- @function object
 --
--- @param string space_name
+-- @string space_name
 --  A space name
 --
--- @param table obj
+-- @table obj
 --  Object
 --
--- @tparam ?table opts
+-- @table[opt] opts
 --  Options of insert.tuple
 --
 -- @return[1] object

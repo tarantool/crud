@@ -1,3 +1,6 @@
+---- Module
+-- @module crud.delete
+--
 local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
@@ -92,18 +95,18 @@ end
 
 --- Deletes tuple from the specified space by key
 --
--- @function call
+-- @function delete
 --
--- @param string space_name
+-- @string space_name
 --  A space name
 --
 -- @param key
 --  Primary key value
 --
--- @tparam ?number opts.timeout
+-- @number[opt] opts.timeout
 --  Function call timeout
 --
--- @tparam ?number opts.bucket_id
+-- @number[opt] opts.bucket_id
 --  Bucket ID
 --  (by default, it's vshard.router.bucket_id_strcrc32 of primary key)
 --

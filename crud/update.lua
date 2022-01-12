@@ -1,3 +1,6 @@
+---- Module
+-- @module crud.update
+--
 local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
@@ -128,22 +131,22 @@ end
 
 --- Updates tuple in the specified space
 --
--- @function call
+-- @function update
 --
--- @param string space_name
+-- @string space_name
 --  A space name
 --
 -- @param key
 --  Primary key value
 --
--- @param table user_operations
+-- @table user_operations
 --  Operations to be performed.
 --  See `space:update` operations in Tarantool doc
 --
--- @tparam ?number opts.timeout
+-- @number[opt] opts.timeout
 --  Function call timeout
 --
--- @tparam ?number opts.bucket_id
+-- @number[opt] opts.bucket_id
 --  Bucket ID
 --  (by default, it's vshard.router.bucket_id_strcrc32 of primary key)
 --

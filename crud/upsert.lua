@@ -1,3 +1,6 @@
+---- Module
+-- @module crud.upsert
+--
 local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
@@ -97,7 +100,7 @@ local function call_upsert_on_router(space_name, tuple, user_operations, opts)
     return utils.format_result({}, space, opts.fields)
 end
 
---- Update or insert a tuple in the specified space
+-- Update or insert a tuple in the specified space
 --
 -- @function tuple
 --
@@ -133,21 +136,21 @@ function upsert.tuple(space_name, tuple, user_operations, opts)
     return schema.wrap_func_reload(call_upsert_on_router, space_name, tuple, user_operations, opts)
 end
 
---- Update or insert an object in the specified space
+-- Update or insert an object in the specified space
 --
 -- @function object
 --
--- @param string space_name
+-- @string space_name
 --  A space name
 --
--- @param table obj
+-- @table obj
 --  Object
 --
--- @param table user_operations
+-- @table user_operations
 --  user_operations to be performed.
 --  See `space:upsert()` operations in Tarantool doc
 --
--- @tparam ?table opts
+-- @table[opt] opts
 --  Options of upsert.tuple
 --
 -- @return[1] object

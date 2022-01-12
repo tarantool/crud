@@ -1,3 +1,6 @@
+---- Module
+-- @module crud.select
+--
 local errors = require('errors')
 
 local utils = require('crud.common.utils')

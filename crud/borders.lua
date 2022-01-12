@@ -1,3 +1,6 @@
+---- Module
+-- @module crud.borders
+--
 local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
@@ -183,16 +186,16 @@ end
 --
 -- @function min
 --
--- @param string space_name
+-- @string space_name
 --  A space name
 --
--- @param ?string index_name
+-- @string[opt] index_name
 --  An index name (by default, primary index is used)
 --
--- @tparam ?number opts.timeout
+-- @number[opt] opts.timeout
 --  Function call timeout
 --
--- @tparam ?table opts.fields
+-- @table[opt] opts.fields
 --  Field names for getting only a subset of fields
 --
 -- @return[1] result

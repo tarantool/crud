@@ -1,3 +1,6 @@
+---- Module
+-- @module crud.get
+--
 local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
@@ -102,25 +105,25 @@ end
 
 --- Get tuple from the specified space by key
 --
--- @function call
+-- @function get
 --
--- @param string space_name
+-- @string space_name
 --  A space name
 --
 -- @param key
 --  Primary key value
 --
--- @tparam ?number opts.timeout
+-- @number[opt] opts.timeout
 --  Function call timeout
 --
--- @tparam ?number opts.bucket_id
+-- @number[opt] opts.bucket_id
 --  Bucket ID
 --  (by default, it's vshard.router.bucket_id_strcrc32 of primary key)
 --
--- @tparam ?boolean opts.prefer_replica
+-- @boolean[opt] opts.prefer_replica
 --  Call on replica if it's possible
 --
--- @tparam ?boolean opts.balance
+-- @boolean[opt] opts.balance
 --  Use replica according to round-robin load balancing
 --
 -- @return[1] object

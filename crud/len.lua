@@ -1,3 +1,6 @@
+---- Module
+-- @module crud.len
+--
 local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
@@ -24,12 +27,12 @@ end
 --- Calculates the number of tuples in the space for memtx engine
 --- Calculates the maximum approximate number of tuples in the space for vinyl engine
 --
--- @function call
+-- @function len
 --
 -- @param string|number space_name
 --  A space name as well as numerical id
 --
--- @tparam ?number opts.timeout
+-- @number[opt] opts.timeout
 --  Function call timeout
 --
 -- @return[1] number
