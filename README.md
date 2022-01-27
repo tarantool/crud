@@ -100,7 +100,7 @@ Current limitations for using custom sharding key:
 - It's not possible to update sharding keys automatically when schema is
   updated on storages, see
   [#212](https://github.com/tarantool/crud/issues/212). However it is possible
-  to do it manually with `require('crud.sharding_key').update_cache()`.
+  to do it manually with `require('crud.common.sharding_key').update_cache()`.
 - No support of JSON path for sharding key, see
   [#219](https://github.com/tarantool/crud/issues/219).
 - `primary_index_fieldno_map` is not cached, see
