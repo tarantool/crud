@@ -694,11 +694,28 @@ crud.cfg{ stats = false }
 crud.reset_stats()
 ```
 
+If [`metrics`](https://github.com/tarantool/metrics) `0.10.0` or greater
+found, metrics collectors will be used by default to store statistics
+instead of local collectors. Quantiles in metrics summary collections
+are disabled by default. You can manually choose driver and enable quantiles.
+```lua
+-- Use simple local collectors (default if no required metrics version found).
+crud.cfg{ stats = true, stats_driver = 'local' }
+
+-- Use metrics collectors (default if metrics rock found).
+crud.cfg{ stats = true, stats_driver = 'metrics' }
+
+-- Use metrics collectors with 0.99 quantiles.
+crud.cfg{ stats = true, stats_driver = 'metrics', stats_quantiles = true }
+```
+
 You can use `crud.cfg` to check current stats state.
 ```lua
 crud.cfg
 ---
-- stats: true
+- stats_quantiles: true
+  stats: true
+  stats_driver: metrics
 ...
 ```
 Beware that iterating through `crud.cfg` with pairs is not supported yet,
@@ -747,11 +764,41 @@ Possible statistics operation labels are
 `select` (for `select` and `pairs` calls), `truncate`, `len`, `count`
 and `borders` (for `min` and `max` calls).
 
-Each operation section contains of different collectors
+Each operation section consists of different collectors
 for success calls and error (both error throw and `nil, err`)
-returns. `count` is total requests count since instance start
-or stats restart. `latency` is average time of requests execution,
+returns. `count` is the total requests count since instance start
+or stats restart. `latency` is the 0.99 quantile of request execution
+time if `metrics` driver used and quantiles enabled,
+otherwise `latency` is the total average.
 `time` is the total time of requests execution.
+
+In [`metrics`](https://www.tarantool.io/en/doc/latest/book/monitoring/)
+registry statistics are stored as `tnt_crud_stats` metrics
+with `operation`, `status` and `name` labels.
+```
+metrics:collect()
+---
+- - label_pairs:
+      status: ok
+      operation: insert
+      name: customers
+    value: 221411
+    metric_name: tnt_crud_stats_count
+  - label_pairs:
+      status: ok
+      operation: insert
+      name: customers
+    value: 10.49834896344692
+    metric_name: tnt_crud_stats_sum
+  - label_pairs:
+      status: ok
+      operation: insert
+      name: customers
+      quantile: 0.99
+    value: 0.00023606420935973
+    metric_name: tnt_crud_stats
+...
+```
 
 `select` section additionally contains `details` collectors.
 ```lua
@@ -769,6 +816,10 @@ looked up on storages while collecting responses for calls (including
 scrolls for multibatch requests). Details data is updated as part of
 the request process, so you may get new details before `select`/`pairs`
 call is finished and observed with count, latency and time collectors.
+In [`metrics`](https://www.tarantool.io/en/doc/latest/book/monitoring/)
+registry they are stored as `tnt_crud_map_reduces`,
+`tnt_crud_tuples_fetched` and `tnt_crud_tuples_lookup` metrics
+with `{ operation = 'select', name = space_name }` labels.
 
 Since `pairs` request behavior differs from any other crud request, its
 statistics collection also has specific behavior. Statistics (`select`
@@ -780,7 +831,10 @@ collector.
 
 Statistics are preserved between package reloads. Statistics are preserved
 between [Tarantool Cartridge role reloads](https://www.tarantool.io/en/doc/latest/book/cartridge/cartridge_api/modules/cartridge.roles/#reload)
-if you use CRUD Cartridge roles.
+if you use CRUD Cartridge roles. Beware that metrics 0.12.0 and below do not
+support preserving stats between role reload
+(see [tarantool/metrics#334](https://github.com/tarantool/metrics/issues/334)),
+thus this feature will be unsupported for `metrics` driver.
 
 ## Cartridge roles
 

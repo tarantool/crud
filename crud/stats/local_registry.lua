@@ -2,6 +2,8 @@
 -- @module crud.stats.local_registry
 --
 
+local errors = require('errors')
+
 local dev_checks = require('crud.common.dev_checks')
 local stash = require('crud.common.stash')
 local op_module = require('crud.stats.operation')
@@ -9,6 +11,7 @@ local registry_utils = require('crud.stats.registry_utils')
 
 local registry = {}
 local internal = stash.get(stash.name.stats_local_registry)
+local StatsLocalError = errors.new_class('StatsLocalError', {capture_stack = false})
 
 --- Initialize local metrics registry.
 --
@@ -17,9 +20,19 @@ local internal = stash.get(stash.name.stats_local_registry)
 --
 -- @function init
 --
--- @treturn boolean Returns true.
+-- @tab opts
 --
-function registry.init()
+-- @bool opts.quantiles
+--  Quantiles is not supported for local, only `false` is valid.
+--
+-- @treturn boolean Returns `true`.
+--
+function registry.init(opts)
+    dev_checks({ quantiles = 'boolean' })
+
+    StatsLocalError:assert(opts.quantiles == false,
+        "Quantiles are not supported for 'local' statistics registry")
+
     internal.registry = {}
     internal.registry.spaces = {}
 

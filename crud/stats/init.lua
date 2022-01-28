@@ -4,6 +4,8 @@
 
 local clock = require('clock')
 local checks = require('checks')
+local errors = require('errors')
+local fiber = require('fiber')
 local fun = require('fun')
 local log = require('log')
 local vshard = require('vshard')
@@ -12,10 +14,28 @@ local dev_checks = require('crud.common.dev_checks')
 local stash = require('crud.common.stash')
 local utils = require('crud.common.utils')
 local op_module = require('crud.stats.operation')
-local registry = require('crud.stats.local_registry')
+
+local StatsError = errors.new_class('StatsError', {capture_stack = false})
 
 local stats = {}
 local internal = stash.get(stash.name.stats_internal)
+
+local local_registry = require('crud.stats.local_registry')
+local metrics_registry = require('crud.stats.metrics_registry')
+
+local drivers = {
+    ['local'] = local_registry,
+}
+if metrics_registry.is_supported() then
+    drivers['metrics'] = metrics_registry
+end
+
+function internal:get_registry()
+    if self.driver == nil then
+        return nil
+    end
+    return drivers[self.driver]
+end
 
 --- Check if statistics module was enabled.
 --
@@ -24,7 +44,21 @@ local internal = stash.get(stash.name.stats_internal)
 -- @treturn boolean Returns `true` or `false`.
 --
 function stats.is_enabled()
-    return internal.is_enabled == true
+    return internal.driver ~= nil
+end
+
+--- Get default statistics driver name.
+--
+-- @function get_default_driver
+--
+-- @treturn string `metrics` if supported, `local` if unsupported.
+--
+function stats.get_default_driver()
+    if drivers.metrics ~= nil then
+        return 'metrics'
+    else
+        return 'local'
+    end
 end
 
 --- Initializes statistics registry, enables callbacks and wrappers.
@@ -33,15 +67,60 @@ end
 --
 -- @function enable
 --
+-- @tab[opt] opts
+--
+-- @string[opt] opts.driver
+--  `'local'` or `'metrics'`.
+--  If `'local'`, stores statistics in local registry (some Lua tables)
+--  and computes latency as overall average. `'metrics'` requires
+--  `metrics >= 0.9.0` installed and stores statistics in
+--  global metrics registry (integrated with exporters).
+--  `'metrics'` driver supports computing latency as 0.99 quantile with aging.
+--  If `'metrics'` driver is available, it is used by default,
+--  otherwise `'local'` is used.
+--
+-- @bool[opt=false] opts.quantiles
+--  If `'metrics'` driver used, you can enable
+--  computing requests latency as 0.99 quantile with aging.
+--  Performance overhead for enabling is near 10%.
+--
 -- @treturn boolean Returns `true`.
 --
-function stats.enable()
-    if stats.is_enabled() then
+function stats.enable(opts)
+    checks({ driver = '?string', quantiles = '?boolean' })
+
+    StatsError:assert(
+        rawget(_G, 'crud') ~= nil,
+        'Can be enabled only on crud router'
+    )
+
+    opts = table.deepcopy(opts) or {}
+    if opts.driver == nil then
+        opts.driver = stats.get_default_driver()
+    end
+
+    StatsError:assert(
+        drivers[opts.driver] ~= nil,
+        'Unsupported driver: %s', opts.driver
+    )
+
+    if opts.quantiles == nil then
+        opts.quantiles = false
+    end
+
+    -- Do not reinit if called with same options.
+    if internal.driver == opts.driver
+    and internal.quantiles == opts.quantiles then
         return true
     end
 
-    internal.is_enabled = true
-    registry.init()
+    -- Disable old driver registry, if another one was requested.
+    stats.disable()
+
+    internal.driver = opts.driver
+    internal.quantiles = opts.quantiles
+
+    internal:get_registry().init({ quantiles = internal.quantiles })
 
     return true
 end
@@ -60,8 +139,8 @@ function stats.reset()
         return true
     end
 
-    registry.destroy()
-    registry.init()
+    internal:get_registry().destroy()
+    internal:get_registry().init({ quantiles = internal.quantiles })
 
     return true
 end
@@ -79,8 +158,9 @@ function stats.disable()
         return true
     end
 
-    registry.destroy()
-    internal.is_enabled = false
+    internal:get_registry().destroy()
+    internal.driver = nil
+    internal.quantiles = nil
 
     return true
 end
@@ -107,7 +187,7 @@ function stats.get(space_name)
         return {}
     end
 
-    return registry.get(space_name)
+    return internal:get_registry().get(space_name)
 end
 
 local function resolve_space_name(space_id)
@@ -145,6 +225,8 @@ jit.off(keep_observer_alive)
 local function wrap_pairs_gen(build_latency, space_name, op, gen, param, state)
     local total_latency = build_latency
 
+    local registry = internal:get_registry()
+
     -- If pairs() cycle will be interrupted with break,
     -- we'll never get a proper obervation.
     -- We create an object with the same lifespan as gen()
@@ -155,7 +237,11 @@ local function wrap_pairs_gen(build_latency, space_name, op, gen, param, state)
     local gc_observer = setmt__gc({}, {
         __gc = function()
             if observed == false then
-                registry.observe(total_latency, space_name, op, 'ok')
+                -- Do not call observe directly because metrics
+                -- collectors may yield, for example
+                -- https://github.com/tarantool/metrics/blob/a23f8d49779205dd45bd211e21a1d34f26010382/metrics/collectors/shared.lua#L85
+                -- Calling fiber.yield is prohibited in gc.
+                fiber.new(registry.observe, total_latency, space_name, op, 'ok')
                 observed = true
             end
         end
@@ -198,6 +284,8 @@ local function wrap_tail(space_name, op, pairs, start_time, call_status, ...)
 
     local finish_time = clock.monotonic()
     local latency = finish_time - start_time
+
+    local registry = internal:get_registry()
 
     -- If space id is provided instead of name, try to resolve name.
     -- If resolve have failed, use id as string to observe space.
@@ -313,7 +401,7 @@ function stats.update_fetch_stats(storage_stats, space_name)
         return true
     end
 
-    registry.observe_fetch(
+    internal:get_registry().observe_fetch(
         storage_stats.tuples_fetched,
         storage_stats.tuples_lookup,
         space_name
@@ -338,7 +426,7 @@ function stats.update_map_reduces(space_name)
         return true
     end
 
-    registry.observe_map_reduces(1, space_name)
+    internal:get_registry().observe_map_reduces(1, space_name)
 
     return true
 end
@@ -376,7 +464,9 @@ stats.op = op_module
 
 --- Stats module internal state (for debug/test).
 --
--- @tfield[opt] boolean is_enabled Is currently enabled.
+-- @tfield[opt] string driver Current statistics registry driver (if nil, stats disabled).
+--
+-- @tfield[opt] boolean quantiles Is quantiles computed.
 stats.internal = internal
 
 return stats

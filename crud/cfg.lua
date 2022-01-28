@@ -17,10 +17,48 @@ local function set_defaults_if_empty(cfg)
         cfg.stats = false
     end
 
+    if cfg.stats_driver == nil then
+        cfg.stats_driver = stats.get_default_driver()
+    end
+
+    if cfg.stats_quantiles == nil then
+        cfg.stats_quantiles = false
+    end
+
     return cfg
 end
 
 local cfg = set_defaults_if_empty(stash.get(stash.name.cfg))
+
+local function configure_stats(cfg, opts)
+    if  (opts.stats == nil)
+    and (opts.stats_driver == nil)
+    and (opts.stats_quantiles == nil) then
+        return
+    end
+
+    if opts.stats == nil then
+        opts.stats = cfg.stats
+    end
+
+    if opts.stats_driver == nil then
+        opts.stats_driver = cfg.stats_driver
+    end
+
+    if opts.stats_quantiles == nil then
+        opts.stats_quantiles = cfg.stats_quantiles
+    end
+
+    if opts.stats == true then
+        stats.enable{ driver = opts.stats_driver, quantiles = opts.stats_quantiles }
+    else
+        stats.disable()
+    end
+
+    rawset(cfg, 'stats', opts.stats)
+    rawset(cfg, 'stats_driver', opts.stats_driver)
+    rawset(cfg, 'stats_quantiles', opts.stats_quantiles)
+end
 
 --- Configure CRUD module.
 --
@@ -34,22 +72,32 @@ local cfg = set_defaults_if_empty(stash.get(stash.name.cfg))
 --  Enable or disable statistics collect.
 --  Statistics are observed only on router instances.
 --
+-- @string[opt] opts.stats_driver
+--  `'local'` or `'metrics'`.
+--  If `'local'`, stores statistics in local registry (some Lua tables)
+--  and computes latency as overall average. `'metrics'` requires
+--  `metrics >= 0.10.0` installed and stores statistics in
+--  global metrics registry (integrated with exporters).
+--  `'metrics'` driver supports computing latency as 0.99 quantile with aging.
+--  If `'metrics'` driver is available, it is used by default,
+--  otherwise `'local'` is used.
+--
+-- @bool[opt] opts.stats_quantiles
+--  Enable or disable statistics quantiles (only for metrics driver).
+--  Quantiles computations increases performance overhead up to 10%.
+--
 -- @return Configuration table.
 --
 local function __call(self, opts)
-    checks('table', { stats = '?boolean' })
+    checks('table', {
+        stats = '?boolean',
+        stats_driver = '?string',
+        stats_quantiles = '?boolean'
+    })
 
-    opts = opts or {}
+    opts = table.deepcopy(opts) or {}
 
-    if opts.stats ~= nil then
-        if opts.stats == true then
-            stats.enable()
-        else
-            stats.disable()
-        end
-
-        rawset(cfg, 'stats', opts.stats)
-    end
+    configure_stats(cfg, opts)
 
     return self
 end

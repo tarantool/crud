@@ -16,10 +16,14 @@ local stash = {}
 -- @tfield string stats_local_registry
 --  Stash for local metrics registry.
 --
+-- @tfield string stats_metrics_registry
+--  Stash for metrics rocks statistics registry.
+--
 stash.name = {
     cfg = '__crud_cfg',
     stats_internal = '__crud_stats_internal',
-    stats_local_registry = '__crud_stats_local_registry'
+    stats_local_registry = '__crud_stats_local_registry',
+    stats_metrics_registry = '__crud_stats_metrics_registry'
 }
 
 --- Setup Tarantool Cartridge reload.

@@ -2,6 +2,7 @@ local fio = require('fio')
 
 local t = require('luatest')
 
+local stats = require('crud.stats')
 local helpers = require('test.helper')
 
 local group = t.group('cfg')
@@ -21,7 +22,11 @@ group.after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
 group.test_defaults = function(g)
     local cfg = g.cluster:server('router'):eval("return require('crud').cfg")
-    t.assert_equals(cfg, { stats = false })
+    t.assert_equals(cfg, {
+        stats = false,
+        stats_driver = stats.get_default_driver(),
+        stats_quantiles = false,
+    })
 end
 
 group.test_change_value = function(g)
