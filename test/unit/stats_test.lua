@@ -5,12 +5,17 @@ local t = require('luatest')
 
 local stats_module = require('crud.stats')
 
-local g = t.group('stats_unit')
+local pgroup = t.group('stats_unit', {
+    { driver = 'local' },
+    { driver = 'metrics', quantiles = false },
+    { driver = 'metrics', quantiles = true },
+})
+local group_driver = t.group('stats_driver_unit')
 local helpers = require('test.helper')
 
 local space_name = 'customers'
 
-g.before_all(function(g)
+local function before_all(g)
     -- Enable test cluster for "is space exist?" checks.
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
@@ -23,47 +28,62 @@ g.before_all(function(g)
 
     helpers.prepare_simple_functions(g.router)
     g.router:eval("stats_module = require('crud.stats')")
-end)
 
-g.after_all(function(g)
+    g.is_metrics_supported = g.router:eval([[
+        return require('crud.stats.metrics_registry').is_supported()
+    ]])
+
+    if g.params ~= nil and g.params.driver == 'metrics' then
+        t.skip_if(g.is_metrics_supported == false, 'Metrics registry is unsupported')
+    end
+end
+
+local function after_all(g)
     helpers.stop_cluster(g.cluster)
-end)
+end
+
+local function get_stats(g, space_name)
+    return g.router:eval("return stats_module.get(...)", { space_name })
+end
+
+local function enable_stats(g, params)
+    params = params or g.params
+    g.router:eval("stats_module.enable(...)", { params })
+end
+
+local function disable_stats(g)
+    g.router:eval("stats_module.disable()")
+end
+
+local function reset_stats(g)
+    g.router:eval("return stats_module.reset()")
+end
+
+pgroup.before_all(before_all)
+
+pgroup.after_all(after_all)
 
 -- Reset statistics between tests, reenable if needed.
-g.before_each(function(g)
-    g:enable_stats()
-end)
+pgroup.before_each(enable_stats)
 
-g.after_each(function(g)
-    g:disable_stats()
-end)
-
-function g:get_stats(space_name)
-    return self.router:eval("return stats_module.get(...)", { space_name })
-end
-
-function g:enable_stats()
-    self.router:eval("stats_module.enable()")
-end
-
-function g:disable_stats()
-    self.router:eval("stats_module.disable()")
-end
-
-function g:reset_stats()
-    self.router:eval("return stats_module.reset()")
-end
+pgroup.after_each(disable_stats)
 
 
-g.test_get_format_after_enable = function(g)
-    local stats = g:get_stats()
+group_driver.before_all(before_all)
+
+group_driver.after_all(after_all)
+
+group_driver.after_each(disable_stats)
+
+pgroup.test_get_format_after_enable = function(g)
+    local stats = get_stats(g)
 
     t.assert_type(stats, 'table')
     t.assert_equals(stats.spaces, {})
 end
 
-g.test_get_by_space_name_format_after_enable = function(g)
-    local stats = g:get_stats(space_name)
+pgroup.test_get_by_space_name_format_after_enable = function(g)
+    local stats = get_stats(g, space_name)
 
     t.assert_type(stats, 'table')
     t.assert_equals(stats, {})
@@ -105,7 +125,7 @@ for name, case in pairs(observe_cases) do
     for _, op in pairs(case.operations) do
         local test_name = ('test_%s_%s'):format(op, name)
 
-        g[test_name] = function(g)
+        pgroup[test_name] = function(g)
             -- Call wrapped functions on server side.
             -- Collect execution times from outside.
             local run_count = 10
@@ -131,10 +151,10 @@ for name, case in pairs(observe_cases) do
             local total_time = fun.sum(time_diffs)
 
             -- Validate stats format after execution.
-            local total_stats = g:get_stats()
+            local total_stats = get_stats(g)
             t.assert_type(total_stats, 'table', 'Total stats present after observations')
 
-            local space_stats = g:get_stats(space_name)
+            local space_stats = get_stats(g, space_name)
             t.assert_type(space_stats, 'table', 'Space stats present after observations')
 
             t.assert_equals(total_stats.spaces[space_name], space_stats,
@@ -311,6 +331,7 @@ local pairs_cases = {
         post_eval = [[
             collectgarbage('collect')
             collectgarbage('collect')
+            require('fiber').yield()
         ]],
         build_sleep_multiplier = 2,
         iterations_expected = 5,
@@ -322,11 +343,11 @@ local pairs_cases = {
 for name, case in pairs(pairs_cases) do
     local test_name = ('test_pairs_wrapper_observes_all_iterations_on_%s'):format(name)
 
-    g.before_test(test_name, function(g)
+    pgroup.before_test(test_name, function(g)
         g.router:eval(case.prepare, { helpers.simple_functions_params() })
     end)
 
-    g[test_name] = function(g)
+    pgroup[test_name] = function(g)
         local op = stats_module.op.SELECT
 
         local params = helpers.simple_functions_params()
@@ -348,10 +369,10 @@ for name, case in pairs(pairs_cases) do
         local time_diff = after_finish - before_start
 
         -- Validate stats format after execution.
-        local total_stats = g:get_stats()
+        local total_stats = get_stats(g)
         t.assert_type(total_stats, 'table', 'Total stats present after observations')
 
-        local space_stats = g:get_stats(space_name)
+        local space_stats = get_stats(g, space_name)
         t.assert_type(space_stats, 'table', 'Space stats present after observations')
 
         t.assert_equals(total_stats.spaces[space_name], space_stats,
@@ -435,7 +456,7 @@ for name_head, disable_case in pairs(disable_stats_cases) do
     for name_tail, return_case in pairs(preserve_return_cases) do
         local test_name = ('test_%s%s'):format(name_head, name_tail)
 
-        g[test_name] = function(g)
+        pgroup[test_name] = function(g)
             local op = stats_module.op.INSERT
 
             local eval = ([[
@@ -459,7 +480,7 @@ for name_head, disable_case in pairs(disable_stats_cases) do
 
     local test_name = ('test_%spairs_wrapper_preserves_return_values'):format(name_head)
 
-    g[test_name] = function(g)
+    pgroup[test_name] = function(g)
         local op = stats_module.op.INSERT
 
         local input = { a = 'a', b = 'b' }
@@ -489,7 +510,7 @@ for name_head, disable_case in pairs(disable_stats_cases) do
     for name_tail, throw_case in pairs(preserve_throw_cases) do
         local test_name = ('test_%s%s'):format(name_head, name_tail)
 
-        g[test_name] = function(g)
+        pgroup[test_name] = function(g)
             local op = stats_module.op.INSERT
 
             local eval = ([[
@@ -513,14 +534,13 @@ for name_head, disable_case in pairs(disable_stats_cases) do
     end
 end
 
-
-g.test_stats_is_empty_after_disable = function(g)
-    g:disable_stats()
+pgroup.test_stats_is_empty_after_disable = function(g)
+    disable_stats(g)
 
     local op = stats_module.op.INSERT
     g.router:eval(call_wrapped, { 'return_true', op, {}, space_name })
 
-    local stats = g:get_stats()
+    local stats = get_stats(g)
     t.assert_equals(stats, {})
 end
 
@@ -529,52 +549,52 @@ local function prepare_non_default_stats(g)
     local op = stats_module.op.INSERT
     g.router:eval(call_wrapped, { 'return_true', op, {}, space_name })
 
-    local stats = g:get_stats(space_name)
+    local stats = get_stats(g, space_name)
     t.assert_equals(stats[op].ok.count, 1, 'Non-zero stats prepared')
 
     return stats
 end
 
-g.test_enable_is_idempotent = function(g)
+pgroup.test_enable_is_idempotent = function(g)
     local stats_before = prepare_non_default_stats(g)
 
-    g:enable_stats()
+    enable_stats(g)
 
-    local stats_after = g:get_stats(space_name)
+    local stats_after = get_stats(g, space_name)
 
     t.assert_equals(stats_after, stats_before, 'Stats have not been reset')
 end
 
-g.test_reset = function(g)
+pgroup.test_reset = function(g)
     prepare_non_default_stats(g)
 
-    g:reset_stats()
+    reset_stats(g)
 
-    local stats = g:get_stats(space_name)
+    local stats = get_stats(g, space_name)
 
     t.assert_equals(stats, {}, 'Stats have been reset')
 end
 
-g.test_reset_for_disabled_stats_does_not_init_module = function(g)
-    g:disable_stats()
+pgroup.test_reset_for_disabled_stats_does_not_init_module = function(g)
+    disable_stats(g)
 
-    local stats_before = g:get_stats()
+    local stats_before = get_stats(g)
     t.assert_equals(stats_before, {}, "Stats is empty")
 
-    g:reset_stats()
+    reset_stats(g)
 
-    local stats_after = g:get_stats()
+    local stats_after = get_stats(g)
     t.assert_equals(stats_after, {}, "Stats is still empty")
 end
 
-g.test_fetch_stats_update = function(g)
+pgroup.test_fetch_stats_update = function(g)
     local storage_cursor_stats = { tuples_fetched = 5, tuples_lookup = 25 }
 
     g.router:eval([[ stats_module.update_fetch_stats(...) ]],
         { storage_cursor_stats, space_name })
 
     local op = stats_module.op.SELECT
-    local stats = g:get_stats(space_name)
+    local stats = get_stats(g, space_name)
 
     t.assert_not_equals(stats[op], nil,
         'Fetch stats update inits SELECT collectors')
@@ -587,31 +607,98 @@ g.test_fetch_stats_update = function(g)
         'tuples_lookup is inremented by expected value')
 end
 
-g.test_disable_stats_do_not_break_fetch_stats_update_call = function(g)
+pgroup.test_disable_stats_do_not_break_fetch_stats_update_call = function(g)
     local storage_cursor_stats = { tuples_fetched = 5, tuples_lookup = 25 }
 
-    g:disable_stats()
+    disable_stats(g)
 
     local _, err = g.router:eval([[ stats_module.update_fetch_stats(...) ]],
         { storage_cursor_stats, space_name })
     t.assert_equals(err, nil)
 end
 
-g.test_map_reduce_increment = function(g)
+pgroup.test_map_reduce_increment = function(g)
     local op = stats_module.op.SELECT
 
     local _, err = g.router:eval([[ stats_module.update_map_reduces(...) ]], { space_name })
     t.assert_equals(err, nil)
 
-    local stats = g:get_stats()
+    local stats = get_stats(g)
 
     t.assert_equals(stats.spaces[space_name][op].details.map_reduces, 1,
         "Counter of map reduces incremented")
 end
 
-g.test_disable_stats_do_not_break_map_reduce_update_call = function(g)
-    g:disable_stats()
+pgroup.test_disable_stats_do_not_break_map_reduce_update_call = function(g)
+    disable_stats(g)
 
     local _, err = g.router:eval([[ stats_module.update_map_reduces(...) ]], { space_name })
     t.assert_equals(err, nil)
+end
+
+
+group_driver.test_default_driver = function(g)
+    enable_stats(g)
+
+    local driver = g.router:eval(" return stats_module.internal.driver ")
+
+    if g.is_metrics_supported then
+        t.assert_equals(driver, 'metrics')
+    else
+        t.assert_equals(driver, 'local')
+    end
+end
+
+
+group_driver.test_default_quantiles = function(g)
+    enable_stats(g)
+
+    local quantiles = g.router:eval(" return stats_module.internal.quantiles ")
+    t.assert_equals(quantiles, false)
+end
+
+
+group_driver.before_test(
+    'test_stats_reenable_with_different_driver_reset_stats',
+    function(g)
+        t.skip_if(g.is_metrics_supported == false, 'Metrics registry is unsupported')
+    end
+)
+
+group_driver.test_stats_reenable_with_different_driver_reset_stats = function(g)
+    enable_stats(g, { driver = 'metrics' })
+
+    prepare_non_default_stats(g)
+
+    enable_stats(g, { driver = 'local' })
+    local stats = get_stats(g)
+    t.assert_equals(stats.spaces, {}, 'Stats have been reset')
+end
+
+
+group_driver.test_unknown_driver_throws_error = function(g)
+    t.assert_error_msg_contains(
+        'Unsupported driver: unknown',
+        enable_stats, g, { driver = 'unknown' })
+end
+
+
+group_driver.before_test(
+    'test_stats_enable_with_metrics_throws_error_if_unsupported',
+    function(g)
+        t.skip_if(g.is_metrics_supported == true, 'Metrics registry is supported')
+    end
+)
+
+group_driver.test_stats_enable_with_metrics_throws_error_if_unsupported = function(g)
+    t.assert_error_msg_contains(
+        'Unsupported driver: metrics',
+        enable_stats, g, { driver = 'metrics' })
+end
+
+
+group_driver.test_stats_enable_with_local_throws_error_if_quantiles_enabled = function(g)
+    t.assert_error_msg_contains(
+        'Quantiles are not supported',
+        enable_stats, g, { driver = 'local', quantiles = true })
 end

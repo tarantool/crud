@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 * Statistics for CRUD operations on router (#224).
+* Integrate CRUD statistics with [`metrics`](https://github.com/tarantool/metrics) (#224).
 
 ### Changed
 
