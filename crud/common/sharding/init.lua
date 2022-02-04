@@ -209,8 +209,12 @@ end
 -- @return[1] batches
 --  Map where key is a replicaset and value
 --  is table of tuples related to this replicaset
-function sharding.split_tuples_by_replicaset(tuples, space)
-    dev_checks('table', 'table')
+function sharding.split_tuples_by_replicaset(tuples, space, opts)
+    dev_checks('table', 'table', {
+        operations = '?table',
+    })
+
+    opts = opts or {}
 
     local batches = {}
 
@@ -219,7 +223,7 @@ function sharding.split_tuples_by_replicaset(tuples, space)
     local skip_sharding_hash_check
     local sharding_data
     local err
-    for _, tuple in ipairs(tuples) do
+    for i, tuple in ipairs(tuples) do
         sharding_data, err = sharding.tuple_set_and_return_bucket_id(tuple, space)
         if err ~= nil then
             return nil, BucketIDError:new("Failed to get bucket ID: %s", err)
@@ -244,9 +248,15 @@ function sharding.split_tuples_by_replicaset(tuples, space)
                     sharding_data.bucket_id, err.err)
         end
 
-        local tuples_by_replicaset = batches[replicaset] or {}
-        table.insert(tuples_by_replicaset, tuple)
-        batches[replicaset] = tuples_by_replicaset
+        local record_by_replicaset = batches[replicaset] or {tuples = {}}
+        table.insert(record_by_replicaset.tuples, tuple)
+
+        if opts.operations ~= nil then
+            record_by_replicaset.operations = record_by_replicaset.operations or {}
+            table.insert(record_by_replicaset.operations, opts.operations[i])
+        end
+
+        batches[replicaset] = record_by_replicaset
     end
 
     return {

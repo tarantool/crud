@@ -7,34 +7,39 @@ local BaseIterator = require('crud.common.map_call_cases.base_iter')
 
 local SplitTuplesError = errors.new_class('SplitTuplesError')
 
-local BatchInsertIterator = {}
+local BatchUpsertIterator = {}
 -- inheritance from BaseIterator
-setmetatable(BatchInsertIterator, {__index = BaseIterator})
+setmetatable(BatchUpsertIterator, {__index = BaseIterator})
 
---- Create new batch insert iterator for map call
+--- Create new batch upsert iterator for map call
 --
 -- @function new
 --
 -- @tparam[opt] table opts
--- Options of BatchInsertIterator:new
+-- Options of BatchUpsertIterator:new
 -- @tparam[opt] table opts.tuples
--- Tuples to be inserted
+-- Tuples to be upserted
 -- @tparam[opt] table opts.space
--- Space to be inserted into
+-- Space to be upserted into
+-- @tparam[opt] table opts.operations
+-- Operations to be performed on tuples
 -- @tparam[opt] table opts.execute_on_storage_opts
 -- Additional opts for call on storage
 --
 -- @return[1] table iterator
 -- @treturn[2] nil
 -- @treturn[2] table of tables Error description
-function BatchInsertIterator:new(opts)
+function BatchUpsertIterator:new(opts)
     dev_checks('table', {
         tuples = 'table',
         space = 'table',
+        operations = 'table',
         execute_on_storage_opts = 'table',
     })
 
-    local sharding_data, err = sharding.split_tuples_by_replicaset(opts.tuples, opts.space)
+    local sharding_data, err = sharding.split_tuples_by_replicaset(opts.tuples, opts.space, {
+        operations = opts.operations,
+    })
     if err ~= nil then
         return nil, SplitTuplesError:new("Failed to split tuples by replicaset: %s", err.err)
     end
@@ -66,11 +71,12 @@ end
 --
 -- @return[1] table func_args
 -- @return[2] table replicaset
-function BatchInsertIterator:get()
+function BatchUpsertIterator:get()
     local replicaset = self.next_index
     local func_args = {
         self.space_name,
         self.next_batch.tuples,
+        self.next_batch.operations,
         self.opts,
     }
 
@@ -79,4 +85,4 @@ function BatchInsertIterator:get()
     return func_args, replicaset
 end
 
-return BatchInsertIterator
+return BatchUpsertIterator

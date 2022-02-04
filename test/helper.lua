@@ -522,4 +522,14 @@ function helpers.fflush_main_server_stdout(cluster, capture)
     return captured
 end
 
+function helpers.complement_tuples_batch_with_operations(tuples, operations)
+
+    local tuples_operation_data = {}
+    for i, tuple in ipairs(tuples) do
+        table.insert(tuples_operation_data, {tuple, operations[i]})
+    end
+
+    return tuples_operation_data
+end
+
 return helpers
