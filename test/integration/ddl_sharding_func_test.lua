@@ -325,6 +325,86 @@ pgroup.test_upsert = function(g)
     t.assert_equals(result, {14, 4, 'John', 51})
 end
 
+pgroup.test_upsert_object_many = function(g)
+    -- Upsert an object first time.
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.upsert_object_many',
+            {g.params.space_name, { { {id = 66, name = 'Jack Sparrow', age = 25}, {{'+', 'age', 26}} } }, }
+    )
+    t.assert_equals(result.rows, nil)
+    t.assert_equals(result.metadata, {
+        {is_nullable = false, name = 'id', type = 'unsigned'},
+        {is_nullable = false, name = 'bucket_id', type = 'unsigned'},
+        {is_nullable = false, name = 'name', type = 'string'},
+        {is_nullable = false, name = 'age', type = 'number'},
+    })
+    t.assert_equals(err, nil)
+
+    -- There is no tuple on s1 replicaset.
+    local conn_s1 = g.cluster:server('s1-master').net_box
+    local result = conn_s1.space[g.params.space_name]:get({66, 'Jack Sparrow'})
+    t.assert_equals(result, nil)
+
+    -- There is a tuple on s2 replicaset.
+    local conn_s2 = g.cluster:server('s2-master').net_box
+    local result = conn_s2.space[g.params.space_name]:get({66, 'Jack Sparrow'})
+    t.assert_equals(result, {66, 6, 'Jack Sparrow', 25})
+
+    -- Upsert the same query second time when tuple exists.
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.upsert_object_many',
+            {g.params.space_name, { { {id = 66, name = 'Jack Sparrow', age = 25}, {{'+', 'age', 26}} } }, }
+    )
+    t.assert_equals(result.rows, nil)
+    t.assert_equals(err, nil)
+
+    -- There is no tuple on s2 replicaset.
+    local result = conn_s1.space[g.params.space_name]:get({66, 'Jack Sparrow'})
+    t.assert_equals(result, nil)
+
+    -- There is an updated tuple on s1 replicaset.
+    local result = conn_s2.space[g.params.space_name]:get({66, 'Jack Sparrow'})
+    t.assert_equals(result, {66, 6, 'Jack Sparrow', 51})
+end
+
+pgroup.test_upsert_many = function(g)
+    local tuple = {14, box.NULL, 'John', 25}
+
+    -- Upsert an object first time.
+    local result, err = g.cluster.main_server.net_box:call('crud.upsert_many', {
+        g.params.space_name, { {tuple, {}} },
+    })
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(result.rows, nil)
+
+    -- There is no tuple on s2 replicaset.
+    local conn_s1 = g.cluster:server('s1-master').net_box
+    local result = conn_s1.space[g.params.space_name]:get({14, 'John'})
+    t.assert_equals(result, nil)
+
+    -- There is a tuple on s1 replicaset.
+    local conn_s2 = g.cluster:server('s2-master').net_box
+    local result = conn_s2.space[g.params.space_name]:get({14, 'John'})
+    t.assert_equals(result, {14, 4, 'John', 25})
+
+    -- Upsert the same query second time when tuple exists.
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.upsert_many',
+            {g.params.space_name, { {tuple, {{'+', 'age', 26}}} }, }
+    )
+    t.assert_equals(result.rows, nil)
+    t.assert_equals(err, nil)
+
+    -- There is no tuple on s2 replicaset.
+    local result = conn_s1.space[g.params.space_name]:get({14, 'John'})
+    t.assert_equals(result, nil)
+
+    -- There is an updated tuple on s1 replicaset.
+    local result = conn_s2.space[g.params.space_name]:get({14, 'John'})
+    t.assert_equals(result, {14, 4, 'John', 51})
+end
+
 pgroup.test_select = function(g)
     -- bucket_id is id % 10 = 8
     local tuple = {18, 8, 'Ptolemy', 25}

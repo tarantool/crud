@@ -303,6 +303,14 @@ local test_objects_batch = {
     { id = 3, bucket_id = box.NULL, name = 'Petra', age = 27 },
 }
 
+local upsert_many_operations = { {}, {}, {} }
+local test_tuples_operation_batch = helpers.complement_tuples_batch_with_operations(
+        test_tuples_batch,
+        upsert_many_operations)
+local test_objects_operation_batch = helpers.complement_tuples_batch_with_operations(
+        test_objects_batch,
+        upsert_many_operations)
+
 -- Sharded by "name" and computed with custom sharding function.
 local test_customers_new_result = {
     s1 = {{1, 2861, 'Emma', 22}},
@@ -354,6 +362,16 @@ local new_space_cases = {
         func = 'crud.upsert_object',
         input = {'customers_new', test_object, {}},
         result = test_customers_new_result,
+    },
+    upsert_many = {
+        func = 'crud.upsert_many',
+        input = {'customers_new', test_tuples_operation_batch},
+        result = test_customers_new_batching_result,
+    },
+    upsert_object_many = {
+        func = 'crud.upsert_object_many',
+        input = {'customers_new', test_objects_operation_batch},
+        result = test_customers_new_batching_result,
     },
 }
 
@@ -448,6 +466,16 @@ local schema_change_sharding_key_cases = {
         func = 'crud.upsert_object',
         input = {'customers', test_object, {}},
         result = test_customers_age_result,
+    },
+    upsert_many = {
+        func = 'crud.upsert_many',
+        input = {'customers', test_tuples_operation_batch},
+        result = test_customers_age_batching_result,
+    },
+    upsert_object_many = {
+        func = 'crud.upsert_object_many',
+        input = {'customers', test_objects_operation_batch},
+        result = test_customers_age_batching_result,
     },
 }
 
@@ -621,6 +649,16 @@ local schema_change_sharding_func_cases = {
         func = 'crud.upsert_object',
         input = {'customers_pk', test_object, {}},
         result = test_customers_pk_func,
+    },
+    upsert_many = {
+        func = 'crud.upsert_many',
+        input = {'customers_pk', test_tuples_operation_batch},
+        result = test_customers_pk_batching_func,
+    },
+    upsert_object_many = {
+        func = 'crud.upsert_object_many',
+        input = {'customers_pk', test_objects_operation_batch},
+        result = test_customers_pk_batching_func,
     },
     delete = {
         before_test = setup_customers_pk_migrated_data,
