@@ -36,6 +36,14 @@ add_custom_target(luatest
   COMMENT "Run regression tests"
 )
 
+set(PERFORMANCE_TESTS_SUBDIR "test/performance")
+
+add_custom_target(performance
+  COMMAND PERF_MODE_ON=true ${LUATEST} -v -c ${PERFORMANCE_TESTS_SUBDIR}
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  COMMENT "Run performance tests"
+)
+
 add_custom_target(coverage
   COMMAND ${LUACOV} ${PROJECT_SOURCE_DIR} && grep -A999 '^Summary' ${CODE_COVERAGE_REPORT}
   DEPENDS ${CODE_COVERAGE_STATS}
