@@ -102,6 +102,12 @@ package.preload['customers-storage'] = function()
                 },
             }
 
+            local customers_id_schema = table.deepcopy(customers_schema)
+            customers_id_schema.sharding_key = {'id'}
+            table.insert(customers_id_schema.indexes, primary_index_id)
+            table.insert(customers_id_schema.indexes, bucket_id_index)
+            table.insert(customers_id_schema.indexes, age_index)
+
             local customers_name_key_schema = table.deepcopy(customers_schema)
             customers_name_key_schema.sharding_key = {'name'}
             table.insert(customers_name_key_schema.indexes, primary_index)
@@ -157,6 +163,7 @@ package.preload['customers-storage'] = function()
 
             local schema = {
                 spaces = {
+                    customers = customers_id_schema,
                     customers_name_key = customers_name_key_schema,
                     customers_name_key_uniq_index = customers_name_key_uniq_index_schema,
                     customers_name_key_non_uniq_index = customers_name_key_non_uniq_index_schema,
@@ -195,8 +202,13 @@ local ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
         'customers-storage',
         'cartridge.roles.crud-router',
         'cartridge.roles.crud-storage',
-    },
-})
+    }},
+    -- Increase readahead for performance tests.
+    -- Performance tests on HP ProBook 440 G5 16 Gb
+    -- bump into default readahead limit and thus not
+    -- give a full picture.
+    { readahead = 20 * 1024 * 1024 }
+)
 
 if not ok then
     log.error('%s', err)

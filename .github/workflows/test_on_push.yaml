@@ -78,6 +78,41 @@ jobs:
         run: make -C build coveralls
         if: ${{ matrix.coveralls }}
 
+  run-perf-tests-ce:
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    strategy:
+      matrix:
+        tarantool-version: ["1.10", "2.8"]
+        metrics-version: ["0.12.0"]
+      fail-fast: false
+    runs-on: [ubuntu-latest]
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Setup Tarantool CE 
+        uses: tarantool/setup-tarantool@v1
+        with:
+          tarantool-version: ${{ matrix.tarantool-version }}
+
+      - name: Install requirements for community
+        run: |
+          tarantool --version
+          ./deps.sh
+
+      - name: Install metrics
+        run: tarantoolctl rocks install metrics ${{ matrix.metrics-version }}
+
+      # This server starts and listen on 8084 port that is used for tests
+      - name: Stop Mono server
+        run: sudo kill -9 $(sudo lsof -t -i tcp:8084) || true
+
+      - run: cmake -S . -B build
+
+      - name: Run performance tests
+        run: make -C build performance
+
   run-tests-ee:
     if: github.event_name == 'push'
     strategy:

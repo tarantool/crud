@@ -696,6 +696,7 @@ pgroup.test_update_cache_with_incorrect_key = function(g)
     -- records for all spaces exist
     sharding_key_as_index_obj = helpers.get_sharding_key_cache(g.cluster)
     t.assert_equals(sharding_key_as_index_obj, {
+        customers = {parts = {{fieldno = 1}}},
         customers_G_func = {parts = {{fieldno = 1}}},
         customers_body_func = {parts = {{fieldno = 1}}},
         customers_age_key = {parts = {{fieldno = 4}}},
@@ -722,6 +723,7 @@ pgroup.test_update_cache_with_incorrect_key = function(g)
     -- other records for correct spaces exist in cache
     sharding_key_as_index_obj = helpers.get_sharding_key_cache(g.cluster)
     t.assert_equals(sharding_key_as_index_obj, {
+        customers = {parts = {{fieldno = 1}}},
         customers_G_func = {parts = {{fieldno = 1}}},
         customers_body_func = {parts = {{fieldno = 1}}},
         customers_age_key = {parts = {{fieldno = 4}}},
@@ -747,6 +749,7 @@ pgroup.test_update_cache_with_incorrect_key = function(g)
     -- other records for correct spaces exist in cache
     sharding_key_as_index_obj = helpers.get_sharding_key_cache(g.cluster)
     t.assert_equals(sharding_key_as_index_obj, {
+        customers = {parts = {{fieldno = 1}}},
         customers_G_func = {parts = {{fieldno = 1}}},
         customers_body_func = {parts = {{fieldno = 1}}},
         customers_age_key = {parts = {{fieldno = 4}}},

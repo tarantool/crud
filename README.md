@@ -718,6 +718,9 @@ crud.cfg
   stats_driver: metrics
 ...
 ```
+Performance overhead is 3-10% in case of `local` driver and
+5-15% in case of `metrics` driver, up to 20% for `metrics` with quantiles.
+
 Beware that iterating through `crud.cfg` with pairs is not supported yet,
 refer to [tarantool/crud#265](https://github.com/tarantool/crud/issues/265).
 
