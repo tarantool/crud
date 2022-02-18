@@ -117,6 +117,12 @@ local function setmt__gc(t, mt)
     return setmetatable(t, mt)
 end
 
+-- If jit will be enabled here, gc_observer usage
+-- may be optimized so our __gc hack will not work.
+local function keep_observer_alive(gc_observer) --luacheck: ignore
+end
+jit.off(keep_observer_alive)
+
 local function wrap_pairs_gen(build_latency, space_name, op, gen, param, state)
     local total_latency = build_latency
 
@@ -139,7 +145,7 @@ local function wrap_pairs_gen(build_latency, space_name, op, gen, param, state)
     local wrapped_gen = function(param, state)
         -- Mess with gc_observer so its lifespan will
         -- be the same as wrapped_gen() function.
-        gc_observer[1] = state
+        keep_observer_alive(gc_observer)
 
         local start_time = clock.monotonic()
 
