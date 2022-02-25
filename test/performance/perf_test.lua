@@ -102,15 +102,19 @@ local row_name = {
     insert = 'insert',
     select_pk = 'select by pk',
     select_gt_pk = 'select gt by pk (limit 10)',
+    select_secondary_eq = 'select eq by secondary (limit 10)',
+    select_secondary_sharded = 'select eq by sharding secondary',
     pairs_gt = 'pairs gt by pk (limit 100)',
 }
 
 local column_name = {
-    without_stats_wrapper = 'without stats wrapper',
-    stats_disabled = 'stats disabled',
-    local_stats = 'local stats',
-    metrics_stats = 'metrics stats (no quantiles)',
-    metrics_quantile_stats = 'metrics stats (with quantiles)',
+    vshard = 'vshard',
+    without_stats_wrapper = 'crud (without stats wrapper)',
+    stats_disabled = 'crud (stats disabled)',
+    bucket_id = 'crud (stats disabled, known bucket_id)',
+    local_stats = 'crud (local stats)',
+    metrics_stats = 'crud (metrics stats, no quantiles)',
+    metrics_quantile_stats = 'crud (metrics stats, with quantiles)',
 }
 
 local function visualize_section(total_report, name, comment, section, params)
@@ -142,7 +146,7 @@ local function visualize_section(total_report, name, comment, section, params)
             if report ~= nil then
                 report_str = report.str[section]
             else
-                report_str = 'unknown'
+                report_str = ''
             end
 
             row_str = row_str .. ' ' .. normalize(report_str, params.col_width[column]) .. ' |'
@@ -156,31 +160,11 @@ local function visualize_section(total_report, name, comment, section, params)
     return report_str
 end
 
-local function visualize_report(report)
-    local params = {}
-
+local function visualize_report(report, title, params)
     params.col_width = 2
     for _, name in pairs(column_name) do
         params.col_width = math.max(name:len() + 2, params.col_width)
     end
-
-    params.row_header_width = 30
-
-    -- Set columns and rows explicitly to preserve custom order.
-    params.columns = {
-        column_name.without_stats_wrapper,
-        column_name.stats_disabled,
-        column_name.local_stats,
-        column_name.metrics_stats,
-        column_name.metrics_quantile_stats,
-    }
-
-    params.rows = {
-        row_name.select_pk,
-        row_name.select_gt_pk,
-        row_name.pairs_gt,
-        row_name.insert,
-    }
 
     params.row_header_width = 1
     for _, name in pairs(row_name) do
@@ -193,7 +177,7 @@ local function visualize_report(report)
         params.col_width[name] = math.max(name:len(), min_col_width)
     end
 
-    local report_str = '\n==== PERFORMANCE REPORT ====\n\n\n'
+    local report_str = ('\n==== %s ====\n\n\n'):format(title)
 
     report_str = report_str .. visualize_section(report, 'SUCCESS REQUESTS',
         'The higher the better', 'success_count', params)
@@ -242,7 +226,40 @@ g.after_all(function(g)
     g.cluster:stop()
     fio.rmtree(g.cluster.datadir)
 
-    visualize_report(g.total_report)
+    visualize_report(g.total_report, 'STATISTICS PERFORMANCE REPORT', {
+        columns = {
+            column_name.without_stats_wrapper,
+            column_name.stats_disabled,
+            column_name.local_stats,
+            column_name.metrics_stats,
+            column_name.metrics_quantile_stats,
+        },
+
+        rows = {
+            row_name.select_pk,
+            row_name.select_gt_pk,
+            row_name.pairs_gt,
+            row_name.select_secondary_eq,
+            row_name.select_secondary_sharded,
+            row_name.insert,
+        }
+    })
+
+    visualize_report(g.total_report, 'VSHARD COMPARISON PERFORMANCE REPORT', {
+        columns = {
+            column_name.vshard,
+            column_name.stats_disabled,
+            column_name.bucket_id,
+        },
+
+        rows = {
+            row_name.select_pk,
+            row_name.select_gt_pk,
+            row_name.select_secondary_eq,
+            row_name.select_secondary_sharded,
+            row_name.insert,
+        }
+    })
 end)
 
 local function generate_customer()
@@ -263,6 +280,210 @@ local select_prepare = function(g)
     reset_gen()
 end
 
+local select_sharded_by_secondary_prepare = function(g)
+    local count
+    if g.perf_mode_on then
+        count = 10100
+    else
+        count = 100
+    end
+
+    for _ = 1, count do
+        g.router:call(
+            'crud.insert',
+            {
+                'customers_name_age_key_different_indexes',
+                { gen(), box.NULL, 'David Smith', gen() % 50 + 18 }
+            }
+        )
+    end
+    reset_gen()
+end
+
+local vshard_prepare = function(g)
+    g.router:eval([[
+        local vshard = require('vshard')
+
+        local function _vshard_insert(space_name, tuple)
+            local replicaset = select(2, next(vshard.router.routeall()))
+            local space = replicaset.master.conn.space[space_name]
+            assert(space ~= nil)
+
+            local bucket_id = vshard.router.bucket_id_strcrc32(tuple[1])
+
+            assert(space.index.bucket_id ~= nil)
+            tuple[space.index.bucket_id.parts[1].fieldno] = bucket_id
+
+            return vshard.router.callrw(
+                bucket_id,
+                '_vshard_insert_storage',
+                { space_name, tuple, bucket_id }
+            )
+        end
+
+        rawset(_G, '_vshard_insert', _vshard_insert)
+
+
+        local function _vshard_select(space_name, key)
+            local bucket_id = vshard.router.bucket_id_strcrc32(key)
+            return vshard.router.callrw(
+                bucket_id,
+                '_vshard_select_storage',
+                { space_name, key }
+            )
+        end
+
+        rawset(_G, '_vshard_select', _vshard_select)
+
+
+        local function pk_sort(a, b)
+            return a[1] < b[1]
+        end
+
+        local function _vshard_select_gt(space, key, opts)
+            assert(type(opts.limit) == 'number')
+            assert(opts.limit > 0)
+
+            local tuples = {}
+
+            for id, replicaset in pairs(vshard.router.routeall()) do
+                local resp, err = replicaset:call(
+                    '_vshard_select_storage',
+                    { space, key, nil, box.index.GT, opts.limit }
+                )
+                if err ~= nil then
+                    error(err)
+                end
+
+                for _, v in ipairs(resp) do
+                    table.insert(tuples, v)
+                end
+
+            end
+
+            -- Merger.
+            local response = { }
+
+            table.sort(tuples, pk_sort)
+
+            for i = 1, opts.limit do
+                response[i] = tuples[i]
+            end
+
+            return response
+        end
+
+        rawset(_G, '_vshard_select_gt', _vshard_select_gt)
+
+
+        local function _vshard_select_secondary(space_name, index_name, key, opts)
+            assert(type(opts.limit) == 'number')
+            assert(opts.limit > 0)
+
+            local tuples = {}
+
+            for id, replicaset in pairs(vshard.router.routeall()) do
+                local resp, err = replicaset:call(
+                    '_vshard_select_storage',
+                    { space_name, key, index_name, box.index.EQ, opts.limit }
+                )
+                if err ~= nil then
+                    error(err)
+                end
+
+                for _, tuple in ipairs(resp) do
+                    table.insert(tuples, tuple)
+                end
+            end
+
+            local replicaset = select(2, next(vshard.router.routeall()))
+            local space = replicaset.master.conn.space[space_name]
+            assert(space ~= nil)
+
+            local id = space.index[index_name].parts[1].fieldno
+
+            local function sec_sort(a, b)
+                return a[id] < b[id]
+            end
+
+            -- Merger.
+            local response = { }
+
+            table.sort(tuples, sec_sort)
+
+            for i = 1, opts.limit do
+                response[i] = tuples[i]
+            end
+
+            return response
+        end
+
+        rawset(_G, '_vshard_select_secondary', _vshard_select_secondary)
+
+
+        local function _vshard_select_customer_by_name_and_age(key)
+            local bucket_id = vshard.router.bucket_id_strcrc32(key)
+
+            return vshard.router.callrw(
+                bucket_id,
+                '_vshard_select_customer_by_name_and_age_storage',
+                { key }
+            )
+        end
+
+        rawset(_G, '_vshard_select_customer_by_name_and_age', _vshard_select_customer_by_name_and_age)
+    ]])
+
+    for _, server in ipairs(g.cluster.servers) do
+        server.net_box:eval([[
+            local function _vshard_insert_storage(space_name, tuple, bucket_id)
+                local space = box.space[space_name]
+                assert(space ~= nil)
+
+                local ok = space:insert(tuple)
+                assert(ok ~= nil)
+            end
+
+            rawset(_G, '_vshard_insert_storage', _vshard_insert_storage)
+
+
+            local function _vshard_select_storage(space_name, key, index_name, iterator, limit)
+                local space = box.space[space_name]
+                assert(space ~= nil)
+
+                local index = nil
+                if index_name == nil then
+                    index = box.space[space_name].index[0]
+                else
+                    index = box.space[space_name].index[index_name]
+                end
+                assert(index ~= nil)
+
+                iterator = iterator or box.index.EQ
+                return index:select(key, { limit = limit, iterator = iterator })
+            end
+
+            rawset(_G, '_vshard_select_storage', _vshard_select_storage)
+
+
+            local function _vshard_select_customer_by_name_and_age_storage(key)
+                local space = box.space.customers_name_age_key_different_indexes
+                local index = space.index.age
+
+                for _, tuple in index:pairs(key[2]) do
+                    if tuple.name == key[1] then
+                        return { tuple }
+                    end
+                end
+                return {}
+            end
+
+            rawset(_G, '_vshard_select_customer_by_name_and_age_storage',
+                _vshard_select_customer_by_name_and_age_storage)
+        ]])
+    end
+end
+
 local insert_params = function()
     return { 'customers', generate_customer() }
 end
@@ -271,8 +492,51 @@ local select_params_pk_eq = function()
     return { 'customers', {{'==', 'id', gen() % 10000}} }
 end
 
+local select_params_pk_eq_bucket_id = function()
+    local id = gen() % 10000
+    return { 'customers', {{'==', 'id', id}}, id }
+end
+
+local vshard_select_params_pk_eq = function()
+    return { 'customers', gen() % 10000 }
+end
+
 local select_params_pk_gt = function()
     return { 'customers', {{'>', 'id', gen() % 10000}}, { first = 10 } }
+end
+
+local vshard_select_params_pk_gt = function()
+    return { 'customers', gen() % 10000, { limit = 10 } }
+end
+
+local select_params_secondary_eq = function()
+    return { 'customers', {{'==', 'age', 33}}, { first = 10 } }
+end
+
+local vshard_select_params_secondary_eq = function()
+    return { 'customers', 'age', 33, { limit = 10 } }
+end
+
+local select_params_sharded_by_secondary = function()
+    return {
+        'customers_name_age_key_different_indexes',
+        { { '==', 'name', 'David Smith' }, { '==', 'age', gen() % 50 + 18 }, },
+        { first = 1 }
+    }
+end
+
+local select_params_sharded_by_secondary_bucket_id = function()
+    local age = gen() % 50 + 18
+    return {
+        'customers_name_age_key_different_indexes',
+        { { '==', 'name', 'David Smith' }, { '==', 'age', age } },
+        { first = 1 },
+        age
+    }
+end
+
+local vshard_select_params_sharded_by_secondary = function()
+    return {{ 'David Smith', gen() % 50 + 18 }}
 end
 
 local pairs_params_pk_gt = function()
@@ -343,6 +607,16 @@ local pairs_perf = {
 }
 
 local cases = {
+    vshard_insert = {
+        prepare = vshard_prepare,
+        call = '_vshard_insert',
+        params = insert_params,
+        matrix = { [''] = { column_name = column_name.vshard } },
+        integration_params = integration_params,
+        perf_params = insert_perf,
+        row_name = row_name.insert,
+    },
+
     crud_insert = {
         call = 'crud.insert',
         params = insert_params,
@@ -366,6 +640,19 @@ local cases = {
         row_name = row_name.insert,
     },
 
+    vshard_select_pk_eq = {
+        prepare = function(g)
+            select_prepare(g)
+            vshard_prepare(g)
+        end,
+        call = '_vshard_select',
+        params = vshard_select_params_pk_eq,
+        matrix = { [''] = { column_name = column_name.vshard } },
+        integration_params = integration_params,
+        perf_params = select_perf,
+        row_name = row_name.select_pk,
+    },
+
     crud_select_pk_eq = {
         prepare = select_prepare,
         call = 'crud.select',
@@ -384,6 +671,29 @@ local cases = {
         call = '_plain_select',
         params = select_params_pk_eq,
         matrix = { [''] = { column_name = column_name.without_stats_wrapper } },
+        integration_params = integration_params,
+        perf_params = select_perf,
+        row_name = row_name.select_pk,
+    },
+
+    crud_select_known_bucket_id_pk_eq = {
+        prepare = function(g)
+            select_prepare(g)
+
+            g.router:eval([[
+                local vshard = require('vshard')
+
+                local function _crud_select_bucket(space_name, conditions, sharding_key)
+                    local bucket_id = vshard.router.bucket_id_strcrc32(sharding_key)
+                    return crud.select(space_name, conditions, { bucket_id = bucket_id })
+                end
+
+                rawset(_G, '_crud_select_bucket', _crud_select_bucket)
+            ]])
+        end,
+        call = '_crud_select_bucket',
+        params = select_params_pk_eq_bucket_id,
+        matrix = { [''] = { column_name = column_name.bucket_id } },
         integration_params = integration_params,
         perf_params = select_perf,
         row_name = row_name.select_pk,
@@ -412,6 +722,115 @@ local cases = {
         integration_params = integration_params,
         perf_params = select_perf,
         row_name = row_name.select_gt_pk,
+    },
+
+    vshard_select_pk_gt = {
+        prepare = function(g)
+            select_prepare(g)
+            vshard_prepare(g)
+        end,
+        call = '_vshard_select_gt',
+        params = vshard_select_params_pk_gt,
+        matrix = { [''] = { column_name = column_name.vshard } },
+        integration_params = integration_params,
+        perf_params = select_perf,
+        row_name = row_name.select_gt_pk,
+    },
+
+    crud_select_secondary_eq = {
+        prepare = select_prepare,
+        call = 'crud.select',
+        params = select_params_secondary_eq,
+        matrix = stats_cases,
+        integration_params = integration_params,
+        perf_params = select_perf,
+        row_name = row_name.select_secondary_eq,
+    },
+
+    crud_select_without_stats_wrapper_secondary_eq = {
+        prepare = function(g)
+            g.router:eval("_plain_select = require('crud.select').call")
+            select_prepare(g)
+        end,
+        call = '_plain_select',
+        params = select_params_secondary_eq,
+        matrix = { [''] = { column_name = column_name.without_stats_wrapper } },
+        integration_params = integration_params,
+        perf_params = select_perf,
+        row_name = row_name.select_secondary_eq,
+    },
+
+    vshard_select_secondary_eq = {
+        prepare = function(g)
+            select_prepare(g)
+            vshard_prepare(g)
+        end,
+        call = '_vshard_select_secondary',
+        params = vshard_select_params_secondary_eq,
+        matrix = { [''] = { column_name = column_name.vshard } },
+        integration_params = integration_params,
+        perf_params = select_perf,
+        row_name = row_name.select_secondary_eq,
+    },
+
+    crud_select_sharding_secondary_eq = {
+        prepare = select_sharded_by_secondary_prepare,
+        call = 'crud.select',
+        params = select_params_sharded_by_secondary,
+        matrix = stats_cases,
+        integration_params = integration_params,
+        perf_params = select_perf,
+        row_name = row_name.select_secondary_sharded,
+    },
+
+    crud_select_sharding_secondary_eq_bucket_id = {
+        prepare = function(g)
+            select_sharded_by_secondary_prepare(g)
+
+            g.router:eval([[
+                local vshard = require('vshard')
+
+                local function _crud_select_bucket_secondary(space_name, conditions, opts, sharding_key)
+                    local bucket_id = vshard.router.bucket_id_strcrc32(sharding_key)
+                    opts.bucket_id = bucket_id
+                    return crud.select(space_name, conditions, opts)
+                end
+
+                rawset(_G, '_crud_select_bucket_secondary', _crud_select_bucket_secondary)
+            ]])
+        end,
+        call = '_crud_select_bucket_secondary',
+        params = select_params_sharded_by_secondary_bucket_id,
+        matrix = { [''] = { column_name = column_name.bucket_id } },
+        integration_params = integration_params,
+        perf_params = select_perf,
+        row_name = row_name.select_secondary_sharded,
+    },
+
+    crud_select_without_stats_wrapper_sharding_secondary_eq = {
+        prepare = function(g)
+            g.router:eval("_plain_select = require('crud.select').call")
+            select_sharded_by_secondary_prepare(g)
+        end,
+        call = '_plain_select',
+        params = select_params_sharded_by_secondary,
+        matrix = { [''] = { column_name = column_name.without_stats_wrapper } },
+        integration_params = integration_params,
+        perf_params = select_perf,
+        row_name = row_name.select_secondary_sharded,
+    },
+
+    vshard_select_sharding_secondary_eq = {
+        prepare = function(g)
+            select_sharded_by_secondary_prepare(g)
+            vshard_prepare(g)
+        end,
+        call = '_vshard_select_customer_by_name_and_age',
+        params = vshard_select_params_sharded_by_secondary,
+        matrix = { [''] = { column_name = column_name.vshard } },
+        integration_params = integration_params,
+        perf_params = select_perf,
+        row_name = row_name.select_secondary_sharded,
     },
 
     crud_pairs_gt = {
