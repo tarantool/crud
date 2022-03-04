@@ -476,4 +476,8 @@ function helpers.get_map_reduces_stat(router, space_name)
     ]], { space_name })
 end
 
+function helpers.disable_dev_checks()
+    os.setenv('DEV', 'OFF')
+end
+
 return helpers

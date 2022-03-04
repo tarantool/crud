@@ -9,6 +9,7 @@ local t = require('luatest')
 local g = t.group('perf')
 
 local helpers = require('test.helper')
+helpers.disable_dev_checks()
 
 
 local id = 0
@@ -55,7 +56,7 @@ g.before_all(function(g)
             },
             {
                 uuid = helpers.uuid('d'),
-                alias = 's-2',
+                alias = 's-3',
                 roles = { 'customers-storage', 'crud-storage' },
                 servers = {
                     { instance_uuid = helpers.uuid('d', 1), alias = 's3-master' },
@@ -132,7 +133,10 @@ local function visualize_section(total_report, name, comment, section, params)
         local row_str = '| ' .. normalize(row, params.row_header_width) .. ' |'
 
         for _, column in ipairs(params.columns) do
-            local report = total_report[row][column]
+            local report = nil
+            if total_report[row] ~= nil then
+                report = total_report[row][column]
+            end
 
             local report_str
             if report ~= nil then
@@ -201,6 +205,31 @@ local function visualize_report(report)
         'The lower the better', 'average_time', params)
     report_str = report_str .. visualize_section(report, 'MAX CALL TIME',
         'The lower the better', 'max_time', params)
+
+    -- Expect every row to have the same run parameters.
+    local comment_str = ''
+    for _, row in ipairs(params.rows) do
+        local row_report = report[row]
+        if row_report == nil then
+            goto continue
+        end
+
+        local row_report_sample = select(2, next(row_report))
+        if row_report_sample == nil then
+            goto continue
+        end
+
+        local row_comment = ('%q was planned for %d seconds with %d connections and %d fibers total.\n'):format(
+            row,
+            row_report_sample.params.timeout,
+            row_report_sample.params.connection_count,
+            row_report_sample.params.fiber_count)
+        comment_str = comment_str .. row_comment
+
+        ::continue::
+    end
+
+    report_str = report_str .. comment_str
 
     log.info(report_str)
 end
@@ -393,6 +422,8 @@ local cases = {
                     for _, tuple in require('crud').pairs(...) do
                         table.insert(t, tuple)
                     end
+
+                    return t
                 end
             ]])
             select_prepare(g)
@@ -413,6 +444,8 @@ local cases = {
                     for _, tuple in require('crud.select').pairs(...) do
                         table.insert(t, tuple)
                     end
+
+                    return t
                 end
             ]])
             select_prepare(g)
@@ -512,6 +545,8 @@ for name, case in pairs(cases) do
                 success_rps = ('%.2f'):format(report.count / run_time),
                 max_time = ('%.3f ms'):format(report.max_time * 1e3),
             }
+
+            report.params = params
 
             local total_count = report.count + #report.errors
             if total_count > 0 then
