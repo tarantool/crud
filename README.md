@@ -920,3 +920,7 @@ Now your cluster contains storages that are configured to be used for
 CRUD-operations.
 You can simply call CRUD functions on the router to insert, select, and update
 data across the cluster.
+
+## License
+
+BSD-2-Clause. See the [LICENSE](LICENSE) file.
