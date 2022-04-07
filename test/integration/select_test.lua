@@ -1654,3 +1654,39 @@ pgroup.test_select_no_map_reduce = function(g)
     local diff_2 = map_reduces_after_2 - map_reduces_after_1
     t.assert_equals(diff_2, 0, 'Select request was not a map reduce')
 end
+
+pgroup.before_test('test_storage_nil_err_is_processed', function(g)
+    helpers.call_on_storages(g.cluster, function(server)
+        server.net_box:eval([[
+            local errors = require('errors')
+            local StorageError = errors.new_class("StorageError")
+
+            local _crud = rawget(_G, '_crud')
+            rawset(_G, '_real_crud_select', _crud.select_on_storage)
+
+            local return_err = function()
+                return nil, StorageError:new('My storage error')
+            end
+            _crud.select_on_storage = return_err
+        ]])
+    end)
+end)
+
+pgroup.after_test('test_storage_nil_err_is_processed', function(g)
+    helpers.call_on_storages(g.cluster, function(server)
+        server.net_box:eval([[
+            local _crud = rawget(_G, '_crud')
+            _crud.select_on_storage = rawget(_G, '_real_crud_select')
+            rawset(_G, '_real_crud_select', nil)
+        ]])
+    end)
+end)
+
+pgroup.test_storage_nil_err_is_processed = function(g)
+    local obj, err = g.cluster.main_server.net_box:call('crud.select', {
+        'customers', {{'==', 'age', 101}}
+    })
+    t.assert_equals(obj, nil)
+    t.assert_str_contains(err.str, 'StorageError', 'Storage error class is preserved')
+    t.assert_str_contains(err.str, 'My storage error', 'Storage error msg is preserved')
+end

@@ -1,4 +1,5 @@
 local buffer = require('buffer')
+local errors = require('errors')
 local msgpack = require('msgpack')
 local ffi = require('ffi')
 local call = require('crud.common.call')
@@ -80,9 +81,14 @@ local function decode_metainfo(buf)
     buf.rpos = decode_response_headers(buf)
 
     -- Decode a first return value (metainfo).
-    local res
+    local res, err
     res, buf.rpos = msgpack.decode(buf.rpos, buf:size())
-    return res
+
+    -- If res is nil, decode second return value (error).
+    if res == nil then
+        err, buf.rpos = msgpack.decode(buf.rpos, buf:size())
+    end
+    return res, err
 end
 
 --- Wait for a data chunk and request for the next data chunk.
@@ -109,7 +115,11 @@ local function fetch_chunk(context, state)
     end
 
     -- Decode metainfo, leave data to be processed by the merger.
-    local cursor = decode_metainfo(buf)
+    local cursor, err = decode_metainfo(buf)
+    if cursor == nil then
+        -- Wrap net.box errors error to restore metatable.
+        error(errors.wrap(err))
+    end
 
     -- Extract stats info.
     -- Stats extracted with callback here and not passed

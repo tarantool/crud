@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Optimize select with known bucket_id (#234).
 
 ### Fixed
+* Fix processing storage error for tuple-merger implementation of
+  select/pairs (#271).
 
 ## [0.10.0] - 01-12-21
 
