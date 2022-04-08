@@ -4,6 +4,7 @@ local fiber = require('fiber')
 local errors = require('errors')
 local net_box = require('net.box')
 local log = require('log')
+local fun = require('fun')
 
 local t = require('luatest')
 local g = t.group('perf')
@@ -98,8 +99,32 @@ local function normalize(s, n)
     return (' '):rep(n - len) .. s
 end
 
+local function generate_batch_insert_cases(min_value, denominator, count)
+    local matrix = {}
+    local cols_names = {}
+
+    local batch_size = min_value
+    for _ = 1, count do
+        local col_name = tostring(batch_size)
+        table.insert(cols_names, col_name)
+        matrix[col_name] = { column_name = col_name, arg = batch_size }
+        batch_size = batch_size * denominator
+    end
+
+    return {
+        matrix = matrix,
+        cols_names = cols_names,
+    }
+end
+
+local min_batch_size = 1
+local denominator_batch_size = 10
+local count_batch_cases = 5
+local batch_insert_cases = generate_batch_insert_cases(min_batch_size, denominator_batch_size, count_batch_cases)
+
 local row_name = {
     insert = 'insert',
+    insert_many = 'insert_many',
     select_pk = 'select by pk',
     select_gt_pk = 'select gt by pk (limit 10)',
     select_secondary_eq = 'select eq by secondary (limit 10)',
@@ -116,6 +141,12 @@ local column_name = {
     metrics_stats = 'crud (metrics stats, no quantiles)',
     metrics_quantile_stats = 'crud (metrics stats, with quantiles)',
 }
+
+-- insert column names for insert_many/insert comparison cases
+fun.reduce(
+        function(list, value) list[value] = value return list end,
+        column_name, pairs(batch_insert_cases.cols_names)
+)
 
 local function visualize_section(total_report, name, comment, section, params)
     local report_str = ('== %s ==\n(%s)\n\n'):format(name, comment or '')
@@ -242,6 +273,7 @@ g.after_all(function(g)
             row_name.select_secondary_eq,
             row_name.select_secondary_sharded,
             row_name.insert,
+            row_name.insert_many,
         }
     })
 
@@ -259,6 +291,15 @@ g.after_all(function(g)
             row_name.select_secondary_sharded,
             row_name.insert,
         }
+    })
+
+    visualize_report(g.total_report, 'BATCH COMPARISON PERFORMANCE REPORT', {
+        columns = batch_insert_cases.cols_names,
+
+        rows = {
+            row_name.insert,
+            row_name.insert_many,
+        },
     })
 end)
 
@@ -488,6 +529,18 @@ local insert_params = function()
     return { 'customers', generate_customer() }
 end
 
+local batch_insert_params = function(count)
+    local batch = {}
+
+    count = count or 1
+
+    for _ = 1, count do
+        table.insert(batch, generate_customer())
+    end
+
+    return { 'customers', batch }
+end
+
 local select_params_pk_eq = function()
     return { 'customers', {{'==', 'id', gen() % 10000}} }
 end
@@ -606,6 +659,12 @@ local pairs_perf = {
     connection_count = 10,
 }
 
+local batch_insert_comparison_perf = {
+    timeout = 30,
+    fiber_count = 1,
+    connection_count = 1,
+}
+
 local cases = {
     vshard_insert = {
         prepare = vshard_prepare,
@@ -638,6 +697,29 @@ local cases = {
         integration_params = integration_params,
         perf_params = insert_perf,
         row_name = row_name.insert,
+    },
+
+    crud_insert_many = {
+        call = 'crud.insert_many',
+        params = batch_insert_params,
+        matrix = stats_cases,
+        integration_params = integration_params,
+        perf_params = insert_perf,
+        row_name = row_name.insert_many,
+    },
+
+    crud_insert_many_without_stats_wrapper = {
+        prepare = function(g)
+            g.router:eval([[
+                rawset(_G, '_plain_insert_many', require('crud.insert_many').tuples)
+            ]])
+        end,
+        call = '_plain_insert_many',
+        params = batch_insert_params,
+        matrix = { [''] = { column_name = column_name.without_stats_wrapper } },
+        integration_params = integration_params,
+        perf_params = batch_insert_comparison_perf,
+        row_name = row_name.insert_many,
     },
 
     vshard_select_pk_eq = {
@@ -876,14 +958,55 @@ local cases = {
         perf_params = pairs_perf,
         row_name = row_name.pairs_gt,
     },
+
+    crud_insert_loop = {
+        prepare = function(g)
+            g.router:eval([[
+                _insert_loop = function(space_name, tuples)
+                    local results
+                    local errors
+
+                    for _, tuple in ipairs(tuples) do
+                         local res, err = crud.insert(space_name, tuple)
+                         if res ~= nil then
+                             results = results or {}
+                             table.insert(results, res)
+                         end
+
+                         if err ~= nil then
+                             errors = errors or {}
+                             table.insert(errors, err)
+                         end
+                    end
+
+                    return results, errors
+                end
+            ]])
+        end,
+        call = '_insert_loop',
+        params = batch_insert_params,
+        matrix = batch_insert_cases.matrix,
+        integration_params = integration_params,
+        perf_params = batch_insert_comparison_perf,
+        row_name = row_name.insert,
+    },
+
+    crud_insert_many_different_batch_size = {
+        call = 'crud.insert_many',
+        params = batch_insert_params,
+        matrix = batch_insert_cases.matrix,
+        integration_params = integration_params,
+        perf_params = batch_insert_comparison_perf,
+        row_name = row_name.insert_many,
+    },
 }
 
-local function generator_f(conn, call, params, report, timeout)
+local function generator_f(conn, call, params, report, timeout, arg)
     local start = clock.monotonic()
 
     while (clock.monotonic() - start) < timeout do
         local call_start = clock.monotonic()
-        local ok, res, err = pcall(conn.call, conn, call, params())
+        local ok, res, err = pcall(conn.call, conn, call, params(arg))
         local call_time = clock.monotonic() - call_start
 
         if not ok then
@@ -947,7 +1070,7 @@ for name, case in pairs(cases) do
             for id = 1, params.fiber_count do
                 local conn_id = id % params.connection_count + 1
                 local conn = connections[conn_id]
-                local f = fiber.new(generator_f, conn, case.call, case.params, report, params.timeout)
+                local f = fiber.new(generator_f, conn, case.call, case.params, report, params.timeout, subcase.arg)
                 f:set_joinable(true)
                 table.insert(fibers, f)
             end
