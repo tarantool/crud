@@ -36,11 +36,11 @@ crud.insert_object = stats.wrap(insert.object, stats.op.INSERT)
 
 -- @refer insert_many.tuples
 -- @function insert_many
-crud.insert_many = insert_many.tuples
+crud.insert_many = stats.wrap(insert_many.tuples, stats.op.INSERT_MANY)
 
 -- @refer insert_many.objects
 -- @function insert_object_many
-crud.insert_object_many = insert_many.objects
+crud.insert_object_many = stats.wrap(insert_many.objects, stats.op.INSERT_MANY)
 
 -- @refer get.call
 -- @function get
@@ -56,11 +56,11 @@ crud.replace_object = stats.wrap(replace.object, stats.op.REPLACE)
 
 -- @refer replace_many.tuples
 -- @function replace_many
-crud.replace_many = replace_many.tuples
+crud.replace_many = stats.wrap(replace_many.tuples, stats.op.REPLACE_MANY)
 
 -- @refer replace_many.objects
 -- @function replace_object_many
-crud.replace_object_many = replace_many.objects
+crud.replace_object_many = stats.wrap(replace_many.objects, stats.op.REPLACE_MANY)
 
 -- @refer update.call
 -- @function update
@@ -72,11 +72,11 @@ crud.upsert = stats.wrap(upsert.tuple, stats.op.UPSERT)
 
 -- @refer upsert_many.tuples
 -- @function upsert_many
-crud.upsert_many = upsert_many.tuples
+crud.upsert_many = stats.wrap(upsert_many.tuples, stats.op.UPSERT_MANY)
 
 -- @refer upsert_many.objects
 -- @function upsert_object_many
-crud.upsert_object_many = upsert_many.objects
+crud.upsert_object_many = stats.wrap(upsert_many.objects, stats.op.UPSERT_MANY)
 
 -- @refer upsert.object
 -- @function upsert
