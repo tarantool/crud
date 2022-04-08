@@ -119,6 +119,10 @@ local function create_new_space(g)
     end)
 end
 
+local function truncate_space_on_cluster(g)
+    helpers.truncate_space_on_cluster(g.cluster, space_name)
+end
+
 -- If there weren't any operations, space stats is {}.
 -- To compute stats diff, this helper return real stats
 -- if they're already present or default stats if
@@ -446,6 +450,8 @@ local function generate_stats(g)
         else
             t.assert_not_equals(err, nil)
         end
+
+        helpers.truncate_space_on_cluster(g.cluster, space_name)
     end
 
     -- Generate non-null select details.
@@ -559,6 +565,8 @@ for name, case in pairs(simple_operation_cases) do
 
         t.assert_equals(unchanged_before, unchanged_after, 'Other stats remained the same')
     end
+
+    pgroup.after_test(test_name, truncate_space_on_cluster)
 end
 
 
