@@ -43,7 +43,7 @@ end
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help
 -- see crud.common.schema.wrap_func_reload()
-local function call_replace_on_router(space_name, tuple, opts)
+local function call_replace_on_router(space_name, original_tuple, opts)
     dev_checks('string', 'table', {
         timeout = '?number',
         bucket_id = '?number|cdata',
@@ -61,6 +61,8 @@ local function call_replace_on_router(space_name, tuple, opts)
     if space == nil then
         return nil, ReplaceError:new("Space %q doesn't exist", space_name), true
     end
+
+    local tuple = table.deepcopy(original_tuple)
 
     local bucket_id, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
     if err ~= nil then

@@ -1008,6 +1008,53 @@ pgroup.test_partial_result_bad_input = function(g)
     t.assert_str_contains(err.err, 'Space format doesn\'t contain field named "lastname"')
 end
 
+pgroup.test_tuple_not_damaged = function(g)
+    -- insert
+    local insert_tuple = {22, box.NULL, 'Elizabeth', 24}
+    local new_insert_tuple, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local insert_tuple = ...
+
+        local _, err = crud.insert('customers', insert_tuple)
+
+        return insert_tuple, err
+    ]], {insert_tuple})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_insert_tuple, insert_tuple)
+
+    -- upsert
+    local upsert_tuple = {33, box.NULL, 'Peter', 35}
+    local new_upsert_tuple, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local upsert_tuple = ...
+
+        local _, err = crud.upsert('customers', upsert_tuple, {{'+', 'age', 1}})
+
+        return upsert_tuple, err
+    ]], {upsert_tuple})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_upsert_tuple, upsert_tuple)
+
+    -- replace
+    local replace_tuple = {22, box.NULL, 'Elizabeth', 24}
+    local new_replace_tuple, err = g.cluster.main_server:eval([[
+        local crud = require('crud')
+
+        local replace_tuple = ...
+
+        local _, err = crud.replace('customers', replace_tuple)
+
+        return replace_tuple, err
+    ]], {replace_tuple})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(new_replace_tuple, replace_tuple)
+end
+
 pgroup.test_opts_not_damaged = function(g)
     -- insert
     local insert_opts = {timeout = 1, bucket_id = 655, fields = {'name', 'age'}}

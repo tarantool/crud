@@ -41,7 +41,7 @@ end
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help
 -- see crud.common.schema.wrap_func_reload()
-local function call_upsert_on_router(space_name, tuple, user_operations, opts)
+local function call_upsert_on_router(space_name, original_tuple, user_operations, opts)
     dev_checks('string', '?', 'table', {
         timeout = '?number',
         bucket_id = '?number|cdata',
@@ -68,6 +68,8 @@ local function call_upsert_on_router(space_name, tuple, user_operations, opts)
             return nil, UpsertError:new("Wrong operations are specified: %s", err), true
         end
     end
+
+    local tuple = table.deepcopy(original_tuple)
 
     local bucket_id, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
     if err ~= nil then
