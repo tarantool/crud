@@ -480,4 +480,12 @@ function helpers.disable_dev_checks()
     os.setenv('DEV', 'OFF')
 end
 
+function helpers.count_on_replace_triggers(server, space_name)
+    return server:eval([[
+        local space = box.space[...]
+        assert(space ~= nil)
+        return #space:on_replace()
+    ]], {space_name})
+end
+
 return helpers
