@@ -5,8 +5,10 @@ local call = require('crud.common.call')
 local const = require('crud.common.const')
 local dev_checks = require('crud.common.dev_checks')
 local cache = require('crud.common.sharding.sharding_metadata_cache')
+local storage_cache = require('crud.common.sharding.storage_metadata_cache')
 local sharding_func = require('crud.common.sharding.sharding_func')
 local sharding_key = require('crud.common.sharding.sharding_key')
+local sharding_utils = require('crud.common.sharding.utils')
 
 local FetchShardingMetadataError = errors.new_class('FetchShardingMetadataError', {capture_stack = false})
 
@@ -39,25 +41,6 @@ local function locked(f)
     end
 end
 
-local function extract_sharding_func_def(tuple)
-    if not tuple then
-        return nil
-    end
-
-    local SPACE_SHARDING_FUNC_NAME_FIELDNO = 2
-    local SPACE_SHARDING_FUNC_BODY_FIELDNO = 3
-
-    if tuple[SPACE_SHARDING_FUNC_BODY_FIELDNO] ~= nil then
-        return {body = tuple[SPACE_SHARDING_FUNC_BODY_FIELDNO]}
-    end
-
-    if tuple[SPACE_SHARDING_FUNC_NAME_FIELDNO] ~= nil then
-        return tuple[SPACE_SHARDING_FUNC_NAME_FIELDNO]
-    end
-
-    return nil
-end
-
 -- Return a map with metadata or nil when spaces box.space._ddl_sharding_key and
 -- box.space._ddl_sharding_func are not available on storage.
 function sharding_metadata_module.fetch_on_storage()
@@ -68,14 +51,12 @@ function sharding_metadata_module.fetch_on_storage()
         return nil
     end
 
-    local SPACE_NAME_FIELDNO = 1
-    local SPACE_SHARDING_KEY_FIELDNO = 2
     local metadata_map = {}
 
     if sharding_key_space ~= nil then
         for _, tuple in sharding_key_space:pairs() do
-            local space_name = tuple[SPACE_NAME_FIELDNO]
-            local sharding_key_def = tuple[SPACE_SHARDING_KEY_FIELDNO]
+            local space_name = tuple[sharding_utils.SPACE_NAME_FIELDNO]
+            local sharding_key_def = tuple[sharding_utils.SPACE_SHARDING_KEY_FIELDNO]
             local space_format = box.space[space_name]:format()
             metadata_map[space_name] = {
                 sharding_key_def = sharding_key_def,
@@ -86,8 +67,8 @@ function sharding_metadata_module.fetch_on_storage()
 
     if sharding_func_space ~= nil then
         for _, tuple in sharding_func_space:pairs() do
-            local space_name = tuple[SPACE_NAME_FIELDNO]
-            local sharding_func_def = extract_sharding_func_def(tuple)
+            local space_name = tuple[sharding_utils.SPACE_NAME_FIELDNO]
+            local sharding_func_def = sharding_utils.extract_sharding_func_def(tuple)
             metadata_map[space_name] = metadata_map[space_name] or {}
             metadata_map[space_name].sharding_func_def = sharding_func_def
         end
