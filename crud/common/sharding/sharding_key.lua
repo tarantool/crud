@@ -102,7 +102,12 @@ function sharding_key_module.construct_as_index_obj_cache(metadata_map, specifie
 
     local result_err
 
-    cache.sharding_key_as_index_obj_map = {}
+    cache[cache.SHARDING_KEY_MAP_NAME] = {}
+    local key_cache = cache[cache.SHARDING_KEY_MAP_NAME]
+
+    cache[cache.META_HASH_MAP_NAME][cache.SHARDING_KEY_MAP_NAME] = {}
+    local key_hash_cache = cache[cache.META_HASH_MAP_NAME][cache.SHARDING_KEY_MAP_NAME]
+
     for space_name, metadata in pairs(metadata_map) do
         if metadata.sharding_key_def ~= nil then
             local sharding_key_as_index_obj, err = as_index_object(space_name,
@@ -117,7 +122,8 @@ function sharding_key_module.construct_as_index_obj_cache(metadata_map, specifie
                 end
             end
 
-            cache.sharding_key_as_index_obj_map[space_name] = sharding_key_as_index_obj
+            key_cache[space_name] = sharding_key_as_index_obj
+            key_hash_cache[space_name] = metadata.sharding_key_hash
         end
     end
 

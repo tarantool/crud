@@ -82,7 +82,12 @@ function sharding_func_module.construct_as_callable_obj_cache(metadata_map, spec
 
     local result_err
 
-    cache.sharding_func_map = {}
+    cache[cache.SHARDING_FUNC_MAP_NAME] = {}
+    local func_cache = cache[cache.SHARDING_FUNC_MAP_NAME]
+
+    cache[cache.META_HASH_MAP_NAME][cache.SHARDING_FUNC_MAP_NAME] = {}
+    local func_hash_cache = cache[cache.META_HASH_MAP_NAME][cache.SHARDING_FUNC_MAP_NAME]
+
     for space_name, metadata in pairs(metadata_map) do
         if metadata.sharding_func_def ~= nil then
             local sharding_func, err = as_callable_object(metadata.sharding_func_def,
@@ -96,7 +101,8 @@ function sharding_func_module.construct_as_callable_obj_cache(metadata_map, spec
                 end
             end
 
-            cache.sharding_func_map[space_name] = sharding_func
+            func_cache[space_name] = sharding_func
+            func_hash_cache[space_name] = metadata.sharding_func_hash
         end
     end
 
