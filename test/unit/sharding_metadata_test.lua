@@ -3,7 +3,7 @@ local ffi = require('ffi')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 local sharding_key_module = require('crud.common.sharding.sharding_key')
 local sharding_func_module = require('crud.common.sharding.sharding_func')
-local cache = require('crud.common.sharding.sharding_metadata_cache')
+local cache = require('crud.common.sharding.router_metadata_cache')
 local utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
