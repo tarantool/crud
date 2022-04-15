@@ -2,7 +2,7 @@ local errors = require('errors')
 local log = require('log')
 
 local dev_checks = require('crud.common.dev_checks')
-local cache = require('crud.common.sharding.sharding_metadata_cache')
+local cache = require('crud.common.sharding.router_metadata_cache')
 local utils = require('crud.common.utils')
 
 local ShardingFuncError = errors.new_class('ShardingFuncError',  {capture_stack = false})
