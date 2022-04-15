@@ -60,6 +60,7 @@ function sharding_metadata_module.fetch_on_storage()
             local space_format = box.space[space_name]:format()
             metadata_map[space_name] = {
                 sharding_key_def = sharding_key_def,
+                sharding_key_hash = storage_cache.get_sharding_key_hash(space_name),
                 space_format = space_format,
             }
         end
@@ -71,6 +72,7 @@ function sharding_metadata_module.fetch_on_storage()
             local sharding_func_def = sharding_utils.extract_sharding_func_def(tuple)
             metadata_map[space_name] = metadata_map[space_name] or {}
             metadata_map[space_name].sharding_func_def = sharding_func_def
+            metadata_map[space_name].sharding_func_hash = storage_cache.get_sharding_func_hash(space_name)
         end
     end
 
@@ -99,6 +101,10 @@ local _fetch_on_router = locked(function(timeout, space_name, metadata_map_name)
     if metadata_map == nil then
         cache[cache.SHARDING_KEY_MAP_NAME] = {}
         cache[cache.SHARDING_FUNC_MAP_NAME] = {}
+        cache[cache.META_HASH_MAP_NAME] = {
+            [cache.SHARDING_KEY_MAP_NAME] = {},
+            [cache.SHARDING_FUNC_MAP_NAME] = {},
+        }
         return
     end
 

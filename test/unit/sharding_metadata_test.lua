@@ -3,7 +3,9 @@ local ffi = require('ffi')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 local sharding_key_module = require('crud.common.sharding.sharding_key')
 local sharding_func_module = require('crud.common.sharding.sharding_func')
+local sharding_utils = require('crud.common.sharding.utils')
 local cache = require('crud.common.sharding.router_metadata_cache')
+local storage_cache = require('crud.common.sharding.storage_metadata_cache')
 local utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
@@ -55,6 +57,7 @@ g.after_each(function()
 
     box.space.fetch_on_storage:drop()
     cache.drop_caches()
+    storage_cache.drop_caches()
 end)
 
 g.test_as_index_object_positive = function()
@@ -119,7 +122,9 @@ g.test_fetch_sharding_metadata_on_storage_positive = function()
     t.assert_equals(metadata_map, {
         [space_name] = {
             sharding_key_def = sharding_key_def,
+            sharding_key_hash = sharding_utils.compute_hash(sharding_key_def),
             sharding_func_def = sharding_func_def,
+            sharding_func_hash = sharding_utils.compute_hash(sharding_func_def),
             space_format = {}
         },
     })
@@ -137,6 +142,7 @@ g.test_fetch_sharding_key_on_storage_positive = function()
     t.assert_equals(metadata_map, {
         [space_name] = {
             sharding_key_def = sharding_key_def,
+            sharding_key_hash = sharding_utils.compute_hash(sharding_key_def),
             space_format = {}
         },
     })
@@ -154,6 +160,7 @@ g.test_fetch_sharding_func_name_on_storage_positive = function()
     t.assert_equals(metadata_map, {
         [space_name] = {
             sharding_func_def = sharding_func_def,
+            sharding_func_hash = sharding_utils.compute_hash(sharding_func_def),
         },
     })
 end
@@ -170,6 +177,7 @@ g.test_fetch_sharding_func_body_on_storage_positive = function()
     t.assert_equals(metadata_map, {
         [space_name] = {
             sharding_func_def = {body = sharding_func_def},
+            sharding_func_hash = sharding_utils.compute_hash({body = sharding_func_def}),
         },
     })
 end
