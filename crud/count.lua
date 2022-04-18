@@ -4,6 +4,7 @@ local vshard = require('vshard')
 local fiber = require('fiber')
 
 local call = require('crud.common.call')
+local const = require('crud.common.const')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local filters = require('crud.compare.filters')
@@ -122,7 +123,7 @@ local function call_count_on_router(space_name, user_conditions, opts)
 
     local space = utils.get_space(space_name, replicasets)
     if space == nil then
-        return nil, CountError:new("Space %q doesn't exist", space_name), true
+        return nil, CountError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
     end
 
     local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
@@ -135,7 +136,7 @@ local function call_count_on_router(space_name, user_conditions, opts)
         sharding_key_as_index_obj = sharding_key_data.value,
     })
     if err ~= nil then
-        return nil, CountError:new("Failed to plan count: %s", err), true
+        return nil, CountError:new("Failed to plan count: %s", err), const.NEED_SCHEMA_RELOAD
     end
 
     -- set replicasets to count from
@@ -188,7 +189,7 @@ local function call_count_on_router(space_name, user_conditions, opts)
         local err
         replicasets_to_count, err = sharding.get_replicasets_by_bucket_id(bucket_id_data.bucket_id)
         if err ~= nil then
-            return nil, err, true
+            return nil, err, const.NEED_SCHEMA_RELOAD
         end
     else
         skip_sharding_hash_check = true
@@ -219,7 +220,13 @@ local function call_count_on_router(space_name, user_conditions, opts)
     }, call_opts)
 
     if err ~= nil then
-        return nil, CountError:new("Failed to call count on storage-side: %s", err)
+        local err_wrapped = CountError:new("Failed to call count on storage-side: %s", err)
+
+        if sharding.result_needs_sharding_reload(err) then
+            return nil, err_wrapped, const.NEED_SHARDING_RELOAD
+        end
+
+        return nil, err_wrapped
     end
 
     if results.err ~= nil then
@@ -289,7 +296,8 @@ function count.call(space_name, user_conditions, opts)
         mode = '?string',
     })
 
-    return schema.wrap_func_reload(call_count_on_router, space_name, user_conditions, opts)
+    return schema.wrap_func_reload(sharding.wrap_method,
+                                   call_count_on_router, space_name, user_conditions, opts)
 end
 
 return count

@@ -20,12 +20,12 @@ local pgroup_new_space = t.group('ddl_sharding_info_on_new_space', {
     {engine = 'vinyl'},
 })
 
-local pgroup_key_change = t.group('ddl_sharding_key_after_schema_change', {
+local pgroup_key_change = t.group('ddl_sharding_key_reload_after_schema_change', {
     {engine = 'memtx'},
     {engine = 'vinyl'},
 })
 
-local pgroup_func_change = t.group('ddl_sharding_func_after_schema_change', {
+local pgroup_func_change = t.group('ddl_sharding_func_reload_after_schema_change', {
     {engine = 'memtx'},
     {engine = 'vinyl'},
 })
@@ -281,40 +281,52 @@ for _, sharding_case in pairs(sharding_cases) do
 end
 
 
--- Test using outdated metainfo for a new space returns error.
+-- Test metainfo is updated on router if new space added to ddl.
 
 local test_tuple = {1, box.NULL, 'Emma', 22}
 local test_object = { id = 1, bucket_id = box.NULL, name = 'Emma', age = 22 }
+
+-- Sharded by "name" and computed with custom sharding function.
+local test_customers_new_result = {
+    s1 = {1, 2861, 'Emma', 22},
+    s2 = nil,
+}
 
 local new_space_cases = {
     insert = {
         func = 'crud.insert',
         input = {'customers_new', test_tuple},
+        result = test_customers_new_result,
     },
     insert_object = {
         func = 'crud.insert_object',
         input = {'customers_new', test_object},
+        result = test_customers_new_result,
     },
     replace = {
         func = 'crud.replace',
         input = {'customers_new', test_tuple},
+        result = test_customers_new_result,
     },
     replace_object = {
         func = 'crud.replace_object',
         input = {'customers_new', test_object},
+        result = test_customers_new_result,
     },
     upsert = {
         func = 'crud.upsert',
         input = {'customers_new', test_tuple, {}},
+        result = test_customers_new_result,
     },
     upsert_object = {
         func = 'crud.upsert_object',
         input = {'customers_new', test_object, {}},
+        result = test_customers_new_result,
     },
 }
 
 for name, case in pairs(new_space_cases) do
-    local test_name = ('test_%s_with_outdated_info_returns_error'):format(name)
+    local test_name = ('test_%s'):format(name)
 
     pgroup_new_space[test_name] = function(g)
         -- Create space 'customers_new', sharded by 'name'.
@@ -322,11 +334,19 @@ for name, case in pairs(new_space_cases) do
             server.net_box:call('create_new_space')
         end)
 
+        -- Assert it is now possible to call opertions for a new space.
         local obj, err = g.cluster.main_server.net_box:call(case.func, case.input)
-        t.assert_equals(obj, nil)
-        t.assert_type(err, 'table')
-        t.assert_str_contains(err.str,
-                              "Please refresh sharding data and retry your request")
+        t.assert_is_not(obj, nil)
+        t.assert_equals(err, nil)
+
+        -- Assert it is sharded based on updated ddl info.
+        local conn_s1 = g.cluster:server('s1-master').net_box
+        local result = conn_s1.space['customers_new']:get(1)
+        t.assert_equals(result, case.result.s1)
+
+        local conn_s2 = g.cluster:server('s2-master').net_box
+        local result = conn_s2.space['customers_new']:get(1)
+        t.assert_equals(result, case.result.s2)
     end
 end
 
@@ -334,9 +354,10 @@ end
 -- Test using outdated sharding key info returns error.
 
 -- Sharded by "age".
+local test_customers_age_tuple = {1, 655, 'Emma', 22}
 local test_customers_age_result = {
     s1 = nil,
-    s2 = {1, 655, 'Emma', 22},
+    s2 = test_customers_age_tuple,
 }
 
 local function setup_customers_migrated_data(g)
@@ -354,51 +375,37 @@ local schema_change_sharding_key_cases = {
     insert = {
         func = 'crud.insert',
         input = {'customers', test_tuple},
+        result = test_customers_age_result,
     },
     insert_object = {
         func = 'crud.insert_object',
         input = {'customers', test_object},
+        result = test_customers_age_result,
     },
     replace = {
         func = 'crud.replace',
         input = {'customers', test_tuple},
+        result = test_customers_age_result,
     },
     replace_object = {
         func = 'crud.replace_object',
         input = {'customers', test_object},
+        result = test_customers_age_result,
     },
     upsert = {
         func = 'crud.upsert',
         input = {'customers', test_tuple, {}},
+        result = test_customers_age_result,
     },
     upsert_object = {
         func = 'crud.upsert_object',
         input = {'customers', test_object, {}},
-    },
-    select = {
-        before_test = setup_customers_migrated_data,
-        func = 'crud.select',
-        input = {
-            'customers',
-            {{'==', 'id', 1}, {'==', 'name', 'Emma'}, {'==', 'age', 22}}
-        },
-    },
-    count = {
-        before_test = setup_customers_migrated_data,
-        func = 'crud.count',
-        input = {
-            'customers',
-            {{'==', 'id', 1}, {'==', 'name', 'Emma'}, {'==', 'age', 22}}
-        },
+        result = test_customers_age_result,
     },
 }
 
 for name, case in pairs(schema_change_sharding_key_cases) do
-    local test_name = ('test_%s_with_outdated_info_returns_error'):format(name)
-
-    if case.before_test ~= nil then
-        pgroup_key_change.before_test(test_name, case.before_test)
-    end
+    local test_name = ('test_%s'):format(name)
 
     pgroup_key_change[test_name] = function(g)
         -- Change schema to shard 'customers' by 'age'.
@@ -406,12 +413,57 @@ for name, case in pairs(schema_change_sharding_key_cases) do
             server.net_box:call('set_sharding_key', {'customers', {'age'}})
         end)
 
+        -- Assert operation bucket_id is computed based on updated ddl info.
         local obj, err = g.cluster.main_server.net_box:call(case.func, case.input)
-        t.assert_equals(obj, nil)
-        t.assert_type(err, 'table')
-        t.assert_str_contains(err.str,
-                              "Please refresh sharding data and retry your request")
+        t.assert_is_not(obj, nil)
+        t.assert_equals(err, nil)
+
+        local conn_s1 = g.cluster:server('s1-master').net_box
+        local result = conn_s1.space['customers']:get(1)
+        t.assert_equals(result, case.result.s1)
+
+        local conn_s2 = g.cluster:server('s2-master').net_box
+        local result = conn_s2.space['customers']:get(1)
+        t.assert_equals(result, case.result.s2)
     end
+end
+
+pgroup_key_change.before_test('test_select', setup_customers_migrated_data)
+
+pgroup_key_change.test_select = function(g)
+    -- Change schema to shard 'customers' by 'age'.
+    helpers.call_on_storages(g.cluster, function(server)
+        server.net_box:call('set_sharding_key', {'customers', {'age'}})
+    end)
+
+    -- Assert operation bucket_id is computed based on updated ddl info.
+    local obj, err = g.cluster.main_server.net_box:call(
+        'crud.select',
+        {
+            'customers',
+            {{'==', 'id', 1}, {'==', 'name', 'Emma'}, {'==', 'age', 22}},
+        })
+    t.assert_equals(err, nil)
+    t.assert_equals(obj.rows, {test_customers_age_tuple})
+end
+
+pgroup_key_change.before_test('test_count', setup_customers_migrated_data)
+
+pgroup_key_change.test_count = function(g)
+    -- Change schema to shard 'customers' by 'age'.
+    helpers.call_on_storages(g.cluster, function(server)
+        server.net_box:call('set_sharding_key', {'customers', {'age'}})
+    end)
+
+    -- Assert operation bucket_id is computed based on updated ddl info.
+    local obj, err = g.cluster.main_server.net_box:call(
+        'crud.count',
+        {
+            'customers',
+            {{'==', 'id', 1}, {'==', 'name', 'Emma'}, {'==', 'age', 22}},
+        })
+    t.assert_equals(err, nil)
+    t.assert_equals(obj, 1)
 end
 
 local pairs_eval = [[
@@ -422,17 +474,17 @@ local pairs_eval = [[
     return res
 ]]
 
-pgroup_key_change.before_test('test_pairs_with_outdated_info_throws_error',
-                              setup_customers_migrated_data)
+pgroup_key_change.before_test('test_pairs', setup_customers_migrated_data)
 
-pgroup_key_change.test_pairs_with_outdated_info_throws_error = function(g)
+pgroup_key_change.test_pairs = function(g)
     -- Change schema to shard 'customers' by 'age'.
     helpers.call_on_storages(g.cluster, function(server)
         server.net_box:call('set_sharding_key', {'customers', {'age'}})
     end)
 
+    -- First pairs request fails and reloads sharding info.
     t.assert_error_msg_contains(
-        "Sharding hash mismatch for space customers",
+        "Please retry your request",
         g.cluster.main_server.net_box.eval,
         g.cluster.main_server.net_box,
         pairs_eval,
@@ -440,15 +492,26 @@ pgroup_key_change.test_pairs_with_outdated_info_throws_error = function(g)
             'customers',
             {{'==', 'id', 1}, {'==', 'name', 'Emma'}, {'==', 'age', 22}}
         })
+
+    -- Assert operation bucket_id is computed based on updated ddl info.
+    local obj, err = g.cluster.main_server.net_box:eval(
+        pairs_eval,
+        {
+            'customers',
+            {{'==', 'id', 1}, {'==', 'name', 'Emma'}, {'==', 'age', 22}},
+        })
+    t.assert_equals(err, nil)
+    t.assert_equals(obj, {test_customers_age_tuple})
 end
 
 
 -- Test using outdated sharding func info returns error.
 
 -- Sharded by 'id' with custom sharding function.
+local test_customers_pk_func_tuple = {1, 44, "Emma", 22}
 local test_customers_pk_func = {
     s1 = nil,
-    s2 = {1, 44, "Emma", 22},
+    s2 = test_customers_pk_func_tuple,
 }
 
 local function setup_customers_pk_migrated_data(g)
@@ -466,56 +529,52 @@ local schema_change_sharding_func_cases = {
     insert = {
         func = 'crud.insert',
         input = {'customers_pk', test_tuple},
+        result = test_customers_pk_func,
     },
     insert_object = {
         func = 'crud.insert_object',
         input = {'customers_pk', test_object},
+        result = test_customers_pk_func,
     },
     replace = {
         func = 'crud.replace',
         input = {'customers_pk', test_tuple},
+        result = test_customers_pk_func,
     },
     replace_object = {
         func = 'crud.replace_object',
         input = {'customers_pk', test_object},
+        result = test_customers_pk_func,
     },
     upsert = {
         func = 'crud.upsert',
         input = {'customers_pk', test_tuple, {}},
+        result = test_customers_pk_func,
     },
     upsert_object = {
         func = 'crud.upsert_object',
         input = {'customers_pk', test_object, {}},
-    },
-    get = {
-        before_test = setup_customers_pk_migrated_data,
-        func = 'crud.get',
-        input = {'customers_pk', 1},
+        result = test_customers_pk_func,
     },
     delete = {
         before_test = setup_customers_pk_migrated_data,
         func = 'crud.delete',
         input = {'customers_pk', 1},
+        result = {},
     },
     update = {
         before_test = setup_customers_pk_migrated_data,
         func = 'crud.update',
         input = {'customers_pk', 1, {{'+', 4, 1}}},
-    },
-    select = {
-        before_test = setup_customers_pk_migrated_data,
-        func = 'crud.select',
-        input = {'customers_pk', {{'==', 'id', 1}}},
-    },
-    count = {
-        before_test = setup_customers_pk_migrated_data,
-        func = 'crud.count',
-        input = {'customers_pk', {{'==', 'id', 1}}},
+        result = {
+            s1 = nil,
+            s2 = {1, 44, "Emma", 23},
+        },
     },
 }
 
 for name, case in pairs(schema_change_sharding_func_cases) do
-    local test_name = ('test_%s_with_outdated_info_returns_error'):format(name)
+    local test_name = ('test_%s'):format(name)
 
     if case.before_test ~= nil then
         pgroup_func_change.before_test(test_name, case.before_test)
@@ -528,18 +587,73 @@ for name, case in pairs(schema_change_sharding_func_cases) do
                                 {'customers_pk', 'customers_module.sharding_func_new'})
         end)
 
+        -- Assert operation bucket_id is computed based on updated ddl info.
         local obj, err = g.cluster.main_server.net_box:call(case.func, case.input)
-        t.assert_equals(obj, nil)
-        t.assert_type(err, 'table')
-        t.assert_str_contains(err.str,
-                              "Please refresh sharding data and retry your request")
+        t.assert_is_not(obj, nil)
+        t.assert_equals(err, nil)
+
+        local conn_s1 = g.cluster:server('s1-master').net_box
+        local result = conn_s1.space['customers_pk']:get(1)
+        t.assert_equals(result, case.result.s1)
+
+        local conn_s2 = g.cluster:server('s2-master').net_box
+        local result = conn_s2.space['customers_pk']:get(1)
+        t.assert_equals(result, case.result.s2)
     end
 end
 
-pgroup_func_change.before_test('test_pairs_with_outdated_info_throws_error',
-                               setup_customers_migrated_data)
+pgroup_func_change.before_test('test_select', setup_customers_pk_migrated_data)
 
-pgroup_func_change.test_pairs_with_outdated_info_throws_error = function(g)
+pgroup_func_change.test_select = function(g)
+    -- Change schema to shard 'customers_pk' with another sharding function.
+    helpers.call_on_storages(g.cluster, function(server)
+        server.net_box:call('set_sharding_func_name',
+                            {'customers_pk', 'customers_module.sharding_func_new'})
+    end)
+
+    -- Assert operation bucket_id is computed based on updated ddl info.
+    local obj, err = g.cluster.main_server.net_box:call(
+        'crud.select',
+        {'customers_pk', {{'==', 'id', 1}}})
+    t.assert_equals(err, nil)
+    t.assert_equals(obj.rows, {test_customers_pk_func_tuple})
+end
+
+pgroup_func_change.before_test('test_get', setup_customers_pk_migrated_data)
+
+pgroup_func_change.test_get = function(g)
+    -- Change schema to shard 'customers_pk' with another sharding function.
+    helpers.call_on_storages(g.cluster, function(server)
+        server.net_box:call('set_sharding_func_name',
+                            {'customers_pk', 'customers_module.sharding_func_new'})
+    end)
+
+    -- Assert operation bucket_id is computed based on updated ddl info.
+    local obj, err = g.cluster.main_server.net_box:call('crud.get', {'customers_pk', 1})
+    t.assert_equals(err, nil)
+    t.assert_equals(obj.rows, {test_customers_pk_func_tuple})
+end
+
+pgroup_func_change.before_test('test_count', setup_customers_pk_migrated_data)
+
+pgroup_func_change.test_count = function(g)
+    -- Change schema to shard 'customers_pk' with another sharding function.
+    helpers.call_on_storages(g.cluster, function(server)
+        server.net_box:call('set_sharding_func_name',
+                            {'customers_pk', 'customers_module.sharding_func_new'})
+    end)
+
+    -- Assert operation bucket_id is computed based on updated ddl info.
+    local obj, err = g.cluster.main_server.net_box:call(
+        'crud.count',
+        {'customers_pk', {{'==', 'id', 1}}})
+    t.assert_equals(err, nil)
+    t.assert_equals(obj, 1)
+end
+
+pgroup_func_change.before_test('test_pairs', setup_customers_pk_migrated_data)
+
+pgroup_func_change.test_pairs = function(g)
     -- Change schema to shard 'customers_pk' with another sharding function.
     helpers.call_on_storages(g.cluster, function(server)
         server.net_box:call('set_sharding_func_name',
@@ -547,9 +661,16 @@ pgroup_func_change.test_pairs_with_outdated_info_throws_error = function(g)
     end)
 
     t.assert_error_msg_contains(
-        "Please refresh sharding data and retry your request",
+        "Please retry your request",
         g.cluster.main_server.net_box.eval,
         g.cluster.main_server.net_box,
         pairs_eval,
         {'customers_pk', {{'==', 'id', 1}}})
+
+    -- Assert operation bucket_id is computed based on updated ddl info.
+    local obj, err = g.cluster.main_server.net_box:eval(
+        pairs_eval,
+        {'customers_pk', {{'==', 'id', 1}}})
+    t.assert_equals(err, nil)
+    t.assert_equals(obj, {test_customers_pk_func_tuple})
 end

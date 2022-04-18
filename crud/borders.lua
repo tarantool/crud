@@ -2,6 +2,7 @@ local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
 
+local const = require('crud.common.const')
 local dev_checks = require('crud.common.dev_checks')
 local call = require('crud.common.call')
 local utils = require('crud.common.utils')
@@ -76,7 +77,7 @@ local function call_get_border_on_router(border_name, space_name, index_name, op
 
     local space = utils.get_space(space_name, vshard.router.routeall())
     if space == nil then
-        return nil, BorderError:new("Space %q doesn't exist", space_name), true
+        return nil, BorderError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
     end
 
     local index
@@ -87,7 +88,9 @@ local function call_get_border_on_router(border_name, space_name, index_name, op
     end
 
     if index == nil then
-        return nil, BorderError:new("Index %q of space %q doesn't exist", index_name, space_name), true
+        return nil,
+               BorderError:new("Index %q of space %q doesn't exist", index_name, space_name),
+               const.NEED_SCHEMA_RELOAD
     end
 
     local primary_index = space.index[0]
@@ -131,8 +134,14 @@ local function call_get_border_on_router(border_name, space_name, index_name, op
     for _, storage_result in pairs(results) do
         local storage_result = storage_result[1]
         if storage_result.err ~= nil then
+            local err_wrapped = BorderError:new("Failed to get %s: %s", border_name, storage_result.err)
+
             local need_reload = schema.result_needs_reload(space, storage_result)
-            return nil, BorderError:new("Failed to get %s: %s", border_name, storage_result.err), need_reload
+            if need_reload then
+                return nil, err_wrapped, const.NEED_SCHEMA_RELOAD
+            end
+
+            return nil, err_wrapped
         end
 
         local tuple = storage_result.res

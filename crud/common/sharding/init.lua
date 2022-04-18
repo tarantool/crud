@@ -3,12 +3,13 @@ local errors = require('errors')
 
 local BucketIDError = errors.new_class("BucketIDError", {capture_stack = false})
 local GetReplicasetsError = errors.new_class('GetReplicasetsError', {capture_stack = false})
-local ShardingHashMismatchError = errors.new_class("ShardingHashMismatchError", {capture_stack = false})
 
+local const = require('crud.common.const')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 local storage_metadata_cache = require('crud.common.sharding.storage_metadata_cache')
+local sharding_utils = require('crud.common.sharding.utils')
 
 local sharding = {}
 
@@ -114,12 +115,72 @@ function sharding.check_sharding_hash(space_name, sharding_func_hash, sharding_k
 
     if storage_func_hash ~= sharding_func_hash or storage_key_hash ~= sharding_key_hash then
         local err_msg = ('crud: Sharding hash mismatch for space %s. ' ..
-                         'Please refresh sharding data and retry your request.'
+                         'Sharding info will be refreshed after receiving this error. ' ..
+                         'Please retry your request.'
                         ):format(space_name)
-        return nil, ShardingHashMismatchError:new(err_msg)
+        return nil, sharding_utils.ShardingHashMismatchError:new(err_msg)
     end
 
     return true
+end
+
+function sharding.result_needs_sharding_reload(err)
+    return err.class_name == sharding_utils.ShardingHashMismatchError.name
+end
+
+function sharding.wrap_method(method, space_name, ...)
+    local i = 0
+
+    local res, err, need_reload
+    while true do
+        res, err, need_reload = method(space_name, ...)
+
+        if err == nil or need_reload ~= const.NEED_SHARDING_RELOAD then
+            break
+        end
+
+        sharding_metadata_module.reload_sharding_cache(space_name)
+
+        i = i + 1
+
+        if i > const.SHARDING_RELOAD_RETRIES_NUM then
+            break
+        end
+    end
+
+    return res, err, need_reload
+end
+
+-- This wrapper assumes reload is performed inside the method and
+-- expect ShardingHashMismatchError error to be thrown.
+function sharding.wrap_select_method(method, space_name, ...)
+    local i = 0
+
+    local ok, res, err
+    while true do
+        ok, res, err = pcall(method, space_name, ...)
+
+        if ok == true then
+            break
+        end
+
+        -- Error thrown from merger casted to string,
+        -- so the only way to identify it is string.find.
+        local str_err = tostring(res)
+        if (str_err:find(sharding_utils.ShardingHashMismatchError.name) == nil) then
+            error(res)
+        end
+
+        -- Reload is performed inside the merger.
+
+        i = i + 1
+
+        if i > const.SHARDING_RELOAD_RETRIES_NUM then
+            error(res)
+        end
+    end
+
+    return res, err
 end
 
 return sharding

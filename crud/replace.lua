@@ -3,6 +3,7 @@ local errors = require('errors')
 local vshard = require('vshard')
 
 local call = require('crud.common.call')
+local const = require('crud.common.const')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
@@ -66,18 +67,18 @@ local function call_replace_on_router(space_name, original_tuple, opts)
 
     local space, err = utils.get_space(space_name, vshard.router.routeall())
     if err ~= nil then
-        return nil, ReplaceError:new("Failed to get space %q: %s", space_name, err), true
+        return nil, ReplaceError:new("Failed to get space %q: %s", space_name, err), const.NEED_SCHEMA_RELOAD
     end
 
     if space == nil then
-        return nil, ReplaceError:new("Space %q doesn't exist", space_name), true
+        return nil, ReplaceError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
     end
 
     local tuple = table.deepcopy(original_tuple)
 
     local sharding_data, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
     if err ~= nil then
-        return nil, ReplaceError:new("Failed to get bucket ID: %s", err), true
+        return nil, ReplaceError:new("Failed to get bucket ID: %s", err), const.NEED_SCHEMA_RELOAD
     end
 
     local replace_on_storage_opts = {
@@ -98,12 +99,23 @@ local function call_replace_on_router(space_name, original_tuple, opts)
     )
 
     if err ~= nil then
-        return nil, ReplaceError:new("Failed to call replace on storage-side: %s", err)
+        local err_wrapped = ReplaceError:new("Failed to call replace on storage-side: %s", err)
+
+        if sharding.result_needs_sharding_reload(err) then
+            return nil, err_wrapped, const.NEED_SHARDING_RELOAD
+        end
+
+        return nil, err_wrapped
     end
 
     if storage_result.err ~= nil then
-        local need_reload = schema.result_needs_reload(space, storage_result)
-        return nil, ReplaceError:new("Failed to replace: %s", storage_result.err), need_reload
+        local err_wrapped = ReplaceError:new("Failed to replace: %s", storage_result.err)
+
+        if schema.result_needs_reload(space, storage_result) then
+            return nil, err_wrapped, const.NEED_SCHEMA_RELOAD
+        end
+
+        return nil, err_wrapped
     end
 
     local tuple = storage_result.res
@@ -140,7 +152,8 @@ function replace.tuple(space_name, tuple, opts)
         fields = '?table',
     })
 
-    return schema.wrap_func_reload(call_replace_on_router, space_name, tuple, opts)
+    return schema.wrap_func_reload(sharding.wrap_method,
+                                   call_replace_on_router, space_name, tuple, opts)
 end
 
 --- Insert or replace an object in the specified space

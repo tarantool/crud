@@ -4,6 +4,7 @@ local vshard = require('vshard')
 local fun = require('fun')
 local bit = require('bit')
 
+local const = require('crud.common.const')
 local schema = require('crud.common.schema')
 local dev_checks = require('crud.common.dev_checks')
 
@@ -631,12 +632,12 @@ end
 local function flatten_obj(space_name, obj)
     local space_format, err = utils.get_space_format(space_name, vshard.router.routeall())
     if err ~= nil then
-        return nil, FlattenError:new("Failed to get space format: %s", err), true
+        return nil, FlattenError:new("Failed to get space format: %s", err), const.NEED_SCHEMA_RELOAD
     end
 
     local tuple, err = utils.flatten(obj, space_format)
     if err ~= nil then
-        return nil, FlattenError:new("Object is specified in bad format: %s", err), true
+        return nil, FlattenError:new("Object is specified in bad format: %s", err), const.NEED_SCHEMA_RELOAD
     end
 
     return tuple
