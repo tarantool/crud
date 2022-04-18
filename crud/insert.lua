@@ -18,6 +18,8 @@ local function insert_on_storage(space_name, tuple, opts)
     dev_checks('string', 'table', {
         add_space_schema_hash = '?boolean',
         fields = '?table',
+        sharding_key_hash = '?number',
+        sharding_func_hash = '?number',
     })
 
     opts = opts or {}
@@ -25,6 +27,15 @@ local function insert_on_storage(space_name, tuple, opts)
     local space = box.space[space_name]
     if space == nil then
         return nil, InsertError:new("Space %q doesn't exist", space_name)
+    end
+
+    local _, err = sharding.check_sharding_hash(space_name,
+                                                opts.sharding_func_hash,
+                                                opts.sharding_key_hash,
+                                                opts.skip_sharding_hash_check)
+
+    if err ~= nil then
+        return nil, err
     end
 
     -- add_space_schema_hash is true only in case of insert_object
@@ -60,7 +71,7 @@ local function call_insert_on_router(space_name, original_tuple, opts)
 
     local tuple = table.deepcopy(original_tuple)
 
-    local bucket_id, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
+    local sharding_data, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
     if err ~= nil then
         return nil, InsertError:new("Failed to get bucket ID: %s", err), true
     end
@@ -68,14 +79,17 @@ local function call_insert_on_router(space_name, original_tuple, opts)
     local insert_on_storage_opts = {
         add_space_schema_hash = opts.add_space_schema_hash,
         fields = opts.fields,
+        sharding_func_hash = sharding_data.sharding_func_hash,
+        sharding_key_hash = sharding_data.sharding_key_hash,
     }
 
     local call_opts = {
         mode = 'write',
         timeout = opts.timeout,
     }
+
     local storage_result, err = call.single(
-        bucket_id, INSERT_FUNC_NAME,
+        sharding_data.bucket_id, INSERT_FUNC_NAME,
         {space_name, tuple, insert_on_storage_opts},
         call_opts
     )

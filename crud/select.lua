@@ -1,6 +1,7 @@
 local errors = require('errors')
 
 local utils = require('crud.common.utils')
+local sharding = require('crud.common.sharding')
 local select_executor = require('crud.select.executor')
 local select_filters = require('crud.compare.filters')
 local dev_checks = require('crud.common.dev_checks')
@@ -38,6 +39,9 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         limit = 'number',
         scan_condition_num = '?number',
         field_names = '?table',
+        sharding_key_hash = '?number',
+        sharding_func_hash = '?number',
+        skip_sharding_hash_check = '?boolean',
     })
 
     local space = box.space[space_name]
@@ -48,6 +52,15 @@ local function select_on_storage(space_name, index_id, conditions, opts)
     local index = space.index[index_id]
     if index == nil then
         return nil, SelectError:new("Index with ID %s doesn't exist", index_id)
+    end
+
+    local _, err = sharding.check_sharding_hash(space_name,
+                                                opts.sharding_func_hash,
+                                                opts.sharding_key_hash,
+                                                opts.skip_sharding_hash_check)
+
+    if err ~= nil then
+        return nil, err
     end
 
     local filter_func, err = select_filters.gen_func(space, conditions, {
