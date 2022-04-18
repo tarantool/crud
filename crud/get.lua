@@ -16,12 +16,27 @@ local get = {}
 
 local GET_FUNC_NAME = '_crud.get_on_storage'
 
-local function get_on_storage(space_name, key, field_names)
-    dev_checks('string', '?', '?table')
+local function get_on_storage(space_name, key, field_names, opts)
+    dev_checks('string', '?', '?table', {
+        sharding_key_hash = '?number',
+        sharding_func_hash = '?number',
+        skip_sharding_hash_check = '?boolean',
+    })
+
+    opts = opts or {}
 
     local space = box.space[space_name]
     if space == nil then
         return nil, GetError:new("Space %q doesn't exist", space_name)
+    end
+
+    local _, err = sharding.check_sharding_hash(space_name,
+                                                opts.sharding_func_hash,
+                                                opts.sharding_key_hash,
+                                                opts.skip_sharding_hash_check)
+
+    if err ~= nil then
+        return nil, err
     end
 
     -- add_space_schema_hash is false because
@@ -61,26 +76,39 @@ local function call_get_on_router(space_name, key, opts)
     end
 
     local sharding_key = key
+    local sharding_key_hash = nil
+    local skip_sharding_hash_check = nil
+
     if opts.bucket_id == nil then
         local primary_index_parts = space.index[0].parts
 
-        local sharding_key_as_index_obj, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
+        local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
         if err ~= nil then
             return nil, err
         end
 
         sharding_key, err = sharding_key_module.extract_from_pk(space_name,
-                                                                sharding_key_as_index_obj,
+                                                                sharding_key_data.value,
                                                                 primary_index_parts, key)
         if err ~= nil then
             return nil, err
         end
+
+        sharding_key_hash = sharding_key_data.hash
+    else
+        skip_sharding_hash_check = true
     end
 
-    local bucket_id, err = sharding.key_get_bucket_id(space_name, sharding_key, opts.bucket_id)
+    local bucket_id_data, err = sharding.key_get_bucket_id(space_name, sharding_key, opts.bucket_id)
     if err ~= nil then
         return nil, err
     end
+
+    local get_on_storage_opts = {
+        sharding_func_hash = bucket_id_data.sharding_func_hash,
+        sharding_key_hash = sharding_key_hash,
+        skip_sharding_hash_check = skip_sharding_hash_check,
+    }
 
     local call_opts = {
         mode = opts.mode or 'read',
@@ -88,9 +116,10 @@ local function call_get_on_router(space_name, key, opts)
         balance = opts.balance,
         timeout = opts.timeout,
     }
+
     local storage_result, err = call.single(
-        bucket_id, GET_FUNC_NAME,
-        {space_name, key, opts.fields},
+        bucket_id_data.bucket_id, GET_FUNC_NAME,
+        {space_name, key, opts.fields, get_on_storage_opts},
         call_opts
     )
 

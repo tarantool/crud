@@ -17,6 +17,8 @@ local UPSERT_FUNC_NAME = '_crud.upsert_on_storage'
 local function upsert_on_storage(space_name, tuple, operations, opts)
     dev_checks('string', 'table', 'table', {
         add_space_schema_hash = '?boolean',
+        sharding_key_hash = '?number',
+        sharding_func_hash = '?number',
     })
 
     opts = opts or {}
@@ -24,6 +26,15 @@ local function upsert_on_storage(space_name, tuple, operations, opts)
     local space = box.space[space_name]
     if space == nil then
         return nil, UpsertError:new("Space %q doesn't exist", space_name)
+    end
+
+    local _, err = sharding.check_sharding_hash(space_name,
+                                                opts.sharding_func_hash,
+                                                opts.sharding_key_hash,
+                                                opts.skip_sharding_hash_check)
+
+    if err ~= nil then
+        return nil, err
     end
 
     -- add_space_schema_hash is true only in case of upsert_object
@@ -71,18 +82,26 @@ local function call_upsert_on_router(space_name, original_tuple, user_operations
 
     local tuple = table.deepcopy(original_tuple)
 
-    local bucket_id, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
+    local sharding_data, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
     if err ~= nil then
         return nil, UpsertError:new("Failed to get bucket ID: %s", err), true
     end
+
+    local upsert_on_storage_opts = {
+        add_space_schema_hash = opts.add_space_schema_hash,
+        fields = opts.fields,
+        sharding_func_hash = sharding_data.sharding_func_hash,
+        sharding_key_hash = sharding_data.sharding_key_hash,
+    }
 
     local call_opts = {
         mode = 'write',
         timeout = opts.timeout,
     }
+
     local storage_result, err = call.single(
-        bucket_id, UPSERT_FUNC_NAME,
-        {space_name, tuple, operations},
+        sharding_data.bucket_id, UPSERT_FUNC_NAME,
+        {space_name, tuple, operations, upsert_on_storage_opts},
         call_opts
     )
 

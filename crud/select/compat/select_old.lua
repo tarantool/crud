@@ -28,6 +28,7 @@ local function select_iteration(space_name, plan, opts)
         replicasets = 'table',
         limit = 'number',
         call_opts = 'table',
+        sharding_hash = 'table',
     })
 
     local call_opts = opts.call_opts
@@ -40,6 +41,9 @@ local function select_iteration(space_name, plan, opts)
         limit = opts.limit,
         scan_condition_num = plan.scan_condition_num,
         field_names = plan.field_names,
+        sharding_func_hash = opts.sharding_hash.sharding_func_hash,
+        sharding_key_hash = opts.sharding_hash.sharding_key_hash,
+        skip_sharding_hash_check = opts.sharding_hash.skip_sharding_hash_check,
     }
 
     local storage_select_args = {
@@ -113,13 +117,19 @@ local function build_select_iterator(space_name, user_conditions, opts)
     end
     local space_format = space:format()
 
+    local sharding_hash = {}
     local sharding_key_as_index_obj = nil
     -- We don't need sharding info if bucket_id specified.
     if opts.bucket_id == nil then
-        sharding_key_as_index_obj, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
+        local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
         if err ~= nil then
             return nil, err
         end
+
+        sharding_key_as_index_obj = sharding_key_data.value
+        sharding_hash.sharding_key_hash = sharding_key_data.hash
+    else
+        sharding_hash.skip_sharding_hash_check = true
     end
 
     -- plan select
@@ -144,20 +154,23 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local perform_map_reduce = opts.force_map_call == true or
         (opts.bucket_id == nil and plan.sharding_key == nil)
     if not perform_map_reduce then
-        local bucket_id, err = sharding.key_get_bucket_id(space_name, plan.sharding_key, opts.bucket_id)
+        local bucket_id_data, err = sharding.key_get_bucket_id(space_name, plan.sharding_key, opts.bucket_id)
         if err ~= nil then
             return nil, err
         end
 
-        assert(bucket_id ~= nil)
+        assert(bucket_id_data.bucket_id ~= nil)
 
         local err
-        replicasets_to_select, err = sharding.get_replicasets_by_bucket_id(bucket_id)
+        replicasets_to_select, err = sharding.get_replicasets_by_bucket_id(bucket_id_data.bucket_id)
         if err ~= nil then
             return nil, err, true
         end
+
+        sharding_hash.sharding_func_hash = bucket_id_data.sharding_func_hash
     else
         stats.update_map_reduces(space_name)
+        sharding_hash.skip_sharding_hash_check = true
     end
 
     -- generate tuples comparator
@@ -196,6 +209,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         replicasets = replicasets_to_select,
 
         call_opts = opts.call_opts,
+        sharding_hash = sharding_hash,
     })
 
     return iter

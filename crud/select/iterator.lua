@@ -26,6 +26,7 @@ function Iterator.new(opts)
         replicasets = 'table',
 
         call_opts = 'table',
+        sharding_hash = 'table',
     })
 
     local iter = {
@@ -53,6 +54,8 @@ function Iterator.new(opts)
 
         update_tuples_channel = fiber.channel(1),
         wait_for_update = false,
+
+        sharding_hash = opts.sharding_hash,
     }
 
     setmetatable(iter, Iterator)
@@ -102,6 +105,7 @@ local function update_replicasets_tuples(iter, after_tuple, replicaset_uuid)
         limit = limit_per_storage_call,
         field_names = iter.field_names,
         call_opts = iter.call_opts,
+        sharding_hash = iter.sharding_hash,
     })
     if err ~= nil then
         return false, UpdateTuplesError:new('Failed to select tuples from storages: %s', err)

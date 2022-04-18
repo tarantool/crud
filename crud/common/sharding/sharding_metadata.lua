@@ -121,7 +121,10 @@ end)
 
 local function fetch_on_router(space_name, metadata_map_name, timeout)
     if cache[metadata_map_name] ~= nil then
-        return cache[metadata_map_name][space_name]
+        return {
+            value = cache[metadata_map_name][space_name],
+            hash = cache[cache.META_HASH_MAP_NAME][metadata_map_name][space_name]
+        }
     end
 
     local timeout = timeout or const.FETCH_SHARDING_METADATA_TIMEOUT
@@ -131,7 +134,10 @@ local function fetch_on_router(space_name, metadata_map_name, timeout)
     end
 
     if cache[metadata_map_name] ~= nil then
-        return cache[metadata_map_name][space_name]
+        return {
+            value = cache[metadata_map_name][space_name],
+            hash = cache[cache.META_HASH_MAP_NAME][metadata_map_name][space_name],
+        }
     end
 
     return nil, FetchShardingMetadataError:new(

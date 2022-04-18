@@ -665,36 +665,36 @@ end
 
 pgroup.test_update_cache = function(g)
     local space_name = 'customers_name_key'
-    local sharding_key_as_index_obj, err = helpers.update_sharding_key_cache(g.cluster, space_name)
+    local sharding_key_data, err = helpers.update_sharding_key_cache(g.cluster, space_name)
     t.assert_equals(err, nil)
-    t.assert_equals(sharding_key_as_index_obj, {parts = {{fieldno = 3}}})
+    t.assert_equals(sharding_key_data.value, {parts = {{fieldno = 3}}})
 
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('set_sharding_key', {space_name, {'age'}})
     end)
-    sharding_key_as_index_obj, err = helpers.update_sharding_key_cache(g.cluster, space_name)
+    sharding_key_data, err = helpers.update_sharding_key_cache(g.cluster, space_name)
     t.assert_equals(err, nil)
-    t.assert_equals(sharding_key_as_index_obj, {parts = {{fieldno = 4}}})
+    t.assert_equals(sharding_key_data.value, {parts = {{fieldno = 4}}})
 
     -- Recover sharding key.
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server.net_box:call('set_sharding_key', {space_name, {'name'}})
     end)
-    sharding_key_as_index_obj, err = helpers.update_sharding_key_cache(g.cluster, space_name)
+    sharding_key_data, err = helpers.update_sharding_key_cache(g.cluster, space_name)
     t.assert_equals(err, nil)
-    t.assert_equals(sharding_key_as_index_obj, {parts = {{fieldno = 3}}})
+    t.assert_equals(sharding_key_data.value, {parts = {{fieldno = 3}}})
 end
 
 pgroup.test_update_cache_with_incorrect_key = function(g)
     -- get data from cache for space with correct sharding key
     local space_name = 'customers_name_key'
 
-    local sharding_key_as_index_obj, err = helpers.update_sharding_key_cache(g.cluster, space_name)
+    local sharding_key_data, err = helpers.update_sharding_key_cache(g.cluster, space_name)
     t.assert_equals(err, nil)
-    t.assert_equals(sharding_key_as_index_obj, {parts = {{fieldno = 3}}})
+    t.assert_equals(sharding_key_data.value, {parts = {{fieldno = 3}}})
 
     -- records for all spaces exist
-    sharding_key_as_index_obj = helpers.get_sharding_key_cache(g.cluster)
+    local sharding_key_as_index_obj = helpers.get_sharding_key_cache(g.cluster)
     t.assert_equals(sharding_key_as_index_obj, {
         customers = {parts = {{fieldno = 1}}},
         customers_G_func = {parts = {{fieldno = 1}}},
@@ -715,9 +715,9 @@ pgroup.test_update_cache_with_incorrect_key = function(g)
     end)
 
     -- we get no error because we sent request for correct space
-    local sharding_key_as_index_obj, err = helpers.update_sharding_key_cache(g.cluster, 'customers_age_key')
+    local sharding_key_data, err = helpers.update_sharding_key_cache(g.cluster, 'customers_age_key')
     t.assert_equals(err, nil)
-    t.assert_equals(sharding_key_as_index_obj, {parts = {{fieldno = 4}}})
+    t.assert_equals(sharding_key_data.value, {parts = {{fieldno = 4}}})
 
     -- cache['customers_name_key'] == nil (space with incorrect key)
     -- other records for correct spaces exist in cache
@@ -741,8 +741,8 @@ pgroup.test_update_cache_with_incorrect_key = function(g)
     end)
 
     -- we get an error because we sent request for incorrect space
-    local sharding_key_as_index_obj, err = helpers.update_sharding_key_cache(g.cluster, space_name)
-    t.assert_equals(sharding_key_as_index_obj, nil)
+    local sharding_key_data, err = helpers.update_sharding_key_cache(g.cluster, space_name)
+    t.assert_equals(sharding_key_data, nil)
     t.assert_str_contains(err.err, "No such field (non_existent_field) in a space format (customers_name_key)")
 
     -- cache['customers_name_key'] == nil (space with incorrect key)

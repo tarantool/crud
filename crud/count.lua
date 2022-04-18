@@ -27,6 +27,9 @@ local function count_on_storage(space_name, index_id, conditions, opts)
         tarantool_iter = 'number',
         yield_every = '?number',
         scan_condition_num = '?number',
+        sharding_func_hash = '?number',
+        sharding_key_hash = '?number',
+        skip_sharding_hash_check = '?boolean',
     })
 
     opts = opts or {}
@@ -36,6 +39,14 @@ local function count_on_storage(space_name, index_id, conditions, opts)
     local index = space.index[index_id]
     if index == nil then
         return nil, CountError:new("Index with ID %s doesn't exist", index_id)
+    end
+
+    local _, err = sharding.check_sharding_hash(space_name,
+                                                opts.sharding_func_hash,
+                                                opts.sharding_key_hash,
+                                                opts.skip_sharding_hash_check)
+    if err ~= nil then
+        return nil, err
     end
 
     local value = opts.scan_value
@@ -114,14 +125,14 @@ local function call_count_on_router(space_name, user_conditions, opts)
         return nil, CountError:new("Space %q doesn't exist", space_name), true
     end
 
-    local sharding_key_as_index_obj, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
+    local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
     if err ~= nil then
         return nil, err
     end
 
     -- plan count
     local plan, err = count_plan.new(space, conditions, {
-        sharding_key_as_index_obj = sharding_key_as_index_obj,
+        sharding_key_as_index_obj = sharding_key_data.value,
     })
     if err ~= nil then
         return nil, CountError:new("Failed to plan count: %s", err), true
@@ -159,21 +170,28 @@ local function call_count_on_router(space_name, user_conditions, opts)
     --       eye to resharding. However, AFAIU, the optimization
     --       does not make the result less consistent (sounds
     --       weird, huh?).
+    local sharding_func_hash = nil
+    local skip_sharding_hash_check = nil
+
     local perform_map_reduce = opts.force_map_call == true or
         (opts.bucket_id == nil and plan.sharding_key == nil)
     if not perform_map_reduce then
-        local bucket_id, err = sharding.key_get_bucket_id(space_name, plan.sharding_key, opts.bucket_id)
+        local bucket_id_data, err = sharding.key_get_bucket_id(space_name, plan.sharding_key, opts.bucket_id)
         if err ~= nil then
             return nil, err
         end
 
-        assert(bucket_id ~= nil)
+        assert(bucket_id_data.bucket_id ~= nil)
+
+        sharding_func_hash = bucket_id_data.sharding_func_hash
 
         local err
-        replicasets_to_count, err = sharding.get_replicasets_by_bucket_id(bucket_id)
+        replicasets_to_count, err = sharding.get_replicasets_by_bucket_id(bucket_id_data.bucket_id)
         if err ~= nil then
             return nil, err, true
         end
+    else
+        skip_sharding_hash_check = true
     end
 
     local yield_every = opts.yield_every or DEFAULT_YIELD_EVERY
@@ -191,6 +209,9 @@ local function call_count_on_router(space_name, user_conditions, opts)
         tarantool_iter = plan.tarantool_iter,
         yield_every = yield_every,
         scan_condition_num = plan.scan_condition_num,
+        sharding_func_hash = sharding_func_hash,
+        sharding_key_hash = sharding_key_data.hash,
+        skip_sharding_hash_check = skip_sharding_hash_check,
     }
 
     local results, err = call.map(COUNT_FUNC_NAME, {

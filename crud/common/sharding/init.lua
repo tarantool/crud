@@ -3,10 +3,12 @@ local errors = require('errors')
 
 local BucketIDError = errors.new_class("BucketIDError", {capture_stack = false})
 local GetReplicasetsError = errors.new_class('GetReplicasetsError', {capture_stack = false})
+local ShardingHashMismatchError = errors.new_class("ShardingHashMismatchError", {capture_stack = false})
 
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
+local storage_metadata_cache = require('crud.common.sharding.storage_metadata_cache')
 
 local sharding = {}
 
@@ -25,37 +27,49 @@ function sharding.key_get_bucket_id(space_name, key, specified_bucket_id)
     dev_checks('string', '?', '?number|cdata')
 
     if specified_bucket_id ~= nil then
-        return specified_bucket_id
+        return { bucket_id = specified_bucket_id }
     end
 
-    local sharding_func, err = sharding_metadata_module.fetch_sharding_func_on_router(space_name)
+    local sharding_func_data, err = sharding_metadata_module.fetch_sharding_func_on_router(space_name)
     if err ~= nil then
         return nil, err
     end
 
-    if sharding_func ~= nil then
-        return sharding_func(key)
+    if sharding_func_data.value ~= nil then
+        return {
+            bucket_id = sharding_func_data.value(key),
+            sharding_func_hash = sharding_func_data.hash,
+        }
     end
 
-    return vshard.router.bucket_id_strcrc32(key)
+    return { bucket_id = vshard.router.bucket_id_strcrc32(key) }
 end
 
 function sharding.tuple_get_bucket_id(tuple, space, specified_bucket_id)
     if specified_bucket_id ~= nil then
-        return specified_bucket_id
+        return { bucket_id = specified_bucket_id }
     end
 
     local sharding_index_parts = space.index[0].parts
-    local sharding_key_as_index_obj, err = sharding_metadata_module.fetch_sharding_key_on_router(space.name)
+    local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(space.name)
     if err ~= nil then
         return nil, err
     end
-    if sharding_key_as_index_obj ~= nil then
-        sharding_index_parts = sharding_key_as_index_obj.parts
+    if sharding_key_data.value ~= nil then
+        sharding_index_parts = sharding_key_data.value.parts
     end
     local key = utils.extract_key(tuple, sharding_index_parts)
 
-    return sharding.key_get_bucket_id(space.name, key)
+    local bucket_id_data, err = sharding.key_get_bucket_id(space.name, key, nil)
+    if err ~= nil then
+        return nil, err
+    end
+
+    return {
+        bucket_id = bucket_id_data.bucket_id,
+        sharding_func_hash = bucket_id_data.sharding_func_hash,
+        sharding_key_hash = sharding_key_data.hash
+    }
 end
 
 function sharding.tuple_set_and_return_bucket_id(tuple, space, specified_bucket_id)
@@ -77,16 +91,35 @@ function sharding.tuple_set_and_return_bucket_id(tuple, space, specified_bucket_
         end
     end
 
-    local bucket_id = tuple[bucket_id_fieldno]
-    if bucket_id == nil then
-        bucket_id, err = sharding.tuple_get_bucket_id(tuple, space)
+    local sharding_data = { bucket_id = tuple[bucket_id_fieldno] }
+
+    if sharding_data.bucket_id == nil then
+        sharding_data, err = sharding.tuple_get_bucket_id(tuple, space)
         if err ~= nil then
             return nil, err
         end
-        tuple[bucket_id_fieldno] = bucket_id
+        tuple[bucket_id_fieldno] = sharding_data.bucket_id
     end
 
-    return bucket_id
+    return sharding_data
+end
+
+function sharding.check_sharding_hash(space_name, sharding_func_hash, sharding_key_hash, skip_sharding_hash_check)
+    if skip_sharding_hash_check == true then
+        return true
+    end
+
+    local storage_func_hash = storage_metadata_cache.get_sharding_func_hash(space_name)
+    local storage_key_hash = storage_metadata_cache.get_sharding_key_hash(space_name)
+
+    if storage_func_hash ~= sharding_func_hash or storage_key_hash ~= sharding_key_hash then
+        local err_msg = ('crud: Sharding hash mismatch for space %s. ' ..
+                         'Please refresh sharding data and retry your request.'
+                        ):format(space_name)
+        return nil, ShardingHashMismatchError:new(err_msg)
+    end
+
+    return true
 end
 
 return sharding
