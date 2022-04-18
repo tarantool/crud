@@ -3,6 +3,7 @@ local errors = require('errors')
 
 local dev_checks = require('crud.common.dev_checks')
 local utils = require('crud.common.utils')
+local sharding_utils = require('crud.common.sharding.utils')
 local fiber_clock = require('fiber').clock
 
 local CallError = errors.new_class('CallError')
@@ -40,6 +41,11 @@ function call.get_vshard_call_name(mode, prefer_replica, balance)
 end
 
 local function wrap_vshard_err(err, func_name, replicaset_uuid, bucket_id)
+    -- Do not rewrite ShardingHashMismatchError class.
+    if err.class_name == sharding_utils.ShardingHashMismatchError.name then
+        return errors.wrap(err)
+    end
+
     if err.type == 'ClientError' and type(err.message) == 'string' then
         if err.message == string.format("Procedure '%s' is not defined", func_name) then
             if func_name:startswith('_crud.') then

@@ -3,6 +3,7 @@ local errors = require('errors')
 local vshard = require('vshard')
 
 local call = require('crud.common.call')
+local const = require('crud.common.const')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local sharding_key_module = require('crud.common.sharding.sharding_key')
@@ -87,11 +88,11 @@ local function call_update_on_router(space_name, key, user_operations, opts)
 
     local space, err = utils.get_space(space_name, vshard.router.routeall())
     if err ~= nil then
-        return nil, UpdateError:new("Failed to get space %q: %s", space_name, err), true
+        return nil, UpdateError:new("Failed to get space %q: %s", space_name, err), const.NEED_SCHEMA_RELOAD
     end
 
     if space == nil then
-        return nil, UpdateError:new("Space %q doesn't exist", space_name), true
+        return nil, UpdateError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
     end
 
     local space_format = space:format()
@@ -128,7 +129,7 @@ local function call_update_on_router(space_name, key, user_operations, opts)
     if not utils.tarantool_supports_fieldpaths() then
         operations, err = utils.convert_operations(user_operations, space_format)
         if err ~= nil then
-            return nil, UpdateError:new("Wrong operations are specified: %s", err), true
+            return nil, UpdateError:new("Wrong operations are specified: %s", err), const.NEED_SCHEMA_RELOAD
         end
     end
 
@@ -155,7 +156,13 @@ local function call_update_on_router(space_name, key, user_operations, opts)
     )
 
     if err ~= nil then
-        return nil, UpdateError:new("Failed to call update on storage-side: %s", err)
+        local err_wrapped = UpdateError:new("Failed to call update on storage-side: %s", err)
+
+        if sharding.result_needs_sharding_reload(err) then
+            return nil, err_wrapped, const.NEED_SHARDING_RELOAD
+        end
+
+        return nil, err_wrapped
     end
 
     if storage_result.err ~= nil then
@@ -199,7 +206,8 @@ function update.call(space_name, key, user_operations, opts)
         fields = '?table',
     })
 
-    return schema.wrap_func_reload(call_update_on_router, space_name, key, user_operations, opts)
+    return schema.wrap_func_reload(sharding.wrap_method,
+                                   call_update_on_router, space_name, key, user_operations, opts)
 end
 
 return update

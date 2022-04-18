@@ -87,7 +87,7 @@ function schema.wrap_func_reload(func, ...)
     while true do
         res, err, need_reload = func(...)
 
-        if err == nil or not need_reload then
+        if err == nil or need_reload ~= const.NEED_SCHEMA_RELOAD then
             break
         end
 

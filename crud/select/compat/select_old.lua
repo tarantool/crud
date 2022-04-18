@@ -4,6 +4,7 @@ local vshard = require('vshard')
 local fun = require('fun')
 
 local call = require('crud.common.call')
+local const = require('crud.common.const')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
@@ -113,7 +114,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
     local space = utils.get_space(space_name, replicasets)
     if space == nil then
-        return nil, SelectError:new("Space %q doesn't exist", space_name), true
+        return nil, SelectError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
     end
     local space_format = space:format()
 
@@ -143,7 +144,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     })
 
     if err ~= nil then
-        return nil, SelectError:new("Failed to plan select: %s", err), true
+        return nil, SelectError:new("Failed to plan select: %s", err), const.NEED_SCHEMA_RELOAD
     end
 
     -- set replicasets to select from
@@ -164,7 +165,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         local err
         replicasets_to_select, err = sharding.get_replicasets_by_bucket_id(bucket_id_data.bucket_id)
         if err ~= nil then
-            return nil, err, true
+            return nil, err, const.NEED_SCHEMA_RELOAD
         end
 
         sharding_hash.sharding_func_hash = bucket_id_data.sharding_func_hash
@@ -268,6 +269,10 @@ function select_module.pairs(space_name, user_conditions, opts)
     local gen = function(_, iter)
         local tuple, err = iter:get()
         if err ~= nil then
+            if sharding.result_needs_sharding_reload(err) then
+                sharding_metadata_module.reload_sharding_cache(space_name)
+            end
+
             error(string.format("Failed to get next object: %s", err))
         end
 
@@ -295,19 +300,8 @@ function select_module.pairs(space_name, user_conditions, opts)
     return gen, param, state
 end
 
-function select_module.call(space_name, user_conditions, opts)
-    checks('string', '?table', {
-        after = '?table',
-        first = '?number',
-        timeout = '?number',
-        batch_size = '?number',
-        bucket_id = '?number|cdata',
-        force_map_call = '?boolean',
-        fields = '?table',
-        prefer_replica = '?boolean',
-        balance = '?boolean',
-        mode = '?vshard_call_mode',
-    })
+local function select_module_call_xc(space_name, user_conditions, opts)
+    dev_checks('string', '?table', '?table')
 
     opts = opts or {}
 
@@ -344,6 +338,10 @@ function select_module.call(space_name, user_conditions, opts)
     while iter:has_next() do
         local tuple, err = iter:get()
         if err ~= nil then
+            if sharding.result_needs_sharding_reload(err) then
+                return nil, err, const.NEED_SHARDING_RELOAD
+            end
+
             return nil, SelectError:new("Failed to get next object: %s", err)
         end
 
@@ -362,6 +360,23 @@ function select_module.call(space_name, user_conditions, opts)
         metadata = table.copy(iter.space_format),
         rows = tuples,
     }
+end
+
+function select_module.call(space_name, user_conditions, opts)
+    checks('string', '?table', {
+        after = '?table',
+        first = '?number',
+        timeout = '?number',
+        batch_size = '?number',
+        bucket_id = '?number|cdata',
+        force_map_call = '?boolean',
+        fields = '?table',
+        prefer_replica = '?boolean',
+        balance = '?boolean',
+        mode = '?vshard_call_mode',
+    })
+
+    return sharding.wrap_method(select_module_call_xc, space_name, user_conditions, opts)
 end
 
 return select_module

@@ -1,5 +1,6 @@
 local fiber = require('fiber')
 local errors = require('errors')
+local log = require('log')
 
 local call = require('crud.common.call')
 local const = require('crud.common.const')
@@ -85,10 +86,11 @@ end
 -- a sharding metadata by a single one, other fibers will wait while
 -- cache.fetch_lock become unlocked during timeout passed to
 -- _fetch_on_router().
+-- metadata_map_name == nil means forced reload.
 local _fetch_on_router = locked(function(timeout, space_name, metadata_map_name)
-    dev_checks('number', 'string', 'string')
+    dev_checks('number', 'string', '?string')
 
-    if cache[metadata_map_name] ~= nil then
+    if (metadata_map_name ~= nil) and (cache[metadata_map_name]) ~= nil then
         return
     end
 
@@ -184,6 +186,15 @@ function sharding_metadata_module.update_sharding_func_cache(space_name)
     cache.drop_caches()
 
     return sharding_metadata_module.fetch_sharding_func_on_router(space_name)
+end
+
+function sharding_metadata_module.reload_sharding_cache(space_name)
+    cache.drop_caches()
+
+    local err = _fetch_on_router(const.FETCH_SHARDING_METADATA_TIMEOUT, space_name, nil)
+    if err ~= nil then
+        log.warn('Failed to reload sharding cache: %s', err)
+    end
 end
 
 function sharding_metadata_module.init()

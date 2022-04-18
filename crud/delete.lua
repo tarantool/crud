@@ -3,6 +3,7 @@ local errors = require('errors')
 local vshard = require('vshard')
 
 local call = require('crud.common.call')
+local const = require('crud.common.const')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local sharding_key_module = require('crud.common.sharding.sharding_key')
@@ -65,7 +66,7 @@ local function call_delete_on_router(space_name, key, opts)
 
     local space = utils.get_space(space_name, vshard.router.routeall())
     if space == nil then
-        return nil, DeleteError:new("Space %q doesn't exist", space_name), true
+        return nil, DeleteError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
     end
 
     if box.tuple.is(key) then
@@ -119,7 +120,13 @@ local function call_delete_on_router(space_name, key, opts)
     )
 
     if err ~= nil then
-        return nil, DeleteError:new("Failed to call delete on storage-side: %s", err)
+        local err_wrapped = DeleteError:new("Failed to call delete on storage-side: %s")
+
+        if sharding.result_needs_sharding_reload(err) then
+            return nil, err_wrapped, const.NEED_SHARDING_RELOAD
+        end
+
+        return nil, err_wrapped
     end
 
     if storage_result.err ~= nil then
@@ -159,7 +166,8 @@ function delete.call(space_name, key, opts)
         fields = '?table',
     })
 
-    return schema.wrap_func_reload(call_delete_on_router, space_name, key, opts)
+    return schema.wrap_func_reload(sharding.wrap_method,
+                                   call_delete_on_router, space_name, key, opts)
 end
 
 return delete

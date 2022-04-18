@@ -2,6 +2,7 @@ local errors = require('errors')
 local fiber = require('fiber')
 
 local dev_checks = require('crud.common.dev_checks')
+local sharding = require('crud.common.sharding')
 local utils = require('crud.common.utils')
 
 local UpdateTuplesError = errors.new_class('UpdateTuplesError')
@@ -108,6 +109,10 @@ local function update_replicasets_tuples(iter, after_tuple, replicaset_uuid)
         sharding_hash = iter.sharding_hash,
     })
     if err ~= nil then
+        if sharding.result_needs_sharding_reload(err) then
+            return false, err
+        end
+
         return false, UpdateTuplesError:new('Failed to select tuples from storages: %s', err)
     end
 
@@ -165,6 +170,10 @@ function Iterator:get()
         end
 
         if not res.ok then
+            if sharding.result_needs_sharding_reload(res.err) then
+                return false, res.err
+            end
+
             return nil, GetTupleError:new("Failed to get tuples from storages: %s", res.err)
         end
     end

@@ -3,6 +3,8 @@ local errors = require('errors')
 local msgpack = require('msgpack')
 local ffi = require('ffi')
 local call = require('crud.common.call')
+local sharding = require('crud.common.sharding')
+local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 
 local compat = require('crud.common.compat')
 local merger_lib = compat.require('tuple.merger', 'merger')
@@ -118,7 +120,13 @@ local function fetch_chunk(context, state)
     local cursor, err = decode_metainfo(buf)
     if cursor == nil then
         -- Wrap net.box errors error to restore metatable.
-        error(errors.wrap(err))
+        local wrapped_err = errors.wrap(err)
+
+        if sharding.result_needs_sharding_reload(err) then
+            sharding_metadata_module.reload_sharding_cache(space_name)
+        end
+
+        error(wrapped_err)
     end
 
     -- Extract stats info.

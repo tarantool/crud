@@ -3,6 +3,7 @@ local errors = require('errors')
 local vshard = require('vshard')
 
 local call = require('crud.common.call')
+local const = require('crud.common.const')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
@@ -66,14 +67,14 @@ local function call_insert_on_router(space_name, original_tuple, opts)
 
     local space = utils.get_space(space_name, vshard.router.routeall())
     if space == nil then
-        return nil, InsertError:new("Space %q doesn't exist", space_name), true
+        return nil, InsertError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
     end
 
     local tuple = table.deepcopy(original_tuple)
 
     local sharding_data, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
     if err ~= nil then
-        return nil, InsertError:new("Failed to get bucket ID: %s", err), true
+        return nil, InsertError:new("Failed to get bucket ID: %s", err), const.NEED_SCHEMA_RELOAD
     end
 
     local insert_on_storage_opts = {
@@ -95,12 +96,23 @@ local function call_insert_on_router(space_name, original_tuple, opts)
     )
 
     if err ~= nil then
-        return nil, InsertError:new("Failed to call insert on storage-side: %s", err)
+        local err_wrapped = InsertError:new("Failed to call insert on storage-side: %s", err)
+
+        if sharding.result_needs_sharding_reload(err) then
+            return nil, err_wrapped, const.NEED_SHARDING_RELOAD
+        end
+
+        return nil, err_wrapped
     end
 
     if storage_result.err ~= nil then
-        local need_reload = schema.result_needs_reload(space, storage_result)
-        return nil, InsertError:new("Failed to insert: %s", storage_result.err), need_reload
+        local err_wrapped = InsertError:new("Failed to insert: %s", storage_result.err)
+
+        if schema.result_needs_reload(space, storage_result) then
+            return nil, err_wrapped, const.NEED_SCHEMA_RELOAD
+        end
+
+        return nil, err_wrapped
     end
 
     local tuple = storage_result.res
@@ -137,7 +149,8 @@ function insert.tuple(space_name, tuple, opts)
         fields = '?table',
     })
 
-    return schema.wrap_func_reload(call_insert_on_router, space_name, tuple, opts)
+    return schema.wrap_func_reload(sharding.wrap_method,
+                                   call_insert_on_router, space_name, tuple, opts)
 end
 
 --- Inserts an object to the specified space

@@ -2,6 +2,7 @@ local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
 
+local const = require('crud.common.const')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
@@ -49,7 +50,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
     local space = utils.get_space(space_name, replicasets)
     if space == nil then
-        return nil, SelectError:new("Space %q doesn't exist", space_name), true
+        return nil, SelectError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
     end
     local space_format = space:format()
 
@@ -77,7 +78,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     })
 
     if err ~= nil then
-        return nil, SelectError:new("Failed to plan select: %s", err), true
+        return nil, SelectError:new("Failed to plan select: %s", err), const.NEED_SCHEMA_RELOAD
     end
 
     -- set replicasets to select from
@@ -125,7 +126,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         local err
         replicasets_to_select, err = sharding.get_replicasets_by_bucket_id(bucket_id_data.bucket_id)
         if err ~= nil then
-            return nil, err, true
+            return nil, err, const.NEED_SCHEMA_RELOAD
         end
 
         sharding_func_hash = bucket_id_data.sharding_func_hash
@@ -316,7 +317,8 @@ local function select_module_call_xc(space_name, user_conditions, opts)
 end
 
 function select_module.call(space_name, user_conditions, opts)
-    return SelectError:pcall(select_module_call_xc, space_name, user_conditions, opts)
+    return SelectError:pcall(sharding.wrap_select_method,
+                             select_module_call_xc, space_name, user_conditions, opts)
 end
 
 return select_module
