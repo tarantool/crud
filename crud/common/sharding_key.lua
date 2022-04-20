@@ -1,3 +1,5 @@
+local log = require('log')
+
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 
 local sharding_key_cache = {}
@@ -7,6 +9,8 @@ local sharding_key_cache = {}
 -- for updating sharding key cache in their
 -- projects like `require('crud.common.sharding_key').update_cache()`
 function sharding_key_cache.update_cache(space_name)
+    log.warn("require('crud.common.sharding_key').update_cache()" ..
+             "is deprecated and will be removed in future releases")
     return sharding_metadata_module.update_sharding_key_cache(space_name)
 end
 

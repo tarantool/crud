@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 * Optimize select with known bucket_id (#234).
+* Deprecate manual sharding schema reload (#212).
 
 ### Fixed
 * Fix processing storage error for tuple-merger implementation of
