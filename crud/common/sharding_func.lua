@@ -1,3 +1,5 @@
+local log = require('log')
+
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 
 local sharding_func_cache = {}
@@ -9,6 +11,8 @@ local sharding_func_cache = {}
 -- This method provides similar behavior for
 -- sharding function cache.
 function sharding_func_cache.update_cache(space_name)
+    log.warn("require('crud.common.sharding_func').update_cache()" ..
+             "is deprecated and will be removed in future releases")
     return sharding_metadata_module.update_sharding_func_cache(space_name)
 end
 
