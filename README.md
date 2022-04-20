@@ -77,10 +77,12 @@ documentation). As soon as sharding key for a certain space is available in
 automatically. Note that CRUD methods `delete()`, `get()` and `update()`
 requires that sharding key must be a part of primary key.
 
-You can specify sharding function to calculate bucket_id with
-sharding func definition as a part of [DDL
-schema](https://github.com/tarantool/ddl#input-data-format)
+Starting from 0.11.0 you can specify sharding function to calculate bucket_id
+with sharding func definition as a part of
+[DDL schema](https://github.com/tarantool/ddl#input-data-format)
 or insert manually to the space `_ddl_sharding_func`.
+
+Automatic sharding key and function reload is supported since version 0.11.0.
 
 CRUD uses `strcrc32` as sharding function by default.
 The reason why using of `strcrc32` is undesirable is that

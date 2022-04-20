@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [0.11.0] - 20-04-22
+
+### Added
 * `crud.count()` function to calculate the number of tuples
   in the space according to conditions.
 * Support bucket id calculating using sharding func specified in
