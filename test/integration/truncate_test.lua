@@ -61,7 +61,7 @@ pgroup.test_truncate = function(g)
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil})
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil, {fullscan = true}})
     t.assert_equals(err, nil)
     t.assert_gt(#result.rows, 0)
 
@@ -69,7 +69,7 @@ pgroup.test_truncate = function(g)
     t.assert_equals(err, nil)
     t.assert_equals(result, true)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil})
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil, {fullscan = true}})
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
 end

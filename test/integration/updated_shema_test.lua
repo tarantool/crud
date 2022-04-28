@@ -283,7 +283,7 @@ end
 pgroup.test_select_non_existent_space = function(g)
     -- non-existent space err
     local obj, err = g.cluster.main_server.net_box:call(
-        'crud.select', {'customers'}
+        'crud.select', {'customers', nil, {fullscan = true}}
     )
 
     t.assert_equals(obj, nil)
@@ -298,7 +298,7 @@ pgroup.test_select_non_existent_space = function(g)
 
     -- check that schema changes were applied
     local obj, err = g.cluster.main_server.net_box:call(
-        'crud.select', {'customers'}
+        'crud.select', {'customers', nil, {fullscan = true}}
     )
 
     t.assert_is_not(obj, nil)
@@ -599,7 +599,7 @@ pgroup.test_select_field_added = function(g)
 
     -- unknown field (no results)
     local obj, err = g.cluster.main_server.net_box:call(
-        'crud.select', {'customers', {{'==', 'extra', 'EXTRRRRA'}}}
+        'crud.select', {'customers', {{'==', 'extra', 'EXTRRRRA'}}, {fullscan = true}}
     )
 
     t.assert_equals(obj.rows, {})
@@ -612,7 +612,7 @@ pgroup.test_select_field_added = function(g)
 
     -- check that schema changes were applied
     local obj, err = g.cluster.main_server.net_box:call(
-        'crud.select', {'customers', {{'==', 'extra', 'EXTRRRRA'}}}
+        'crud.select', {'customers', {{'==', 'extra', 'EXTRRRRA'}}, {fullscan = true}}
     )
 
     t.assert_is_not(obj, nil)
@@ -763,7 +763,7 @@ pgroup.test_alter_index_parts = function(g)
 
     -- Check sort order before alter
     local result, err = g.cluster.main_server.net_box:call(
-        'crud.select', {'customers', {{'>=', 'number_value_index', {0, "0"}}}}
+        'crud.select', {'customers', {{'>=', 'number_value_index', {0, "0"}}}, {fullscan = true}}
     )
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 10)
@@ -784,7 +784,7 @@ pgroup.test_alter_index_parts = function(g)
 
     -- Sort order should be new
     local result, err = g.cluster.main_server.net_box:call(
-        'crud.select', {'customers', {{'>=', 'number_value_index', {"0", 0}}}}
+        'crud.select', {'customers', {{'>=', 'number_value_index', {"0", 0}}}, {fullscan = true}}
     )
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 10)

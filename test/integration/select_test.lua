@@ -1,6 +1,7 @@
 local fio = require('fio')
 
 local t = require('luatest')
+local luatest_capture = require('luatest.capture')
 
 local crud = require('crud')
 local crud_utils = require('crud.common.utils')
@@ -30,6 +31,9 @@ pgroup.before_all(function(g)
     g.cluster:server('router').net_box:eval([[
         require('crud').cfg{ stats = true }
     ]])
+    g.cluster:server('router').net_box:eval([[
+        require('crud.ratelimit').disable()
+    ]])
 end)
 
 pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
@@ -44,7 +48,7 @@ end)
 pgroup.test_non_existent_space = function(g)
     -- insert
     local obj, err = g.cluster.main_server.net_box:call(
-       'crud.select', {'non_existent_space'}
+       'crud.select', {'non_existent_space', nil, {fullscan=true}}
     )
 
     t.assert_equals(obj, nil)
@@ -53,7 +57,7 @@ end
 
 pgroup.test_select_no_index = function(g)
     local obj, err = g.cluster.main_server.net_box:call(
-        'crud.select', {'no_index_space'}
+        'crud.select', {'no_index_space', nil, {fullscan=true}}
     )
 
     t.assert_equals(obj, nil)
@@ -77,6 +81,119 @@ pgroup.test_not_valid_value_type = function(g)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type: expected unsigned")
 end
 
+local select_safety_cases = {
+    nil_and_nil_opts = {
+        has_crit = true,
+        user_conditions = nil,
+        opts = nil,
+    },
+    fullscan_false = {
+        has_crit = true,
+        user_conditions = nil,
+        opts = {fullscan = false},
+    },
+    fullscan_true = {
+        has_crit = false,
+        user_conditions = nil,
+        opts = {fullscan = true},
+    },
+    limit = {
+        has_crit = false,
+        user_conditions = nil,
+        opts = {first = 123},
+    },
+    max_negative_limit = {
+        has_crit = false,
+        user_conditions = nil,
+        opts = {first = -1000},
+    },
+    max_limit = {
+        has_crit = false,
+        user_conditions = nil,
+        opts = {first = 1000},
+    },
+    too_big_limit = {
+        has_crit = true,
+        user_conditions = nil,
+        opts = {first = 1001},
+    },
+    too_low_limit = {
+        has_crit = true,
+        user_conditions = nil,
+        opts = {first = -1001},
+    },
+    non_equal_conditions = {
+        has_crit = true,
+        user_conditions = {
+            {'>=', 'last_name', 'A'},
+            {'<=', 'last_name', 'Z'},
+            {'>', 'age', 20},
+            {'<', 'age', 30},
+        },
+        opts = nil,
+    },
+    equal_condition = {
+        has_crit = false,
+        user_conditions = {
+            {'>=', 'last_name', 'A'},
+            {'<=', 'last_name', 'Z'},
+            {'=', 'age', 25},
+        },
+        opts = nil,
+    },
+    equal_condition2 = {
+        has_crit = false,
+        user_conditions = {
+            {'>=', 'last_name', 'A'},
+            {'<=', 'last_name', 'Z'},
+            {'==', 'age', 25},
+        },
+        opts = nil,
+    },
+}
+
+for name, case in pairs(select_safety_cases) do
+    local space = 'customers'
+    local crit_log = "C> Potentially long select from space '" .. space .. "'"
+    local test_name = ('test_select_safety_%s'):format(name)
+
+    pgroup[test_name] = function(g)
+        local uc = case.user_conditions
+        local opts = case.opts
+        local capture = luatest_capture:new()
+        capture:enable()
+
+        if opts ~= nil and opts.first ~= nil and opts.first < 0 then
+            local after_tuple = {
+                id = 1, name = "Elizabeth", last_name = "Jackson",
+                age = 12, city = "New York",
+            }
+            opts.after = crud_utils.flatten(after_tuple, g.space_format)
+        end
+
+        local _, err = g.cluster.main_server.net_box:call('crud.select', {space, uc, opts})
+        t.assert_equals(err, nil)
+
+        -- We have a delay here. This hack helps to wait for the end of the output.
+        -- It shouldn't take much time.
+        g.cluster:server('router').net_box:eval([[
+            require('log').error("end of test_select_nil case")
+        ]])
+        local captured = ""
+        while not string.find(captured, "end of test_select_nil case", 1, true) do
+            captured = captured .. (capture:flush().stdout or "")
+        end
+
+        if case.has_crit then
+            t.assert_str_contains(captured, crit_log)
+        else
+            t.assert_equals(string.find(captured, crit_log, 1, true), nil)
+        end
+
+        capture:disable()
+    end
+end
+
 pgroup.test_select_all = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
@@ -96,7 +213,7 @@ pgroup.test_select_all = function(g)
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil})
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil, {fullscan=true}})
 
     t.assert_equals(err, nil)
     t.assert_equals(result.rows, {
@@ -115,7 +232,7 @@ pgroup.test_select_all = function(g)
     })
 
     -- no after
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil})
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil, {fullscan=true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -123,7 +240,8 @@ pgroup.test_select_all = function(g)
 
     -- after obj 2
     local after = crud_utils.flatten(customers[2], g.space_format)
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil, {after=after}})
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', nil, {after=after, fullscan=true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -131,7 +249,8 @@ pgroup.test_select_all = function(g)
 
     -- after obj 4 (last)
     local after = crud_utils.flatten(customers[4], g.space_format)
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil, {after=after}})
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', nil, {after=after, fullscan=true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -504,14 +623,16 @@ pgroup.test_select_all_with_batch_size = function(g)
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
     -- batch size 1
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil, {batch_size=1}})
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', nil, {batch_size=1, fullscan=true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, customers)
 
     -- batch size 3
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil, {batch_size=3}})
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', nil, {batch_size=3, fullscan=true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -676,7 +797,7 @@ pgroup.test_ge_condition_with_index = function(g)
     }
 
     -- no after
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions})
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions}, {fullscan = true})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -684,7 +805,8 @@ pgroup.test_ge_condition_with_index = function(g)
 
     -- after obj 3
     local after = crud_utils.flatten(customers[3], g.space_format)
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {after=after}})
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', conditions, {after=after, fullscan = true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -715,7 +837,7 @@ pgroup.test_le_condition_with_index = function(g)
     }
 
     -- no after
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions})
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions}, {fullscan = true})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -723,7 +845,8 @@ pgroup.test_le_condition_with_index = function(g)
 
     -- after obj 3
     local after = crud_utils.flatten(customers[3], g.space_format)
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {after=after}})
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', conditions, {after=after, fullscan = true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -762,7 +885,7 @@ pgroup.test_lt_condition_with_index = function(g)
     }
 
     -- no after
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions})
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {fullscan = true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -770,7 +893,8 @@ pgroup.test_lt_condition_with_index = function(g)
 
     -- after obj 1
     local after = crud_utils.flatten(customers[1], g.space_format)
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {after=after}})
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', conditions, {after=after, fullscan = true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -814,7 +938,8 @@ pgroup.test_multiple_conditions = function(g)
 
     -- after obj 5
     local after = crud_utils.flatten(customers[5], g.space_format)
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {after=after}})
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', conditions, {after=after, fullscan = true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -845,7 +970,7 @@ pgroup.test_composite_index = function(g)
     }
 
     -- no after
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions})
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions}, {fullscan = true})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -853,7 +978,8 @@ pgroup.test_composite_index = function(g)
 
     -- after obj 2
     local after = crud_utils.flatten(customers[2], g.space_format)
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {after=after}})
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', conditions, {after=after, fullscan = true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -949,7 +1075,8 @@ pgroup.test_select_with_batch_size_1 = function(g)
 
     -- LE
     local conditions = {{'<=', 'age', 35}}
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {batch_size=1}})
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', conditions, {batch_size=1, fullscan = true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -957,7 +1084,8 @@ pgroup.test_select_with_batch_size_1 = function(g)
 
     -- LT
     local conditions = {{'<', 'age', 35}}
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {batch_size=1}})
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', conditions, {batch_size=1, fullscan = true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -965,7 +1093,8 @@ pgroup.test_select_with_batch_size_1 = function(g)
 
     -- GE
     local conditions = {{'>=', 'age', 35}}
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {batch_size=1}})
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', conditions, {batch_size=1, fullscan = true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -973,7 +1102,8 @@ pgroup.test_select_with_batch_size_1 = function(g)
 
     -- GT
     local conditions = {{'>', 'age', 35}}
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {batch_size=1}})
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', conditions, {batch_size=1, fullscan = true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -1087,13 +1217,15 @@ pgroup.test_multipart_primary_index = function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {3}))
 
     local conditions_ge = {{'>=', 'primary', 0}}
-    local result_ge_0, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions_ge})
+    local result_ge_0, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions_ge,
+                                                                               {fullscan = true}})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result_ge_0.rows, result_ge_0.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {1, 2, 3, 4, 5}))
 
     local result, err = g.cluster.main_server.net_box:call('crud.select', {'coord', conditions_ge,
-                                                                          {after = result_ge_0.rows[1]}})
+                                                                          {after = result_ge_0.rows[1],
+                                                                           fullscan = true}})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(coords, {2, 3, 4, 5}))
@@ -1124,7 +1256,7 @@ pgroup.test_select_partial_result_bad_input = function(g)
 
     local conditions = {{'>=', 'age', 33}}
     local result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'customers', conditions, {fields = {'id', 'mame'}}}
+            {'customers', conditions, {fields = {'id', 'mame'}, fullscan = true}}
     )
 
     t.assert_equals(result, nil)
@@ -1163,7 +1295,7 @@ pgroup.test_select_partial_result = function(g)
     }
 
     local result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'customers', conditions, {fields = fields}}
+            {'customers', conditions, {fields = fields, fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -1177,7 +1309,7 @@ pgroup.test_select_partial_result = function(g)
     }
 
     result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'customers', conditions, {after = result.rows[1], fields = fields}}
+            {'customers', conditions, {after = result.rows[1], fields = fields, fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -1196,7 +1328,7 @@ pgroup.test_select_partial_result = function(g)
     }
 
     result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'customers', conditions, {fields = fields}}
+            {'customers', conditions, {fields = fields, fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -1210,7 +1342,7 @@ pgroup.test_select_partial_result = function(g)
     }
 
     result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'customers', conditions, {after = result.rows[1], fields = fields}}
+            {'customers', conditions, {after = result.rows[1], fields = fields, fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -1232,7 +1364,7 @@ pgroup.test_select_partial_result = function(g)
     }
 
     result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'customers', conditions, {fields = fields}}
+            {'customers', conditions, {fields = fields, fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -1246,7 +1378,7 @@ pgroup.test_select_partial_result = function(g)
     }
 
     result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'customers', conditions, {after = result.rows[1], fields = fields}}
+            {'customers', conditions, {after = result.rows[1], fields = fields, fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -1265,7 +1397,7 @@ pgroup.test_select_partial_result = function(g)
     }
 
     result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'customers', conditions, {fields = fields}}
+            {'customers', conditions, {fields = fields, fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -1279,7 +1411,7 @@ pgroup.test_select_partial_result = function(g)
     }
 
     result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'customers', conditions, {after = result.rows[1], fields = fields}}
+            {'customers', conditions, {after = result.rows[1], fields = fields, fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -1318,7 +1450,7 @@ pgroup.test_cut_selected_rows = function(g)
 
     -- with fields option
     local result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'customers', conditions, {fields = fields}}
+            {'customers', conditions, {fields = fields, fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -1341,7 +1473,7 @@ pgroup.test_cut_selected_rows = function(g)
     }
 
     local result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'customers', conditions}
+            {'customers', conditions, {fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -1418,7 +1550,7 @@ pgroup.test_jsonpath = function(g)
     })
 
     local result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'developers', {{'>=', '[5]', 40}}, {fields = {'name', 'last_name'}}})
+            {'developers', {{'>=', '[5]', 40}}, {fields = {'name', 'last_name'}, fullscan = true}})
     t.assert_equals(err, nil)
 
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -1429,7 +1561,7 @@ pgroup.test_jsonpath = function(g)
     t.assert_equals(objects, expected_objects)
 
     local result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'developers', {{'<', '["age"]', 21}}, {fields = {'name', 'last_name'}}})
+            {'developers', {{'<', '["age"]', 21}}, {fields = {'name', 'last_name'}, fullscan = true}})
     t.assert_equals(err, nil)
 
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -1440,7 +1572,7 @@ pgroup.test_jsonpath = function(g)
     t.assert_equals(objects, expected_objects)
 
     local result, err = g.cluster.main_server.net_box:call('crud.select',
-        {'developers', {{'>=', '[6].a.b', 55}}, {fields = {'name', 'last_name'}}})
+        {'developers', {{'>=', '[6].a.b', 55}}, {fields = {'name', 'last_name'}, fullscan = true}})
     t.assert_equals(err, nil)
 
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -1486,7 +1618,7 @@ pgroup.test_jsonpath_index_field = function(g)
 
     -- PK jsonpath index
     local result, err = g.cluster.main_server.net_box:call('crud.select',
-            {'cars', {{'<=', 'id_ind', 3}, {'<=', 'age', 5}}, {fields = {'id', 'age'}}})
+            {'cars', {{'<=', 'id_ind', 3}, {'<=', 'age', 5}}, {fields = {'id', 'age'}, fullscan = true}})
     t.assert_equals(err, nil)
 
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -1685,7 +1817,8 @@ pgroup.test_select_timeout = function(g)
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil, {timeout = 1}})
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', nil, {timeout = 1, fullscan = true}})
 
     t.assert_equals(err, nil)
     t.assert_equals(result.rows, {
@@ -1771,7 +1904,7 @@ pgroup.test_select_no_map_reduce = function(g)
     local result, err = g.cluster.main_server.net_box:call('crud.select', {
         'customers',
         nil,
-        {bucket_id = 2804, timeout = 1},
+        {bucket_id = 2804, timeout = 1, fullscan = true},
     })
     t.assert_equals(err, nil)
     t.assert_equals(result.rows, {

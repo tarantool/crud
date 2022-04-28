@@ -394,6 +394,7 @@ local select_cases = {
         map_reduces = 1,
         tuples_fetched = 0,
         tuples_lookup = 4,
+        opts = {fullscan = true},
     },
     pairs_by_primary_index = {
         eval = eval.pairs,
@@ -452,9 +453,9 @@ local function generate_stats(g)
     for _, case in pairs(select_cases) do
         local _, err
         if case.eval ~= nil then
-            _, err = g.router:eval(case.eval, { space_name, case.conditions })
+            _, err = g.router:eval(case.eval, { space_name, case.conditions, case.opts })
         else
-            _, err = g.router:call(case.func, { space_name, case.conditions })
+            _, err = g.router:call(case.func, { space_name, case.conditions, case.opts })
         end
 
         t.assert_equals(err, nil)

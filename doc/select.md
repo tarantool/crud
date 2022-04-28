@@ -24,7 +24,7 @@
 
 ## Filtering
 
-``CRUD`` allows to filter tuples by conditions. Each condition can use field name (or number) or index name. The first condition that uses index name is used to iterate over space. If there is no conditions that match index names, full scan is performed. Other conditions are used as additional filters. Search condition for the indexed field must be placed first to avoid a full scan.
+``CRUD`` allows to filter tuples by conditions. Each condition can use field name (or number) or index name. The first condition that uses index name is used to iterate over space. If there is no conditions that match index names, full scan is performed. Other conditions are used as additional filters. Search condition for the indexed field must be placed first to avoid a full scan. In additional, don't forget to limit amount of results with ``first`` parameter. This will help to avoid too long selects in production.
 
 **Note:** If you specify sharding key or ``bucket_id`` select will be performed on single node. Otherwise Map-Reduce over all nodes will be occurred.
 
@@ -107,7 +107,7 @@ We have an ``age_index`` index. Example below gets a list of ``customers`` over 
 **Example:**
 
 ```lua
-crud.select('developers', {{'>=', 'age_index', 30}})
+crud.select('developers', {{'>=', 'age_index', 30}}, {first = 10})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
@@ -130,8 +130,8 @@ field match, the search will also be performed using index.
 These two queries are equivalent, the search will be done using index in both cases:
 
 ```lua
-crud.select('developers', {{'>=', 'age_index', 30}})
-crud.select('developers', {{'>=', 'age', 30}})
+crud.select('developers', {{'>=', 'age_index', 30}}, {first = 10})
+crud.select('developers', {{'>=', 'age', 30}}, {first = 10})
 ```
 
 ### Select using composite index
@@ -141,7 +141,7 @@ Suppose we have a composite index consisting of the ``name`` and ``surname`` fie
 **Example**:
 
 ```lua
-crud.select('developers', {{'==', 'full_name', {"Alexey", "Adams"}}})
+crud.select('developers', {{'==', 'full_name', {"Alexey", "Adams"}}}, {first = 10})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
@@ -161,7 +161,7 @@ Alternatively, you can use a partial key for a composite index.
 **Example**:
 
 ```lua
-crud.select('developers', {{'==', 'full_name', "Alexey"}})
+crud.select('developers', {{'==', 'full_name', "Alexey"}}, {first = 10})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
@@ -184,7 +184,7 @@ You can also make a selection using a non-indexed field.
 **Example:**
 
 ```lua
-crud.select('developers', {{'==', 'surname', "Adams"}})
+crud.select('developers', {{'==', 'surname', "Adams"}}, {first = 10})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
@@ -202,10 +202,43 @@ crud.select('developers', {{'==', 'surname', "Adams"}})
 
 ### Avoiding full scan
 
+Most requests lead to a full scan. A critical log entry containing the current stack traceback is created upon such calls with a message: `Potentially long select from space '%space_name%'`.
+
 **Example:**
 
 ```lua
 crud.select('developers', {{'==', 'surname', "Adams"}, {'>=', 'age', 25}})
+---
+2022-05-24 14:06:31.748 [25108] main/103/playground.lua C> Potentially long select from space 'developers'
+ stack traceback:
+	.rocks/share/tarantool/crud/select/compat/common.lua:24: in function 'check_select_safety'
+	.rocks/share/tarantool/crud/select/compat/select.lua:298: in function <.rocks/share/tarantool/crud/select/compat/select.lua:252>
+	[C]: in function 'pcall'
+	.rocks/share/tarantool/crud/common/sharding/init.lua:163: in function <.rocks/share/tarantool/crud/common/sharding/init.lua:158>
+	[C]: in function 'xpcall'
+	.rocks/share/tarantool/errors.lua:145: in function <.rocks/share/tarantool/errors.lua:139>
+	[C]: in function 'pcall'
+	builtin/box/console.lua:403: in function 'eval'
+	builtin/box/console.lua:709: in function 'repl'
+	builtin/box/console.lua:758: in function 'start'
+	doc/playground.lua:164: in main chunk
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [3, 9661, 'Pavel', 'Adams', 27]
+...
+```
+
+You can avoid the full scan with '=' or '==' condition on index fields.
+
+**Example:**
+
+```lua
+crud.select('developers', {{'==', 'surname', "Adams"}, {'==', 'age', 27}})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
@@ -218,12 +251,60 @@ crud.select('developers', {{'==', 'surname', "Adams"}, {'>=', 'age', 25}})
 ...
 ```
 
-In this case, a full scan will be performed, since non-indexed field is placed first in search conditions. Example below shows how you can avoid a full scan.
+The order of conditions is important. A first condition on index fields determines whether a full scan will be performed or not.
 
 **Example:**
 
 ```lua
-crud.select('developers', {{'>=', 'age', 30}, {'==', 'surname', "Adams"}})
+crud.select('developers', {{'==', 'surname', "Adams"}, {'>', 'id', 0}, {'==', 'age', 27}})
+2022-05-24 14:07:26.289 [29561] main/103/playground.lua C> Potentially long select from space 'developers'
+ stack traceback:
+	.rocks/share/tarantool/crud/select/compat/common.lua:24: in function 'check_select_safety'
+	.rocks/share/tarantool/crud/select/compat/select.lua:298: in function <.rocks/share/tarantool/crud/select/compat/select.lua:252>
+	[C]: in function 'pcall'
+	.rocks/share/tarantool/crud/common/sharding/init.lua:163: in function <.rocks/share/tarantool/crud/common/sharding/init.lua:158>
+	[C]: in function 'xpcall'
+	.rocks/share/tarantool/errors.lua:145: in function <.rocks/share/tarantool/errors.lua:139>
+	[C]: in function 'pcall'
+	builtin/box/console.lua:403: in function 'eval'
+	builtin/box/console.lua:709: in function 'repl'
+	builtin/box/console.lua:758: in function 'start'
+	doc/playground.lua:164: in main chunk
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [3, 9661, 'Pavel', 'Adams', 27]
+...
+```
+
+Also, you can avoid the critical message with parameter ``first`` <= 1000.
+
+**Example:**
+
+```lua
+crud.select('developers', {{'==', 'surname', "Adams"}, {'>=', 'age', 25}}, {first = 10})
+---
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'surname', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [3, 9661, 'Pavel', 'Adams', 27]
+...
+```
+
+Or you can do it with parameter ``fullscan=true`` if you know what you're doing (a small space).
+
+**Example:**
+
+```lua
+crud.select('developers', {{'==', 'surname', "Adams"}, {'>=', 'age', 25}}, {fullscan = true})
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
@@ -271,7 +352,7 @@ Using ``after``, we can get the objects after specified tuple.
 **Example:**
 
 ```lua
-res, err = crud.select('developers', nil, { after = res.rows[3] })
+res, err = crud.select('developers', nil, { after = res.rows[3], first = 5 })
 res
 ---
 - metadata:
@@ -398,7 +479,7 @@ format
 - {'name': 'age', 'type': 'number'}
 ...
 -- get names of users that are 27 years old or older
-res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} })
+res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, first = 10 })
 res
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
@@ -426,7 +507,7 @@ format
 - {'name': 'age', 'type': 'number'}
 ...
 -- get names of users that are 27 years old or older
-res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} })
+res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, first = 10 })
 res
 - metadata: 
   - {'name': 'id', 'type': 'unsigned'}
@@ -438,7 +519,7 @@ res
   - [4, 'Mikhail', 51]
 ...
 -- get names of users that are 27 years old or older
-res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, after = res.rows[1] })
+res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, after = res.rows[1], first = 10 })
 res
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
@@ -452,12 +533,12 @@ res
 **THIS WOULD FAIL**
 ```lua
 -- 'fields' isn't specified
-res, err = crud.select('developers', {{'>=', 'age', 27}})
+res, err = crud.select('developers', {{'>=', 'age', 27}}, {first = 10})
 
 -- THIS WOULD FAIL
 -- call 'select' with 'fields' option specified 
 -- and pass to 'after' tuple that were got without 'fields' option
-res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, after = res.rows[1] })
+res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, after = res.rows[1], first = 10 })
 ```
 You could use `crud.cut_rows` function to cut off scan key and primary key values that were merged to the result fields.
 
@@ -465,7 +546,7 @@ You could use `crud.cut_rows` function to cut off scan key and primary key value
 
 ```lua
 -- get names of users that are 27 years old or older
-res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'} })
+res, err = crud.select('developers', {{'>=', 'age', 27}}, { fields = {'id', 'name'}, first = 10 })
 res
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
