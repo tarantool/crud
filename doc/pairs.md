@@ -1,7 +1,8 @@
 # Pairs examples
 
 With ``crud.pairs``, you can iterate across a distributed space.  
-The arguments are the same as [``crud.select``](https://github.com/tarantool/crud/blob/master/doc/select.md), except of the ``use_tomap`` parameter.  
+The arguments are the same as [``crud.select``](https://github.com/tarantool/crud/blob/master/doc/select.md) arguments except ``fullscan`` (it does not exist because ``crud.pairs`` does not generate a critical log entry on potentially long requests) and negative ``first`` values aren't allowed.
+User could pass ``use_tomap`` flag (false by default) to iterate over flat tuples or objects.
 Below are examples that may help you.
 Examples schema is similar to the [select documentation](select.md/#examples-space-format)
 

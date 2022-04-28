@@ -180,6 +180,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     return {
         tuples_limit = tuples_limit,
         merger = merger,
+        plan = plan,
         space_format = filtered_space_format,
     }
 end
@@ -252,14 +253,16 @@ local function select_module_call_xc(space_name, user_conditions, opts)
     checks('string', '?table', {
         after = '?table|cdata',
         first = '?number',
-        timeout = '?number',
         batch_size = '?number',
         bucket_id = '?number|cdata',
         force_map_call = '?boolean',
         fields = '?table',
+        fullscan = '?boolean',
+
+        mode = '?vshard_call_mode',
         prefer_replica = '?boolean',
         balance = '?boolean',
-        mode = '?vshard_call_mode',
+        timeout = '?number',
     })
 
     opts = opts or {}
@@ -292,6 +295,7 @@ local function select_module_call_xc(space_name, user_conditions, opts)
     if err ~= nil then
         return nil, err
     end
+    common.check_select_safety(space_name, iter.plan, opts)
 
     local tuples = {}
 
