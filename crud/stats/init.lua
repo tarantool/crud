@@ -84,10 +84,20 @@ end
 --  computing requests latency as 0.99 quantile with aging.
 --  Performance overhead for enabling is near 10%.
 --
+-- @number[opt=1e-3] opts.quantile_tolerated_error
+--  See tarantool/metrics summary API for details:
+--  https://www.tarantool.io/ru/doc/latest/book/monitoring/api_reference/#summary
+--  If quantile value is -Inf, try to decrease quantile tolerance.
+--  See https://github.com/tarantool/metrics/issues/189 for issue details.
+--
 -- @treturn boolean Returns `true`.
 --
 function stats.enable(opts)
-    checks({ driver = '?string', quantiles = '?boolean' })
+    checks({
+        driver = '?string',
+        quantiles = '?boolean',
+        quantile_tolerated_error = '?number',
+    })
 
     StatsError:assert(
         rawget(_G, 'crud') ~= nil,
@@ -108,9 +118,14 @@ function stats.enable(opts)
         opts.quantiles = false
     end
 
+    if opts.quantile_tolerated_error == nil then
+        opts.quantile_tolerated_error = stats.DEFAULT_QUANTILE_TOLERATED_ERROR
+    end
+
     -- Do not reinit if called with same options.
     if internal.driver == opts.driver
-    and internal.quantiles == opts.quantiles then
+    and internal.quantiles == opts.quantiles
+    and internal.quantile_tolerated_error == opts.quantile_tolerated_error then
         return true
     end
 
@@ -118,9 +133,14 @@ function stats.enable(opts)
     stats.disable()
 
     internal.driver = opts.driver
-    internal.quantiles = opts.quantiles
 
-    internal:get_registry().init({ quantiles = internal.quantiles })
+    internal:get_registry().init{
+        quantiles = opts.quantiles,
+        quantile_tolerated_error = opts.quantile_tolerated_error
+    }
+
+    internal.quantiles = opts.quantiles
+    internal.quantile_tolerated_error = opts.quantile_tolerated_error
 
     return true
 end
@@ -140,7 +160,10 @@ function stats.reset()
     end
 
     internal:get_registry().destroy()
-    internal:get_registry().init({ quantiles = internal.quantiles })
+    internal:get_registry().init{
+        quantiles = internal.quantiles,
+        quantile_tolerated_error = internal.quantile_tolerated_error
+    }
 
     return true
 end
@@ -468,5 +491,8 @@ stats.op = op_module
 --
 -- @tfield[opt] boolean quantiles Is quantiles computed.
 stats.internal = internal
+
+--- Default metrics quantile precision.
+stats.DEFAULT_QUANTILE_TOLERATED_ERROR = 1e-3
 
 return stats

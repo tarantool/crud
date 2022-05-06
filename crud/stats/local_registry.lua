@@ -25,10 +25,16 @@ local StatsLocalError = errors.new_class('StatsLocalError', {capture_stack = fal
 -- @bool opts.quantiles
 --  Quantiles is not supported for local, only `false` is valid.
 --
+-- @number opts.quantile_tolerated_error
+--  Quantiles is not supported for local, so the value is ignored.
+--
 -- @treturn boolean Returns `true`.
 --
 function registry.init(opts)
-    dev_checks({ quantiles = 'boolean' })
+    dev_checks({
+        quantiles = 'boolean',
+        quantile_tolerated_error = 'number',
+    })
 
     StatsLocalError:assert(opts.quantiles == false,
         "Quantiles are not supported for 'local' statistics registry")

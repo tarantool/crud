@@ -26,6 +26,7 @@ group.test_defaults = function(g)
         stats = false,
         stats_driver = stats.get_default_driver(),
         stats_quantiles = false,
+        stats_quantile_tolerated_error = 1e-3,
     })
 end
 

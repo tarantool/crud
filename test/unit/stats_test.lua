@@ -658,6 +658,40 @@ group_driver.test_default_quantiles = function(g)
 end
 
 
+group_driver.test_default_quantile_tolerated_error = function(g)
+    enable_stats(g)
+
+    local quantile_tolerated_error = g.router:eval(" return stats_module.internal.quantile_tolerated_error ")
+    t.assert_equals(quantile_tolerated_error, 1e-3)
+end
+
+
+group_driver.before_test(
+    'test_custom_quantile_tolerated_error',
+    function(g)
+        t.skip_if(g.is_metrics_supported == false, 'Metrics registry is unsupported')
+    end
+)
+
+group_driver.test_custom_quantile_tolerated_error = function(g)
+    g.router:call('crud.cfg', {{
+        stats = true,
+        stats_driver = 'metrics',
+        stats_quantiles = true,
+        stats_quantile_tolerated_error = 5e-4,
+    }})
+
+    local resp = g.router:eval([[
+        local metrics = require('metrics')
+
+        local summary = metrics.summary('tnt_crud_stats')
+        return summary.objectives
+    ]])
+
+    t.assert_equals(resp, {[0.99] = 5e-4})
+end
+
+
 group_driver.before_test(
     'test_stats_reenable_with_different_driver_reset_stats',
     function(g)

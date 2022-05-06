@@ -8,8 +8,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Added
+* Make metrics quantile collector tolerated error configurable (#281).
 
 ### Changed
+* Change metrics quantile collector default tolerated error
+  from 1e-2 to 1e-3 (#281).
 
 ### Fixed
 * Requests no more fail with "Sharding hash mismatch" error
