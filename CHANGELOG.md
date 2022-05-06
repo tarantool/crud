@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [0.11.1] - 06-05-22
+
+### Added
 * Make metrics quantile collector tolerated error configurable (#281).
 
 ### Changed
@@ -19,6 +27,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   if ddl set and bucket_id is explicitly specified (#278).
 
 ## [0.11.0] - 20-04-22
+
+**Caution**: Use CRUD 0.11.1 instead of 0.11.0. It fixes
+critical bug for some requests (see #278).
 
 ### Added
 * `crud.count()` function to calculate the number of tuples
