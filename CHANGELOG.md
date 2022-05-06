@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 
 ### Fixed
+* Requests no more fail with "Sharding hash mismatch" error
+  if ddl set and bucket_id is explicitly specified (#278).
 
 ## [0.11.0] - 20-04-22
 

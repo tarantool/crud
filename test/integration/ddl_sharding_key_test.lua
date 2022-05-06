@@ -42,6 +42,7 @@ end)
 pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
 
 pgroup.before_each(function(g)
+    helpers.truncate_space_on_cluster(g.cluster, 'customers')
     helpers.truncate_space_on_cluster(g.cluster, 'customers_name_key')
     helpers.truncate_space_on_cluster(g.cluster, 'customers_name_key_uniq_index')
     helpers.truncate_space_on_cluster(g.cluster, 'customers_name_key_non_uniq_index')
@@ -759,4 +760,214 @@ pgroup.test_update_cache_with_incorrect_key = function(g)
         customers_name_key_uniq_index = {parts = {{fieldno = 3}}},
         customers_secondary_idx_name_key = {parts = {{fieldno = 3}}},
     })
+end
+
+
+local known_bucket_id_space = 'customers'
+local known_bucket_id_key = 1
+local known_bucket_id_tuple = {known_bucket_id_key, box.NULL, 'Emma', 22}
+local known_bucket_id_object = {
+    id = known_bucket_id_key,
+    bucket_id = box.NULL,
+    name = 'Emma',
+    age = 22
+}
+local known_bucket_id = 1111
+local known_bucket_id_result_tuple = {known_bucket_id_key, known_bucket_id, 'Emma', 22}
+local known_bucket_id_result = {
+    s1 = nil,
+    s2 = known_bucket_id_result_tuple,
+}
+local known_bucket_id_update = {{'+', 'age', 1}}
+local known_bucket_id_updated_result = {
+    s1 = nil,
+    s2 = {known_bucket_id_key, known_bucket_id, 'Emma', 23},
+}
+local prepare_known_bucket_id_data = function(g)
+    if known_bucket_id_result.s1 ~= nil then
+        local conn_s1 = g.cluster:server('s1-master').net_box
+        local result = conn_s1.space[known_bucket_id_space]:insert(known_bucket_id_result.s1)
+        t.assert_equals(result, known_bucket_id_result.s1)
+    end
+
+    if known_bucket_id_result.s2 ~= nil then
+        local conn_s2 = g.cluster:server('s2-master').net_box
+        local result = conn_s2.space[known_bucket_id_space]:insert(known_bucket_id_result.s2)
+        t.assert_equals(result, known_bucket_id_result.s2)
+    end
+end
+
+local known_bucket_id_write_cases = {
+    insert = {
+        func = 'crud.insert',
+        input = {
+            known_bucket_id_space,
+            known_bucket_id_tuple,
+            {bucket_id = known_bucket_id}
+        },
+        result = known_bucket_id_result,
+    },
+    insert_object = {
+        func = 'crud.insert_object',
+        input = {
+            known_bucket_id_space,
+            known_bucket_id_object,
+            {bucket_id = known_bucket_id}
+        },
+        result = known_bucket_id_result,
+    },
+    replace = {
+        func = 'crud.replace',
+        input = {
+            known_bucket_id_space,
+            known_bucket_id_tuple,
+            {bucket_id = known_bucket_id}
+        },
+        result = known_bucket_id_result,
+    },
+    replace_object = {
+        func = 'crud.replace_object',
+        input = {
+            known_bucket_id_space,
+            known_bucket_id_object,
+            {bucket_id = known_bucket_id}
+        },
+        result = known_bucket_id_result,
+    },
+    upsert = {
+        func = 'crud.upsert',
+        input = {
+            known_bucket_id_space,
+            known_bucket_id_tuple,
+            {},
+            {bucket_id = known_bucket_id}
+        },
+        result = known_bucket_id_result,
+    },
+    upsert_object = {
+        func = 'crud.upsert_object',
+        input = {
+            known_bucket_id_space,
+            known_bucket_id_object,
+            {},
+            {bucket_id = known_bucket_id}
+        },
+        result = known_bucket_id_result,
+    },
+    update = {
+        before_test = prepare_known_bucket_id_data,
+        func = 'crud.update',
+        input = {
+            known_bucket_id_space,
+            known_bucket_id_key,
+            known_bucket_id_update,
+            {bucket_id = known_bucket_id}
+        },
+        result = known_bucket_id_updated_result,
+    },
+    delete = {
+        before_test = prepare_known_bucket_id_data,
+        func = 'crud.delete',
+        input = {
+            known_bucket_id_space,
+            known_bucket_id_key,
+            {bucket_id = known_bucket_id}
+        },
+        result = {},
+    },
+}
+
+for name, case in pairs(known_bucket_id_write_cases) do
+    local test_name = ('test_gh_278_%s_with_explicit_bucket_id_and_ddl'):format(name)
+
+    if case.before_test ~= nil then
+        pgroup.before_test(test_name, case.before_test)
+    end
+
+    pgroup[test_name] = function(g)
+        local obj, err = g.cluster.main_server.net_box:call(case.func, case.input)
+        t.assert_equals(err, nil)
+        t.assert_is_not(obj, nil)
+
+        local conn_s1 = g.cluster:server('s1-master').net_box
+        local result = conn_s1.space[known_bucket_id_space]:get(known_bucket_id_key)
+        t.assert_equals(result, case.result.s1)
+
+        local conn_s2 = g.cluster:server('s2-master').net_box
+        local result = conn_s2.space[known_bucket_id_space]:get(known_bucket_id_key)
+        t.assert_equals(result, case.result.s2)
+    end
+end
+
+local known_bucket_id_read_cases = {
+    get = {
+        func = 'crud.get',
+        input = {
+            known_bucket_id_space,
+            known_bucket_id_key,
+            {bucket_id = known_bucket_id}
+        },
+    },
+    select = {
+        func = 'crud.select',
+        input = {
+            known_bucket_id_space,
+            {{ '==', 'id', known_bucket_id_key}},
+            {bucket_id = known_bucket_id}
+        },
+    },
+}
+
+for name, case in pairs(known_bucket_id_read_cases) do
+    local test_name = ('test_gh_278_%s_with_explicit_bucket_id_and_ddl'):format(name)
+
+    pgroup.before_test(test_name, prepare_known_bucket_id_data)
+
+    pgroup[test_name] = function(g)
+        local obj, err = g.cluster.main_server.net_box:call(case.func, case.input)
+        t.assert_equals(err, nil)
+        t.assert_is_not(obj, nil)
+        t.assert_equals(obj.rows, {known_bucket_id_result_tuple})
+    end
+end
+
+pgroup.before_test(
+    'test_gh_278_pairs_with_explicit_bucket_id_and_ddl',
+    prepare_known_bucket_id_data)
+
+pgroup.test_gh_278_pairs_with_explicit_bucket_id_and_ddl = function(g)
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local res = {}
+        for _, row in crud.pairs(...) do
+            table.insert(res, row)
+        end
+
+        return res
+    ]], {
+        known_bucket_id_space,
+        {{ '==', 'id', known_bucket_id_key}},
+        {bucket_id = known_bucket_id}
+    })
+
+    t.assert_equals(err, nil)
+    t.assert_is_not(obj, nil)
+    t.assert_equals(obj, {known_bucket_id_result_tuple})
+end
+
+pgroup.before_test(
+    'test_gh_278_count_with_explicit_bucket_id_and_ddl',
+    prepare_known_bucket_id_data)
+
+pgroup.test_gh_278_count_with_explicit_bucket_id_and_ddl = function(g)
+    local obj, err = g.cluster.main_server.net_box:call(
+        'crud.count',
+        {
+            known_bucket_id_space,
+            {{ '==', 'id', known_bucket_id_key}},
+            {bucket_id = known_bucket_id}
+        })
+
+    t.assert_equals(err, nil)
+    t.assert_is_not(obj, nil)
+    t.assert_equals(obj, 1)
 end

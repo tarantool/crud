@@ -21,6 +21,7 @@ local function insert_on_storage(space_name, tuple, opts)
         fields = '?table',
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
+        skip_sharding_hash_check = '?boolean',
     })
 
     opts = opts or {}
@@ -82,6 +83,7 @@ local function call_insert_on_router(space_name, original_tuple, opts)
         fields = opts.fields,
         sharding_func_hash = sharding_data.sharding_func_hash,
         sharding_key_hash = sharding_data.sharding_key_hash,
+        skip_sharding_hash_check = sharding_data.skip_sharding_hash_check,
     }
 
     local call_opts = {

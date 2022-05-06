@@ -83,6 +83,10 @@ with sharding func definition as a part of
 or insert manually to the space `_ddl_sharding_func`.
 
 Automatic sharding key and function reload is supported since version 0.11.0.
+Version 0.11.0 contains critical bug that causes some CRUD methods to fail
+with "Sharding hash mismatch" error if ddl is set and bucket_id is provided
+explicitly ([#278](https://github.com/tarantool/crud/issues/278)). Please,
+upgrade to 0.11.1 instead.
 
 CRUD uses `strcrc32` as sharding function by default.
 The reason why using of `strcrc32` is undesirable is that

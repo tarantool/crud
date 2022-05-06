@@ -126,9 +126,18 @@ local function call_count_on_router(space_name, user_conditions, opts)
         return nil, CountError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
     end
 
-    local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
-    if err ~= nil then
-        return nil, err
+    local sharding_key_data = {}
+    local sharding_func_hash = nil
+    local skip_sharding_hash_check = nil
+
+    -- We don't need sharding info if bucket_id specified.
+    if opts.bucket_id == nil then
+        sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
+        if err ~= nil then
+            return nil, err
+        end
+    else
+        skip_sharding_hash_check = true
     end
 
     -- plan count
@@ -171,8 +180,6 @@ local function call_count_on_router(space_name, user_conditions, opts)
     --       eye to resharding. However, AFAIU, the optimization
     --       does not make the result less consistent (sounds
     --       weird, huh?).
-    local sharding_func_hash = nil
-    local skip_sharding_hash_check = nil
 
     local perform_map_reduce = opts.force_map_call == true or
         (opts.bucket_id == nil and plan.sharding_key == nil)
