@@ -100,6 +100,8 @@ function sharding.tuple_set_and_return_bucket_id(tuple, space, specified_bucket_
             return nil, err
         end
         tuple[bucket_id_fieldno] = sharding_data.bucket_id
+    else
+        sharding_data.skip_sharding_hash_check = true
     end
 
     return sharding_data

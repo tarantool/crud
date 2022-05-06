@@ -20,6 +20,7 @@ local function upsert_on_storage(space_name, tuple, operations, opts)
         add_space_schema_hash = '?boolean',
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
+        skip_sharding_hash_check = '?boolean',
     })
 
     opts = opts or {}
@@ -93,6 +94,7 @@ local function call_upsert_on_router(space_name, original_tuple, user_operations
         fields = opts.fields,
         sharding_func_hash = sharding_data.sharding_func_hash,
         sharding_key_hash = sharding_data.sharding_key_hash,
+        skip_sharding_hash_check = sharding_data.skip_sharding_hash_check,
     }
 
     local call_opts = {
