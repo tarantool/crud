@@ -31,11 +31,6 @@ local metric_name = {
 
 local LATENCY_QUANTILE = 0.99
 
--- Increasing tolerance threshold affects performance.
-local DEFAULT_QUANTILES = {
-    [LATENCY_QUANTILE] = 1e-2,
-}
-
 local DEFAULT_AGE_PARAMS = {
     age_buckets_count = 2,
     max_age_time = 60,
@@ -86,17 +81,24 @@ end
 -- @bool opts.quantiles
 --  If `true`, computes latency as 0.99 quantile with aging.
 --
+-- @number[opt=1e-3] opts.quantile_tolerated_error
+--  See metrics summary API for details:
+--  https://www.tarantool.io/ru/doc/latest/book/monitoring/api_reference/#summary
+--  If quantile value is -Inf, try to decrease quantile tolerance.
+--  See https://github.com/tarantool/metrics/issues/189 for issue details.
+--
 -- @treturn boolean Returns `true`.
 --
 function registry.init(opts)
-    dev_checks({ quantiles = 'boolean' })
-
-    internal.opts = table.deepcopy(opts)
+    dev_checks({
+        quantiles = 'boolean',
+        quantile_tolerated_error = 'number',
+    })
 
     local quantile_params = nil
     local age_params = nil
     if opts.quantiles == true then
-        quantile_params = DEFAULT_QUANTILES
+        quantile_params = {[LATENCY_QUANTILE] = opts.quantile_tolerated_error}
         age_params = DEFAULT_AGE_PARAMS
     end
 
@@ -118,6 +120,8 @@ function registry.init(opts)
     internal.registry[metric_name.details.map_reduces] = metrics.counter(
         metric_name.details.map_reduces,
         'Map reduces planned during CRUD select/pairs')
+
+    internal.opts = table.deepcopy(opts)
 
     return true
 end

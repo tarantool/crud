@@ -25,6 +25,10 @@ local function set_defaults_if_empty(cfg)
         cfg.stats_quantiles = false
     end
 
+    if cfg.stats_quantile_tolerated_error == nil then
+        cfg.stats_quantile_tolerated_error = stats.DEFAULT_QUANTILE_TOLERATED_ERROR
+    end
+
     return cfg
 end
 
@@ -33,7 +37,8 @@ local cfg = set_defaults_if_empty(stash.get(stash.name.cfg))
 local function configure_stats(cfg, opts)
     if  (opts.stats == nil)
     and (opts.stats_driver == nil)
-    and (opts.stats_quantiles == nil) then
+    and (opts.stats_quantiles == nil)
+    and (opts.stats_quantile_tolerated_error == nil) then
         return
     end
 
@@ -49,8 +54,16 @@ local function configure_stats(cfg, opts)
         opts.stats_quantiles = cfg.stats_quantiles
     end
 
+    if opts.stats_quantiles == nil then
+        opts.stats_quantile_tolerated_error = cfg.stats_quantile_tolerated_error
+    end
+
     if opts.stats == true then
-        stats.enable{ driver = opts.stats_driver, quantiles = opts.stats_quantiles }
+        stats.enable{
+            driver = opts.stats_driver,
+            quantiles = opts.stats_quantiles,
+            quantile_tolerated_error = opts.stats_quantile_tolerated_error,
+        }
     else
         stats.disable()
     end
@@ -58,6 +71,7 @@ local function configure_stats(cfg, opts)
     rawset(cfg, 'stats', opts.stats)
     rawset(cfg, 'stats_driver', opts.stats_driver)
     rawset(cfg, 'stats_quantiles', opts.stats_quantiles)
+    rawset(cfg, 'stats_quantile_tolerated_error', opts.stats_quantile_tolerated_error)
 end
 
 --- Configure CRUD module.
@@ -86,13 +100,21 @@ end
 --  Enable or disable statistics quantiles (only for metrics driver).
 --  Quantiles computations increases performance overhead up to 10%.
 --
+-- @number[opt=1e-3] opts.stats_quantile_tolerated_error
+--  See tarantool/metrics summary API for details:
+--  https://www.tarantool.io/ru/doc/latest/book/monitoring/api_reference/#summary
+--  If quantile value is -Inf, try to decrease quantile tolerance.
+--  See https://github.com/tarantool/metrics/issues/189 for issue details.
+--  Decreasing the value increases computational load.
+--
 -- @return Configuration table.
 --
 local function __call(self, opts)
     checks('table', {
         stats = '?boolean',
         stats_driver = '?string',
-        stats_quantiles = '?boolean'
+        stats_quantiles = '?boolean',
+        stats_quantile_tolerated_error = '?number',
     })
 
     opts = table.deepcopy(opts) or {}

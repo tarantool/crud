@@ -793,6 +793,13 @@ metrics:collect()
     metric_name: tnt_crud_stats
 ...
 ```
+If you see `-Inf` value in quantile metrics, try to decrease the tolerated error:
+```lua
+crud.cfg{stats_quantile_tolerated_error = 1e-4}
+```
+See [tarantool/metrics#189](https://github.com/tarantool/metrics/issues/189) for
+details about the issue.
+
 
 `select` section additionally contains `details` collectors.
 ```lua
