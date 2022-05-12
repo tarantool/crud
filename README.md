@@ -114,8 +114,6 @@ Table below describe what operations supports custom sharding key:
 | `select()` / `pairs()`           | Yes                        |
 | `count()`                        | Yes                        |
 | `update()`                       | Yes                        |
-| `upsert()` / `upsert_object()`   | Yes                        |
-| `replace() / replace_object()`   | Yes                        |
 | `min()` / `max()`                | No (not required)          |
 | `cut_rows()` / `cut_objects()`   | No (not required)          |
 | `truncate()`                     | No (not required)          |
