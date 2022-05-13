@@ -2,6 +2,7 @@ local fio = require('fio')
 local clock = require('clock')
 
 local t = require('luatest')
+local luatest_capture = require('luatest.capture')
 
 local helpers = require('test.helper')
 
@@ -26,6 +27,9 @@ pgroup.before_all(function(g)
     g.cluster:server('router').net_box:eval([[
         require('crud').cfg{ stats = true }
     ]])
+    g.cluster:server('router').net_box:eval([[
+        require('crud.ratelimit').disable()
+    ]])
 end)
 
 pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
@@ -37,14 +41,14 @@ pgroup.before_each(function(g)
 end)
 
 pgroup.test_count_non_existent_space = function(g)
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {'non_existent_space'})
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {'non_existent_space', nil, {fullscan = true}})
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Space \"non_existent_space\" doesn't exist")
 end
 
 pgroup.test_count_empty_space = function(g)
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {'customers'})
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {'customers', nil, {fullscan = true}})
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 0)
@@ -69,7 +73,7 @@ pgroup.test_not_valid_operation = function(g)
     }
 
     local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions}
+            {'customers', conditions, {fullscan = true}}
     )
 
     t.assert_equals(result, nil)
@@ -87,6 +91,79 @@ pgroup.test_conditions_with_non_existed_field = function(g)
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 0)
+end
+
+
+local count_safety_cases = {
+    nil_and_nil_opts = {
+        has_crit = true,
+        user_conditions = nil,
+        opts = nil,
+    },
+    fullscan_false = {
+        has_crit = true,
+        user_conditions = nil,
+        opts = {fullscan = false},
+    },
+    fullscan_true = {
+        has_crit = false,
+        user_conditions = nil,
+        opts = {fullscan = true},
+    },
+    non_equal_conditions = {
+        has_crit = true,
+        user_conditions = {
+            {'>=', 'last_name', 'A'},
+            {'<=', 'last_name', 'Z'},
+            {'>', 'age', 20},
+            {'<', 'age', 30},
+        },
+        opts = nil,
+    },
+    equal_condition = {
+        has_crit = false,
+        user_conditions = {
+            {'>=', 'last_name', 'A'},
+            {'<=', 'last_name', 'Z'},
+            {'=', 'age', 25},
+        },
+        opts = nil,
+    },
+    equal_condition2 = {
+        has_crit = false,
+        user_conditions = {
+            {'>=', 'last_name', 'A'},
+            {'<=', 'last_name', 'Z'},
+            {'==', 'age', 25},
+        },
+        opts = nil,
+    },
+}
+
+for name, case in pairs(count_safety_cases) do
+    local space = 'customers'
+    local crit_log = "C> Potentially long count from space '" .. space .. "'"
+    local test_name = ('test_count_safety_%s'):format(name)
+
+    pgroup[test_name] = function(g)
+        local uc = case.user_conditions
+        local opts = case.opts
+        local capture = luatest_capture:new()
+        capture:enable()
+
+        local _, err = g.cluster.main_server.net_box:call('crud.count', {space, uc, opts})
+        t.assert_equals(err, nil)
+
+        local captured = helpers.fflush_main_server_stdout(g.cluster, capture)
+
+        if case.has_crit then
+            t.assert_str_contains(captured, crit_log)
+        else
+            t.assert_equals(string.find(captured, crit_log, 1, true), nil)
+        end
+
+        capture:disable()
+    end
 end
 
 pgroup.test_count_all = function(g)
@@ -118,7 +195,7 @@ pgroup.test_count_all = function(g)
     })
 
     local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers'}
+            {'customers', nil, {fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -154,7 +231,7 @@ pgroup.test_count_all_with_yield_every = function(g)
     })
 
     local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', nil, {yield_every = 1}}
+            {'customers', nil, {yield_every = 1, fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -190,7 +267,7 @@ pgroup.test_count_all_with_yield_every_0 = function(g)
     })
 
     local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', nil, {yield_every = 0}}
+            {'customers', nil, {yield_every = 0, fullscan = true}}
     )
 
     t.assert_equals(result, nil)
@@ -312,7 +389,7 @@ pgroup.test_ge_condition_with_index = function(g)
     local expected_len = 3
 
     local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions}
+            {'customers', conditions, {fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -354,7 +431,7 @@ pgroup.test_gt_condition_with_index = function(g)
     local expected_len = 1
 
     local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions}
+            {'customers', conditions, {fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -396,7 +473,7 @@ pgroup.test_le_condition_with_index = function(g)
     local expected_len = 4
 
     local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions}
+            {'customers', conditions, {fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -438,7 +515,7 @@ pgroup.test_lt_condition_with_index = function(g)
     local expected_len = 2
 
     local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions}
+            {'customers', conditions, {fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -543,6 +620,7 @@ pgroup.test_opts_not_damaged = function(g)
         mode = 'read',
         prefer_replica = false,
         balance = false,
+        fullscan = true
     }
     local new_count_opts, err = g.cluster.main_server:eval([[
          local crud = require('crud')
@@ -586,7 +664,7 @@ pgroup.test_count_no_map_reduce = function(g)
     local result, err = g.cluster.main_server.net_box:call('crud.count', {
         'customers',
         nil,
-        {bucket_id = 2804, timeout = 1},
+        {bucket_id = 2804, timeout = 1, fullscan = true},
     })
     t.assert_equals(err, nil)
     t.assert_equals(result, 1)
@@ -647,7 +725,7 @@ pgroup.test_count_timeout = function(g)
     local begin = clock.proc()
 
     local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions, {timeout = timeout}}
+            {'customers', conditions, {timeout = timeout, fullscan = true}}
     )
 
     t.assert_equals(err, nil)
@@ -688,7 +766,7 @@ pgroup.test_composite_index = function(g)
     }
 
     -- no after
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {'customers', conditions})
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {'customers', conditions}, {fullscan = true})
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 4)

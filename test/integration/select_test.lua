@@ -174,15 +174,7 @@ for name, case in pairs(select_safety_cases) do
         local _, err = g.cluster.main_server.net_box:call('crud.select', {space, uc, opts})
         t.assert_equals(err, nil)
 
-        -- We have a delay here. This hack helps to wait for the end of the output.
-        -- It shouldn't take much time.
-        g.cluster:server('router').net_box:eval([[
-            require('log').error("end of test_select_nil case")
-        ]])
-        local captured = ""
-        while not string.find(captured, "end of test_select_nil case", 1, true) do
-            captured = captured .. (capture:flush().stdout or "")
-        end
+        local captured = helpers.fflush_main_server_stdout(g.cluster, capture)
 
         if case.has_crit then
             t.assert_str_contains(captured, crit_log)

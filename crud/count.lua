@@ -10,6 +10,7 @@ local sharding = require('crud.common.sharding')
 local filters = require('crud.compare.filters')
 local count_plan = require('crud.compare.plan')
 local dev_checks = require('crud.common.dev_checks')
+local ratelimit = require('crud.ratelimit')
 local schema = require('crud.common.schema')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 
@@ -90,6 +91,22 @@ function count.init()
     _G._crud.count_on_storage = count_on_storage
 end
 
+local check_count_safety_rl = ratelimit.new()
+local function check_count_safety(space_name, plan, opts)
+    if opts.fullscan == true then
+        return
+    end
+
+    local iter = plan.tarantool_iter
+    if iter == box.index.EQ or iter == box.index.REQ then
+        return
+    end
+
+    local rl = check_count_safety_rl
+    local traceback = debug.traceback()
+    rl:log_crit("Potentially long count from space '%s'\n %s", space_name, traceback)
+end
+
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help
 -- see crud.common.schema.wrap_func_reload()
@@ -98,6 +115,7 @@ local function call_count_on_router(space_name, user_conditions, opts)
         timeout = '?number',
         bucket_id = '?number|cdata',
         force_map_call = '?boolean',
+        fullscan = '?boolean',
         yield_every = '?number',
         prefer_replica = '?boolean',
         balance = '?boolean',
@@ -147,6 +165,7 @@ local function call_count_on_router(space_name, user_conditions, opts)
     if err ~= nil then
         return nil, CountError:new("Failed to plan count: %s", err), const.NEED_SCHEMA_RELOAD
     end
+    check_count_safety(space_name, plan, opts)
 
     -- set replicasets to count from
     local replicasets_to_count = replicasets
@@ -297,6 +316,7 @@ function count.call(space_name, user_conditions, opts)
         timeout = '?number',
         bucket_id = '?number|cdata',
         force_map_call = '?boolean',
+        fullscan = '?boolean',
         yield_every = '?number',
         prefer_replica = '?boolean',
         balance = '?boolean',
