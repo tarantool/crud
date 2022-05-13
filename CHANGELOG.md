@@ -11,10 +11,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 * Optimize `crud.select()` without conditions and with `after`.
-* Behaviour of potentially long `select` calls: a critical log entry containing
-  the current stack traceback is created upon such function calls — an user can
-  explicitly request a full scan through by passing `fullscan=true` to `select`
-  options table argument in which a case a log entry will not be created (#276).
+* Behaviour of potentially long `select` and `count` calls: a critical log entry
+  containing the current stack traceback is created upon such function calls —
+  an user can explicitly request a full scan through by passing `fullscan=true`
+  to `select` or `count` options table argument in which a case a log entry will
+  not be created (#276).
 
 ### Fixed
 * `crud.select()` if a condition is '<=' and it's value < `after`.

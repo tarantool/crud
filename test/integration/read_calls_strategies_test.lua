@@ -111,7 +111,8 @@ pgroup.test_count = function(g)
     local _, err = g.cluster.main_server.net_box:call('crud.count', {'customers', nil, {
         mode = g.params.mode,
         balance = g.params.balance,
-        prefer_replica = g.params.prefer_replica
+        prefer_replica = g.params.prefer_replica,
+        fullscan = true
     }})
     t.assert_equals(err, nil)
     local vshard_calls = g.get_vshard_calls('call_impl')
