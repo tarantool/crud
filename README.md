@@ -220,7 +220,7 @@ where:
 
 * `space_name` (`string`) - name of the space
 * `key` (`any`) - primary key value
-* `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/#box-space-update)
+* `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/update/)
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `bucket_id` (`?number|cdata`) - bucket ID
@@ -334,7 +334,7 @@ where:
 
 * `space_name` (`string`) - name of the space
 * `tuple` / `object` (`table`) - tuple/object to insert if there is no existing tuple which matches the key fields
-* `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/#box-space-update) if there is an existing tuple which matches the key fields of tuple
+* `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/update/) if there is an existing tuple which matches the key fields of tuple
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `bucket_id` (`?number|cdata`) - bucket ID
@@ -409,7 +409,7 @@ Returns metadata and array of rows, error.
 #### Select conditions
 
 Select conditions are very similar to Tarantool update
-[operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/#box-space-update).
+[operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/update/).
 
 Each condition is a table `{operator, field-identifier, value}`:
 
