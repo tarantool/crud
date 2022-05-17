@@ -29,6 +29,14 @@ local function set_defaults_if_empty(cfg)
         cfg.stats_quantile_tolerated_error = stats.DEFAULT_QUANTILE_TOLERATED_ERROR
     end
 
+    if cfg.stats_quantile_age_buckets_count == nil then
+        cfg.stats_quantile_age_buckets_count = stats.DEFAULT_QUANTILE_AGE_BUCKET_COUNT
+    end
+
+    if cfg.stats_quantile_max_age_time == nil then
+        cfg.stats_quantile_max_age_time = stats.DEFAULT_QUANTILE_MAX_AGE_TIME
+    end
+
     return cfg
 end
 
@@ -38,7 +46,9 @@ local function configure_stats(cfg, opts)
     if  (opts.stats == nil)
     and (opts.stats_driver == nil)
     and (opts.stats_quantiles == nil)
-    and (opts.stats_quantile_tolerated_error == nil) then
+    and (opts.stats_quantile_tolerated_error == nil)
+    and (opts.stats_quantile_age_buckets_count == nil)
+    and (opts.stats_quantile_max_age_time == nil) then
         return
     end
 
@@ -58,11 +68,21 @@ local function configure_stats(cfg, opts)
         opts.stats_quantile_tolerated_error = cfg.stats_quantile_tolerated_error
     end
 
+    if opts.stats_quantile_age_buckets_count == nil then
+        opts.stats_quantile_age_buckets_count = cfg.stats_quantile_age_buckets_count
+    end
+
+    if opts.stats_quantile_max_age_time == nil then
+        opts.stats_quantile_max_age_time = cfg.stats_quantile_max_age_time
+    end
+
     if opts.stats == true then
         stats.enable{
             driver = opts.stats_driver,
             quantiles = opts.stats_quantiles,
             quantile_tolerated_error = opts.stats_quantile_tolerated_error,
+            quantile_age_buckets_count = opts.stats_quantile_age_buckets_count,
+            quantile_max_age_time = opts.stats_quantile_max_age_time,
         }
     else
         stats.disable()
@@ -72,6 +92,8 @@ local function configure_stats(cfg, opts)
     rawset(cfg, 'stats_driver', opts.stats_driver)
     rawset(cfg, 'stats_quantiles', opts.stats_quantiles)
     rawset(cfg, 'stats_quantile_tolerated_error', opts.stats_quantile_tolerated_error)
+    rawset(cfg, 'stats_quantile_age_buckets_count', opts.stats_quantile_age_buckets_count)
+    rawset(cfg, 'stats_quantile_max_age_time', opts.stats_quantile_max_age_time)
 end
 
 --- Configure CRUD module.
@@ -107,6 +129,21 @@ end
 --  See https://github.com/tarantool/metrics/issues/189 for issue details.
 --  Decreasing the value increases computational load.
 --
+-- @number[opt=2] opts.stats_quantile_age_buckets_count
+--  Count of summary quantile buckets.
+--  See tarantool/metrics summary API for details:
+--  https://www.tarantool.io/ru/doc/latest/book/monitoring/api_reference/#summary
+--  Increasing the value smoothes time window move,
+--  but consumes additional memory and CPU.
+--
+-- @number[opt=60] opts.stats_quantile_max_age_time
+--  Duration of each bucket’s lifetime in seconds.
+--  See tarantool/metrics summary API for details:
+--  https://www.tarantool.io/ru/doc/latest/book/monitoring/api_reference/#summary
+--  Smaller bucket lifetime results in smaller time window for quantiles,
+--  but more CPU is spent on bucket rotation. If your application has low request
+--  frequency, increase the value to reduce the amount of `-nan` gaps in quantile values.
+--
 -- @return Configuration table.
 --
 local function __call(self, opts)
@@ -115,6 +152,8 @@ local function __call(self, opts)
         stats_driver = '?string',
         stats_quantiles = '?boolean',
         stats_quantile_tolerated_error = '?number',
+        stats_quantile_age_buckets_count = '?number',
+        stats_quantile_max_age_time = '?number',
     })
 
     opts = table.deepcopy(opts) or {}

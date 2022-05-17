@@ -28,12 +28,20 @@ local StatsLocalError = errors.new_class('StatsLocalError', {capture_stack = fal
 -- @number opts.quantile_tolerated_error
 --  Quantiles is not supported for local, so the value is ignored.
 --
+-- @number opts.quantile_age_buckets_count
+--  Quantiles is not supported for local, so the value is ignored.
+--
+-- @number opts.quantile_max_age_time
+--  Quantiles is not supported for local, so the value is ignored.
+--
 -- @treturn boolean Returns `true`.
 --
 function registry.init(opts)
     dev_checks({
         quantiles = 'boolean',
         quantile_tolerated_error = 'number',
+        quantile_age_buckets_count = 'number',
+        quantile_max_age_time = 'number',
     })
 
     StatsLocalError:assert(opts.quantiles == false,

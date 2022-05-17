@@ -90,6 +90,21 @@ end
 --  If quantile value is -Inf, try to decrease quantile tolerated error.
 --  See https://github.com/tarantool/metrics/issues/189 for issue details.
 --
+-- @number[opt=2] opts.quantile_age_buckets_count
+--  Count of summary quantile buckets.
+--  See tarantool/metrics summary API for details:
+--  https://www.tarantool.io/ru/doc/latest/book/monitoring/api_reference/#summary
+--  Increasing the value smoothes time window move,
+--  but consumes additional memory and CPU.
+--
+-- @number[opt=60] opts.quantile_max_age_time
+--  Duration of each bucket’s lifetime in seconds.
+--  See tarantool/metrics summary API for details:
+--  https://www.tarantool.io/ru/doc/latest/book/monitoring/api_reference/#summary
+--  Smaller bucket lifetime results in smaller time window for quantiles,
+--  but more CPU is spent on bucket rotation. If your application has low request
+--  frequency, increase the value to reduce the amount of `-nan` gaps in quantile values.
+--
 -- @treturn boolean Returns `true`.
 --
 function stats.enable(opts)
@@ -97,6 +112,8 @@ function stats.enable(opts)
         driver = '?string',
         quantiles = '?boolean',
         quantile_tolerated_error = '?number',
+        quantile_age_buckets_count = '?number',
+        quantile_max_age_time = '?number',
     })
 
     StatsError:assert(
@@ -122,10 +139,20 @@ function stats.enable(opts)
         opts.quantile_tolerated_error = stats.DEFAULT_QUANTILE_TOLERATED_ERROR
     end
 
+    if opts.quantile_age_buckets_count == nil then
+        opts.quantile_age_buckets_count = stats.DEFAULT_QUANTILE_AGE_BUCKET_COUNT
+    end
+
+    if opts.quantile_max_age_time == nil then
+        opts.quantile_max_age_time = stats.DEFAULT_QUANTILE_MAX_AGE_TIME
+    end
+
     -- Do not reinit if called with same options.
     if internal.driver == opts.driver
     and internal.quantiles == opts.quantiles
-    and internal.quantile_tolerated_error == opts.quantile_tolerated_error then
+    and internal.quantile_tolerated_error == opts.quantile_tolerated_error
+    and internal.quantile_age_buckets_count == opts.quantile_age_buckets_count
+    and internal.quantile_max_age_time == opts.quantile_max_age_time then
         return true
     end
 
@@ -136,11 +163,15 @@ function stats.enable(opts)
 
     internal:get_registry().init{
         quantiles = opts.quantiles,
-        quantile_tolerated_error = opts.quantile_tolerated_error
+        quantile_tolerated_error = opts.quantile_tolerated_error,
+        quantile_age_buckets_count = opts.quantile_age_buckets_count,
+        quantile_max_age_time = opts.quantile_max_age_time,
     }
 
     internal.quantiles = opts.quantiles
     internal.quantile_tolerated_error = opts.quantile_tolerated_error
+    internal.quantile_age_buckets_count = opts.quantile_age_buckets_count
+    internal.quantile_max_age_time = opts.quantile_max_age_time
 
     return true
 end
@@ -162,7 +193,9 @@ function stats.reset()
     internal:get_registry().destroy()
     internal:get_registry().init{
         quantiles = internal.quantiles,
-        quantile_tolerated_error = internal.quantile_tolerated_error
+        quantile_tolerated_error = internal.quantile_tolerated_error,
+        quantile_age_buckets_count = internal.quantile_age_buckets_count,
+        quantile_max_age_time = internal.quantile_max_age_time,
     }
 
     return true
@@ -184,6 +217,9 @@ function stats.disable()
     internal:get_registry().destroy()
     internal.driver = nil
     internal.quantiles = nil
+    internal.quantile_tolerated_error = nil
+    internal.quantile_age_buckets_count = nil
+    internal.quantile_max_age_time = nil
 
     return true
 end
@@ -494,5 +530,11 @@ stats.internal = internal
 
 --- Default metrics quantile precision.
 stats.DEFAULT_QUANTILE_TOLERATED_ERROR = 1e-3
+
+--- Default metrics quantile bucket count.
+stats.DEFAULT_QUANTILE_AGE_BUCKET_COUNT = 2
+
+--- Default metrics quantile bucket lifetime.
+stats.DEFAULT_QUANTILE_MAX_AGE_TIME = 60
 
 return stats

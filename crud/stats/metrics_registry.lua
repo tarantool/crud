@@ -31,11 +31,6 @@ local metric_name = {
 
 local LATENCY_QUANTILE = 0.99
 
-local DEFAULT_AGE_PARAMS = {
-    age_buckets_count = 2,
-    max_age_time = 60,
-}
-
 --- Check if application supports metrics rock for registry
 --
 --  `metrics >= 0.10.0` is required.
@@ -87,19 +82,39 @@ end
 --  If quantile value is -Inf, try to decrease quantile tolerated error.
 --  See https://github.com/tarantool/metrics/issues/189 for issue details.
 --
+-- @number[opt=2] opts.quantile_age_buckets_count
+--  Count of summary quantile buckets.
+--  See tarantool/metrics summary API for details:
+--  https://www.tarantool.io/ru/doc/latest/book/monitoring/api_reference/#summary
+--  Increasing the value smoothes time window move,
+--  but consumes additional memory and CPU.
+--
+-- @number[opt=60] opts.quantile_max_age_time
+--  Duration of each bucket’s lifetime in seconds.
+--  See tarantool/metrics summary API for details:
+--  https://www.tarantool.io/ru/doc/latest/book/monitoring/api_reference/#summary
+--  Smaller bucket lifetime results in smaller time window for quantiles,
+--  but more CPU is spent on bucket rotation. If your application has low request
+--  frequency, increase the value to reduce the amount of `-nan` gaps in quantile values.
+--
 -- @treturn boolean Returns `true`.
 --
 function registry.init(opts)
     dev_checks({
         quantiles = 'boolean',
         quantile_tolerated_error = 'number',
+        quantile_age_buckets_count = 'number',
+        quantile_max_age_time = 'number',
     })
 
     local quantile_params = nil
     local age_params = nil
     if opts.quantiles == true then
         quantile_params = {[LATENCY_QUANTILE] = opts.quantile_tolerated_error}
-        age_params = DEFAULT_AGE_PARAMS
+        age_params = {
+            age_buckets_count = opts.quantile_age_buckets_count,
+            max_age_time = opts.quantile_max_age_time,
+        }
     end
 
     internal.registry = {}

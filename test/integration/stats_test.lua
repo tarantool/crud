@@ -55,7 +55,10 @@ local function enable_stats(g, params)
         require('crud').cfg{
             stats = true,
             stats_driver = params.driver,
-            stats_quantiles = params.quantiles
+            stats_quantiles = params.quantiles,
+            stats_quantile_tolerated_error = 1e-3,
+            stats_quantile_age_buckets_count = 3,
+            stats_quantile_max_age_time = 60,
         }
     ]], { params })
 end
