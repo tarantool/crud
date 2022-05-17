@@ -661,7 +661,9 @@ end
 group_driver.test_default_quantile_tolerated_error = function(g)
     enable_stats(g)
 
-    local quantile_tolerated_error = g.router:eval(" return stats_module.internal.quantile_tolerated_error ")
+    local quantile_tolerated_error = g.router:eval([[
+        return stats_module.internal.quantile_tolerated_error
+    ]])
     t.assert_equals(quantile_tolerated_error, 1e-3)
 end
 
@@ -689,6 +691,120 @@ group_driver.test_custom_quantile_tolerated_error = function(g)
     ]])
 
     t.assert_equals(resp, {[0.99] = 5e-4})
+end
+
+
+group_driver.test_default_quantile_age_buckets_count = function(g)
+    enable_stats(g)
+
+    local quantile_age_buckets_count = g.router:eval([[
+        return stats_module.internal.quantile_age_buckets_count
+    ]])
+    t.assert_equals(quantile_age_buckets_count, 2)
+end
+
+
+group_driver.before_test(
+    'test_custom_quantile_age_buckets_count',
+    function(g)
+        t.skip_if(g.is_metrics_supported == false, 'Metrics registry is unsupported')
+    end
+)
+
+group_driver.test_custom_quantile_age_buckets_count = function(g)
+    g.router:call('crud.cfg', {{
+        stats = true,
+        stats_driver = 'metrics',
+        stats_quantiles = true,
+        stats_quantile_age_buckets_count = 3,
+    }})
+
+    local resp = g.router:eval([[
+        local metrics = require('metrics')
+
+        local summary = metrics.summary('tnt_crud_stats')
+        return summary.age_buckets_count
+    ]])
+
+    t.assert_equals(resp, 3)
+end
+
+
+group_driver.before_test(
+    'test_invalid_quantile_age_buckets_count',
+    function(g)
+        t.skip_if(g.is_metrics_supported == false, 'Metrics registry is unsupported')
+    end
+)
+
+group_driver.test_invalid_quantile_age_buckets_count = function(g)
+    local cfg_before = g.router:call('crud.cfg')
+
+    t.assert_error(g.router.call, g.router, 'crud.cfg', {{
+        stats = true,
+        stats_driver = 'metrics',
+        stats_quantiles = true,
+        stats_quantile_age_buckets_count = -0.2,
+    }})
+
+    local cfg_after = g.router:call('crud.cfg')
+    t.assert_equals(cfg_after, cfg_before)
+end
+
+
+group_driver.test_default_quantile_max_age_time = function(g)
+    enable_stats(g)
+
+    local quantile_max_age_time = g.router:eval(" return stats_module.internal.quantile_max_age_time ")
+    t.assert_equals(quantile_max_age_time, 60)
+end
+
+
+group_driver.before_test(
+    'test_custom_quantile_max_age_time',
+    function(g)
+        t.skip_if(g.is_metrics_supported == false, 'Metrics registry is unsupported')
+    end
+)
+
+group_driver.test_custom_quantile_max_age_time = function(g)
+    g.router:call('crud.cfg', {{
+        stats = true,
+        stats_driver = 'metrics',
+        stats_quantiles = true,
+        stats_quantile_max_age_time = 10,
+    }})
+
+    local resp = g.router:eval([[
+        local metrics = require('metrics')
+
+        local summary = metrics.summary('tnt_crud_stats')
+        return summary.max_age_time
+    ]])
+
+    t.assert_equals(resp, 10)
+end
+
+
+group_driver.before_test(
+    'test_invalid_quantile_max_age_time',
+    function(g)
+        t.skip_if(g.is_metrics_supported == false, 'Metrics registry is unsupported')
+    end
+)
+
+group_driver.test_invalid_quantile_max_age_time = function(g)
+    local cfg_before = g.router:call('crud.cfg')
+
+    t.assert_error(g.router.call, g.router, 'crud.cfg', {{
+        stats = true,
+        stats_driver = 'metrics',
+        stats_quantiles = true,
+        stats_quantile_max_age_time = -0.2,
+    }})
+
+    local cfg_after = g.router:call('crud.cfg')
+    t.assert_equals(cfg_after, cfg_before)
 end
 
 

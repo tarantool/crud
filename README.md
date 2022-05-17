@@ -797,7 +797,17 @@ crud.cfg{stats_quantile_tolerated_error = 1e-4}
 ```
 See [tarantool/metrics#189](https://github.com/tarantool/metrics/issues/189) for
 details about the issue.
-
+You can also configure quantile `age_bucket_count` (default: 2) and
+`max_age_time` (in seconds, default: 60):
+```lua
+crud.cfg{
+    stats_quantile_age_bucket_count = 3,
+    stats_quantile_max_age_time = 30,
+}
+```
+See [`metrics` summary API](https://www.tarantool.io/ru/doc/latest/book/monitoring/api_reference/#summary)
+for details. These parameters can be used to smooth time window move
+or reduce the amount on `-nan` gaps for low request frequency applications.
 
 `select` section additionally contains `details` collectors.
 ```lua
