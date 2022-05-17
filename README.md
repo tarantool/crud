@@ -721,11 +721,15 @@ crud.stats()
     my_space:
       insert:
         ok:
-          latency: 0.002
+          latency: 0.0015
+          latency_average: 0.002
+          latency_quantile_recent: 0.0015
           count: 19800
           time: 39.6
         error:
-          latency: 0.000001
+          latency: 0.0000008
+          latency_average: 0.000001
+          latency_quantile_recent: 0.0000008
           count: 4
           time: 0.000004
 ...
@@ -733,11 +737,15 @@ crud.stats('my_space')
 ---
 - insert:
     ok:
-      latency: 0.002
+      latency: 0.0015
+      latency_average: 0.002
+      latency_quantile_recent: 0.0015
       count: 19800
       time: 39.6
     error:
-      latency: 0.000001
+      latency: 0.0000008
+      latency_average: 0.000001
+      latency_quantile_recent: 0.0000008
       count: 4
       time: 0.000004
 ...
@@ -759,10 +767,17 @@ and `borders` (for `min` and `max` calls).
 Each operation section consists of different collectors
 for success calls and error (both error throw and `nil, err`)
 returns. `count` is the total requests count since instance start
-or stats restart. `latency` is the 0.99 quantile of request execution
-time if `metrics` driver used and quantiles enabled,
-otherwise `latency` is the total average.
-`time` is the total time of requests execution.
+or stats restart.  `time` is the total time of requests execution.
+`latency_average` is `time` / `count`.
+`latency_quantile_recent` is the 0.99 quantile of request execution
+time for a recent period (see 
+[`metrics` summary API](https://www.tarantool.io/ru/doc/latest/book/monitoring/api_reference/#summary)).
+It is computed only if `metrics` driver is used and quantiles are
+enabled. `latency_quantile_recent` value may be `-nan` if there
+wasn't any observations for several ages, see
+[tarantool/metrics#303](https://github.com/tarantool/metrics/issues/303).
+`latency` is a `latency_quantile_recent` if `metrics` driver is used
+and quantiles are enabled, otherwise it's `latency_average`.
 
 In [`metrics`](https://www.tarantool.io/en/doc/latest/book/monitoring/)
 registry statistics are stored as `tnt_crud_stats` metrics

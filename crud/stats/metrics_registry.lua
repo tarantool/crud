@@ -162,50 +162,35 @@ function registry.destroy()
     return true
 end
 
---- Compute `latency` field of an observation.
+--- Compute `latency_average` and set `latency` fields of each observation.
 --
---  If it is a `{ time = ..., count = ... }` observation,
---  compute latency as overall average and store it
---  inside observation object.
+--  `latency` is `latency_average` if quantiles disabled
+--  and `latency_quantile` otherwise.
 --
--- @function compute_obs_latency
--- @local
---
--- @tab obs
---  Objects from `registry_utils`
---  `stats.spaces[name][op][status]`.
---  If something like `details` collector
---  passed, do nothing.
---
-local function compute_obs_latency(obs)
-    if obs.count == nil or obs.time == nil then
-        return
-    end
-
-    if obs.count == 0 then
-        obs.latency = 0
-    else
-        obs.latency = obs.time / obs.count
-    end
-end
-
---- Compute `latency` field of each observation.
---
---  If quantiles disabled, we need to compute
---  latency as overall average from `time` and
---  `count` values.
---
--- @function compute_latencies
+-- @function compute_aggregates
 -- @local
 --
 -- @tab stats
 --  Object from registry_utils stats.
 --
-local function compute_latencies(stats)
+local function compute_aggregates(stats)
     for _, space_stats in pairs(stats.spaces) do
         for _, op_stats in pairs(space_stats) do
             for _, obs in pairs(op_stats) do
-                compute_obs_latency(obs)
+                -- There are no count in `details`.
+                if obs.count ~= nil then
+                    if obs.count == 0 then
+                        obs.latency_average = 0
+                    else
+                        obs.latency_average = obs.time / obs.count
+                    end
+
+                    if obs.latency_quantile_recent ~= nil then
+                        obs.latency = obs.latency_quantile_recent
+                    else
+                        obs.latency = obs.latency_average
+                    end
+                end
             end
         end
     end
@@ -250,7 +235,7 @@ function registry.get(space_name)
         -- metric_name.stats presents only if quantiles enabled.
         if obs.metric_name == metric_name.stats then
             if obs.label_pairs.quantile == LATENCY_QUANTILE then
-                space_stats[op][status].latency = obs.value
+                space_stats[op][status].latency_quantile_recent = obs.value
             end
         elseif obs.metric_name == metric_name.stats_sum then
             space_stats[op][status].time = obs.value
@@ -261,9 +246,7 @@ function registry.get(space_name)
         :: stats_continue ::
     end
 
-    if not internal.opts.quantiles then
-        compute_latencies(stats)
-    end
+    compute_aggregates(stats)
 
     -- Fill select/pairs detail statistics values.
     for stat_name, metric_name in pairs(metric_name.details) do

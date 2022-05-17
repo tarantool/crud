@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 * Make metrics quantile collector age params configurable (#286).
+* Add separate `latency_average` and `latency_quantile_recent`
+  fields to `crud.stats()` output (#286).
 
 ### Changed
 

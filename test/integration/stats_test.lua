@@ -529,6 +529,24 @@ for name, case in pairs(simple_operation_cases) do
         t.assert_le(changed_after.latency, ok_latency_max,
             'Changed latency has appropriate value')
 
+        local ok_average_max = math.max(changed_before.latency_average, after_finish - before_start)
+
+        t.assert_gt(changed_after.latency_average, 0,
+            'Changed average has appropriate value')
+        t.assert_le(changed_after.latency_average, ok_average_max,
+            'Changed average has appropriate value')
+
+        if g.params.quantiles == true then
+            local ok_quantile_max = math.max(
+                changed_before.latency_quantile_recent or 0,
+                after_finish - before_start)
+
+            t.assert_gt(changed_after.latency_quantile_recent, 0,
+                'Changed quantile has appropriate value')
+            t.assert_le(changed_after.latency_quantile_recent, ok_quantile_max,
+                'Changed quantile has appropriate value')
+        end
+
         local time_diff = changed_after.time - changed_before.time
 
         t.assert_gt(time_diff, 0, 'Total time increase has appropriate value')

@@ -121,7 +121,8 @@ function registry.observe(latency, space_name, op, status)
 
     collectors.count = collectors.count + 1
     collectors.time = collectors.time + latency
-    collectors.latency = collectors.time / collectors.count
+    collectors.latency_average = collectors.time / collectors.count
+    collectors.latency = collectors.latency_average
 
     return true
 end
