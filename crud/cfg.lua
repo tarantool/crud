@@ -103,7 +103,7 @@ end
 -- @number[opt=1e-3] opts.stats_quantile_tolerated_error
 --  See tarantool/metrics summary API for details:
 --  https://www.tarantool.io/ru/doc/latest/book/monitoring/api_reference/#summary
---  If quantile value is -Inf, try to decrease quantile tolerance.
+--  If quantile value is -Inf, try to decrease quantile tolerated error.
 --  See https://github.com/tarantool/metrics/issues/189 for issue details.
 --  Decreasing the value increases computational load.
 --
