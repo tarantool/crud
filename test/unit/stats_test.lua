@@ -170,8 +170,24 @@ for name, case in pairs(observe_cases) do
             t.assert_equals(changed.count, run_count, 'Count incremented by count of runs')
 
             local sleep_time = helpers.simple_functions_params().sleep_time
+
             t.assert_ge(changed.latency, sleep_time, 'Latency has appropriate value')
             t.assert_le(changed.latency, time_diffs[#time_diffs], 'Latency has appropriate value')
+
+            t.assert_ge(changed.latency_average, sleep_time, 'Average has appropriate value')
+            t.assert_le(changed.latency_average, time_diffs[#time_diffs], 'Average has appropriate value')
+
+            if g.params.quantiles == true then
+                t.assert_ge(
+                    changed.latency_quantile_recent,
+                    sleep_time,
+                    'Quantile has appropriate value')
+
+                t.assert_le(
+                    changed.latency_quantile_recent,
+                    time_diffs[#time_diffs],
+                    'Quantile has appropriate value')
+            end
 
             t.assert_ge(changed.time, sleep_time * run_count,
                 'Total time increase has appropriate value')
@@ -187,6 +203,7 @@ for name, case in pairs(observe_cases) do
                 {
                     count = 0,
                     latency = 0,
+                    latency_average = 0,
                     time = 0
                 },
                 'Other status collectors initialized after observations'
@@ -387,15 +404,31 @@ for name, case in pairs(pairs_cases) do
 
         t.assert_equals(changed.count, 1, 'Count incremented by 1')
 
-        t.assert_ge(changed.latency,
+        t.assert_ge(
+            changed.latency,
             params.sleep_time * (case.build_sleep_multiplier + case.iterations_expected),
             'Latency has appropriate value')
         t.assert_le(changed.latency, time_diff, 'Latency has appropriate value')
 
+        t.assert_ge(
+            changed.latency_average,
+            params.sleep_time * (case.build_sleep_multiplier + case.iterations_expected),
+            'Average has appropriate value')
+        t.assert_le(changed.latency_average, time_diff, 'Average has appropriate value')
+
+        if g.params.quantiles == true then
+            t.assert_ge(
+                changed.latency_quantile_recent,
+                params.sleep_time * (case.build_sleep_multiplier + case.iterations_expected),
+                'Quantile has appropriate value')
+
+            t.assert_le(changed.latency_quantile_recent, time_diff, 'Quantile has appropriate value')
+        end
+
         t.assert_ge(changed.time,
             params.sleep_time * (case.build_sleep_multiplier + case.iterations_expected),
             'Total time has appropriate value')
-        t.assert_le(changed.time, time_diff, 'Total time  has appropriate value')
+        t.assert_le(changed.time, time_diff, 'Total time has appropriate value')
 
         -- Other collectors (unchanged_coll: 'error' or 'ok')
         -- have been initialized and have default values.
@@ -407,6 +440,7 @@ for name, case in pairs(pairs_cases) do
             {
                 count = 0,
                 latency = 0,
+                latency_average = 0,
                 time = 0
             },
             'Other status collectors initialized after observations'

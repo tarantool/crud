@@ -16,7 +16,8 @@ local registry_utils = {}
 --  Use `require('crud.stats').op` to pick one.
 --
 -- @treturn table Returns collectors for success and error requests.
---  Collectors store 'count', 'latency' and 'time' values. Also
+--  Collectors store 'count', 'latency', 'latency_average',
+--  'latency_quantile_recent' and 'time' values. Also
 --  returns additional collectors for select operation.
 --
 function registry_utils.build_collectors(op)
@@ -26,11 +27,19 @@ function registry_utils.build_collectors(op)
         ok = {
             count = 0,
             latency = 0,
+            latency_average = 0,
+            -- latency_quantile_recent presents only if driver
+            -- is 'metrics' and quantiles enabled.
+            latency_quantile_recent = nil,
             time = 0,
         },
         error = {
             count = 0,
             latency = 0,
+            latency_average = 0,
+            -- latency_quantile_recent presents only if driver
+            -- is 'metrics' and quantiles enabled.
+            latency_quantile_recent = nil,
             time = 0,
         },
     }
