@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 
 ### Fixed
+* Preset `stats_quantile_tolerated_error` `crud.cfg` parameter is no
+  more lost on configuration update (#284).
 
 ## [0.11.1] - 06-05-22
 
