@@ -78,3 +78,25 @@ group.test_role_reload_preserves_values = function(g)
     local cfg = router:eval("return require('crud').cfg")
     t.assert_equals(cfg.stats, true)
 end
+
+group.test_gh_284_preset_stats_quantile_tolerated_error_is_preserved = function(g)
+    -- Arrange some cfg values so test case will not depend on defaults.
+    local cfg = g.cluster:server('router'):eval(
+        "return require('crud').cfg(...)",
+        {{ stats = false }})
+    t.assert_equals(cfg.stats, false)
+
+    -- Set stats_quantile_tolerated_error.
+    local cfg = g.cluster:server('router'):eval(
+        "return require('crud').cfg(...)",
+        {{ stats_quantile_tolerated_error = 1e-4 }})
+    t.assert_equals(cfg.stats_quantile_tolerated_error, 1e-4)
+
+    -- Set another cfg parameter, assert preset stats_quantile_tolerated_error presents.
+    local cfg = g.cluster:server('router'):eval(
+        "return require('crud').cfg(...)",
+        {{ stats = true }})
+    t.assert_equals(cfg.stats, true)
+    t.assert_equals(cfg.stats_quantile_tolerated_error, 1e-4,
+        'Preset stats_quantile_tolerated_error presents')
+end

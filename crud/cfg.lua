@@ -54,7 +54,7 @@ local function configure_stats(cfg, opts)
         opts.stats_quantiles = cfg.stats_quantiles
     end
 
-    if opts.stats_quantiles == nil then
+    if opts.stats_quantile_tolerated_error == nil then
         opts.stats_quantile_tolerated_error = cfg.stats_quantile_tolerated_error
     end
 
