@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+* crud.VERSION constant to make it possible to determine crud module
+  version application runs on in runtime
+
 ### Changed
 
 ### Fixed

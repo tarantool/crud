@@ -20,6 +20,13 @@ local stats = require('crud.stats')
 
 local crud = {}
 
+local ok, VERSION = pcall(require, 'crud.VERSION')
+if not ok then
+    VERSION = 'unknown'
+end
+
+crud.VERSION = VERSION
+
 --- CRUD operations.
 -- @section crud
 
@@ -123,6 +130,7 @@ function crud.init_storage()
         rawset(_G, '_crud', {})
     end
 
+    _G._crud.VERSION = VERSION
     insert.init()
     get.init()
     replace.init()

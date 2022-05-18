@@ -11,6 +11,26 @@ file(GLOB_RECURSE LUA_FILES
   "${CMAKE_CURRENT_SOURCE_DIR}/cartridge/roles/*.lua"
 )
 
+## VERSION ####################################################################
+###############################################################################
+
+execute_process(
+  COMMAND git describe --tags --always
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  OUTPUT_VARIABLE GIT_DESCRIBE
+  ERROR_QUIET
+)
+
+if (NOT GIT_DESCRIBE)
+  set(GIT_DESCRIBE "unknown")
+endif()
+
+configure_file (
+  "${PROJECT_SOURCE_DIR}/crud/VERSION.lua.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/crud/VERSION.lua"
+)
+
 ## Testing ####################################################################
 ###############################################################################
 
@@ -78,6 +98,7 @@ endif()
 install(
   DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}
   DESTINATION ${TARANTOOL_INSTALL_LUADIR}
+  PATTERN "*.in" EXCLUDE
 )
 
 install(

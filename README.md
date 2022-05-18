@@ -835,6 +835,12 @@ support preserving stats between role reload
 (see [tarantool/metrics#334](https://github.com/tarantool/metrics/issues/334)),
 thus this feature will be unsupported for `metrics` driver.
 
+### VERSION
+
+`VERSION` - is a crud module version constant.
+
+Use `crud.VERSION` on "routers" to get module version, or `_crud.VERSION` - on storages.
+
 ## Cartridge roles
 
 `cartridge.roles.crud-storage` is a Tarantool Cartridge role that depends on the

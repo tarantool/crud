@@ -10,3 +10,8 @@ luacov.report.out
 luacov.stats.out
 build/*.cmake
 build/Makefile
+.history
+crud/VERSION.lua
+Makefile
+CTestTestfile.cmake
+cmake_install.cmake
