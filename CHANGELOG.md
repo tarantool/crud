@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Added
+* Batch insert/upsert operation
+  `crud.insert_many()`/`crud.insert_object_many()`/
+  `crud.upsert_many()`/`crud.upsert_object_many()`
+  `crud.replace_many()`/`crud.replace_object_many()`
+  with partial consistency
 
 ### Changed
 

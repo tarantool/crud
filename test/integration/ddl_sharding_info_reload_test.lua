@@ -353,6 +353,16 @@ local new_space_cases = {
         input = {'customers_new', test_object},
         result = test_customers_new_result,
     },
+    replace_many = {
+        func = 'crud.replace_many',
+        input = {'customers_new', test_tuples_batch},
+        result = test_customers_new_batching_result,
+    },
+    replace_object_many = {
+        func = 'crud.replace_object_many',
+        input = {'customers_new', test_objects_batch},
+        result = test_customers_new_batching_result,
+    },
     upsert = {
         func = 'crud.upsert',
         input = {'customers_new', test_tuple, {}},
@@ -456,6 +466,16 @@ local schema_change_sharding_key_cases = {
         func = 'crud.replace_object',
         input = {'customers', test_object},
         result = test_customers_age_result,
+    },
+    replace_many = {
+        func = 'crud.replace_many',
+        input = {'customers', test_tuples_batch},
+        result = test_customers_age_batching_result,
+    },
+    replace_object_many = {
+        func = 'crud.replace_object_many',
+        input = {'customers', test_objects_batch},
+        result = test_customers_age_batching_result,
     },
     upsert = {
         func = 'crud.upsert',
@@ -639,6 +659,16 @@ local schema_change_sharding_func_cases = {
         func = 'crud.replace_object',
         input = {'customers_pk', test_object},
         result = test_customers_pk_func,
+    },
+    replace_many = {
+        func = 'crud.replace_many',
+        input = {'customers_pk', test_tuples_batch},
+        result = test_customers_pk_batching_func,
+    },
+    replace_object_many = {
+        func = 'crud.replace_object_many',
+        input = {'customers_pk', test_objects_batch},
+        result = test_customers_pk_batching_func,
     },
     upsert = {
         func = 'crud.upsert',
