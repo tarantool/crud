@@ -21,6 +21,7 @@ It also provides the `crud-storage` and `crud-router` roles for
   - [Update](#update)
   - [Delete](#delete)
   - [Replace](#replace)
+  - [Replace many](#replace-many)
   - [Upsert](#upsert)
   - [Upsert many](#upsert-many)
   - [Select](#select)
@@ -517,6 +518,142 @@ crud.replace_object('customers', {
   - {'name': 'age', 'type': 'number'}
   rows:
   - [1, 477, 'Alice', 22]
+...
+```
+
+### Replace many
+
+```lua
+-- Replace batch of tuples
+local result, err = crud.replace_many(space_name, tuples, opts)
+-- Replace batch of objects
+local result, err = crud.replace_object_many(space_name, objects, opts)
+```
+
+where:
+
+* `space_name` (`string`) - name of the space to insert/replace an object
+* `tuples` / `objects` (`table`) - array of tuples/objects to insert
+* `opts`:
+  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `fields` (`?table`) - field names for getting only a subset of fields
+  * `stop_on_error` (`?boolean`) - stop on a first error and report error
+    regarding the failed operation and error about what tuples were not
+    performed, default is `false`
+  * `rollback_on_error` (`?boolean`) - any failed operation will lead to
+    rollback on a storage, where the operation is failed, report error
+    about what tuples were rollback, default is `false`
+
+Returns metadata and array with inserted/replaced rows, array of errors.
+Each error object can contain field `operation_data`.
+
+`operation_data` field can contain:
+* tuple for which the error occurred;
+* object with an incorrect format;
+* tuple the operation on which was performed but
+  operation was rollback;
+* tuple the operation on which was not performed
+  because operation was stopped by error.
+
+Right now CRUD cannot provide batch replace with full consistency.
+CRUD offers batch replace with partial consistency. That means
+that full consistency can be provided only on single replicaset
+using `box` transactions.
+
+**Example:**
+
+```lua
+crud.replace_many('developers', {
+  {1, box.NULL, 'Elizabeth', 'lizaaa'},
+  {2, box.NULL, 'Anastasia', 'iamnewdeveloper'},
+})
+---
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'login', 'type': 'string'}
+  rows:
+  - [1, 477, 'Elizabeth', 'lizaaa']
+  - [2, 401, 'Anastasia', 'iamnewdeveloper']
+...
+crud.replace_object_many('developers', {
+    {id = 1, name = 'Inga', login = 'mylogin'},
+    {id = 10, name = 'Anastasia', login = 'qwerty'},
+})
+---
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [1, 477, 'Inga', 'mylogin']
+  - [10, 569, 'Anastasia', 'qwerty']
+
+-- Partial success
+-- Let's say login has unique secondary index
+local res, errs = crud.replace_object_many('developers', {
+    {id = 22, name = 'Alex', login = 'pushkinn'},
+    {id = 3, name = 'Anastasia', login = 'qwerty'},
+    {id = 5, name = 'Sergey', login = 's.petrenko'},
+})
+---
+res
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [5, 1172, 'Sergey', 's.petrenko'],
+  - [22, 655, 'Alex', 'pushkinn'],
+
+#errs              -- 1
+errs[1].class_name -- ReplaceManyError
+errs[1].err        -- 'Duplicate key exists <...>'
+errs[1].tuple      -- {3, 2804, 'Anastasia', 'qwerty'}
+
+-- Partial success with stop and rollback on error
+-- stop_on_error = true, rollback_on_error = true
+-- two error on one storage with rollback, inserts stop by error on this storage
+-- inserts before error are rollback
+local res, crud.replace_object_many('developers', {
+    {id = 6, name = 'Alex', login = 'alexpushkin'},
+    {id = 92, name = 'Artur', login = 'AGolden'},
+    {id = 11, name = 'Anastasia', login = 'qwerty'},
+    {id = 4, name = 'Sergey', login = 's.smirnov'},
+    {id = 9, name = 'Anna', login = 'AnnaBlack'},
+    {id = 17, name = 'Oksana', login = 'OKonov'},
+}, {
+    stop_on_error = true,
+    rollback_on_error  = true,
+})
+res
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [4, 1161, 'Sergey', 's.smirnov'],
+  - [6, 1064, 'Alex', 'alexpushkin'],
+#errs              -- 4
+errs[1].class_name -- ReplaceManyError
+errs[1].err        -- 'Duplicate key exists <...>'
+errs[1].tuple      -- {11, 2652, "Anastasia", "qwerty"}
+
+errs[2].class_name -- NotPerformedError
+errs[2].err        -- 'Operation with tuple was not performed'
+errs[2].tuple      -- {9, 1644, "Anna", "AnnaBlack"}
+
+errs[3].class_name -- NotPerformedError
+errs[3].err        -- 'Operation with tuple was not performed'
+errs[3].tuple      -- {17, 2900, "Oksana", "OKonov"}
+
+errs[4].class_name -- NotPerformedError
+errs[4].err        -- 'Operation with tuple was rollback'
+errs[4].tuple      -- {92, 2040, "Artur", "AGolden"}
 ...
 ```
 

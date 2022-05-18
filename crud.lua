@@ -6,6 +6,7 @@ local cfg = require('crud.cfg')
 local insert = require('crud.insert')
 local insert_many = require('crud.insert_many')
 local replace = require('crud.replace')
+local replace_many = require('crud.replace_many')
 local get = require('crud.get')
 local update = require('crud.update')
 local upsert = require('crud.upsert')
@@ -52,6 +53,14 @@ crud.replace = stats.wrap(replace.tuple, stats.op.REPLACE)
 -- @refer replace.object
 -- @function replace_object
 crud.replace_object = stats.wrap(replace.object, stats.op.REPLACE)
+
+-- @refer replace_many.tuples
+-- @function replace_many
+crud.replace_many = replace_many.tuples
+
+-- @refer replace_many.objects
+-- @function replace_object_many
+crud.replace_object_many = replace_many.objects
 
 -- @refer update.call
 -- @function update
@@ -145,6 +154,7 @@ function crud.init_storage()
     insert_many.init()
     get.init()
     replace.init()
+    replace_many.init()
     update.init()
     upsert.init()
     upsert_many.init()

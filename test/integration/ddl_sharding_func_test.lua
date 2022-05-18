@@ -245,6 +245,74 @@ pgroup.test_replace = function(g)
     t.assert_equals(result, {71, 1, 'Augustus', 21})
 end
 
+pgroup.test_replace_object_many = function(g)
+    -- bucket_id is 596, storage is s-2
+    local tuple = {8, 596, 'Dimitrion', 20}
+
+    -- Put tuple to s1 replicaset.
+    local conn_s1 = g.cluster:server('s1-master').net_box
+    local result = conn_s1.space[g.params.space_name]:insert(tuple)
+    t.assert_not_equals(result, nil)
+
+    -- Put tuple to s2 replicaset.
+    local conn_s2 = g.cluster:server('s2-master').net_box
+    local result = conn_s2.space[g.params.space_name]:insert(tuple)
+    t.assert_not_equals(result, nil)
+
+    -- Replace an object.
+    local result, err = g.cluster.main_server.net_box:call(
+            'crud.replace_object_many', {g.params.space_name, {{id = 8, name = 'John Doe', age = 25}}})
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, {{id = 8, bucket_id = 8, name = 'John Doe', age = 25}})
+
+    -- There is no replaced tuple on s1 replicaset.
+    local conn_s1 = g.cluster:server('s1-master').net_box
+    local result = conn_s1.space[g.params.space_name]:get({8, 'John Doe'})
+    t.assert_equals(result, nil)
+
+    -- There is replaced tuple on s2 replicaset.
+    local conn_s2 = g.cluster:server('s2-master').net_box
+    local result = conn_s2.space[g.params.space_name]:get({8, 'John Doe'})
+    t.assert_equals(result, {8, 8, 'John Doe', 25})
+end
+
+pgroup.test_replace_many = function(g)
+    -- bucket_id is 596, storage is s-2
+    local tuple = {71, 596, 'Dimitrion', 20}
+
+    -- Put tuple to s1 replicaset.
+    local conn_s1 = g.cluster:server('s1-master').net_box
+    local result = conn_s1.space[g.params.space_name]:insert(tuple)
+    t.assert_not_equals(result, nil)
+
+    -- Put tuple to s2 replicaset.
+    local conn_s2 = g.cluster:server('s2-master').net_box
+    local result = conn_s2.space[g.params.space_name]:insert(tuple)
+    t.assert_not_equals(result, nil)
+
+    local tuple = {71, box.NULL, 'Augustus', 21}
+
+    -- Replace a tuple.
+    local result, err = g.cluster.main_server.net_box:call('crud.replace_many', {
+        g.params.space_name, {tuple}
+    })
+    t.assert_equals(err, nil)
+    t.assert_not_equals(result, nil)
+    t.assert_equals(#result.rows, 1)
+    t.assert_equals(result.rows[1], {71, 1, 'Augustus', 21})
+
+    -- There is no replaced tuple on s1 replicaset.
+    local conn_s1 = g.cluster:server('s1-master').net_box
+    local result = conn_s1.space[g.params.space_name]:get({71, 'Augustus'})
+    t.assert_equals(result, nil)
+
+    -- There is replaced tuple on s2 replicaset.
+    local conn_s2 = g.cluster:server('s2-master').net_box
+    local result = conn_s2.space[g.params.space_name]:get({71, 'Augustus'})
+    t.assert_equals(result, {71, 1, 'Augustus', 21})
+end
+
 pgroup.test_upsert_object = function(g)
     -- Upsert an object first time.
     local result, err = g.cluster.main_server.net_box:call(
