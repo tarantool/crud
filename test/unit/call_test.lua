@@ -141,7 +141,7 @@ g.test_timeout = function()
 
     t.assert_equals(results, nil)
     t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
-    t.assert_str_contains(err.err, "Timeout exceeded")
+    helpers.assert_timeout_error(err.err)
 end
 
 local function check_single_vshard_call(g, exp_vshard_call, opts)
@@ -272,5 +272,5 @@ g.test_any_vshard_call_timeout = function()
 
     t.assert_equals(results, nil)
     t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
-    t.assert_str_contains(err.err, "Timeout exceeded")
+    helpers.assert_timeout_error(err.err)
 end

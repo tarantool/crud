@@ -488,4 +488,25 @@ function helpers.count_on_replace_triggers(server, space_name)
     ]], {space_name})
 end
 
+-- 'Timeout exceeded' or 'timed out'.
+--
+-- See https://github.com/tarantool/tarantool/pull/6538.
+function helpers.assert_timeout_error(value, message)
+    t.assert_type(value, 'string', nil, 2)
+
+    local err_1 = 'Timeout exceeded'
+    local err_2 = 'timed out'
+
+    if string.find(value, err_1) or string.find(value, err_2) then
+        return
+    end
+
+    local err = string.format('Could not find %q or %q in string %q', err_1,
+        err_2, value)
+    if message ~= nil then
+        err = message .. '\n' .. err
+    end
+    error(err, 2)
+end
+
 return helpers
