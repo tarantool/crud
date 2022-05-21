@@ -5,6 +5,20 @@ The arguments are the same as [``crud.select``](https://github.com/tarantool/cru
 Below are examples that may help you.
 Examples schema is similar to the [select documentation](select.md/#examples-space-format)
 
+## Table of Contents
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+- [Getting space](#getting-space)
+- [``use_tomap`` parameter](#use_tomap-parameter)
+- [Pagination](#pagination)
+- [Lua Fun](#lua-fun)
+- [`fields` parameter](#fields-parameter)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+
 ## Getting space
 
 Let's check ``developers`` space contents to make other examples more clear. Just select first 4 values without conditions.
