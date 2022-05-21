@@ -5,7 +5,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/tarantool/crud/badge.svg?branch=master)](https://coveralls.io/github/tarantool/crud?branch=master)
 
 The `CRUD` module allows to perform CRUD operations on the cluster.
-It also provides the `crud-storage` role for
+It also provides the `crud-storage` and `crud-router` roles for
 [Tarantool Cartridge](https://github.com/tarantool/cartridge).
 
 ## API
