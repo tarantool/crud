@@ -8,6 +8,35 @@ The `CRUD` module allows to perform CRUD operations on the cluster.
 It also provides the `crud-storage` and `crud-router` roles for
 [Tarantool Cartridge](https://github.com/tarantool/cartridge).
 
+## Table of Contents
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+- [API](#api)
+  - [Insert](#insert)
+  - [Get](#get)
+  - [Update](#update)
+  - [Delete](#delete)
+  - [Replace](#replace)
+  - [Upsert](#upsert)
+  - [Select](#select)
+    - [Select conditions](#select-conditions)
+  - [Pairs](#pairs)
+  - [Min and max](#min-and-max)
+  - [Cut extra rows](#cut-extra-rows)
+  - [Cut extra objects](#cut-extra-objects)
+  - [Truncate](#truncate)
+  - [Len](#len)
+  - [Count](#count)
+  - [Call options for crud methods](#call-options-for-crud-methods)
+  - [Statistics](#statistics)
+- [Cartridge roles](#cartridge-roles)
+  - [Usage](#usage)
+- [License](#license)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 ## API
 
 The CRUD operations should be called from router.
