@@ -1,5 +1,27 @@
 # Select examples
 
+## Table of Contents
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+- [Filtering](#filtering)
+  - [Examples schema](#examples-schema)
+  - [Getting space](#getting-space)
+  - [Select using index](#select-using-index)
+  - [Select using composite index](#select-using-composite-index)
+  - [Select using partial key](#select-using-partial-key)
+  - [Select using non-indexed field](#select-using-non-indexed-field)
+  - [Avoiding full scan](#avoiding-full-scan)
+- [Pagination](#pagination)
+  - [``first`` parameter](#first-parameter)
+  - [``after`` parameter](#after-parameter)
+  - [Combine ``first`` and ``after``](#combine-first-and-after)
+  - [Reverse pagination](#reverse-pagination)
+- [`fields` parameter](#fields-parameter)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 ## Filtering
 
 ``CRUD`` allows to filter tuples by conditions. Each condition can use field name (or number) or index name. The first condition that uses index name is used to iterate over space. If there is no conditions that match index names, full scan is performed. Other conditions are used as additional filters. Search condition for the indexed field must be placed first to avoid a full scan.
