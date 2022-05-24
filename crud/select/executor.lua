@@ -43,8 +43,11 @@ local generate_value
 
 if has_keydef then
     generate_value = function(after_tuple, scan_value, index_parts, tarantool_iter)
-        local cmp_operator = select_comparators.get_cmp_operator(tarantool_iter)
         local key_def = keydef_lib.new(index_parts)
+        if #scan_value == 0 and after_tuple ~= nil then
+            return key_def:extract_key(after_tuple)
+        end
+        local cmp_operator = select_comparators.get_cmp_operator(tarantool_iter)
         local cmp = key_def:compare_with_key(after_tuple, scan_value)
         if (cmp_operator == '<' and cmp < 0) or (cmp_operator == '>' and cmp > 0) then
             return key_def:extract_key(after_tuple)
@@ -52,9 +55,12 @@ if has_keydef then
     end
 else
     generate_value = function(after_tuple, scan_value, index_parts, tarantool_iter)
+        local after_tuple_key = utils.extract_key(after_tuple, index_parts)
+        if #scan_value == 0 and after_tuple ~= nil then
+            return after_tuple_key
+        end
         local cmp_operator = select_comparators.get_cmp_operator(tarantool_iter)
         local scan_comparator = select_comparators.gen_tuples_comparator(cmp_operator, index_parts)
-        local after_tuple_key = utils.extract_key(after_tuple, index_parts)
         if scan_comparator(after_tuple_key, scan_value) then
             return after_tuple_key
         end

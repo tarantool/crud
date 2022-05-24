@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 ### Changed
+* Optimize `crud.select()` without conditions and with `after`.
 
 ### Fixed
 * `crud.select()` if a condition is '<=' and it's value < `after`.
