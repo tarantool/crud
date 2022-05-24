@@ -13,6 +13,7 @@ It also provides the `crud-storage` and `crud-router` roles for
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
+- [Quickstart](#quickstart)
 - [API](#api)
   - [Insert](#insert)
   - [Get](#get)
@@ -36,6 +37,29 @@ It also provides the `crud-storage` and `crud-router` roles for
 - [License](#license)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+## Quickstart
+
+First, [install Tarantool](https://www.tarantool.io/en/download).
+
+Now you have the following options how to learn crud API and use it in a
+project:
+
+* Play with crud on a testing dataset on a single instance:
+
+  ```shell
+  $ git clone https://github.com/tarantool/crud.git
+  $ cd crud
+  $ tarantoolctl rocks make
+  $ ./doc/playground.lua
+  tarantool> crud.select('customers', {{'<=', 'age', 35}}, {first = 10})
+  tarantool> crud.select('developers', nil, {first = 6})
+  ```
+* Add crud into dependencies of a Cartridge application and add crud roles into
+  dependencies of your roles (see [Cartridge roles](#cartridge-roles) section).
+* Add crud into dependencies of your application (rockspec, RPM spec -- depends
+  of your choice) and call crud initialization code from storage and router
+  code (see [API](#api) section).
 
 ## API
 
