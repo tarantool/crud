@@ -79,9 +79,41 @@ function executor.execute(space, index, filter_func, opts)
 
     local value = opts.scan_value
     if opts.after_tuple ~= nil then
-        local new_value = generate_value(opts.after_tuple, opts.scan_value, index.parts, opts.tarantool_iter)
-        if new_value ~= nil then
-            value = new_value
+        local iter = opts.tarantool_iter
+        if iter == box.index.EQ or iter == box.index.REQ then
+            -- we need to make sure that the keys are equal
+            -- the code is correct even if value is a partial key
+            local parts = {}
+            for i, _ in ipairs(value) do
+                -- the code required for tarantool 1.10.6 at least
+                table.insert(parts, index.parts[i])
+            end
+
+            local is_eq = iter == box.index.EQ
+            local is_after_bigger
+            if has_keydef then
+                local key_def = keydef_lib.new(parts)
+                local cmp = key_def:compare_with_key(opts.after_tuple, value)
+                is_after_bigger = (is_eq and cmp > 0) or (not is_eq and cmp < 0)
+            else
+                local comparator
+                if is_eq then
+                    comparator = select_comparators.gen_func('<=', parts)
+                else
+                    comparator = select_comparators.gen_func('>=', parts)
+                end
+                local after_key = utils.extract_key(opts.after_tuple, parts)
+                is_after_bigger = not comparator(after_key, value)
+            end
+            if is_after_bigger then
+                -- it makes no sence to continue
+                return resp
+            end
+        else
+            local new_value = generate_value(opts.after_tuple, value, index.parts, iter)
+            if new_value ~= nil then
+                value = new_value
+            end
         end
     end
 
