@@ -276,7 +276,7 @@ g.test_first = function()
     t.assert_equals(plan.scan_value, {90}) -- after_tuple id
     t.assert_equals(plan.after_tuple, after_tuple)
     t.assert_equals(plan.scan_condition_num, 1)
-    t.assert_equals(plan.tarantool_iter, box.index.GE) -- inverted iterator
+    t.assert_equals(plan.tarantool_iter, box.index.EQ)
     t.assert_equals(plan.total_tuples_count, 10)
     t.assert_equals(plan.sharding_key, nil)
     t.assert_equals(plan.field_names, nil)

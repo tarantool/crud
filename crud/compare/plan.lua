@@ -231,45 +231,30 @@ function plan.new(space, conditions, opts)
         return nil, err
     end
 
-    -- Since we use pagination we should continue iteration since after tuple.
-    -- Such iterator could be run only with index:pairs(key(after_tuple), 'GT/LT').
-    -- To preserve original condition we should manually inject it in `filter_conditions`
-    -- See function `parse` in crud/select/filters.lua file for details.
-    if scan_after_tuple ~= nil then
-        if scan_iter == box.index.REQ or scan_iter == box.index.EQ then
-            table.insert(conditions, conditions[scan_condition_num])
-        end
-    end
-
+    local is_equal_iter = scan_iter == box.index.EQ or scan_iter == box.index.REQ
     if opts.first ~= nil then
         total_tuples_count = math.abs(opts.first)
 
         if opts.first < 0 then
             scan_iter = utils.invert_tarantool_iter(scan_iter)
 
-            -- scan condition becomes border consition
-            scan_condition_num = nil
+            -- it makes no sence for EQ/REQ
+            if not is_equal_iter then
+                -- scan condition becomes border condition
+                scan_condition_num = nil
 
-            if scan_after_tuple ~= nil then
-                if has_keydef then
-                    local key_def = keydef_lib.new(scan_index.parts)
-                    scan_value = key_def:extract_key(scan_after_tuple)
+                if scan_after_tuple ~= nil then
+                    -- after becomes a new scan value
+                    if has_keydef then
+                        local key_def = keydef_lib.new(scan_index.parts)
+                        scan_value = key_def:extract_key(scan_after_tuple)
+                    else
+                        scan_value = utils.extract_key(scan_after_tuple, scan_index.parts)
+                    end
                 else
-                    scan_value = utils.extract_key(scan_after_tuple, scan_index.parts)
+                    scan_value = nil
                 end
-            else
-                scan_value = nil
             end
-        end
-    end
-
-    -- Moreover, for correct pagination we change iterator
-    -- to continue iterating in direct and reverse order.
-    if scan_after_tuple ~= nil then
-        if scan_iter == box.index.EQ then
-            scan_iter = box.index.GE
-        elseif scan_iter == box.index.REQ then
-            scan_iter = box.index.LE
         end
     end
 
