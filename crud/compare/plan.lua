@@ -269,7 +269,7 @@ function plan.new(space, conditions, opts)
         if scan_iter == box.index.EQ then
             scan_iter = box.index.GE
         elseif scan_iter == box.index.REQ then
-            scan_iter = box.index.LT
+            scan_iter = box.index.LE
         end
     end
 

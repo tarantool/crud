@@ -53,6 +53,40 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   ...
 
 * `crud.select()` results order with negative `first`.
+* `crud.select()` if a condition is '=' or '==' with negative `first`.
+
+  Suppose we have a non-unique secondary index by the field `age` field and a
+  space:
+
+  tarantool> crud.select('developers', nil, {first = 10})
+  ---
+  - metadata: [{'name': 'id', 'type': 'unsigned'}, {'name': 'bucket_id', 'type': 'unsigned'},
+      {'name': 'name', 'type': 'string'}, {'name': 'surname', 'type': 'string'}, {'name': 'age',
+        'type': 'number'}]
+    rows:
+    - [1, 477, 'Alexey', 'Adams', 20]
+    - [2, 401, 'Sergey', 'Allred', 27]
+    - [3, 2804, 'Pavel', 'Adams', 27]
+    - [4, 1161, 'Mikhail', 'Liston', 27]
+    - [5, 1172, 'Dmitry', 'Jacobi', 27]
+    - [6, 1064, 'Alexey', 'Sidorov', 31]
+  - null
+  ...
+
+  Before this patch:
+
+  tarantool> crud.select('developers', {{'=', 'age', 27}}, {first = -10, after = rows[4]}).rows
+  ---
+  - []
+  ...
+
+  After this patch:
+
+  tarantool> crud.select('developers', {{'=', 'age', 27}}, {first = -10, after = rows[4]}).rows
+  ---
+  - - [2, 401, 'Sergey', 'Allred', 27]
+    - [3, 2804, 'Pavel', 'Adams', 27]
+  ...
 
 ## [0.11.2] - 23-05-22
 

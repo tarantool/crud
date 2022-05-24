@@ -579,7 +579,10 @@ pgroup.test_eq_condition_with_index = function(g)
         },{
             id = 7, name = "Jack", last_name = "Sparrow",
             age = 33, city = "Chicago",
-        },
+        }, {
+            id = 8, name = "Nick", last_name = "Smith",
+            age = 20, city = "London",
+        }
     })
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
@@ -602,6 +605,51 @@ pgroup.test_eq_condition_with_index = function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {5, 7})) -- in id order
+
+    -- after obj 5 with negative first
+    local after = crud_utils.flatten(customers[5], g.space_format)
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', conditions, {after=after, first=-10}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1, 3})) -- in id order
+
+    -- after obj 8
+    local after = crud_utils.flatten(customers[8], g.space_format)
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', conditions, {after=after, first=10}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1, 3, 5, 7})) -- in id order
+
+    -- after obj 8 with negative first
+    local after = crud_utils.flatten(customers[8], g.space_format)
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', conditions, {after=after, first=-10}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {}))
+
+    -- after obj 2
+    local after = crud_utils.flatten(customers[2], g.space_format)
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', conditions, {after=after, first=10}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {}))
+
+    -- after obj 2 with negative first
+    local after = crud_utils.flatten(customers[2], g.space_format)
+    local result, err = g.cluster.main_server.net_box:call(
+        'crud.select', {'customers', conditions, {after=after, first=-10}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1, 3, 5, 7})) -- in id order
 end
 
 pgroup.test_ge_condition_with_index = function(g)
