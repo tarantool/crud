@@ -31,6 +31,27 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
     - [1, 477, 'Alexey', 'Adams', 20]
   ...
 
+* `crud.select()` filtration by a first condition if the condition is '>'
+  or '>=' and it's value > `after`.
+
+  Before this patch:
+
+  tarantool> crud.select('developers', {{'>=', 'id', 5}}, {first = 10, after = rows[2]}).rows
+  ---
+  - - [3, 2804, 'Pavel', 'Adams', 27]
+    - [4, 1161, 'Mikhail', 'Liston', 51]
+    - [5, 1172, 'Dmitry', 'Jacobi', 16]
+    - [6, 1064, 'Alexey', 'Sidorov', 31]
+  ...
+
+  After this patch:
+
+  tarantool> crud.select('developers', {{'>=', 'id', 5}}, {first = 10, after = rows[2]}).rows
+  ---
+    - [5, 1172, 'Dmitry', 'Jacobi', 16]
+    - [6, 1064, 'Alexey', 'Sidorov', 31]
+  ...
+
 ## [0.11.2] - 23-05-22
 
 ### Added
