@@ -266,9 +266,7 @@ function plan.new(space, conditions, opts)
     -- Moreover, for correct pagination we change iterator
     -- to continue iterating in direct and reverse order.
     if scan_after_tuple ~= nil then
-        if scan_iter == box.index.LE then
-            scan_iter = box.index.LT
-        elseif scan_iter == box.index.EQ then
+        if scan_iter == box.index.EQ then
             scan_iter = box.index.GE
         elseif scan_iter == box.index.REQ then
             scan_iter = box.index.LT
