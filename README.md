@@ -440,8 +440,8 @@ where:
 * `conditions` (`?table`) - array of [select conditions](#select-conditions)
 * `opts`:
   * `first` (`?number`) - the maximum count of the objects to return.
-     If negative value is specified, the last objects are returned
-     (`after` option is required in this case).
+     If negative value is specified, the objects behind `after` are returned
+     (`after` option is required in this case). [See pagination examples](doc/select.md#pagination).
   * `after` (`?table`) - tuple after which objects should be selected
   * `batch_size` (`?number`) - number of tuples to process per one request to storage
   * `bucket_id` (`?number|cdata`) - bucket ID
