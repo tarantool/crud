@@ -120,7 +120,7 @@ local function call_delete_on_router(space_name, key, opts)
     )
 
     if err ~= nil then
-        local err_wrapped = DeleteError:new("Failed to call delete on storage-side: %s")
+        local err_wrapped = DeleteError:new("Failed to call delete on storage-side: %s", err)
 
         if sharding.result_needs_sharding_reload(err) then
             return nil, err_wrapped, const.NEED_SHARDING_RELOAD
