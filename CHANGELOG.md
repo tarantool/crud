@@ -12,6 +12,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 
 ### Fixed
+* `crud.select()` if a condition is '<=' and it's value < `after`.
+
+  Before this patch:
+
+  tarantool> crud.select('developers', {{'<=', 'id', 3}}, {first = 10, after = rows[5]}).rows
+  ---
+  - - [2, 401, 'Sergey', 'Allred', 21]
+    - [1, 477, 'Alexey', 'Adams', 20]
+  ...
+
+  After this patch:
+
+  tarantool> crud.select('developers', {{'<=', 'id', 3}}, {first = 10, after = rows[5]}).rows
+  ---
+  - - [3, 2804, 'Pavel', 'Adams', 27]
+    - [2, 401, 'Sergey', 'Allred', 21]
+    - [1, 477, 'Alexey', 'Adams', 20]
+  ...
 
 ## [0.11.2] - 23-05-22
 

@@ -592,6 +592,14 @@ pgroup.test_le_condition_with_index = function(g)
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1})) -- in age order
+
+    -- after obj 2
+    local after = crud_utils.flatten(customers[2], g.space_format)
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {after=after}})
+
+    t.assert_equals(err, nil)
+    local objects = crud.unflatten_rows(result.rows, result.metadata)
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3, 1})) -- in age order
 end
 
 pgroup.test_lt_condition_with_index = function(g)
