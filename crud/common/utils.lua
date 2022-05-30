@@ -14,6 +14,7 @@ local ParseOperationsError = errors.new_class('ParseOperationsError', {capture_s
 local ShardingError = errors.new_class('ShardingError', {capture_stack = false})
 local GetSpaceFormatError = errors.new_class('GetSpaceFormatError', {capture_stack = false})
 local FilterFieldsError = errors.new_class('FilterFieldsError', {capture_stack = false})
+local NotInitializedError = errors.new_class('NotInitialized')
 
 local utils = {}
 
@@ -690,6 +691,24 @@ function utils.check_name_isident(name)
     end
 
     return true
+end
+
+function utils.update_storage_call_error_description(err, func_name, replicaset_uuid)
+    if err == nil then
+        return nil
+    end
+
+    if err.type == 'ClientError' and type(err.message) == 'string' then
+        if err.message == string.format("Procedure '%s' is not defined", func_name) then
+            if func_name:startswith('_crud.') then
+                err = NotInitializedError:new("crud isn't initialized on replicaset: %q",
+                    replicaset_uuid or "Unknown")
+            else
+                err = NotInitializedError:new("Function %s is not registered", func_name)
+            end
+        end
+    end
+    return err
 end
 
 return utils

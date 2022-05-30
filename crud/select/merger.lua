@@ -11,6 +11,7 @@ local merger_lib = compat.require('tuple.merger', 'merger')
 
 local Keydef = require('crud.compare.keydef')
 local stats = require('crud.stats')
+local utils = require("crud.common.utils")
 
 local function bswap_u16(num)
     return bit.rshift(bit.bswap(tonumber(num)), 16)
@@ -113,7 +114,8 @@ local function fetch_chunk(context, state)
     -- Wait for requested data.
     local res, err = future:wait_result(timeout)
     if res == nil then
-        error(err)
+        local wrapped_err = errors.wrap(utils.update_storage_call_error_description(err, func_name, replicaset.uuid))
+        error(wrapped_err)
     end
 
     -- Decode metainfo, leave data to be processed by the merger.
