@@ -7,7 +7,6 @@ local sharding_utils = require('crud.common.sharding.utils')
 local fiber_clock = require('fiber').clock
 
 local CallError = errors.new_class('CallError')
-local NotInitializedError = errors.new_class('NotInitialized')
 
 local call = {}
 
@@ -46,16 +45,6 @@ local function wrap_vshard_err(err, func_name, replicaset_uuid, bucket_id)
         return errors.wrap(err)
     end
 
-    if err.type == 'ClientError' and type(err.message) == 'string' then
-        if err.message == string.format("Procedure '%s' is not defined", func_name) then
-            if func_name:startswith('_crud.') then
-                err = NotInitializedError:new("crud isn't initialized on replicaset: %q", replicaset_uuid)
-            else
-                err = NotInitializedError:new("Function %s is not registered", func_name)
-            end
-        end
-    end
-
     if replicaset_uuid == nil then
         local replicaset, _ = vshard.router.route(bucket_id)
         if replicaset == nil then
@@ -67,6 +56,7 @@ local function wrap_vshard_err(err, func_name, replicaset_uuid, bucket_id)
         replicaset_uuid = replicaset.uuid
     end
 
+    err = utils.update_storage_call_error_description(err, func_name, replicaset_uuid)
     err = errors.wrap(err)
 
     return CallError:new(utils.format_replicaset_error(

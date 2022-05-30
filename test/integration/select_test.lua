@@ -1959,3 +1959,61 @@ pgroup.test_storage_nil_err_is_processed = function(g)
     t.assert_str_contains(err.str, 'StorageError', 'Storage error class is preserved')
     t.assert_str_contains(err.str, 'My storage error', 'Storage error msg is preserved')
 end
+
+pgroup.before_test('test_storage_uninit_select_error_text', function(g)
+    helpers.call_on_storages(g.cluster, function(server)
+        server.net_box:eval([[
+            local _crud = rawget(_G, '_crud')
+            rawset(_G, '_real_crud_select', _crud.select_on_storage)
+            _crud.select_on_storage = nil
+        ]])
+    end)
+end)
+
+pgroup.after_test('test_storage_uninit_select_error_text', function(g)
+    helpers.call_on_storages(g.cluster, function(server)
+        server.net_box:eval([[
+            local _crud = rawget(_G, '_crud')
+            _crud.select_on_storage = rawget(_G, '_real_crud_select')
+            rawset(_G, '_real_crud_select', nil)
+        ]])
+    end)
+end)
+
+pgroup.test_storage_uninit_select_error_text = function(g)
+    local obj, err = g.cluster.main_server.net_box:call('crud.select', {
+        'customers', {{'==', 'age', 101}}
+    })
+    t.assert_equals(obj, nil)
+    t.assert_str_contains(err.str, 'SelectError')
+    t.assert_str_contains(err.str, 'NotInitialized')
+    t.assert_str_contains(err.str, "crud isn't initialized on replicaset")
+end
+
+pgroup.before_test('test_storage_uninit_get_error_text', function(g)
+    helpers.call_on_storages(g.cluster, function(server)
+        server.net_box:eval([[
+            local _crud = rawget(_G, '_crud')
+            rawset(_G, '_real_crud_get', _crud.get_on_storage)
+            _crud.get_on_storage = nil
+        ]])
+    end)
+end)
+
+pgroup.after_test('test_storage_uninit_get_error_text', function(g)
+    helpers.call_on_storages(g.cluster, function(server)
+        server.net_box:eval([[
+            local _crud = rawget(_G, '_crud')
+            _crud.get_on_storage = rawget(_G, '_real_crud_get')
+            rawset(_G, '_real_crud_get', nil)
+        ]])
+    end)
+end)
+
+pgroup.test_storage_uninit_get_error_text = function(g)
+    local obj, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 1})
+    t.assert_equals(obj, nil)
+    t.assert_str_contains(err.str, 'GetError')
+    t.assert_str_contains(err.str, 'NotInitialized')
+    t.assert_str_contains(err.str, "crud isn't initialized on replicaset")
+end

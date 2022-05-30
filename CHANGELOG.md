@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   an user can explicitly request a full scan through by passing `fullscan=true`
   to `select` or `count` options table argument in which a case a log entry will
   not be created (#276).
+* Make select error description more informative when merger
+  built-in module or tuple-merger external module is used
+  in case of disabled/uninit storage (#229).
 
 ### Fixed
 * `crud.select()` if a condition is '<=' and it's value < `after`.
