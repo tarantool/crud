@@ -55,6 +55,13 @@ project:
   tarantool> crud.select('customers', {{'<=', 'age', 35}}, {first = 10})
   tarantool> crud.select('developers', nil, {first = 6})
   ```
+* Install crud into a current directory:
+
+  ```shell
+  $ tarantoolctl rocks install crud
+  ```
+
+  And add the [initialization code](#API) to storage and router instance files.
 * Add crud into dependencies of a Cartridge application and add crud roles into
   dependencies of your roles (see [Cartridge roles](#cartridge-roles) section).
 * Add crud into dependencies of your application (rockspec, RPM spec -- depends
