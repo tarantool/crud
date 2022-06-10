@@ -206,15 +206,15 @@ pgroup.test_negative_first = function(g)
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
     -- no conditions
-    -- first -3 after 5
-    local first = -3
-    local after = crud_utils.flatten(customers[5], g.space_format)
+    -- first -4 after 6
+    local first = -4
+    local after = crud_utils.flatten(customers[6], g.space_format)
     local result, err = g.cluster.main_server.net_box:call(
        'crud.select', {'customers', nil, {first=first, after=after}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
-    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 3, 4}))
+    t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2, 3, 4, 5}))
 
     -- id >= 2
     -- first -2 after 5
