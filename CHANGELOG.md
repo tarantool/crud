@@ -52,6 +52,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
     - [6, 1064, 'Alexey', 'Sidorov', 31]
   ...
 
+* `crud.select()` results order with negative `first`.
+
 ## [0.11.2] - 23-05-22
 
 ### Added

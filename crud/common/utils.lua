@@ -455,7 +455,7 @@ function utils.invert_tarantool_iter(iter)
 end
 
 function utils.reverse_inplace(t)
-    for i = 1,#t - 1 do
+    for i = 1,math.floor(#t / 2) do
         t[i], t[#t - i + 1] = t[#t - i + 1], t[i]
     end
     return t
