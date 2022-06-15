@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 ### Changed
+
+### Fixed
+
+## [0.11.3] - 15-06-22
+
+### Changed
 * Optimize `crud.select()` without conditions and with `after`.
 * Behaviour of potentially long `select` and `count` calls: a critical log entry
   containing the current stack traceback is created upon such function calls —
