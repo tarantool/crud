@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Behaviour of potentially long `select` and `count` calls: a critical log entry
   containing the current stack traceback is created upon such function calls —
   an user can explicitly request a full scan through by passing `fullscan=true`
-  to `select` or `count` options table argument in which a case a log entry will
+  to `select` or `count` options table argument in which case a log entry will
   not be created (#276).
 * Make select error description more informative when merger
   built-in module or tuple-merger external module is used
