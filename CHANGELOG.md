@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Added
+* `crud.storage_info` function to get storages status (#229, PR #299).
 
 ### Changed
 

@@ -5,6 +5,7 @@ local dev_checks = require('crud.common.dev_checks')
 local utils = require('crud.common.utils')
 local sharding_utils = require('crud.common.sharding.utils')
 local fiber_clock = require('fiber').clock
+local const = require('crud.common.const')
 
 local BaseIterator = require('crud.common.map_call_cases.base_iter')
 local BasePostprocessor = require('crud.common.map_call_cases.base_postprocessor')
@@ -12,8 +13,6 @@ local BasePostprocessor = require('crud.common.map_call_cases.base_postprocessor
 local CallError = errors.new_class('CallError')
 
 local call = {}
-
-call.DEFAULT_VSHARD_CALL_TIMEOUT = 2
 
 function call.get_vshard_call_name(mode, prefer_replica, balance)
     dev_checks('string', '?boolean', '?boolean')
@@ -84,7 +83,7 @@ function call.map(func_name, func_args, opts)
         return nil, err
     end
 
-    local timeout = opts.timeout or call.DEFAULT_VSHARD_CALL_TIMEOUT
+    local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
 
     local iter = opts.iter
     if iter == nil then
@@ -149,7 +148,7 @@ function call.single(bucket_id, func_name, func_args, opts)
         return nil, err
     end
 
-    local timeout = opts.timeout or call.DEFAULT_VSHARD_CALL_TIMEOUT
+    local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
 
     local res, err = vshard.router[vshard_call_name](bucket_id, func_name, func_args, {
         timeout = timeout,
@@ -171,7 +170,7 @@ function call.any(func_name, func_args, opts)
         timeout = '?number',
     })
 
-    local timeout = opts.timeout or call.DEFAULT_VSHARD_CALL_TIMEOUT
+    local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
 
     local replicasets, err = vshard.router.routeall()
     if replicasets == nil then

@@ -3,6 +3,7 @@ local ffi = require('ffi')
 local vshard = require('vshard')
 local fun = require('fun')
 local bit = require('bit')
+local log = require('log')
 
 local const = require('crud.common.const')
 local schema = require('crud.common.schema')
@@ -15,6 +16,8 @@ local ShardingError = errors.new_class('ShardingError', {capture_stack = false})
 local GetSpaceFormatError = errors.new_class('GetSpaceFormatError', {capture_stack = false})
 local FilterFieldsError = errors.new_class('FilterFieldsError', {capture_stack = false})
 local NotInitializedError = errors.new_class('NotInitialized')
+local StorageInfoError = errors.new_class('StorageInfoError')
+local fiber_clock = require('fiber').clock
 
 local utils = {}
 
@@ -746,6 +749,89 @@ function utils.list_slice(list, start_index, end_index)
     end
 
     return slice
+end
+
+--- Polls replicas for storage state
+--
+-- @function storage_info
+--
+-- @tparam ?number opts.timeout
+--  Function call timeout
+--
+-- @return a table of storage states by replica uuid.
+function utils.storage_info(opts)
+    local replicasets, err = vshard.router.routeall()
+    if replicasets == nil then
+        return nil, StorageInfoError:new("Failed to get all replicasets: %s", err.err)
+    end
+
+    opts = opts or {}
+
+    local futures_by_replicas = {}
+    local replica_state_by_uuid = {}
+    local async_opts = {is_async = true}
+    local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
+
+    for _, replicaset in pairs(replicasets) do
+        for replica_uuid, replica in pairs(replicaset.replicas) do
+            replica_state_by_uuid[replica_uuid] = {
+                status = "error",
+                is_master = replicaset.master == replica
+            }
+            local ok, res = pcall(replica.conn.call, replica.conn, "_crud.storage_info_on_storage",
+                                  {}, async_opts)
+            if ok then
+                futures_by_replicas[replica_uuid] = res
+            else
+                local err_msg = string.format("Error getting storage info for %s", replica_uuid)
+                if res ~= nil then
+                    log.error("%s: %s", err_msg, res)
+                    replica_state_by_uuid[replica_uuid].message = tostring(res)
+                else
+                    log.error(err_msg)
+                    replica_state_by_uuid[replica_uuid].message = err_msg
+                end
+            end
+        end
+    end
+
+    local deadline = fiber_clock() + timeout
+    for replica_uuid, future in pairs(futures_by_replicas) do
+        local wait_timeout = deadline - fiber_clock()
+        if wait_timeout < 0 then
+            wait_timeout = 0
+        end
+
+        local result, err = future:wait_result(wait_timeout)
+        if result == nil then
+            future:discard()
+            local err_msg = string.format("Error getting storage info for %s", replica_uuid)
+            if err ~= nil then
+                if err.type == 'ClientError' and err.code == box.error.NO_SUCH_PROC then
+                    replica_state_by_uuid[replica_uuid].status = "uninitialized"
+                else
+                    log.error("%s: %s", err_msg, err)
+                    replica_state_by_uuid[replica_uuid].message = tostring(err)
+                end
+            else
+                log.error(err_msg)
+                replica_state_by_uuid[replica_uuid].message = err_msg
+            end
+        else
+            replica_state_by_uuid[replica_uuid].status = result[1].status or "uninitialized"
+        end
+    end
+
+    return replica_state_by_uuid
+end
+
+--- Storage status information.
+--
+-- @function storage_info_on_storage
+--
+-- @return a table with storage status.
+function utils.storage_info_on_storage()
+    return {status = "running"}
 end
 
 return utils
