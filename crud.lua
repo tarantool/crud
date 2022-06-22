@@ -138,6 +138,10 @@ crud.stats = stats.get
 -- @function reset_stats
 crud.reset_stats = stats.reset
 
+-- @refer utils.storage_info
+-- @function storage_info
+crud.storage_info = utils.storage_info
+
 --- Initializes crud on node
 --
 -- Exports all functions that are used for calls
@@ -165,6 +169,8 @@ function crud.init_storage()
     count.init()
     borders.init()
     sharding_metadata.init()
+
+    _G._crud.storage_info_on_storage = utils.storage_info_on_storage
 end
 
 function crud.init_router()

@@ -32,6 +32,7 @@ It also provides the `crud-storage` and `crud-router` roles for
   - [Cut extra objects](#cut-extra-objects)
   - [Truncate](#truncate)
   - [Len](#len)
+  - [Storage info](#storage-info)
   - [Count](#count)
   - [Call options for crud methods](#call-options-for-crud-methods)
   - [Statistics](#statistics)
@@ -1074,6 +1075,51 @@ crud.len('customers')
 ...
 ```
 
+### Storage info
+
+```lua
+-- Get storages status
+local result, err = crud.storage_info(opts)
+```
+
+where:
+
+* `opts`:
+  * `timeout` (`?number`) -  maximum time (in seconds, default: 2) to wait for response from
+  cluster instances.
+
+Returns storages status table by instance UUID or nil with error. Status table fields:
+* `status` contains a string representing the status:
+  * `"running"` - storage is initialized and running.
+  * `"uninitialized"` - storage is not initialized or disabled.
+  * `"error"` - error getting the status from a storage. Connection error, for example.
+* `is_master` is `true` if an instance is a master, `false` - otherwise.
+* `message` is `nil` unless a problem occurs with getting storage status.
+
+
+**Example:**
+
+```lua
+crud.storage_info()
+```
+```
+---
+- fe1b5bd9-42d4-4955-816c-3aa015e0eb81:
+    status: running
+    is_master: true
+  a1eefe51-9869-4c4c-9676-76431b08c97a:
+    status: running
+    is_master: true
+  777415f4-d656-440e-8834-7124b7267b6d:
+    status: uninitialized
+    is_master: false
+  e1b2e202-b0f7-49cd-b0a2-6b3a584f995e:
+    status: error
+    message: 'connect, called on fd 36, aka 127.0.0.1:49762: Connection refused'
+    is_master: false
+...
+```
+
 ### Count
 
 `CRUD` supports multi-conditional count, treating a cluster as a single space.
@@ -1240,7 +1286,7 @@ returns. `count` is the total requests count since instance start
 or stats restart.  `time` is the total time of requests execution.
 `latency_average` is `time` / `count`.
 `latency_quantile_recent` is the 0.99 quantile of request execution
-time for a recent period (see 
+time for a recent period (see
 [`metrics` summary API](https://www.tarantool.io/ru/doc/latest/book/monitoring/api_reference/#summary)).
 It is computed only if `metrics` driver is used and quantiles are
 enabled. `latency_quantile_recent` value may be `-nan` if there
