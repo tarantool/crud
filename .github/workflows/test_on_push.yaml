@@ -33,17 +33,10 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
-      - name: Setup Tarantool CE (~= 1.10.6)
+      - name: Setup Tarantool CE
         uses: tarantool/setup-tarantool@v1
-        if: matrix.tarantool-version != '1.10.6'
         with:
           tarantool-version: ${{ matrix.tarantool-version }}
-
-      - name: Setup Tarantool CE 1.10.6
-        if: matrix.tarantool-version == '1.10.6'
-        run: |
-          curl -L https://tarantool.io/release/1.10/installer.sh | bash
-          sudo apt install -y tarantool=1.10.6.0.g5372cd2fa-1 tarantool-dev=1.10.6.0.g5372cd2fa-1
 
       - name: Fix luarocks in Tarantool CE 1.10.6
         if: matrix.tarantool-version == '1.10.6'
