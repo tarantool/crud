@@ -13,7 +13,7 @@ jobs:
       matrix:
         # We need 1.10.6 here to check that module works with
         # old Tarantool versions that don't have "tuple-keydef"/"tuple-merger" support.
-        tarantool-version: ["1.10.6", "1.10", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8"]
+        tarantool-version: ["1.10.6", "1.10", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.10"]
         metrics-version: [""]
         remove-merger: [false]
         include:
