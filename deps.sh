@@ -28,5 +28,6 @@ rmdir "${TMPDIR}"
 
 tarantoolctl rocks install cartridge 2.7.4
 tarantoolctl rocks install ddl 1.6.0
+tarantoolctl rocks install migrations 0.4.2
 
 tarantoolctl rocks make

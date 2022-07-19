@@ -58,12 +58,20 @@ function sharding_metadata_module.fetch_on_storage()
         for _, tuple in sharding_key_space:pairs() do
             local space_name = tuple[sharding_utils.SPACE_NAME_FIELDNO]
             local sharding_key_def = tuple[sharding_utils.SPACE_SHARDING_KEY_FIELDNO]
-            local space_format = box.space[space_name]:format()
-            metadata_map[space_name] = {
-                sharding_key_def = sharding_key_def,
-                sharding_key_hash = storage_cache.get_sharding_key_hash(space_name),
-                space_format = space_format,
-            }
+            local space = box.space[space_name]
+
+            if space ~= nil then
+                local space_format = space:format()
+                metadata_map[space_name] = {
+                    sharding_key_def = sharding_key_def,
+                    sharding_key_hash = storage_cache.get_sharding_key_hash(space_name),
+                    space_format = space_format,
+                }
+            else
+                log.warn('Found sharding info for %q, but space not exists. ' ..
+                         'Ensure that you did a proper cleanup after DDL space drop.',
+                         space_name)
+            end
         end
     end
 
