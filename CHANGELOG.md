@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 
 ### Fixed
+* Fetching invalid ddl confuguration (sharding key for non-existing space)
+  is no longer breaks CRUD requests (#308, PR #309).
 
 ## [0.12.0] - 28-06-22
 
