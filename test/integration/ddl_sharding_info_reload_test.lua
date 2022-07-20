@@ -219,6 +219,73 @@ pgroup_storage.test_sharding_func_hash_is_updated_when_ddl_is_updated = function
     t.assert_equals(hash, sharding_utils.compute_hash({body = sharding_func_body}))
 end
 
+pgroup_storage.test_gh_310_ddl_key_record_delete_removes_cache_entry = function(g)
+    local storage = g.cluster:server('s1-master')
+    local space_name = sharding_cases.sharding_key_hash.test_space
+
+    -- Init cache by fetching sharding info.
+    local _, err = get_hash(storage, 'get_sharding_key_hash', space_name)
+    t.assert_equals(err, nil)
+
+    -- Drop space together with sharding info.
+    local _, err = storage:eval([[
+        local space_name = ...
+
+        local current_schema, err = ddl.get_schema()
+        if err ~= nil then
+            error(err)
+        end
+
+        box.space[space_name]:drop()
+        box.space['_ddl_sharding_key']:delete(space_name)
+
+        current_schema.spaces[space_name] = nil
+
+        local _, err = ddl.set_schema(current_schema)
+        if err ~= nil then
+            error(err)
+        end
+    ]], {space_name})
+    t.assert_equals(err, nil)
+
+    local hash, err = get_hash(storage, 'get_sharding_key_hash', space_name)
+    t.assert_equals(err, nil)
+    t.assert_equals(hash, nil)
+end
+
+pgroup_storage.test_gh_310_ddl_func_record_delete_removes_cache_entry = function(g)
+    local storage = g.cluster:server('s1-master')
+    local space_name = sharding_cases.sharding_func_hash.test_space
+
+    -- Init cache by fetching sharding info.
+    local _, err = get_hash(storage, 'get_sharding_func_hash', space_name)
+    t.assert_equals(err, nil)
+
+    -- Drop space together with sharding info.
+    local _, err = storage:eval([[
+        local space_name = ...
+
+        local current_schema, err = ddl.get_schema()
+        if err ~= nil then
+            error(err)
+        end
+
+        box.space[space_name]:drop()
+        box.space['_ddl_sharding_func']:delete(space_name)
+
+        current_schema.spaces[space_name] = nil
+
+        local _, err = ddl.set_schema(current_schema)
+        if err ~= nil then
+            error(err)
+        end
+    ]], {space_name})
+    t.assert_equals(err, nil)
+
+    local hash, err = get_hash(storage, 'get_sharding_func_hash', space_name)
+    t.assert_equals(err, nil)
+    t.assert_equals(hash, nil)
+end
 
 -- Test storage hash metadata mechanisms are ok after code reload.
 
