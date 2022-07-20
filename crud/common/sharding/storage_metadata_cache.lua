@@ -18,16 +18,26 @@ local ddl_space = {
 
 local trigger_stash = stash.get(stash.name.ddl_triggers)
 
-local function update_sharding_func_hash(tuple)
-    local space_name = tuple[utils.SPACE_NAME_FIELDNO]
-    local sharding_func_def = utils.extract_sharding_func_def(tuple)
-    cache_data[FUNC][space_name] = utils.compute_hash(sharding_func_def)
+local function update_sharding_func_hash(old, new)
+    if new ~= nil then
+        local space_name = new[utils.SPACE_NAME_FIELDNO]
+        local sharding_func_def = utils.extract_sharding_func_def(new)
+        cache_data[FUNC][space_name] = utils.compute_hash(sharding_func_def)
+    else
+        local space_name = old[utils.SPACE_NAME_FIELDNO]
+        cache_data[FUNC][space_name] = nil
+    end
 end
 
-local function update_sharding_key_hash(tuple)
-    local space_name = tuple[utils.SPACE_NAME_FIELDNO]
-    local sharding_key_def = tuple[utils.SPACE_SHARDING_KEY_FIELDNO]
-    cache_data[KEY][space_name] = utils.compute_hash(sharding_key_def)
+local function update_sharding_key_hash(old, new)
+    if new ~= nil then
+        local space_name = new[utils.SPACE_NAME_FIELDNO]
+        local sharding_key_def = new[utils.SPACE_SHARDING_KEY_FIELDNO]
+        cache_data[KEY][space_name] = utils.compute_hash(sharding_key_def)
+    else
+        local space_name = old[utils.SPACE_NAME_FIELDNO]
+        cache_data[KEY][space_name] = nil
+    end
 end
 
 local update_hash = {
@@ -49,8 +59,8 @@ local function init_cache(section)
     pcall(space.on_replace, space, nil, trigger_stash[section])
 
     trigger_stash[section] = space:on_replace(
-        function(_, new)
-            return update_hash_func(new)
+        function(old, new)
+            return update_hash_func(old, new)
         end
     )
 
@@ -61,7 +71,7 @@ local function init_cache(section)
         -- It is more like an overcautiousness since the cycle
         -- isn't expected to yield, but let it be here.
         if cache_data[section][space_name] == nil then
-            update_hash_func(tuple)
+            update_hash_func(nil, tuple)
         end
     end
 end
