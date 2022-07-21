@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 
 ### Fixed
+
+## [0.12.1] - 21-07-22
+
+### Fixed
 * Fetching invalid ddl configuration (sharding key for non-existing space)
   is no longer breaks CRUD requests (#308, PR #309).
 * ddl space record delete no more throws error if crud is used (#310, PR #311).
