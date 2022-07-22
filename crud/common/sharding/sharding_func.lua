@@ -9,6 +9,10 @@ local ShardingFuncError = errors.new_class('ShardingFuncError',  {capture_stack 
 
 local sharding_func_module = {}
 
+local sharding_module_names = {
+    ['vshard'] = true,
+}
+
 local function is_callable(object)
     if type(object) == 'function' then
         return true
@@ -43,13 +47,33 @@ end
 local function get_function_from_G(func_name)
     local chunks = string.split(func_name, '.')
     local sharding_func = _G
+    local sharding_module = false
+    local ok
+
+    if sharding_module_names[chunks[1]] then
+        ok, sharding_func = pcall(require, chunks[1])
+        if not ok then
+            return nil
+        end
+
+        sharding_module = true
+        table.remove(chunks, 1)
+    end
 
     -- check is the each chunk an identifier
     for _, chunk in pairs(chunks) do
         if not utils.check_name_isident(chunk) or sharding_func == nil then
             return nil
         end
-        sharding_func = rawget(sharding_func, chunk)
+
+        -- `vshard` store sharding functions in metatable,
+        -- this metatable is common for all `vshard` routers.
+        -- That's why for `vshard` case we can't use rawget.
+        if sharding_module then
+            sharding_func = sharding_func[chunk]
+        else
+            sharding_func = rawget(sharding_func, chunk)
+        end
     end
 
     return sharding_func

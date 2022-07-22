@@ -21,6 +21,11 @@ local cache_group = t.group('ddl_sharding_func_cache', {
     {engine = 'vinyl'},
 })
 
+local vshard_group = t.group('ddl_vshard_sharding_func', {
+    {engine = 'memtx'},
+    {engine = 'vinyl'},
+})
+
 pgroup.before_all(function(g)
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
@@ -75,6 +80,35 @@ cache_group.after_all(function(g) helpers.stop_cluster(g.cluster) end)
 cache_group.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers_G_func')
     helpers.truncate_space_on_cluster(g.cluster, 'customers_body_func')
+end)
+
+vshard_group.before_all(function(g)
+    g.cluster = helpers.Cluster:new({
+        datadir = fio.tempdir(),
+        server_command = helpers.entrypoint('srv_ddl'),
+        use_vshard = true,
+        replicasets = helpers.get_test_replicasets(),
+        env = {
+            ['ENGINE'] = g.params.engine,
+        },
+    })
+    g.cluster:start()
+    local result, err = g.cluster.main_server.net_box:eval([[
+        local ddl = require('ddl')
+
+        local ok, err = ddl.get_schema()
+        return ok, err
+    ]])
+    t.assert_equals(type(result), 'table')
+    t.assert_equals(err, nil)
+end)
+
+vshard_group.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+
+vshard_group.before_each(function(g)
+    helpers.truncate_space_on_cluster(g.cluster, 'customers_vshard_mpcrc32')
+    helpers.truncate_space_on_cluster(g.cluster, 'customers_vshard_strcrc32')
+    helpers.truncate_space_on_cluster(g.cluster, 'customers_empty_sharding_func')
 end)
 
 pgroup.test_insert_object = function(g)
@@ -703,7 +737,7 @@ cache_group.test_update_cache_with_incorrect_func = function(g)
 
     -- records for all spaces exist
     local cache_size = helpers.get_sharding_func_cache_size(g.cluster)
-    t.assert_equals(cache_size, 2)
+    t.assert_equals(cache_size, 4)
 
     -- no error just warning
     local space_name = 'customers_G_func'
@@ -719,7 +753,7 @@ cache_group.test_update_cache_with_incorrect_func = function(g)
     -- cache['customers_G_func'] == nil (space with incorrect func)
     -- other records for correct spaces exist in cache
     cache_size = helpers.get_sharding_func_cache_size(g.cluster)
-    t.assert_equals(cache_size, 1)
+    t.assert_equals(cache_size, 3)
 
     -- get data from cache for space with incorrect sharding func
     local space_name = 'customers_G_func'
@@ -736,7 +770,7 @@ cache_group.test_update_cache_with_incorrect_func = function(g)
     -- cache['customers_G_func'] == nil (space with incorrect func)
     -- other records for correct spaces exist in cache
     cache_size = helpers.get_sharding_func_cache_size(g.cluster)
-    t.assert_equals(cache_size, 1)
+    t.assert_equals(cache_size, 3)
 end
 
 
@@ -937,4 +971,84 @@ pgroup.test_gh_278_count_with_explicit_bucket_id_and_ddl = function(g)
     t.assert_equals(err, nil)
     t.assert_is_not(obj, nil)
     t.assert_equals(obj, 1)
+end
+
+local vshard_cases = {
+    mpcrc32_not_depends_on_ddl = {
+        set_sharding_func_to_ddl_space = true,
+        space_name = 'customers_empty_sharding_func',
+        sharding_func_name = 'vshard.router.bucket_id_mpcrc32',
+        bucket_id = 1614,
+        srv_with_data = 's1-master',
+        srv_without_data = 's2-master',
+    },
+    strcrc32_not_depends_on_ddl = {
+        set_sharding_func_to_ddl_space = true,
+        space_name = 'customers_empty_sharding_func',
+        sharding_func_name = 'vshard.router.bucket_id_strcrc32',
+        bucket_id = 477,
+        srv_with_data = 's2-master',
+        srv_without_data = 's1-master',
+    },
+    mpcrc32_depends_on_ddl = {
+        space_name = 'customers_vshard_mpcrc32',
+        sharding_func_name = 'vshard.router.bucket_id_mpcrc32',
+        bucket_id = 1614,
+        srv_with_data = 's1-master',
+        srv_without_data = 's2-master',
+    },
+    strcrc32_depends_on_ddl = {
+        space_name = 'customers_vshard_strcrc32',
+        sharding_func_name = 'vshard.router.bucket_id_strcrc32',
+        bucket_id = 477,
+        srv_with_data = 's2-master',
+        srv_without_data = 's1-master',
+    }
+}
+
+for name, case in pairs(vshard_cases) do
+    local test_name = ('test_vshard_%s'):format(name)
+
+    vshard_group[test_name] = function(g)
+        local space_name = case.space_name
+
+        if case.set_sharding_func_to_ddl_space then
+            local fieldno_sharding_func_name = 2
+
+            helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
+                server.net_box:call('set_sharding_func',
+                        {space_name, fieldno_sharding_func_name, case.sharding_func_name})
+            end)
+
+            local record_exist, err = helpers.update_sharding_func_cache(g.cluster, space_name)
+            t.assert_equals(err, nil)
+            t.assert_equals(record_exist, true)
+        end
+
+        -- Insert a tuple.
+        local result, err = g.cluster.main_server.net_box:call(
+                'crud.insert', {space_name, {1, box.NULL, 'Ivan', 25}})
+        t.assert_equals(err, nil)
+        t.assert_equals(#result.rows, 1)
+        t.assert_equals(result.rows[1], {1, case.bucket_id, 'Ivan', 25})
+
+        -- There is a tuple on server that we inserted with crud.insert().
+        local conn_srv_with_data = g.cluster:server(case.srv_with_data).net_box
+        local result = conn_srv_with_data.space[space_name]:get({1})
+        t.assert_equals(result, {1, case.bucket_id, 'Ivan', 25})
+
+        -- There is no tuple on server that we inserted with crud.insert().
+        local conn_srv_without_data = g.cluster:server(case.srv_without_data).net_box
+        local result = conn_srv_without_data.space[space_name]:get({1})
+        t.assert_equals(result, nil)
+
+        local conditions = {{'==', 'id', 1}}
+        local result, err = g.cluster.main_server.net_box:call('crud.select', {
+            space_name, conditions,
+        })
+
+        t.assert_equals(err, nil)
+        t.assert_equals(#result.rows, 1)
+        t.assert_equals(result.rows[1], {1, case.bucket_id, 'Ivan', 25})
+    end
 end
