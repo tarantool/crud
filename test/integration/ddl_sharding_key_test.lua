@@ -898,6 +898,7 @@ pgroup.test_update_cache_with_incorrect_key = function(g)
         customers = {parts = {{fieldno = 1}}},
         customers_G_func = {parts = {{fieldno = 1}}},
         customers_body_func = {parts = {{fieldno = 1}}},
+        customers_empty_sharding_func = {parts = {{fieldno = 1}}},
         customers_age_key = {parts = {{fieldno = 4}}},
         customers_name_age_key_different_indexes = {parts = {{fieldno = 3}, {fieldno = 4}}},
         customers_name_age_key_three_fields_index = {parts = {{fieldno = 3}, {fieldno = 4}}},
@@ -905,6 +906,8 @@ pgroup.test_update_cache_with_incorrect_key = function(g)
         customers_name_key_non_uniq_index = {parts = {{fieldno = 3}}},
         customers_name_key_uniq_index = {parts = {{fieldno = 3}}},
         customers_secondary_idx_name_key = {parts = {{fieldno = 3}}},
+        customers_vshard_mpcrc32 = {parts = {{fieldno = 1}}},
+        customers_vshard_strcrc32 = {parts = {{fieldno = 1}}}
     })
 
     -- no error just warning
@@ -925,12 +928,15 @@ pgroup.test_update_cache_with_incorrect_key = function(g)
         customers = {parts = {{fieldno = 1}}},
         customers_G_func = {parts = {{fieldno = 1}}},
         customers_body_func = {parts = {{fieldno = 1}}},
+        customers_empty_sharding_func = {parts = {{fieldno = 1}}},
         customers_age_key = {parts = {{fieldno = 4}}},
         customers_name_age_key_different_indexes = {parts = {{fieldno = 3}, {fieldno = 4}}},
         customers_name_age_key_three_fields_index = {parts = {{fieldno = 3}, {fieldno = 4}}},
         customers_name_key_non_uniq_index = {parts = {{fieldno = 3}}},
         customers_name_key_uniq_index = {parts = {{fieldno = 3}}},
         customers_secondary_idx_name_key = {parts = {{fieldno = 3}}},
+        customers_vshard_mpcrc32 = {parts = {{fieldno = 1}}},
+        customers_vshard_strcrc32 = {parts = {{fieldno = 1}}}
     })
 
     -- get data from cache for space with incorrect sharding key
@@ -951,12 +957,15 @@ pgroup.test_update_cache_with_incorrect_key = function(g)
         customers = {parts = {{fieldno = 1}}},
         customers_G_func = {parts = {{fieldno = 1}}},
         customers_body_func = {parts = {{fieldno = 1}}},
+        customers_empty_sharding_func = {parts = {{fieldno = 1}}},
         customers_age_key = {parts = {{fieldno = 4}}},
         customers_name_age_key_different_indexes = {parts = {{fieldno = 3}, {fieldno = 4}}},
         customers_name_age_key_three_fields_index = {parts = {{fieldno = 3}, {fieldno = 4}}},
         customers_name_key_non_uniq_index = {parts = {{fieldno = 3}}},
         customers_name_key_uniq_index = {parts = {{fieldno = 3}}},
         customers_secondary_idx_name_key = {parts = {{fieldno = 3}}},
+        customers_vshard_mpcrc32 = {parts = {{fieldno = 1}}},
+        customers_vshard_strcrc32 = {parts = {{fieldno = 1}}}
     })
 end
 

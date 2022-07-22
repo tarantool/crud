@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+- Fix specifying `vshard` sharding funcs (#314).
+
 ## [0.12.1] - 21-07-22
 
 ### Fixed

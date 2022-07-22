@@ -161,6 +161,14 @@ package.preload['customers-storage'] = function()
             local customers_G_func_schema = table.deepcopy(customers_id_key_schema)
             customers_G_func_schema.sharding_func = 'some_module.sharding_func'
 
+            local customers_empty_sharding_func_schema = table.deepcopy(customers_id_key_schema)
+
+            local customers_vshard_mpcrc32_schema = table.deepcopy(customers_id_key_schema)
+            customers_vshard_mpcrc32_schema.sharding_func = 'vshard.router.bucket_id_mpcrc32'
+
+            local customers_vshard_strcrc32_schema = table.deepcopy(customers_id_key_schema)
+            customers_vshard_strcrc32_schema.sharding_func = 'vshard.router.bucket_id_strcrc32'
+
             local schema = {
                 spaces = {
                     customers = customers_id_schema,
@@ -173,6 +181,9 @@ package.preload['customers-storage'] = function()
                     customers_name_age_key_three_fields_index = customers_name_age_key_three_fields_index_schema,
                     customers_G_func = customers_G_func_schema,
                     customers_body_func = customers_body_func_schema,
+                    customers_empty_sharding_func = customers_empty_sharding_func_schema,
+                    customers_vshard_mpcrc32 = customers_vshard_mpcrc32_schema,
+                    customers_vshard_strcrc32 = customers_vshard_strcrc32_schema,
                 }
             }
 
@@ -188,7 +199,9 @@ package.preload['customers-storage'] = function()
                 box.space['_ddl_sharding_key']:update(space_name, {{'=', fieldno_sharding_key, sharding_key_def}})
             end)
             rawset(_G, 'set_sharding_func', function(space_name, fieldno_sharding_func, sharding_func_def)
-                box.space['_ddl_sharding_func']:update(space_name, {{'=', fieldno_sharding_func, sharding_func_def}})
+                local record = {space_name, box.NULL, box.NULL}
+                record[fieldno_sharding_func] = sharding_func_def
+                box.space['_ddl_sharding_func']:replace(record)
             end)
         end,
     }
