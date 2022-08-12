@@ -789,7 +789,7 @@ pgroup.test_ge_condition_with_index = function(g)
     }
 
     -- no after
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions}, {fullscan = true})
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {fullscan = true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -829,7 +829,7 @@ pgroup.test_le_condition_with_index = function(g)
     }
 
     -- no after
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions}, {fullscan = true})
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {fullscan = true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -962,7 +962,7 @@ pgroup.test_composite_index = function(g)
     }
 
     -- no after
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions}, {fullscan = true})
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {'customers', conditions, {fullscan = true}})
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
