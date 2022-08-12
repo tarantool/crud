@@ -1037,12 +1037,14 @@ local result, err = crud.len(space_name, opts)
 
 where:
 
-* `space_name` (`string|number`) - name of the space as well
-  as numerical id of the space
+* `space_name` (`string`) - name of the space
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
 
 Returns number or nil with error.
+
+Using space id instead of space name is also possible, but
+deprecated and will be removed in future releases.
 
 **Example:**
 
