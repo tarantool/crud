@@ -766,7 +766,7 @@ pgroup.test_composite_index = function(g)
     }
 
     -- no after
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {'customers', conditions}, {fullscan = true})
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {'customers', conditions, {fullscan = true}})
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 4)
