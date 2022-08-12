@@ -1,6 +1,7 @@
 local checks = require('checks')
 local errors = require('errors')
 local vshard = require('vshard')
+local log = require('log')
 
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
@@ -42,6 +43,11 @@ function len.call(space_name, opts)
     })
 
     opts = opts or {}
+
+    if type(space_name) == 'number' then
+        log.warn('Using space id in crud.len is deprecated and will be removed in future releases.' ..
+                 'Please, use space name instead.')
+    end
 
     local space = utils.get_space(space_name, vshard.router.routeall())
     if space == nil then
