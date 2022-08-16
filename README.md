@@ -971,7 +971,7 @@ local res, err = crud.cut_rows(rows, metadata, fields)
 where:
 
 * `rows` (`table`) - array of tuples for cutting
-* `matadata` (`?metadata`) - metadata about `rows` fields
+* `metadata` (`?table`) - metadata about `rows` fields
 * `fields` (`table`) - field names of fields that should be contained in the result
 
 Returns metadata and array of rows, error.
