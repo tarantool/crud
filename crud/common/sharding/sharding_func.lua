@@ -1,8 +1,9 @@
 local errors = require('errors')
 local log = require('log')
+local vshard = require('vshard')
 
 local dev_checks = require('crud.common.dev_checks')
-local cache = require('crud.common.sharding.router_metadata_cache')
+local router_cache = require('crud.common.sharding.router_metadata_cache')
 local utils = require('crud.common.utils')
 
 local ShardingFuncError = errors.new_class('ShardingFuncError',  {capture_stack = false})
@@ -106,11 +107,13 @@ function sharding_func_module.construct_as_callable_obj_cache(metadata_map, spec
 
     local result_err
 
-    cache[cache.SHARDING_FUNC_MAP_NAME] = {}
-    local func_cache = cache[cache.SHARDING_FUNC_MAP_NAME]
+    local vshard_router = vshard.router.static
+    local cache = router_cache.get_instance(vshard_router)
+    cache[router_cache.SHARDING_FUNC_MAP_NAME] = {}
+    local func_cache = cache[router_cache.SHARDING_FUNC_MAP_NAME]
 
-    cache[cache.META_HASH_MAP_NAME][cache.SHARDING_FUNC_MAP_NAME] = {}
-    local func_hash_cache = cache[cache.META_HASH_MAP_NAME][cache.SHARDING_FUNC_MAP_NAME]
+    cache[router_cache.META_HASH_MAP_NAME][router_cache.SHARDING_FUNC_MAP_NAME] = {}
+    local func_hash_cache = cache[router_cache.META_HASH_MAP_NAME][router_cache.SHARDING_FUNC_MAP_NAME]
 
     for space_name, metadata in pairs(metadata_map) do
         if metadata.sharding_func_def ~= nil then

@@ -5,21 +5,47 @@ local router_metadata_cache = {}
 router_metadata_cache.SHARDING_KEY_MAP_NAME = "sharding_key_as_index_obj_map"
 router_metadata_cache.SHARDING_FUNC_MAP_NAME = "sharding_func_map"
 router_metadata_cache.META_HASH_MAP_NAME = "sharding_meta_hash_map"
-router_metadata_cache[router_metadata_cache.SHARDING_KEY_MAP_NAME] = nil
-router_metadata_cache[router_metadata_cache.SHARDING_FUNC_MAP_NAME] = nil
-router_metadata_cache[router_metadata_cache.META_HASH_MAP_NAME] = {}
-router_metadata_cache.fetch_lock = fiber.channel(1)
-router_metadata_cache.is_part_of_pk = {}
+
+local internal_storage = {}
+
+function router_metadata_cache.get_instance(vshard_router)
+    local name = vshard_router.name
+
+    if internal_storage[name] ~= nil then
+        return internal_storage[name]
+    end
+
+    internal_storage[name] = {
+        [router_metadata_cache.SHARDING_KEY_MAP_NAME] = nil,
+        [router_metadata_cache.SHARDING_FUNC_MAP_NAME] = nil,
+        [router_metadata_cache.META_HASH_MAP_NAME] = {},
+        fetch_lock = fiber.channel(1),
+        is_part_of_pk = {}
+    }
+
+    return internal_storage[name]
+end
+
+function router_metadata_cache.drop_instance(vshard_router)
+    local name = vshard_router.name
+
+    if internal_storage[name] == nil then
+        return
+    end
+
+    if internal_storage[name].fetch_lock ~= nil then
+        internal_storage[name].fetch_lock:close()
+    end
+
+    internal_storage[name] = nil
+end
 
 function router_metadata_cache.drop_caches()
-    router_metadata_cache[router_metadata_cache.SHARDING_KEY_MAP_NAME] = nil
-    router_metadata_cache[router_metadata_cache.SHARDING_FUNC_MAP_NAME] = nil
-    router_metadata_cache[router_metadata_cache.META_HASH_MAP_NAME] = {}
-    if router_metadata_cache.fetch_lock ~= nil then
-        router_metadata_cache.fetch_lock:close()
+    for name, _ in pairs(internal_storage) do
+        router_metadata_cache.drop_instance(name)
     end
-    router_metadata_cache.fetch_lock = fiber.channel(1)
-    router_metadata_cache.is_part_of_pk = {}
+
+    internal_storage = {}
 end
 
 return router_metadata_cache

@@ -1,8 +1,9 @@
 local errors = require('errors')
 local log = require('log')
+local vshard = require('vshard')
 
 local dev_checks = require('crud.common.dev_checks')
-local cache = require('crud.common.sharding.router_metadata_cache')
+local router_cache = require('crud.common.sharding.router_metadata_cache')
 local utils = require('crud.common.utils')
 
 local ShardingKeyError = errors.new_class("ShardingKeyError", {capture_stack = false})
@@ -30,8 +31,8 @@ local function as_index_object(space_name, space_format, sharding_key_def)
 end
 
 -- Make sure sharding key definition is a part of primary key.
-local function is_part_of_pk(space_name, primary_index_parts, sharding_key_as_index_obj)
-    dev_checks('string', 'table', 'table')
+local function is_part_of_pk(cache, space_name, primary_index_parts, sharding_key_as_index_obj)
+    dev_checks('table', 'string', 'table', 'table')
 
     if cache.is_part_of_pk[space_name] ~= nil then
         return cache.is_part_of_pk[space_name]
@@ -83,7 +84,9 @@ function sharding_key_module.extract_from_pk(space_name, sharding_key_as_index_o
         return primary_key
     end
 
-    local res = is_part_of_pk(space_name, primary_index_parts, sharding_key_as_index_obj)
+    local vshard_router = vshard.router.static
+    local cache = router_cache.get_instance(vshard_router)
+    local res = is_part_of_pk(cache, space_name, primary_index_parts, sharding_key_as_index_obj)
     if res == false then
         return nil, ShardingKeyError:new(
             "Sharding key for space %q is missed in primary index, specify bucket_id",
@@ -102,11 +105,13 @@ function sharding_key_module.construct_as_index_obj_cache(metadata_map, specifie
 
     local result_err
 
-    cache[cache.SHARDING_KEY_MAP_NAME] = {}
-    local key_cache = cache[cache.SHARDING_KEY_MAP_NAME]
+    local vshard_router = vshard.router.static
+    local cache = router_cache.get_instance(vshard_router)
+    cache[router_cache.SHARDING_KEY_MAP_NAME] = {}
+    local key_cache = cache[router_cache.SHARDING_KEY_MAP_NAME]
 
-    cache[cache.META_HASH_MAP_NAME][cache.SHARDING_KEY_MAP_NAME] = {}
-    local key_hash_cache = cache[cache.META_HASH_MAP_NAME][cache.SHARDING_KEY_MAP_NAME]
+    cache[router_cache.META_HASH_MAP_NAME][router_cache.SHARDING_KEY_MAP_NAME] = {}
+    local key_hash_cache = cache[router_cache.META_HASH_MAP_NAME][router_cache.SHARDING_KEY_MAP_NAME]
 
     for space_name, metadata in pairs(metadata_map) do
         if metadata.sharding_key_def ~= nil then
