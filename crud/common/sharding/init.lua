@@ -32,7 +32,8 @@ function sharding.key_get_bucket_id(space_name, key, specified_bucket_id)
         return { bucket_id = specified_bucket_id }
     end
 
-    local sharding_func_data, err = sharding_metadata_module.fetch_sharding_func_on_router(space_name)
+    local vshard_router = vshard.router.static
+    local sharding_func_data, err = sharding_metadata_module.fetch_sharding_func_on_router(vshard_router, space_name)
     if err ~= nil then
         return nil, err
     end
@@ -53,7 +54,8 @@ function sharding.tuple_get_bucket_id(tuple, space, specified_bucket_id)
     end
 
     local sharding_index_parts = space.index[0].parts
-    local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(space.name)
+    local vshard_router = vshard.router.static
+    local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(vshard_router, space.name)
     if err ~= nil then
         return nil, err
     end

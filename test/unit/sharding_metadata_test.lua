@@ -4,7 +4,7 @@ local sharding_metadata_module = require('crud.common.sharding.sharding_metadata
 local sharding_key_module = require('crud.common.sharding.sharding_key')
 local sharding_func_module = require('crud.common.sharding.sharding_func')
 local sharding_utils = require('crud.common.sharding.utils')
-local cache = require('crud.common.sharding.router_metadata_cache')
+local router_cache = require('crud.common.sharding.router_metadata_cache')
 local storage_cache = require('crud.common.sharding.storage_metadata_cache')
 local utils = require('crud.common.utils')
 
@@ -56,7 +56,7 @@ g.after_each(function()
     end
 
     box.space.fetch_on_storage:drop()
-    cache.drop_caches()
+    router_cache.drop_caches()
     storage_cache.drop_caches()
 end)
 
@@ -298,7 +298,8 @@ g.test_is_part_of_pk_positive = function()
     }
 
     local is_part_of_pk = sharding_key_module.internal.is_part_of_pk
-    local res = is_part_of_pk(space_name, index_parts, sharding_key_as_index_obj)
+    local cache = router_cache.get_instance({name = 'dummy'})
+    local res = is_part_of_pk(cache, space_name, index_parts, sharding_key_as_index_obj)
     t.assert_equals(res, true)
 end
 
@@ -315,7 +316,8 @@ g.test_is_part_of_pk_negative = function()
     }
 
     local is_part_of_pk = sharding_key_module.internal.is_part_of_pk
-    local res = is_part_of_pk(space_name, index_parts, sharding_key_as_index_obj)
+    local cache = router_cache.get_instance({name = 'dummy'})
+    local res = is_part_of_pk(cache, space_name, index_parts, sharding_key_as_index_obj)
     t.assert_equals(res, false)
 end
 

@@ -334,9 +334,13 @@ end
 
 function helpers.get_sharding_key_cache(cluster)
     return cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
         local sharding_metadata_cache = require('crud.common.sharding.router_metadata_cache')
 
-        return sharding_metadata_cache[sharding_metadata_cache.SHARDING_KEY_MAP_NAME]
+        local vshard_router = vshard.router.static
+        local cache = sharding_metadata_cache.get_instance(vshard_router)
+
+        return cache[sharding_metadata_cache.SHARDING_KEY_MAP_NAME]
     ]])
 end
 
@@ -362,9 +366,13 @@ end
 -- but not the cache itself
 function helpers.get_sharding_func_cache_size(cluster)
     return cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
         local sharding_metadata_cache = require('crud.common.sharding.router_metadata_cache')
 
-        local cache, err = sharding_metadata_cache[sharding_metadata_cache.SHARDING_FUNC_MAP_NAME]
+        local vshard_router = vshard.router.static
+        local instance_cache = sharding_metadata_cache.get_instance(vshard_router)
+
+        local cache, err = instance_cache[sharding_metadata_cache.SHARDING_FUNC_MAP_NAME]
         if cache == nil then
             return nil, err
         end

@@ -81,7 +81,7 @@ local function call_delete_on_router(space_name, key, opts)
     if opts.bucket_id == nil then
         local primary_index_parts = space.index[0].parts
 
-        local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
+        local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(vshard_router, space_name)
         if err ~= nil then
             return nil, err
         end

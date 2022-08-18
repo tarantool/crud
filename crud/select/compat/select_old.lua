@@ -123,7 +123,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local sharding_key_as_index_obj = nil
     -- We don't need sharding info if bucket_id specified.
     if opts.bucket_id == nil then
-        local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(space_name)
+        local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(vshard_router, space_name)
         if err ~= nil then
             return nil, err
         end
