@@ -1,7 +1,7 @@
 local log = require('log')
-local vshard = require('vshard')
 
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
+local utils = require('crud.common.utils')
 
 local sharding_func_cache = {}
 
@@ -15,8 +15,9 @@ function sharding_func_cache.update_cache(space_name, vshard_router)
     log.warn("require('crud.common.sharding_func').update_cache()" ..
              "is deprecated and will be removed in future releases")
 
-    if vshard_router == nil then
-        vshard_router = vshard.router.static
+    local vshard_router, err = utils.get_vshard_router_instance(vshard_router)
+    if err ~= nil then
+        return nil, err
     end
 
     return sharding_metadata_module.update_sharding_func_cache(vshard_router, space_name)

@@ -1,6 +1,5 @@
 local checks = require('checks')
 local errors = require('errors')
-local vshard = require('vshard')
 local fun = require('fun')
 
 local call = require('crud.common.call')
@@ -233,6 +232,8 @@ function select_module.pairs(space_name, user_conditions, opts)
         prefer_replica = '?boolean',
         balance = '?boolean',
         timeout = '?number',
+
+        vshard_router = '?string|table',
     })
 
     opts = opts or {}
@@ -241,7 +242,10 @@ function select_module.pairs(space_name, user_conditions, opts)
         error(string.format("Negative first isn't allowed for pairs"))
     end
 
-    local vshard_router = vshard.router.static
+    local vshard_router, err = utils.get_vshard_router_instance(opts.vshard_router)
+    if err ~= nil then
+        error(err)
+    end
 
     local iterator_opts = {
         after = opts.after,
@@ -306,9 +310,7 @@ function select_module.pairs(space_name, user_conditions, opts)
 end
 
 local function select_module_call_xc(vshard_router, space_name, user_conditions, opts)
-    dev_checks('table', 'string', '?table', '?table')
-
-    opts = opts or {}
+    dev_checks('table', 'string', '?table', 'table')
 
     if opts.first ~= nil and opts.first < 0 then
         if opts.after == nil then
@@ -382,9 +384,16 @@ function select_module.call(space_name, user_conditions, opts)
         prefer_replica = '?boolean',
         balance = '?boolean',
         timeout = '?number',
+
+        vshard_router = '?string|table',
     })
 
-    local vshard_router = vshard.router.static
+    opts = opts or {}
+
+    local vshard_router, err = utils.get_vshard_router_instance(opts.vshard_router)
+    if err ~= nil then
+        return nil, SelectError:new(err)
+    end
 
     return sharding.wrap_method(vshard_router, select_module_call_xc, space_name, user_conditions, opts)
 end

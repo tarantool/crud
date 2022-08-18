@@ -207,6 +207,9 @@ where:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `bucket_id` (`?number|cdata`) - bucket ID
   * `fields` (`?table`) - field names for getting only a subset of fields
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
 
 Returns metadata and array contains one inserted row, error.
 
@@ -259,6 +262,9 @@ where:
   * `rollback_on_error` (`?boolean`) - any failed operation will lead to
     rollback on a storage, where the operation is failed, report error
     about what tuples were rollback, default is `false`
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
 
 Returns metadata and array with inserted rows, array of errors.
 Each error object can contain field `operation_data`.
@@ -393,6 +399,9 @@ where:
   * `prefer_replica` (`?boolean`) - if `true` then the preferred target is one of
     the replicas
   * `balance` (`?boolean`) - use replica according to vshard load balancing policy
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
 
 Returns metadata and array contains one row, error.
 
@@ -426,6 +435,9 @@ where:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `bucket_id` (`?number|cdata`) - bucket ID
   * `fields` (`?table`) - field names for getting only a subset of fields
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
 
 Returns metadata and array contains one updated row, error.
 
@@ -458,6 +470,9 @@ where:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `bucket_id` (`?number|cdata`) - bucket ID
   * `fields` (`?table`) - field names for getting only a subset of fields
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
 
 Returns metadata and array contains one deleted row (empty for vinyl), error.
 
@@ -492,6 +507,9 @@ where:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `bucket_id` (`?number|cdata`) - bucket ID
   * `fields` (`?table`) - field names for getting only a subset of fields
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
 
 Returns inserted or replaced rows and metadata or nil with error.
 
@@ -544,6 +562,9 @@ where:
   * `rollback_on_error` (`?boolean`) - any failed operation will lead to
     rollback on a storage, where the operation is failed, report error
     about what tuples were rollback, default is `false`
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
 
 Returns metadata and array with inserted/replaced rows, array of errors.
 Each error object can contain field `operation_data`.
@@ -676,6 +697,9 @@ where:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `bucket_id` (`?number|cdata`) - bucket ID
   * `fields` (`?table`) - field names for getting only a subset of fields
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
 
 Returns metadata and empty array of rows or nil, error.
 
@@ -733,6 +757,9 @@ where:
   * `rollback_on_error` (`?boolean`) - any failed operation will lead to
     rollback on a storage, where the operation is failed, report error
     about what tuples were rollback, default is `false`
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
 
 Returns metadata and array of errors.
 Each error object can contain field `operation_data`.
@@ -869,6 +896,9 @@ where:
   * `prefer_replica` (`?boolean`) - if `true` then the preferred target is one of
     the replicas
   * `balance` (`?boolean`) - use replica according to vshard load balancing policy
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
 
 
 Returns metadata and array of rows, error.
@@ -1007,6 +1037,9 @@ where:
 * `space_name` (`string`) - name of the space
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
 
 Returns true or nil with error.
 
@@ -1040,6 +1073,9 @@ where:
 * `space_name` (`string`) - name of the space
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
 
 Returns number or nil with error.
 
@@ -1089,6 +1125,7 @@ where:
 * `opts`:
   * `timeout` (`?number`) -  maximum time (in seconds, default: 2) to wait for response from
   cluster instances.
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or vshard router instance.
 
 Returns storages status table by instance UUID or nil with error. Status table fields:
 * `status` contains a string representing the status:
@@ -1158,6 +1195,9 @@ where:
   * `balance` (`?boolean`) - use replica according to
     [vshard load balancing policy](https://www.tarantool.io/en/doc/latest/reference/reference_rock/vshard/vshard_api/#router-api-call),
     default value is `false`
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
 
 ```lua
 crud.count('customers', {{'==', 'age', 35}})

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+* Support `vshard_router` option in operations for Cartridge vshard groups
+  or non-default vshard routers (#44).
+
 ### Changed
 * Deprecate using space id in `crud.len` (#255).
 

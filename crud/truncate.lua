@@ -1,9 +1,9 @@
 local checks = require('checks')
 local errors = require('errors')
-local vshard = require('vshard')
 
 local dev_checks = require('crud.common.dev_checks')
 local call = require('crud.common.call')
+local utils = require('crud.common.utils')
 
 local TruncateError = errors.new_class('TruncateError', {capture_stack = false})
 
@@ -36,6 +36,11 @@ end
 -- @tparam ?number opts.timeout
 --  Function call timeout
 --
+-- @tparam ?string|table opts.vshard_router
+--  Cartridge vshard group name or vshard router instance.
+--  Set this parameter if your space is not a part of the
+--  default vshard cluster.
+--
 -- @return[1] boolean true
 -- @treturn[2] nil
 -- @treturn[2] table Error description
@@ -43,11 +48,16 @@ end
 function truncate.call(space_name, opts)
     checks('string', {
         timeout = '?number',
+        vshard_router = '?string|table',
     })
 
     opts = opts or {}
 
-    local vshard_router = vshard.router.static
+    local vshard_router, err = utils.get_vshard_router_instance(opts.vshard_router)
+    if err ~= nil then
+        return nil, TruncateError:new(err)
+    end
+
     local replicasets = vshard_router:routeall()
     local _, err = call.map(vshard_router, TRUNCATE_FUNC_NAME, {space_name}, {
         mode = 'write',
