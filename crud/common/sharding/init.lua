@@ -14,7 +14,8 @@ local sharding_utils = require('crud.common.sharding.utils')
 local sharding = {}
 
 function sharding.get_replicasets_by_bucket_id(bucket_id)
-    local replicaset, err = vshard.router.route(bucket_id)
+    local vshard_router = vshard.router.static
+    local replicaset, err = vshard_router:route(bucket_id)
     if replicaset == nil then
         return nil, GetReplicasetsError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
     end
@@ -43,7 +44,7 @@ function sharding.key_get_bucket_id(space_name, key, specified_bucket_id)
         }
     end
 
-    return { bucket_id = vshard.router.bucket_id_strcrc32(key) }
+    return { bucket_id = vshard_router:bucket_id_strcrc32(key) }
 end
 
 function sharding.tuple_get_bucket_id(tuple, space, specified_bucket_id)
@@ -241,7 +242,8 @@ function sharding.split_tuples_by_replicaset(tuples, space, opts)
             skip_sharding_hash_check = false
         end
 
-        local replicaset, err = vshard.router.route(sharding_data.bucket_id)
+        local vshard_router = vshard.router.static
+        local replicaset, err = vshard_router:route(sharding_data.bucket_id)
         if replicaset == nil then
             return nil, GetReplicasetsError:new(
                     "Failed to get replicaset for bucket_id %s: %s",

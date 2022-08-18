@@ -250,7 +250,8 @@ function stats.get(space_name)
 end
 
 local function resolve_space_name(space_id)
-    local replicasets = vshard.router.routeall()
+    local vshard_router = vshard.router.static
+    local replicasets = vshard_router:routeall()
     if next(replicasets) == nil then
         log.warn('Failed to resolve space name for stats: no replicasets found')
         return nil

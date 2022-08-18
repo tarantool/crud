@@ -134,7 +134,8 @@ local function call_count_on_router(space_name, user_conditions, opts)
         return nil, CountError:new("Failed to parse conditions: %s", err)
     end
 
-    local replicasets, err = vshard.router.routeall()
+    local vshard_router = vshard.router.static
+    local replicasets, err = vshard_router:routeall()
     if err ~= nil then
         return nil, CountError:new("Failed to get all replicasets: %s", err)
     end

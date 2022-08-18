@@ -634,7 +634,8 @@ function utils.cut_rows(rows, metadata, field_names)
 end
 
 local function flatten_obj(space_name, obj)
-    local space_format, err = utils.get_space_format(space_name, vshard.router.routeall())
+    local vshard_router = vshard.router.static
+    local space_format, err = utils.get_space_format(space_name, vshard_router:routeall())
     if err ~= nil then
         return nil, FlattenError:new("Failed to get space format: %s", err), const.NEED_SCHEMA_RELOAD
     end
@@ -760,7 +761,8 @@ end
 --
 -- @return a table of storage states by replica uuid.
 function utils.storage_info(opts)
-    local replicasets, err = vshard.router.routeall()
+    local vshard_router = vshard.router.static
+    local replicasets, err = vshard_router:routeall()
     if replicasets == nil then
         return nil, StorageInfoError:new("Failed to get all replicasets: %s", err.err)
     end

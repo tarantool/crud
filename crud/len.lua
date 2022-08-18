@@ -49,12 +49,13 @@ function len.call(space_name, opts)
                  'Please, use space name instead.')
     end
 
-    local space = utils.get_space(space_name, vshard.router.routeall())
+    local vshard_router = vshard.router.static
+    local space = utils.get_space(space_name, vshard_router:routeall())
     if space == nil then
         return nil, LenError:new("Space %q doesn't exist", space_name)
     end
 
-    local results, err = vshard.router.map_callrw(LEN_FUNC_NAME, {space_name}, opts)
+    local results, err = vshard_router:map_callrw(LEN_FUNC_NAME, {space_name}, opts)
 
     if err ~= nil then
         return nil, LenError:new("Failed to call len on storage-side: %s", err)

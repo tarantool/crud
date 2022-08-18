@@ -91,7 +91,8 @@ function schema.wrap_func_reload(func, ...)
             break
         end
 
-        local ok, reload_schema_err = reload_schema(vshard.router.routeall())
+        local vshard_router = vshard.router.static
+        local ok, reload_schema_err = reload_schema(vshard_router:routeall())
         if not ok then
             log.warn("Failed to reload schema: %s", reload_schema_err)
             break

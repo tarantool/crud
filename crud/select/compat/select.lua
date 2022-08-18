@@ -43,7 +43,8 @@ local function build_select_iterator(space_name, user_conditions, opts)
         return nil, SelectError:new("Failed to parse conditions: %s", err)
     end
 
-    local replicasets, err = vshard.router.routeall()
+    local vshard_router = vshard.router.static
+    local replicasets, err = vshard_router:routeall()
     if err ~= nil then
         return nil, SelectError:new("Failed to get all replicasets: %s", err)
     end

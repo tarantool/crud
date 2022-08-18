@@ -133,7 +133,8 @@ local function call_insert_many_on_router(space_name, original_tuples, opts)
 
     opts = opts or {}
 
-    local space = utils.get_space(space_name, vshard.router.routeall())
+    local vshard_router = vshard.router.static
+    local space = utils.get_space(space_name, vshard_router:routeall())
     if space == nil then
         return nil, {InsertManyError:new("Space %q doesn't exist", space_name)}, const.NEED_SCHEMA_RELOAD
     end

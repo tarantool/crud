@@ -86,7 +86,8 @@ local function call_update_on_router(space_name, key, user_operations, opts)
 
     opts = opts or {}
 
-    local space, err = utils.get_space(space_name, vshard.router.routeall())
+    local vshard_router = vshard.router.static
+    local space, err = utils.get_space(space_name, vshard_router:routeall())
     if err ~= nil then
         return nil, UpdateError:new("Failed to get space %q: %s", space_name, err), const.NEED_SCHEMA_RELOAD
     end
