@@ -107,6 +107,7 @@ local function update_replicasets_tuples(iter, after_tuple, replicaset_uuid)
         field_names = iter.field_names,
         call_opts = iter.call_opts,
         sharding_hash = iter.sharding_hash,
+        vshard_router = iter.vshard_router,
     })
     if err ~= nil then
         if sharding.result_needs_sharding_reload(err) then

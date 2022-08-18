@@ -1,6 +1,5 @@
 local errors = require('errors')
 local log = require('log')
-local vshard = require('vshard')
 
 local dev_checks = require('crud.common.dev_checks')
 local router_cache = require('crud.common.sharding.router_metadata_cache')
@@ -102,12 +101,11 @@ local function as_callable_object(sharding_func_def, space_name)
     )
 end
 
-function sharding_func_module.construct_as_callable_obj_cache(metadata_map, specified_space_name)
-    dev_checks('table', 'string')
+function sharding_func_module.construct_as_callable_obj_cache(vshard_router, metadata_map, specified_space_name)
+    dev_checks('table', 'table', 'string')
 
     local result_err
 
-    local vshard_router = vshard.router.static
     local cache = router_cache.get_instance(vshard_router)
     cache[router_cache.SHARDING_FUNC_MAP_NAME] = {}
     local func_cache = cache[router_cache.SHARDING_FUNC_MAP_NAME]

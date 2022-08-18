@@ -1,7 +1,6 @@
 local fiber = require('fiber')
 local errors = require('errors')
 local log = require('log')
-local vshard = require('vshard')
 
 local call = require('crud.common.call')
 local const = require('crud.common.const')
@@ -23,7 +22,7 @@ local sharding_metadata_module = {}
 local function locked(f)
     dev_checks('function')
 
-    return function(timeout, vshard_router, ...)
+    return function(vshard_router, space_name, metadata_map_name, timeout)
         local timeout_deadline = fiber.clock() + timeout
 
         local cache = router_cache.get_instance(vshard_router)
@@ -38,7 +37,7 @@ local function locked(f)
                 "Timeout for fetching sharding metadata is exceeded")
         end
         local timeout = timeout_deadline - fiber.clock()
-        local status, err = pcall(f, timeout, vshard_router, ...)
+        local status, err = pcall(f, vshard_router, space_name, metadata_map_name, timeout)
         cache.fetch_lock:get()
         if not status or err ~= nil then
             return err
@@ -99,8 +98,8 @@ end
 -- cache.fetch_lock become unlocked during timeout passed to
 -- _fetch_on_router().
 -- metadata_map_name == nil means forced reload.
-local _fetch_on_router = locked(function(timeout, vshard_router, space_name, metadata_map_name)
-    dev_checks('number', 'table', 'string', '?string')
+local _fetch_on_router = locked(function(vshard_router, space_name, metadata_map_name, timeout)
+    dev_checks('table', 'string', '?string', 'number')
 
     local cache = router_cache.get_instance(vshard_router)
 
@@ -108,7 +107,7 @@ local _fetch_on_router = locked(function(timeout, vshard_router, space_name, met
         return
     end
 
-    local metadata_map, err = call.any(FETCH_FUNC_NAME, {}, {
+    local metadata_map, err = call.any(vshard_router, FETCH_FUNC_NAME, {}, {
         timeout = timeout
     })
     if err ~= nil then
@@ -124,12 +123,12 @@ local _fetch_on_router = locked(function(timeout, vshard_router, space_name, met
         return
     end
 
-    local err = sharding_key.construct_as_index_obj_cache(metadata_map, space_name)
+    local err = sharding_key.construct_as_index_obj_cache(vshard_router, metadata_map, space_name)
     if err ~= nil then
         return err
     end
 
-    local err = sharding_func.construct_as_callable_obj_cache(metadata_map, space_name)
+    local err = sharding_func.construct_as_callable_obj_cache(vshard_router, metadata_map, space_name)
     if err ~= nil then
         return err
     end
@@ -146,7 +145,7 @@ local function fetch_on_router(vshard_router, space_name, metadata_map_name, tim
     end
 
     local timeout = timeout or const.FETCH_SHARDING_METADATA_TIMEOUT
-    local err = _fetch_on_router(timeout, vshard_router, space_name, metadata_map_name)
+    local err = _fetch_on_router(vshard_router, space_name, metadata_map_name, timeout)
     if err ~= nil then
         return nil, err
     end
@@ -192,25 +191,22 @@ function sharding_metadata_module.fetch_sharding_func_on_router(vshard_router, s
     return fetch_on_router(vshard_router, space_name, router_cache.SHARDING_FUNC_MAP_NAME, timeout)
 end
 
-function sharding_metadata_module.update_sharding_key_cache(space_name)
-    local vshard_router = vshard.router.static
+function sharding_metadata_module.update_sharding_key_cache(vshard_router, space_name)
     router_cache.drop_instance(vshard_router)
 
     return sharding_metadata_module.fetch_sharding_key_on_router(vshard_router, space_name)
 end
 
-function sharding_metadata_module.update_sharding_func_cache(space_name)
-    local vshard_router = vshard.router.static
+function sharding_metadata_module.update_sharding_func_cache(vshard_router, space_name)
     router_cache.drop_instance(vshard_router)
 
     return sharding_metadata_module.fetch_sharding_func_on_router(vshard_router, space_name)
 end
 
-function sharding_metadata_module.reload_sharding_cache(space_name)
-    local vshard_router = vshard.router.static
+function sharding_metadata_module.reload_sharding_cache(vshard_router, space_name)
     router_cache.drop_instance(vshard_router)
 
-    local err = _fetch_on_router(const.FETCH_SHARDING_METADATA_TIMEOUT, vshard_router, space_name, nil)
+    local err = _fetch_on_router(vshard_router, space_name, nil, const.FETCH_SHARDING_METADATA_TIMEOUT)
     if err ~= nil then
         log.warn('Failed to reload sharding cache: %s', err)
     end

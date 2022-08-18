@@ -61,8 +61,10 @@ end
 
 g.test_map_non_existent_func = function()
     local results, err = g.cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
         local call = require('crud.common.call')
-        return call.map('non_existent_func', nil, {mode = 'write'})
+
+        return call.map(vshard.router.static, 'non_existent_func', nil, {mode = 'write'})
     ]])
 
     t.assert_equals(results, nil)
@@ -72,8 +74,10 @@ end
 
 g.test_single_non_existent_func = function()
     local results, err = g.cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
         local call = require('crud.common.call')
-        return call.single(1, 'non_existent_func', nil, {mode = 'write'})
+
+        return call.single(vshard.router.static, 1, 'non_existent_func', nil, {mode = 'write'})
     ]])
 
     t.assert_equals(results, nil)
@@ -83,8 +87,10 @@ end
 
 g.test_map_invalid_mode = function()
     local results, err = g.cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
         local call = require('crud.common.call')
-        return call.map('say_hi_politely', nil, {mode = 'invalid'})
+
+        return call.map(vshard.router.static, 'say_hi_politely', nil, {mode = 'invalid'})
     ]])
 
     t.assert_equals(results, nil)
@@ -93,8 +99,10 @@ end
 
 g.test_single_invalid_mode = function()
     local results, err = g.cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
         local call = require('crud.common.call')
-        return call.single(1, 'say_hi_politely', nil, {mode = 'invalid'})
+
+        return call.single(vshard.router.static, 1, 'say_hi_politely', nil, {mode = 'invalid'})
     ]])
 
     t.assert_equals(results, nil)
@@ -103,8 +111,10 @@ end
 
 g.test_map_no_args = function()
     local results_map, err  = g.cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
         local call = require('crud.common.call')
-        return call.map('say_hi_politely', nil, {mode = 'write'})
+
+        return call.map(vshard.router.static, 'say_hi_politely', nil, {mode = 'write'})
     ]])
 
     t.assert_equals(err, nil)
@@ -115,8 +125,10 @@ end
 
 g.test_args = function()
     local results_map, err = g.cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
         local call = require('crud.common.call')
-        return call.map('say_hi_politely', {'dokshina'}, {mode = 'write'})
+
+        return call.map(vshard.router.static, 'say_hi_politely', {'dokshina'}, {mode = 'write'})
     ]])
 
     t.assert_equals(err, nil)
@@ -129,11 +141,12 @@ g.test_timeout = function()
     local timeout = 0.2
 
     local results, err = g.cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
         local call = require('crud.common.call')
 
         local say_hi_timeout, call_timeout = ...
 
-        return call.map('say_hi_sleepily', {say_hi_timeout}, {
+        return call.map(vshard.router.static, 'say_hi_sleepily', {say_hi_timeout}, {
             mode = 'write',
             timeout = call_timeout,
         })
@@ -147,9 +160,11 @@ end
 local function check_single_vshard_call(g, exp_vshard_call, opts)
     g.clear_vshard_calls()
     local _, err = g.cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
         local call = require('crud.common.call')
+
         local opts = ...
-        return call.single(1, 'say_hi_politely', {'dokshina'}, opts)
+        return call.single(vshard.router.static, 1, 'say_hi_politely', {'dokshina'}, opts)
     ]], {opts})
     t.assert_equals(err, nil)
     local vshard_calls = g.get_vshard_calls()
@@ -159,9 +174,11 @@ end
 local function check_map_vshard_call(g, exp_vshard_call, opts)
     g.clear_vshard_calls()
     local _, err = g.cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
         local call = require('crud.common.call')
+
         local opts = ...
-        return call.map('say_hi_politely', {'dokshina'}, opts)
+        return call.map(vshard.router.static, 'say_hi_politely', {'dokshina'}, opts)
     ]], {opts})
     t.assert_equals(err, nil)
     local vshard_calls = g.get_vshard_calls()
@@ -249,8 +266,10 @@ end
 g.test_any_vshard_call = function()
     g.clear_vshard_calls()
     local results, err = g.cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
         local call = require('crud.common.call')
-        return call.any('say_hi_politely', {'dude'}, {})
+
+        return call.any(vshard.router.static, 'say_hi_politely', {'dude'}, {})
     ]])
 
     t.assert_equals(results, 'HI, dude! I am s2-master')
@@ -261,11 +280,12 @@ g.test_any_vshard_call_timeout = function()
     local timeout = 0.2
 
     local results, err = g.cluster.main_server.net_box:eval([[
+        local vshard = require('vshard')
         local call = require('crud.common.call')
 
         local say_hi_timeout, call_timeout = ...
 
-        return call.any('say_hi_sleepily', {say_hi_timeout}, {
+        return call.any(vshard.router.static, 'say_hi_sleepily', {say_hi_timeout}, {
             timeout = call_timeout,
         })
     ]], {timeout + 0.1, timeout})

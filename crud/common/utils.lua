@@ -633,8 +633,7 @@ function utils.cut_rows(rows, metadata, field_names)
     }
 end
 
-local function flatten_obj(space_name, obj)
-    local vshard_router = vshard.router.static
+local function flatten_obj(vshard_router, space_name, obj)
     local space_format, err = utils.get_space_format(space_name, vshard_router:routeall())
     if err ~= nil then
         return nil, FlattenError:new("Failed to get space format: %s", err), const.NEED_SCHEMA_RELOAD
@@ -648,8 +647,8 @@ local function flatten_obj(space_name, obj)
     return tuple
 end
 
-function utils.flatten_obj_reload(space_name, obj)
-    return schema.wrap_func_reload(flatten_obj, space_name, obj)
+function utils.flatten_obj_reload(vshard_router, space_name, obj)
+    return schema.wrap_func_reload(vshard_router, flatten_obj, space_name, obj)
 end
 
 -- Merge two options map.

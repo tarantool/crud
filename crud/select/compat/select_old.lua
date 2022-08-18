@@ -30,6 +30,7 @@ local function select_iteration(space_name, plan, opts)
         limit = 'number',
         call_opts = 'table',
         sharding_hash = 'table',
+        vshard_router = 'table',
     })
 
     local call_opts = opts.call_opts
@@ -51,7 +52,7 @@ local function select_iteration(space_name, plan, opts)
         space_name, plan.index_id, plan.conditions, storage_select_opts,
     }
 
-    local results, err = call.map(common.SELECT_FUNC_NAME, storage_select_args, {
+    local results, err = call.map(opts.vshard_router, common.SELECT_FUNC_NAME, storage_select_args, {
         replicasets = opts.replicasets,
         timeout = call_opts.timeout,
         mode = call_opts.mode or 'read',
@@ -82,8 +83,8 @@ end
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help
 -- see crud.common.schema.wrap_func_reload()
-local function build_select_iterator(space_name, user_conditions, opts)
-    dev_checks('string', '?table', {
+local function build_select_iterator(vshard_router, space_name, user_conditions, opts)
+    dev_checks('table', 'string', '?table', {
         after = '?table',
         first = '?number',
         batch_size = '?number',
@@ -107,10 +108,9 @@ local function build_select_iterator(space_name, user_conditions, opts)
         return nil, SelectError:new("Failed to parse conditions: %s", err)
     end
 
-    local vshard_router = vshard.router.static
     local replicasets, err = vshard_router:routeall()
     if err ~= nil then
-        return nil, SelectError:new("Failed to get all replicasets: %s", err)
+        return nil, SelectError:new("Failed to get router replicasets: %s", err)
     end
 
     local space = utils.get_space(space_name, replicasets)
@@ -156,7 +156,8 @@ local function build_select_iterator(space_name, user_conditions, opts)
     local perform_map_reduce = opts.force_map_call == true or
         (opts.bucket_id == nil and plan.sharding_key == nil)
     if not perform_map_reduce then
-        local bucket_id_data, err = sharding.key_get_bucket_id(space_name, plan.sharding_key, opts.bucket_id)
+        local bucket_id_data, err = sharding.key_get_bucket_id(vshard_router, space_name,
+                                                               plan.sharding_key, opts.bucket_id)
         if err ~= nil then
             return nil, err
         end
@@ -164,7 +165,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
         assert(bucket_id_data.bucket_id ~= nil)
 
         local err
-        replicasets_to_select, err = sharding.get_replicasets_by_bucket_id(bucket_id_data.bucket_id)
+        replicasets_to_select, err = sharding.get_replicasets_by_bucket_id(vshard_router, bucket_id_data.bucket_id)
         if err ~= nil then
             return nil, err, const.NEED_SCHEMA_RELOAD
         end
@@ -212,6 +213,7 @@ local function build_select_iterator(space_name, user_conditions, opts)
 
         call_opts = opts.call_opts,
         sharding_hash = sharding_hash,
+        vshard_router = vshard_router,
     })
 
     return iter
@@ -239,6 +241,8 @@ function select_module.pairs(space_name, user_conditions, opts)
         error(string.format("Negative first isn't allowed for pairs"))
     end
 
+    local vshard_router = vshard.router.static
+
     local iterator_opts = {
         after = opts.after,
         first = opts.first,
@@ -255,7 +259,7 @@ function select_module.pairs(space_name, user_conditions, opts)
     }
 
     local iter, err = schema.wrap_func_reload(
-            build_select_iterator, space_name, user_conditions, iterator_opts
+            vshard_router, build_select_iterator, space_name, user_conditions, iterator_opts
     )
 
     if err ~= nil then
@@ -271,7 +275,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         local tuple, err = iter:get()
         if err ~= nil then
             if sharding.result_needs_sharding_reload(err) then
-                sharding_metadata_module.reload_sharding_cache(space_name)
+                sharding_metadata_module.reload_sharding_cache(vshard_router, space_name)
             end
 
             error(string.format("Failed to get next object: %s", err))
@@ -301,8 +305,8 @@ function select_module.pairs(space_name, user_conditions, opts)
     return gen, param, state
 end
 
-local function select_module_call_xc(space_name, user_conditions, opts)
-    dev_checks('string', '?table', '?table')
+local function select_module_call_xc(vshard_router, space_name, user_conditions, opts)
+    dev_checks('table', 'string', '?table', '?table')
 
     opts = opts or {}
 
@@ -328,7 +332,7 @@ local function select_module_call_xc(space_name, user_conditions, opts)
     }
 
     local iter, err = schema.wrap_func_reload(
-            build_select_iterator, space_name, user_conditions, iterator_opts
+            vshard_router, build_select_iterator, space_name, user_conditions, iterator_opts
     )
     if err ~= nil then
         return nil, err
@@ -380,7 +384,9 @@ function select_module.call(space_name, user_conditions, opts)
         timeout = '?number',
     })
 
-    return sharding.wrap_method(select_module_call_xc, space_name, user_conditions, opts)
+    local vshard_router = vshard.router.static
+
+    return sharding.wrap_method(vshard_router, select_module_call_xc, space_name, user_conditions, opts)
 end
 
 return select_module

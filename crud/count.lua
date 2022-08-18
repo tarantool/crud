@@ -110,8 +110,8 @@ end
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help
 -- see crud.common.schema.wrap_func_reload()
-local function call_count_on_router(space_name, user_conditions, opts)
-    checks('string', '?table', {
+local function call_count_on_router(vshard_router, space_name, user_conditions, opts)
+    checks('table', 'string', '?table', {
         timeout = '?number',
         bucket_id = '?number|cdata',
         force_map_call = '?boolean',
@@ -134,10 +134,9 @@ local function call_count_on_router(space_name, user_conditions, opts)
         return nil, CountError:new("Failed to parse conditions: %s", err)
     end
 
-    local vshard_router = vshard.router.static
     local replicasets, err = vshard_router:routeall()
     if err ~= nil then
-        return nil, CountError:new("Failed to get all replicasets: %s", err)
+        return nil, CountError:new("Failed to get router replicasets: %s", err)
     end
 
     local space = utils.get_space(space_name, replicasets)
@@ -204,7 +203,8 @@ local function call_count_on_router(space_name, user_conditions, opts)
     local perform_map_reduce = opts.force_map_call == true or
         (opts.bucket_id == nil and plan.sharding_key == nil)
     if not perform_map_reduce then
-        local bucket_id_data, err = sharding.key_get_bucket_id(space_name, plan.sharding_key, opts.bucket_id)
+        local bucket_id_data, err = sharding.key_get_bucket_id(vshard_router, space_name,
+                                                               plan.sharding_key, opts.bucket_id)
         if err ~= nil then
             return nil, err
         end
@@ -214,7 +214,7 @@ local function call_count_on_router(space_name, user_conditions, opts)
         sharding_func_hash = bucket_id_data.sharding_func_hash
 
         local err
-        replicasets_to_count, err = sharding.get_replicasets_by_bucket_id(bucket_id_data.bucket_id)
+        replicasets_to_count, err = sharding.get_replicasets_by_bucket_id(vshard_router, bucket_id_data.bucket_id)
         if err ~= nil then
             return nil, err, const.NEED_SCHEMA_RELOAD
         end
@@ -242,7 +242,7 @@ local function call_count_on_router(space_name, user_conditions, opts)
         skip_sharding_hash_check = skip_sharding_hash_check,
     }
 
-    local results, err = call.map(COUNT_FUNC_NAME, {
+    local results, err = call.map(vshard_router, COUNT_FUNC_NAME, {
         space_name, plan.index_id, plan.conditions, count_opts
     }, call_opts)
 
@@ -324,8 +324,10 @@ function count.call(space_name, user_conditions, opts)
         mode = '?string',
     })
 
-    return schema.wrap_func_reload(sharding.wrap_method,
-                                   call_count_on_router, space_name, user_conditions, opts)
+    local vshard_router = vshard.router.static
+
+    return schema.wrap_func_reload(vshard_router, sharding.wrap_method, call_count_on_router,
+                                   space_name, user_conditions, opts)
 end
 
 return count

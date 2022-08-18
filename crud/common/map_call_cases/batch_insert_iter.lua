@@ -32,9 +32,10 @@ function BatchInsertIterator:new(opts)
         tuples = 'table',
         space = 'table',
         execute_on_storage_opts = 'table',
+        vshard_router = 'table',
     })
 
-    local sharding_data, err = sharding.split_tuples_by_replicaset(opts.tuples, opts.space)
+    local sharding_data, err = sharding.split_tuples_by_replicaset(opts.vshard_router, opts.tuples, opts.space)
     if err ~= nil then
         return nil, SplitTuplesError:new("Failed to split tuples by replicaset: %s", err.err)
     end

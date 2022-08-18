@@ -56,8 +56,8 @@ end
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help
 -- see crud.common.schema.wrap_func_reload()
-local function call_insert_on_router(space_name, original_tuple, opts)
-    dev_checks('string', 'table', {
+local function call_insert_on_router(vshard_router, space_name, original_tuple, opts)
+    dev_checks('table', 'string', 'table', {
         timeout = '?number',
         bucket_id = '?number|cdata',
         add_space_schema_hash = '?boolean',
@@ -66,7 +66,6 @@ local function call_insert_on_router(space_name, original_tuple, opts)
 
     opts = opts or {}
 
-    local vshard_router = vshard.router.static
     local space = utils.get_space(space_name, vshard_router:routeall())
     if space == nil then
         return nil, InsertError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
@@ -74,7 +73,7 @@ local function call_insert_on_router(space_name, original_tuple, opts)
 
     local tuple = table.deepcopy(original_tuple)
 
-    local sharding_data, err = sharding.tuple_set_and_return_bucket_id(tuple, space, opts.bucket_id)
+    local sharding_data, err = sharding.tuple_set_and_return_bucket_id(vshard_router, tuple, space, opts.bucket_id)
     if err ~= nil then
         return nil, InsertError:new("Failed to get bucket ID: %s", err), const.NEED_SCHEMA_RELOAD
     end
@@ -92,7 +91,7 @@ local function call_insert_on_router(space_name, original_tuple, opts)
         timeout = opts.timeout,
     }
 
-    local storage_result, err = call.single(
+    local storage_result, err = call.single(vshard_router,
         sharding_data.bucket_id, INSERT_FUNC_NAME,
         {space_name, tuple, insert_on_storage_opts},
         call_opts
@@ -152,8 +151,10 @@ function insert.tuple(space_name, tuple, opts)
         fields = '?table',
     })
 
-    return schema.wrap_func_reload(sharding.wrap_method,
-                                   call_insert_on_router, space_name, tuple, opts)
+    local vshard_router = vshard.router.static
+
+    return schema.wrap_func_reload(vshard_router, sharding.wrap_method, call_insert_on_router,
+                                   space_name, tuple, opts)
 end
 
 --- Inserts an object to the specified space
@@ -174,17 +175,25 @@ end
 -- @treturn[2] table Error description
 --
 function insert.object(space_name, obj, opts)
-    checks('string', 'table', '?table')
+    checks('string', 'table', {
+        timeout = '?number',
+        bucket_id = '?number|cdata',
+        add_space_schema_hash = '?boolean',
+        fields = '?table',
+    })
+
+    local vshard_router = vshard.router.static
 
     -- insert can fail if router uses outdated schema to flatten object
     opts = utils.merge_options(opts, {add_space_schema_hash = true})
 
-    local tuple, err = utils.flatten_obj_reload(space_name, obj)
+    local tuple, err = utils.flatten_obj_reload(vshard_router, space_name, obj)
     if err ~= nil then
         return nil, InsertError:new("Failed to flatten object: %s", err)
     end
 
-    return insert.tuple(space_name, tuple, opts)
+    return schema.wrap_func_reload(vshard_router, sharding.wrap_method, call_insert_on_router,
+                                   space_name, tuple, opts)
 end
 
 return insert
