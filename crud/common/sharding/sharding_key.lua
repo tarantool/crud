@@ -1,6 +1,5 @@
 local errors = require('errors')
 local log = require('log')
-local vshard = require('vshard')
 
 local dev_checks = require('crud.common.dev_checks')
 local router_cache = require('crud.common.sharding.router_metadata_cache')
@@ -77,14 +76,14 @@ end
 
 -- Extract sharding key from pk.
 -- Returns a table with sharding key or pair of nil and error.
-function sharding_key_module.extract_from_pk(space_name, sharding_key_as_index_obj, primary_index_parts, primary_key)
-    dev_checks('string', '?table', 'table', '?')
+function sharding_key_module.extract_from_pk(vshard_router, space_name, sharding_key_as_index_obj,
+                                             primary_index_parts, primary_key)
+    dev_checks('table', 'string', '?table', 'table', '?')
 
     if sharding_key_as_index_obj == nil then
         return primary_key
     end
 
-    local vshard_router = vshard.router.static
     local cache = router_cache.get_instance(vshard_router)
     local res = is_part_of_pk(cache, space_name, primary_index_parts, sharding_key_as_index_obj)
     if res == false then
@@ -100,12 +99,11 @@ function sharding_key_module.extract_from_pk(space_name, sharding_key_as_index_o
     return extract_from_index(primary_key, primary_index_parts, sharding_key_as_index_obj)
 end
 
-function sharding_key_module.construct_as_index_obj_cache(metadata_map, specified_space_name)
-    dev_checks('table', 'string')
+function sharding_key_module.construct_as_index_obj_cache(vshard_router, metadata_map, specified_space_name)
+    dev_checks('table', 'table', 'string')
 
     local result_err
 
-    local vshard_router = vshard.router.static
     local cache = router_cache.get_instance(vshard_router)
     cache[router_cache.SHARDING_KEY_MAP_NAME] = {}
     local key_cache = cache[router_cache.SHARDING_KEY_MAP_NAME]

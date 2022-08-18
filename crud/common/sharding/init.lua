@@ -1,4 +1,3 @@
-local vshard = require('vshard')
 local errors = require('errors')
 
 local BucketIDError = errors.new_class("BucketIDError", {capture_stack = false})
@@ -13,8 +12,7 @@ local sharding_utils = require('crud.common.sharding.utils')
 
 local sharding = {}
 
-function sharding.get_replicasets_by_bucket_id(bucket_id)
-    local vshard_router = vshard.router.static
+function sharding.get_replicasets_by_bucket_id(vshard_router, bucket_id)
     local replicaset, err = vshard_router:route(bucket_id)
     if replicaset == nil then
         return nil, GetReplicasetsError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
@@ -25,14 +23,13 @@ function sharding.get_replicasets_by_bucket_id(bucket_id)
     }
 end
 
-function sharding.key_get_bucket_id(space_name, key, specified_bucket_id)
-    dev_checks('string', '?', '?number|cdata')
+function sharding.key_get_bucket_id(vshard_router, space_name, key, specified_bucket_id)
+    dev_checks('table', 'string', '?', '?number|cdata')
 
     if specified_bucket_id ~= nil then
         return { bucket_id = specified_bucket_id }
     end
 
-    local vshard_router = vshard.router.static
     local sharding_func_data, err = sharding_metadata_module.fetch_sharding_func_on_router(vshard_router, space_name)
     if err ~= nil then
         return nil, err
@@ -48,13 +45,12 @@ function sharding.key_get_bucket_id(space_name, key, specified_bucket_id)
     return { bucket_id = vshard_router:bucket_id_strcrc32(key) }
 end
 
-function sharding.tuple_get_bucket_id(tuple, space, specified_bucket_id)
+function sharding.tuple_get_bucket_id(vshard_router, tuple, space, specified_bucket_id)
     if specified_bucket_id ~= nil then
         return { bucket_id = specified_bucket_id }
     end
 
     local sharding_index_parts = space.index[0].parts
-    local vshard_router = vshard.router.static
     local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(vshard_router, space.name)
     if err ~= nil then
         return nil, err
@@ -64,7 +60,7 @@ function sharding.tuple_get_bucket_id(tuple, space, specified_bucket_id)
     end
     local key = utils.extract_key(tuple, sharding_index_parts)
 
-    local bucket_id_data, err = sharding.key_get_bucket_id(space.name, key, nil)
+    local bucket_id_data, err = sharding.key_get_bucket_id(vshard_router, space.name, key, nil)
     if err ~= nil then
         return nil, err
     end
@@ -76,7 +72,7 @@ function sharding.tuple_get_bucket_id(tuple, space, specified_bucket_id)
     }
 end
 
-function sharding.tuple_set_and_return_bucket_id(tuple, space, specified_bucket_id)
+function sharding.tuple_set_and_return_bucket_id(vshard_router, tuple, space, specified_bucket_id)
     local bucket_id_fieldno, err = utils.get_bucket_id_fieldno(space)
     if err ~= nil then
         return nil, BucketIDError:new("Failed to get bucket ID fieldno: %s", err)
@@ -98,7 +94,7 @@ function sharding.tuple_set_and_return_bucket_id(tuple, space, specified_bucket_
     local sharding_data = { bucket_id = tuple[bucket_id_fieldno] }
 
     if sharding_data.bucket_id == nil then
-        sharding_data, err = sharding.tuple_get_bucket_id(tuple, space)
+        sharding_data, err = sharding.tuple_get_bucket_id(vshard_router, tuple, space)
         if err ~= nil then
             return nil, err
         end
@@ -144,18 +140,18 @@ function sharding.batching_result_needs_sharding_reload(errs, tuples_count)
     return sharding_errs_count == tuples_count
 end
 
-function sharding.wrap_method(method, space_name, ...)
+function sharding.wrap_method(vshard_router, method, space_name, ...)
     local i = 0
 
     local res, err, need_reload
     while true do
-        res, err, need_reload = method(space_name, ...)
+        res, err, need_reload = method(vshard_router, space_name, ...)
 
         if err == nil or need_reload ~= const.NEED_SHARDING_RELOAD then
             break
         end
 
-        sharding_metadata_module.reload_sharding_cache(space_name)
+        sharding_metadata_module.reload_sharding_cache(vshard_router, space_name)
 
         i = i + 1
 
@@ -169,12 +165,12 @@ end
 
 -- This wrapper assumes reload is performed inside the method and
 -- expect ShardingHashMismatchError error to be thrown.
-function sharding.wrap_select_method(method, space_name, ...)
+function sharding.wrap_select_method(vshard_router, method, space_name, ...)
     local i = 0
 
     local ok, res, err
     while true do
-        ok, res, err = pcall(method, space_name, ...)
+        ok, res, err = pcall(method, vshard_router, space_name, ...)
 
         if ok == true then
             break
@@ -212,8 +208,8 @@ end
 -- @return[1] batches
 --  Map where key is a replicaset and value
 --  is table of tuples related to this replicaset
-function sharding.split_tuples_by_replicaset(tuples, space, opts)
-    dev_checks('table', 'table', {
+function sharding.split_tuples_by_replicaset(vshard_router, tuples, space, opts)
+    dev_checks('table', 'table', 'table', {
         operations = '?table',
     })
 
@@ -227,7 +223,7 @@ function sharding.split_tuples_by_replicaset(tuples, space, opts)
     local sharding_data
     local err
     for i, tuple in ipairs(tuples) do
-        sharding_data, err = sharding.tuple_set_and_return_bucket_id(tuple, space)
+        sharding_data, err = sharding.tuple_set_and_return_bucket_id(vshard_router, tuple, space)
         if err ~= nil then
             return nil, BucketIDError:new("Failed to get bucket ID: %s", err)
         end
@@ -244,7 +240,6 @@ function sharding.split_tuples_by_replicaset(tuples, space, opts)
             skip_sharding_hash_check = false
         end
 
-        local vshard_router = vshard.router.static
         local replicaset, err = vshard_router:route(sharding_data.bucket_id)
         if replicaset == nil then
             return nil, GetReplicasetsError:new(

@@ -1,7 +1,6 @@
 local fiber = require('fiber')
 local msgpack = require('msgpack')
 local digest = require('digest')
-local vshard = require('vshard')
 local errors = require('errors')
 local log = require('log')
 
@@ -86,18 +85,17 @@ end
 -- This wrapper is used for functions that can fail if router uses outdated
 -- space schema. In case of such errors these functions returns `need_reload`
 -- for schema-dependent errors.
-function schema.wrap_func_reload(func, ...)
+function schema.wrap_func_reload(vshard_router, func, ...)
     local i = 0
 
     local res, err, need_reload
     while true do
-        res, err, need_reload = func(...)
+        res, err, need_reload = func(vshard_router, ...)
 
         if err == nil or need_reload ~= const.NEED_SCHEMA_RELOAD then
             break
         end
 
-        local vshard_router = vshard.router.static
         local ok, reload_schema_err = reload_schema(vshard_router)
         if not ok then
             log.warn("Failed to reload schema: %s", reload_schema_err)

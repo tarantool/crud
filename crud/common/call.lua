@@ -1,4 +1,3 @@
-local vshard = require('vshard')
 local errors = require('errors')
 
 local dev_checks = require('crud.common.dev_checks')
@@ -41,14 +40,13 @@ function call.get_vshard_call_name(mode, prefer_replica, balance)
     return 'callbre'
 end
 
-local function wrap_vshard_err(err, func_name, replicaset_uuid, bucket_id)
+local function wrap_vshard_err(vshard_router, err, func_name, replicaset_uuid, bucket_id)
     -- Do not rewrite ShardingHashMismatchError class.
     if err.class_name == sharding_utils.ShardingHashMismatchError.name then
         return errors.wrap(err)
     end
 
     if replicaset_uuid == nil then
-        local vshard_router = vshard.router.static
         local replicaset, _ = vshard_router:route(bucket_id)
         if replicaset == nil then
             return CallError:new(
@@ -67,8 +65,8 @@ local function wrap_vshard_err(err, func_name, replicaset_uuid, bucket_id)
     ))
 end
 
-function call.map(func_name, func_args, opts)
-    dev_checks('string', '?table', {
+function call.map(vshard_router, func_name, func_args, opts)
+    dev_checks('table', 'string', '?table', {
         mode = 'string',
         prefer_replica = '?boolean',
         balance = '?boolean',
@@ -88,7 +86,11 @@ function call.map(func_name, func_args, opts)
 
     local iter = opts.iter
     if iter == nil then
-        iter, err = BaseIterator:new({func_args = func_args, replicasets = opts.replicasets})
+        iter, err = BaseIterator:new({
+                        func_args = func_args,
+                        replicasets = opts.replicasets,
+                        vshard_router = vshard_router,
+                    })
         if err ~= nil then
             return nil, err
         end
@@ -136,8 +138,8 @@ function call.map(func_name, func_args, opts)
     return postprocessor:get()
 end
 
-function call.single(bucket_id, func_name, func_args, opts)
-    dev_checks('number', 'string', '?table', {
+function call.single(vshard_router, bucket_id, func_name, func_args, opts)
+    dev_checks('table', 'number', 'string', '?table', {
         mode = 'string',
         prefer_replica = '?boolean',
         balance = '?boolean',
@@ -151,13 +153,12 @@ function call.single(bucket_id, func_name, func_args, opts)
 
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
 
-    local vshard_router = vshard.router.static
     local res, err = vshard_router[vshard_call_name](vshard_router, bucket_id, func_name, func_args, {
         timeout = timeout,
     })
 
     if err ~= nil then
-        return nil, wrap_vshard_err(err, func_name, nil, bucket_id)
+        return nil, wrap_vshard_err(vshard_router, err, func_name, nil, bucket_id)
     end
 
     if res == box.NULL then
@@ -167,17 +168,16 @@ function call.single(bucket_id, func_name, func_args, opts)
     return res
 end
 
-function call.any(func_name, func_args, opts)
-    dev_checks('string', '?table', {
+function call.any(vshard_router, func_name, func_args, opts)
+    dev_checks('table', 'string', '?table', {
         timeout = '?number',
     })
 
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
 
-    local vshard_router = vshard.router.static
     local replicasets, err = vshard_router:routeall()
     if replicasets == nil then
-        return nil, CallError:new("Failed to get all replicasets: %s", err.err)
+        return nil, CallError:new("Failed to get router replicasets: %s", err.err)
     end
     local replicaset = select(2, next(replicasets))
 
@@ -185,7 +185,7 @@ function call.any(func_name, func_args, opts)
         timeout = timeout,
     })
     if err ~= nil then
-        return nil, wrap_vshard_err(err, func_name, replicaset.uuid)
+        return nil, wrap_vshard_err(vshard_router, err, func_name, replicaset.uuid)
     end
 
     if res == box.NULL then

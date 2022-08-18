@@ -55,8 +55,8 @@ end
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help
 -- see crud.common.schema.wrap_func_reload()
-local function call_delete_on_router(space_name, key, opts)
-    dev_checks('string', '?', {
+local function call_delete_on_router(vshard_router, space_name, key, opts)
+    dev_checks('table', 'string', '?', {
         timeout = '?number',
         bucket_id = '?number|cdata',
         fields = '?table',
@@ -64,7 +64,6 @@ local function call_delete_on_router(space_name, key, opts)
 
     opts = opts or {}
 
-    local vshard_router = vshard.router.static
     local space = utils.get_space(space_name, vshard_router:routeall())
     if space == nil then
         return nil, DeleteError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
@@ -86,7 +85,8 @@ local function call_delete_on_router(space_name, key, opts)
             return nil, err
         end
 
-        sharding_key, err = sharding_key_module.extract_from_pk(space_name,
+        sharding_key, err = sharding_key_module.extract_from_pk(vshard_router,
+                                                                space_name,
                                                                 sharding_key_data.value,
                                                                 primary_index_parts, key)
         if err ~= nil then
@@ -98,7 +98,7 @@ local function call_delete_on_router(space_name, key, opts)
         skip_sharding_hash_check = true
     end
 
-    local bucket_id_data, err = sharding.key_get_bucket_id(space_name, sharding_key, opts.bucket_id)
+    local bucket_id_data, err = sharding.key_get_bucket_id(vshard_router, space_name, sharding_key, opts.bucket_id)
     if err ~= nil then
         return nil, err
     end
@@ -114,7 +114,7 @@ local function call_delete_on_router(space_name, key, opts)
         timeout = opts.timeout,
     }
 
-    local storage_result, err = call.single(
+    local storage_result, err = call.single(vshard_router,
         bucket_id_data.bucket_id, DELETE_FUNC_NAME,
         {space_name, key, opts.fields, delete_on_storage_opts},
         call_opts
@@ -167,8 +167,10 @@ function delete.call(space_name, key, opts)
         fields = '?table',
     })
 
-    return schema.wrap_func_reload(sharding.wrap_method,
-                                   call_delete_on_router, space_name, key, opts)
+    local vshard_router = vshard.router.static
+
+    return schema.wrap_func_reload(vshard_router, sharding.wrap_method, call_delete_on_router,
+                                   space_name, key, opts)
 end
 
 return delete

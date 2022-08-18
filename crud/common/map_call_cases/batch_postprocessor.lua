@@ -51,7 +51,7 @@ function BatchPostprocessor:collect(result_info, err_info)
                 err_to_wrap = err.err
             end
 
-            local err_obj = err_info.err_wrapper(err_to_wrap, unpack(err_info.wrapper_args))
+            local err_obj = err_info.err_wrapper(self.vshard_router, err_to_wrap, unpack(err_info.wrapper_args))
             err_obj.operation_data = err.operation_data
             err_obj.space_schema_hash = err.space_schema_hash
 

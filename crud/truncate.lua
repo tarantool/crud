@@ -49,7 +49,7 @@ function truncate.call(space_name, opts)
 
     local vshard_router = vshard.router.static
     local replicasets = vshard_router:routeall()
-    local _, err = call.map(TRUNCATE_FUNC_NAME, {space_name}, {
+    local _, err = call.map(vshard_router, TRUNCATE_FUNC_NAME, {space_name}, {
         mode = 'write',
         replicasets = replicasets,
         timeout = opts.timeout,

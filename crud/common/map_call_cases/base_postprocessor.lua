@@ -7,11 +7,12 @@ local BasePostprocessor = {}
 -- @function new
 --
 -- @return[1] table postprocessor
-function BasePostprocessor:new()
+function BasePostprocessor:new(vshard_router)
     local postprocessor = {
         results = {},
         early_exit = false,
-        errs = nil
+        errs = nil,
+        vshard_router = vshard_router,
     }
 
     setmetatable(postprocessor, self)
@@ -58,7 +59,7 @@ function BasePostprocessor:collect(result_info, err_info)
 
     if err ~= nil then
         self.results = nil
-        self.errs = err_info.err_wrapper(err, unpack(err_info.wrapper_args))
+        self.errs = err_info.err_wrapper(self.vshard_router, err, unpack(err_info.wrapper_args))
         self.early_exit = true
 
         return self.early_exit

@@ -1,5 +1,4 @@
 local errors = require('errors')
-local vshard = require('vshard')
 
 local dev_checks = require('crud.common.dev_checks')
 local GetReplicasetsError = errors.new_class('GetReplicasetsError')
@@ -24,14 +23,14 @@ function BaseIterator:new(opts)
     dev_checks('table', {
         func_args = '?table',
         replicasets = '?table',
+        vshard_router = 'table',
     })
 
     local replicasets, err
     if opts.replicasets ~= nil then
         replicasets = opts.replicasets
     else
-        local vshard_router = vshard.router.static
-        replicasets, err = vshard_router:routeall()
+        replicasets, err = opts.vshard_router:routeall()
         if err ~= nil then
             return nil, GetReplicasetsError:new("Failed to get all replicasets: %s", err.err)
         end

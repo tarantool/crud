@@ -104,6 +104,7 @@ local function fetch_chunk(context, state)
     local vshard_call_name = context.vshard_call_name
     local timeout = context.timeout or call.DEFAULT_VSHARD_CALL_TIMEOUT
     local space_name = context.space_name
+    local vshard_router = context.vshard_router
     local future = state.future
 
     -- The source was entirely drained.
@@ -125,7 +126,7 @@ local function fetch_chunk(context, state)
         local wrapped_err = errors.wrap(err)
 
         if sharding.result_needs_sharding_reload(err) then
-            sharding_metadata_module.reload_sharding_cache(space_name)
+            sharding_metadata_module.reload_sharding_cache(vshard_router, space_name)
         end
 
         error(wrapped_err)
@@ -163,7 +164,7 @@ local reverse_tarantool_iters = {
     [box.index.REQ] = true,
 }
 
-local function new(replicasets, space, index_id, func_name, func_args, opts)
+local function new(vshard_router, replicasets, space, index_id, func_name, func_args, opts)
     opts = opts or {}
     local call_opts = opts.call_opts
     local mode = call_opts.mode or 'read'
@@ -188,6 +189,7 @@ local function new(replicasets, space, index_id, func_name, func_args, opts)
             vshard_call_name = vshard_call_name,
             timeout = call_opts.timeout,
             space_name = space.name,
+            vshard_router = vshard_router,
         }
         local state = {future = future}
         local source = merger_lib.new_buffer_source(fetch_chunk, context, state)

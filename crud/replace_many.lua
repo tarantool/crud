@@ -124,8 +124,8 @@ end
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help
 -- see crud.common.schema.wrap_func_reload()
-local function call_replace_many_on_router(space_name, original_tuples, opts)
-    dev_checks('string', 'table', {
+local function call_replace_many_on_router(vshard_router, space_name, original_tuples, opts)
+    dev_checks('table', 'string', 'table', {
         timeout = '?number',
         fields = '?table',
         add_space_schema_hash = '?boolean',
@@ -135,7 +135,6 @@ local function call_replace_many_on_router(space_name, original_tuples, opts)
 
     opts = opts or {}
 
-    local vshard_router = vshard.router.static
     local space = utils.get_space(space_name, vshard_router:routeall())
     if space == nil then
         return nil, {ReplaceManyError:new("Space %q doesn't exist", space_name)}, const.NEED_SCHEMA_RELOAD
@@ -154,14 +153,15 @@ local function call_replace_many_on_router(space_name, original_tuples, opts)
         tuples = tuples,
         space = space,
         execute_on_storage_opts = replace_many_on_storage_opts,
+        vshard_router = vshard_router,
     })
     if err ~= nil then
         return nil, {err}, const.NEED_SCHEMA_RELOAD
     end
 
-    local postprocessor = BatchPostprocessor:new()
+    local postprocessor = BatchPostprocessor:new(vshard_router)
 
-    local rows, errs = call.map(REPLACE_MANY_FUNC_NAME, nil, {
+    local rows, errs = call.map(vshard_router, REPLACE_MANY_FUNC_NAME, nil, {
         timeout = opts.timeout,
         mode = 'write',
         iter = iter,
@@ -219,8 +219,10 @@ function replace_many.tuples(space_name, tuples, opts)
         rollback_on_error = '?boolean',
     })
 
-    return schema.wrap_func_reload(sharding.wrap_method,
-                                   call_replace_many_on_router, space_name, tuples, opts)
+    local vshard_router = vshard.router.static
+
+    return schema.wrap_func_reload(vshard_router, sharding.wrap_method, call_replace_many_on_router,
+                                   space_name, tuples, opts)
 end
 
 --- Replace batch of objects to the specified space
@@ -248,6 +250,8 @@ function replace_many.objects(space_name, objs, opts)
         rollback_on_error = '?boolean',
     })
 
+    local vshard_router = vshard.router.static
+
     -- insert can fail if router uses outdated schema to flatten object
     opts = utils.merge_options(opts, {add_space_schema_hash = true})
 
@@ -256,7 +260,7 @@ function replace_many.objects(space_name, objs, opts)
 
     for _, obj in ipairs(objs) do
 
-        local tuple, err = utils.flatten_obj_reload(space_name, obj)
+        local tuple, err = utils.flatten_obj_reload(vshard_router, space_name, obj)
         if err ~= nil then
             local err_obj = ReplaceManyError:new("Failed to flatten object: %s", err)
             err_obj.operation_data = obj
@@ -275,7 +279,8 @@ function replace_many.objects(space_name, objs, opts)
         return nil, format_errs
     end
 
-    local res, errs = replace_many.tuples(space_name, tuples, opts)
+    local res, errs = schema.wrap_func_reload(vshard_router, sharding.wrap_method, call_replace_many_on_router,
+                                              space_name, tuples, opts)
 
     if next(format_errs) ~= nil then
         if errs == nil then

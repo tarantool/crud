@@ -35,11 +35,15 @@ function BatchUpsertIterator:new(opts)
         space = 'table',
         operations = 'table',
         execute_on_storage_opts = 'table',
+        vshard_router = 'table',
     })
 
-    local sharding_data, err = sharding.split_tuples_by_replicaset(opts.tuples, opts.space, {
-        operations = opts.operations,
-    })
+    local sharding_data, err = sharding.split_tuples_by_replicaset(
+        opts.vshard_router,
+        opts.tuples,
+        opts.space,
+        {operations = opts.operations})
+
     if err ~= nil then
         return nil, SplitTuplesError:new("Failed to split tuples by replicaset: %s", err.err)
     end
