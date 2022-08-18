@@ -5,6 +5,8 @@ local fun = require('fun')
 local bit = require('bit')
 local log = require('log')
 
+local is_cartridge, cartridge = pcall(require, 'cartridge')
+
 local const = require('crud.common.const')
 local schema = require('crud.common.schema')
 local dev_checks = require('crud.common.dev_checks')
@@ -17,6 +19,7 @@ local GetSpaceFormatError = errors.new_class('GetSpaceFormatError', {capture_sta
 local FilterFieldsError = errors.new_class('FilterFieldsError', {capture_stack = false})
 local NotInitializedError = errors.new_class('NotInitialized')
 local StorageInfoError = errors.new_class('StorageInfoError')
+local VshardRouterError = errors.new_class('VshardRouterError', {capture_stack = false})
 local fiber_clock = require('fiber').clock
 
 local utils = {}
@@ -758,15 +761,22 @@ end
 -- @tparam ?number opts.timeout
 --  Function call timeout
 --
+-- @tparam ?string|table opts.vshard_router
+--  Cartridge vshard group name or vshard router instance.
+--
 -- @return a table of storage states by replica uuid.
 function utils.storage_info(opts)
-    local vshard_router = vshard.router.static
-    local replicasets, err = vshard_router:routeall()
-    if replicasets == nil then
-        return nil, StorageInfoError:new("Failed to get all replicasets: %s", err.err)
+    opts = opts or {}
+
+    local vshard_router, err = utils.get_vshard_router_instance(opts.vshard_router)
+    if err ~= nil then
+        return nil, StorageInfoError:new(err)
     end
 
-    opts = opts or {}
+    local replicasets, err = vshard_router:routeall()
+    if replicasets == nil then
+        return nil, StorageInfoError:new("Failed to get router replicasets: %s", err.err)
+    end
 
     local futures_by_replicas = {}
     local replica_state_by_uuid = {}
@@ -833,6 +843,77 @@ end
 -- @return a table with storage status.
 function utils.storage_info_on_storage()
     return {status = "running"}
+end
+
+local expected_vshard_api = {
+    'routeall', 'route', 'bucket_id_strcrc32',
+    'callrw', 'callro', 'callbro', 'callre',
+    'callbre', 'map_callrw'
+}
+
+--- Verifies that a table has expected vshard
+--  router handles.
+local function verify_vshard_router(router)
+    dev_checks("table")
+
+    for _, func_name in ipairs(expected_vshard_api) do
+        if type(router[func_name]) ~= 'function' then
+            return false
+        end
+    end
+
+    return true
+end
+
+--- Get a vshard router instance from a parameter.
+--
+--  If a string passed, extract router instance from
+--  Cartridge vshard groups. If table passed, verifies
+--  that a table is a vshard router instance.
+--
+-- @function get_vshard_router_instance
+--
+-- @param[opt] router name of a vshard group or a vshard router
+--  instance
+--
+-- @return[1] table vshard router instance
+-- @treturn[2] nil
+-- @treturn[2] table Error description
+function utils.get_vshard_router_instance(router)
+    dev_checks('?string|table')
+
+    local router_instance
+
+    if type(router) == 'string' then
+        if not is_cartridge then
+            return nil, VshardRouterError:new("Vshard groups are supported only in Tarantool Cartridge")
+        end
+
+        local router_service = cartridge.service_get('vshard-router')
+        assert(router_service ~= nil)
+
+        router_instance = router_service.get(router)
+        if router_instance == nil then
+            return nil, VshardRouterError:new("Vshard group %s is not found", router)
+        end
+    elseif type(router) == 'table' then
+        if not verify_vshard_router(router) then
+            return nil, VshardRouterError:new("Invalid opts.vshard_router table value, " ..
+                                              "a vshard router instance has been expected")
+        end
+
+        router_instance = router
+    else
+        assert(type(router) == 'nil')
+        router_instance = vshard.router.static
+
+        if router_instance == nil then
+            return nil, VshardRouterError:new("Default vshard group is not found and custom " ..
+                                              "is not specified with opts.vshard_router")
+        end
+    end
+
+    return router_instance
 end
 
 return utils

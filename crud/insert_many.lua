@@ -1,6 +1,5 @@
 local checks = require('checks')
 local errors = require('errors')
-local vshard = require('vshard')
 
 local call = require('crud.common.call')
 local const = require('crud.common.const')
@@ -129,9 +128,8 @@ local function call_insert_many_on_router(vshard_router, space_name, original_tu
         add_space_schema_hash = '?boolean',
         stop_on_error = '?boolean',
         rollback_on_error = '?boolean',
+        vshard_router = '?string|table',
     })
-
-    opts = opts or {}
 
     local space = utils.get_space(space_name, vshard_router:routeall())
     if space == nil then
@@ -215,9 +213,15 @@ function insert_many.tuples(space_name, tuples, opts)
         add_space_schema_hash = '?boolean',
         stop_on_error = '?boolean',
         rollback_on_error = '?boolean',
+        vshard_router = '?string|table',
     })
 
-    local vshard_router = vshard.router.static
+    opts = opts or {}
+
+    local vshard_router, err = utils.get_vshard_router_instance(opts.vshard_router)
+    if err ~= nil then
+        return nil, {InsertManyError:new(err)}
+    end
 
     return schema.wrap_func_reload(vshard_router, sharding.wrap_method, call_insert_many_on_router,
                                    space_name, tuples, opts)
@@ -246,9 +250,15 @@ function insert_many.objects(space_name, objs, opts)
         fields = '?table',
         stop_on_error = '?boolean',
         rollback_on_error = '?boolean',
+        vshard_router = '?string|table',
     })
 
-    local vshard_router = vshard.router.static
+    opts = opts or {}
+
+    local vshard_router, err = utils.get_vshard_router_instance(opts.vshard_router)
+    if err ~= nil then
+        return nil, {InsertManyError:new(err)}
+    end
 
     -- insert can fail if router uses outdated schema to flatten object
     opts = utils.merge_options(opts, {add_space_schema_hash = true})

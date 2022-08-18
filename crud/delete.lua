@@ -1,6 +1,5 @@
 local checks = require('checks')
 local errors = require('errors')
-local vshard = require('vshard')
 
 local call = require('crud.common.call')
 local const = require('crud.common.const')
@@ -60,9 +59,8 @@ local function call_delete_on_router(vshard_router, space_name, key, opts)
         timeout = '?number',
         bucket_id = '?number|cdata',
         fields = '?table',
+        vshard_router = '?string|table',
     })
-
-    opts = opts or {}
 
     local space = utils.get_space(space_name, vshard_router:routeall())
     if space == nil then
@@ -156,6 +154,11 @@ end
 --  Bucket ID
 --  (by default, it's vshard.router.bucket_id_strcrc32 of primary key)
 --
+-- @tparam ?string|table opts.vshard_router
+--  Cartridge vshard group name or vshard router instance.
+--  Set this parameter if your space is not a part of the
+--  default vshard cluster.
+--
 -- @return[1] object
 -- @treturn[2] nil
 -- @treturn[2] table Error description
@@ -165,9 +168,15 @@ function delete.call(space_name, key, opts)
         timeout = '?number',
         bucket_id = '?number|cdata',
         fields = '?table',
+        vshard_router = '?string|table',
     })
 
-    local vshard_router = vshard.router.static
+    opts = opts or {}
+
+    local vshard_router, err = utils.get_vshard_router_instance(opts.vshard_router)
+    if err ~= nil then
+        return nil, DeleteError:new(err)
+    end
 
     return schema.wrap_func_reload(vshard_router, sharding.wrap_method, call_delete_on_router,
                                    space_name, key, opts)

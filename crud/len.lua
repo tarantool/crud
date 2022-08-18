@@ -1,6 +1,5 @@
 local checks = require('checks')
 local errors = require('errors')
-local vshard = require('vshard')
 local log = require('log')
 
 local utils = require('crud.common.utils')
@@ -33,6 +32,11 @@ end
 -- @tparam ?number opts.timeout
 --  Function call timeout
 --
+-- @tparam ?string|table opts.vshard_router
+--  Cartridge vshard group name or vshard router instance.
+--  Set this parameter if your space is not a part of the
+--  default vshard cluster.
+--
 -- @return[1] number
 -- @treturn[2] nil
 -- @treturn[2] table Error description
@@ -40,6 +44,7 @@ end
 function len.call(space_name, opts)
     checks('string|number', {
         timeout = '?number',
+        vshard_router = '?string|table',
     })
 
     opts = opts or {}
@@ -49,7 +54,11 @@ function len.call(space_name, opts)
                  'Please, use space name instead.')
     end
 
-    local vshard_router = vshard.router.static
+    local vshard_router, err = utils.get_vshard_router_instance(opts.vshard_router)
+    if err ~= nil then
+        return nil, LenError:new(err)
+    end
+
     local space = utils.get_space(space_name, vshard_router:routeall())
     if space == nil then
         return nil, LenError:new("Space %q doesn't exist", space_name)

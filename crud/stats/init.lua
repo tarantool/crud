@@ -252,15 +252,20 @@ end
 local function resolve_space_name(space_id)
     local vshard_router = vshard.router.static
 
+    if vshard_router == nil then
+        log.warn('Failed to resolve space name for stats: default vshard router not found')
+        return nil
+    end
+
     local replicasets = vshard_router:routeall()
     if next(replicasets) == nil then
-        log.warn('Failed to resolve space name for stats: no replicasets found')
+        log.warn('Failed to resolve space name for stats: no replicasets found with default router')
         return nil
     end
 
     local space = utils.get_space(space_id, replicasets)
     if space == nil then
-        log.warn('Failed to resolve space name for stats: no space found for id %d', space_id)
+        log.warn('Failed to resolve space name for stats: no space found for id %d with default router', space_id)
         return nil
     end
 

@@ -44,6 +44,11 @@ call.) Each ``net.box`` connection has space schema for an instance it
 is connected to. Router can access space schema by using ``net.box``
 connection object contents.
 
+Tarantool instance may have several vshard routers. For each request, only
+one router is used (specified in `vshard_router` option or a default one).
+Each router has its own ``net.box`` connections. Fetching and reload processes
+are different for each router and do not affect each other.
+
 ### When schema is used
 
 Space schema is used
@@ -163,6 +168,12 @@ module uses `_ddl_sharding_key` and `_ddl_sharding_func` spaces to fetch
 sharding schema: thus, you don't obliged to use ``ddl`` module and can
 setup only ``_ddl_*`` spaces manually, if you want. ``crud`` module uses
 plain Lua tables to store sharding info on routers and storages.
+
+Tarantool instance may have several vshard routers. For each request, only
+one router is used (specified in `vshard_router` option or a default one).
+Each router has its own ``net.box`` connections. Fetching and reload processes
+are different for each router and do not affect each other since they
+have separate caches.
 
 ### When schema is used
 
