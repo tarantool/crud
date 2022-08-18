@@ -66,7 +66,8 @@ local function call_replace_on_router(space_name, original_tuple, opts)
 
     opts = opts or {}
 
-    local space, err = utils.get_space(space_name, vshard.router.routeall())
+    local vshard_router = vshard.router.static
+    local space, err = utils.get_space(space_name, vshard_router:routeall())
     if err ~= nil then
         return nil, ReplaceError:new("Failed to get space %q: %s", space_name, err), const.NEED_SCHEMA_RELOAD
     end

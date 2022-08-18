@@ -75,7 +75,9 @@ local function call_get_border_on_router(border_name, space_name, index_name, op
 
     opts = opts or {}
 
-    local space = utils.get_space(space_name, vshard.router.routeall())
+    local vshard_router = vshard.router.static
+    local replicasets = vshard_router:routeall()
+    local space = utils.get_space(space_name, replicasets)
     if space == nil then
         return nil, BorderError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
     end
@@ -98,7 +100,6 @@ local function call_get_border_on_router(border_name, space_name, index_name, op
     local cmp_key_parts = utils.merge_primary_key_parts(index.parts, primary_index.parts)
     local field_names = utils.enrich_field_names_with_cmp_key(opts.fields, cmp_key_parts, space:format())
 
-    local replicasets = vshard.router.routeall()
     local call_opts = {
         mode = 'read',
         replicasets = replicasets,

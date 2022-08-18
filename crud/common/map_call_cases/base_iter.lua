@@ -30,8 +30,9 @@ function BaseIterator:new(opts)
     if opts.replicasets ~= nil then
         replicasets = opts.replicasets
     else
-        replicasets, err = vshard.router.routeall()
-        if replicasets == nil then
+        local vshard_router = vshard.router.static
+        replicasets, err = vshard_router:routeall()
+        if err ~= nil then
             return nil, GetReplicasetsError:new("Failed to get all replicasets: %s", err.err)
         end
     end

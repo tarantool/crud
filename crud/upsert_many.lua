@@ -131,7 +131,8 @@ local function call_upsert_many_on_router(space_name, original_tuples_operation_
 
     opts = opts or {}
 
-    local space = utils.get_space(space_name, vshard.router.routeall())
+    local vshard_router = vshard.router.static
+    local space = utils.get_space(space_name, vshard_router:routeall())
     if space == nil then
         return nil, {UpsertManyError:new("Space %q doesn't exist", space_name)}, const.NEED_SCHEMA_RELOAD
     end

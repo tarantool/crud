@@ -48,7 +48,8 @@ local function wrap_vshard_err(err, func_name, replicaset_uuid, bucket_id)
     end
 
     if replicaset_uuid == nil then
-        local replicaset, _ = vshard.router.route(bucket_id)
+        local vshard_router = vshard.router.static
+        local replicaset, _ = vshard_router:route(bucket_id)
         if replicaset == nil then
             return CallError:new(
                 "Function returned an error, but we couldn't figure out the replicaset: %s", err
@@ -150,7 +151,8 @@ function call.single(bucket_id, func_name, func_args, opts)
 
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
 
-    local res, err = vshard.router[vshard_call_name](bucket_id, func_name, func_args, {
+    local vshard_router = vshard.router.static
+    local res, err = vshard_router[vshard_call_name](vshard_router, bucket_id, func_name, func_args, {
         timeout = timeout,
     })
 
@@ -172,7 +174,8 @@ function call.any(func_name, func_args, opts)
 
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
 
-    local replicasets, err = vshard.router.routeall()
+    local vshard_router = vshard.router.static
+    local replicasets, err = vshard_router:routeall()
     if replicasets == nil then
         return nil, CallError:new("Failed to get all replicasets: %s", err.err)
     end
