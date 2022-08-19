@@ -1082,6 +1082,9 @@ Returns number or nil with error.
 Using space id instead of space name is also possible, but
 deprecated and will be removed in future releases.
 
+Using space id in crud.len and custom vshard_router is not
+supported by statistics: space labels may be inconsistent.
+
 **Example:**
 
 Using `memtx`:

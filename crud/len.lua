@@ -52,6 +52,11 @@ function len.call(space_name, opts)
     if type(space_name) == 'number' then
         log.warn('Using space id in crud.len is deprecated and will be removed in future releases.' ..
                  'Please, use space name instead.')
+
+        if opts.vshard_router ~= nil then
+            log.warn('Using space id in crud.len and custom vshard_router is not supported by statistics.' ..
+                     'Space labels may be inconsistent.')
+        end
     end
 
     local vshard_router, err = utils.get_vshard_router_instance(opts.vshard_router)

@@ -250,6 +250,7 @@ function stats.get(space_name)
 end
 
 local function resolve_space_name(space_id)
+    -- Resolving name with custom vshard router is not supported.
     local vshard_router = vshard.router.static
 
     if vshard_router == nil then

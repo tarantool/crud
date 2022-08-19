@@ -1,6 +1,7 @@
 local fio = require('fio')
 
 local t = require('luatest')
+local luatest_capture = require('luatest.capture')
 
 local helpers = require('test.helper')
 
@@ -1629,3 +1630,31 @@ pgroup.test_call_upsert_object_many_wrong_option = function(g)
     t.assert_str_contains(errs[1].err,
                           "Invalid opts.vshard_router table value, a vshard router instance has been expected")
 end
+
+pgroup.before_test('test_call_len_by_space_id_with_stats', function(g)
+    g.router:eval('crud.cfg{stats = true}')
+end)
+
+pgroup.test_call_len_by_space_id_with_stats = function(g)
+    local capture = luatest_capture:new()
+    capture:enable()
+
+    local result, err = g:call_router_opts2('len', 542, {vshard_router = 'customers'})
+    t.assert_equals(err, nil)
+    t.assert_equals(result, 2)
+
+    local captured = helpers.fflush_main_server_stdout(g.cluster, capture)
+    capture:disable()
+
+    t.assert_str_contains(captured,
+                          "Using space id in crud.len and custom vshard_router is not supported by statistics.")
+
+    local result, err = g.router:call('crud.stats')
+    t.assert_equals(err, nil)
+    t.assert_type(result.spaces["542"], 'table')
+    t.assert_equals(result.spaces["542"]["len"]["ok"]["count"], 1)
+end
+
+pgroup.after_test('test_call_len_by_space_id_with_stats', function(g)
+    g.router:eval('crud.cfg{stats = false}')
+end)
