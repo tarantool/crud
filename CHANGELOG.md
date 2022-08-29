@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [0.13.0] - 29-08-22
 
 ### Added
-* `crud.storage_info` function to get storages status (#229, PR #299).
+* `crud.storage_info` function to get storages status (#229).
 
 ### Fixed
 * Fix specifying `vshard` sharding funcs (#314).
@@ -17,9 +17,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 * Fetching invalid ddl configuration (sharding key for non-existing space)
-  is no longer breaks CRUD requests (#308, PR #309).
-* ddl space record delete no more throws error if crud is used (#310, PR #311).
-* crud sharding metainfo is now updated on ddl record delete (#310, PR #311).
+  is no longer breaks CRUD requests (#308).
+* ddl space record delete no more throws error if crud is used (#310).
+* crud sharding metainfo is now updated on ddl record delete (#310).
 
 ## [0.12.0] - 28-06-22
 
@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   `crud.insert_many()`/`crud.insert_object_many()`/
   `crud.upsert_many()`/`crud.upsert_object_many()`
   `crud.replace_many()`/`crud.replace_object_many()`
-  with partial consistency (#193, PR #232).
+  with partial consistency (#193).
 
 ## [0.11.3] - 15-06-22
 
