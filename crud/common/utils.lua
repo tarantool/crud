@@ -707,8 +707,10 @@ function utils.update_storage_call_error_description(err, func_name, replicaset_
     if err.type == 'ClientError' and type(err.message) == 'string' then
         if err.message == string.format("Procedure '%s' is not defined", func_name) then
             if func_name:startswith('_crud.') then
-                err = NotInitializedError:new("crud isn't initialized on replicaset: %q",
-                    replicaset_uuid or "Unknown")
+                err = NotInitializedError:new("Function %s is not registered: " ..
+                    "crud isn't initialized on replicaset %q or crud module versions mismatch " ..
+                    "between router and storage",
+                    func_name, replicaset_uuid or "Unknown")
             else
                 err = NotInitializedError:new("Function %s is not registered", func_name)
             end
