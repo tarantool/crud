@@ -1987,7 +1987,9 @@ pgroup.test_storage_uninit_select_error_text = function(g)
     t.assert_equals(obj, nil)
     t.assert_str_contains(err.str, 'SelectError')
     t.assert_str_contains(err.str, 'NotInitialized')
+    t.assert_str_contains(err.str, "Function _crud.select_on_storage is not registered")
     t.assert_str_contains(err.str, "crud isn't initialized on replicaset")
+    t.assert_str_contains(err.str, "or crud module versions mismatch between router and storage")
 end
 
 pgroup.before_test('test_storage_uninit_get_error_text', function(g)
@@ -2015,5 +2017,7 @@ pgroup.test_storage_uninit_get_error_text = function(g)
     t.assert_equals(obj, nil)
     t.assert_str_contains(err.str, 'GetError')
     t.assert_str_contains(err.str, 'NotInitialized')
+    t.assert_str_contains(err.str, "Function _crud.get_on_storage is not registered")
     t.assert_str_contains(err.str, "crud isn't initialized on replicaset")
+    t.assert_str_contains(err.str, "or crud module versions mismatch between router and storage")
 end
