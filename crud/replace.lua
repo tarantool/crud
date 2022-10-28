@@ -193,6 +193,7 @@ function replace.object(space_name, obj, opts)
         add_space_schema_hash = '?boolean',
         fields = '?table',
         vshard_router = '?string|table',
+        skip_nullability_check_on_flatten = '?boolean',
     })
 
     opts = opts or {}
@@ -205,7 +206,8 @@ function replace.object(space_name, obj, opts)
     -- replace can fail if router uses outdated schema to flatten object
     opts = utils.merge_options(opts, {add_space_schema_hash = true})
 
-    local tuple, err = utils.flatten_obj_reload(vshard_router, space_name, obj)
+    local tuple, err = utils.flatten_obj_reload(vshard_router, space_name, obj,
+                                                opts.skip_nullability_check_on_flatten)
     if err ~= nil then
         return nil, ReplaceError:new("Failed to flatten object: %s", err)
     end

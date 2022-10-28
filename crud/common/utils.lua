@@ -119,10 +119,10 @@ end
 
 local flatten_functions_cache = setmetatable({}, {__mode = 'k'})
 
-function utils.flatten(object, space_format, bucket_id)
+function utils.flatten(object, space_format, bucket_id, skip_nullability_check)
     local flatten_func = flatten_functions_cache[space_format]
     if flatten_func ~= nil then
-        local data, err = flatten_func(object, bucket_id)
+        local data, err = flatten_func(object, bucket_id, skip_nullability_check)
         if err ~= nil then
             return nil, FlattenError:new(err)
         end
@@ -130,7 +130,7 @@ function utils.flatten(object, space_format, bucket_id)
     end
 
     local lines = {}
-    append(lines, 'local object, bucket_id = ...')
+    append(lines, 'local object, bucket_id, skip_nullability_check = ...')
 
     append(lines, 'for k in pairs(object) do')
     append(lines, '    if fieldmap[k] == nil then')
@@ -149,8 +149,10 @@ function utils.flatten(object, space_format, bucket_id)
             append(lines, 'if object[%q] ~= nil then', field.name)
             append(lines, '    result[%d] = object[%q]', i, field.name)
             if field.is_nullable ~= true then
-                append(lines, 'else')
-                append(lines, '    return nil, \'Field %q isn\\\'t nullable\'', field.name)
+                append(lines, 'elseif skip_nullability_check ~= true then')
+                append(lines, '    return nil, \'Field %q isn\\\'t nullable' ..
+                              ' (set skip_nullability_check_on_flatten option to true to skip check)\'',
+                              field.name)
             end
             append(lines, 'end')
         else
@@ -173,7 +175,7 @@ function utils.flatten(object, space_format, bucket_id)
     flatten_func = assert(load(code, '@flatten', 't', env))
 
     flatten_functions_cache[space_format] = flatten_func
-    local data, err = flatten_func(object, bucket_id)
+    local data, err = flatten_func(object, bucket_id, skip_nullability_check)
     if err ~= nil then
         return nil, FlattenError:new(err)
     end
@@ -636,13 +638,13 @@ function utils.cut_rows(rows, metadata, field_names)
     }
 end
 
-local function flatten_obj(vshard_router, space_name, obj)
+local function flatten_obj(vshard_router, space_name, obj, skip_nullability_check)
     local space_format, err = utils.get_space_format(space_name, vshard_router:routeall())
     if err ~= nil then
         return nil, FlattenError:new("Failed to get space format: %s", err), const.NEED_SCHEMA_RELOAD
     end
 
-    local tuple, err = utils.flatten(obj, space_format)
+    local tuple, err = utils.flatten(obj, space_format, nil, skip_nullability_check)
     if err ~= nil then
         return nil, FlattenError:new("Object is specified in bad format: %s", err), const.NEED_SCHEMA_RELOAD
     end
@@ -650,8 +652,8 @@ local function flatten_obj(vshard_router, space_name, obj)
     return tuple
 end
 
-function utils.flatten_obj_reload(vshard_router, space_name, obj)
-    return schema.wrap_func_reload(vshard_router, flatten_obj, space_name, obj)
+function utils.flatten_obj_reload(vshard_router, space_name, obj, skip_nullability_check)
+    return schema.wrap_func_reload(vshard_router, flatten_obj, space_name, obj, skip_nullability_check)
 end
 
 -- Merge two options map.

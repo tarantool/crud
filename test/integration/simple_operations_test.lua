@@ -29,6 +29,8 @@ pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
 pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
     helpers.truncate_space_on_cluster(g.cluster, 'tags')
+    helpers.truncate_space_on_cluster(g.cluster, 'notebook')
+    helpers.reset_sequence_on_cluster(g.cluster, 'local_id')
 end)
 
 pgroup.test_non_existent_space = function(g)
@@ -1192,4 +1194,146 @@ pgroup.test_opts_not_damaged = function(g)
 
     t.assert_equals(err, nil)
     t.assert_equals(new_delete_opts, delete_opts)
+end
+
+local gh_328_success_cases = {
+    insert = {
+        args = {
+            'notebook',
+            {nil, nil, 'Inserting...'},
+        },
+        many = false,
+        record_id = 3,
+    },
+    insert_object = {
+        args = {
+            'notebook',
+            {record = 'Inserting...'},
+            {skip_nullability_check_on_flatten = true},
+        },
+        many = false,
+        record_id = 'record',
+    },
+    replace = {
+        args = {
+            'notebook',
+            {nil, nil, 'Replacing...'},
+        },
+        many = false,
+        record_id = 3,
+    },
+    replace_object = {
+        args = {
+            'notebook',
+            {record = 'Replacing...'},
+            {skip_nullability_check_on_flatten = true},
+        },
+        many = false,
+        record_id = 'record',
+    },
+    insert_many = {
+        args = {
+            'notebook',
+            {{nil, nil, 'Inserting...'}},
+        },
+        many = true,
+        record_id = 3,
+    },
+    insert_object_many = {
+        args = {
+            'notebook',
+            {{record = 'Inserting...'}},
+            {skip_nullability_check_on_flatten = true},
+        },
+        many = true,
+        record_id = 'record',
+    },
+    replace_many = {
+        args = {
+            'notebook',
+            {{nil, nil, 'Replacing...'}},
+        },
+        many = true,
+        record_id = 3,
+    },
+    replace_object_many = {
+        args = {
+            'notebook',
+            {{record = 'Replacing...'}},
+            {skip_nullability_check_on_flatten = true},
+        },
+        many = true,
+        record_id = 'record',
+    },
+}
+
+for op, case in pairs(gh_328_success_cases) do
+    local test_name = ('test_gh_328_%s_with_sequence'):format(op)
+
+    pgroup[test_name] = function(g)
+        local result, err = g.cluster.main_server.net_box:call('crud.' .. op, case.args)
+        t.assert_equals(err, nil)
+        t.assert_equals(#result.rows, 1)
+
+        if case.many then
+            t.assert_equals(result.rows, {{1, 1697, case.args[2][1][case.record_id]}})
+        else
+            t.assert_equals(result.rows, {{1, 1697, case.args[2][case.record_id]}})
+        end
+    end
+end
+
+local gh_328_error_cases = {
+    insert_object = {
+        args = {
+            'notebook',
+            {record = 'Inserting...'},
+        },
+        many = false,
+    },
+    replace_object = {
+        args = {
+            'notebook',
+            {record = 'Replacing...'},
+        },
+        many = false,
+    },
+    insert_object_many = {
+        args = {
+            'notebook',
+            {{record = 'Inserting...'}},
+        },
+        many = true,
+    },
+    replace_object_many = {
+        args = {
+            'notebook',
+            {{record = 'Replacing...'}},
+        },
+        many = true,
+    },
+}
+
+for op, case in pairs(gh_328_error_cases) do
+    local test_name = ('test_gh_328_%s_with_sequence_returns_error_without_option'):format(op)
+
+    pgroup[test_name] = function(g)
+        local result, err = g.cluster.main_server.net_box:call('crud.' .. op, case.args)
+        t.assert_equals(result, nil)
+
+        if case.many then
+            t.assert_equals(#err, 1)
+            t.assert_str_contains(
+                err[1].err,
+                'Field "local_id" isn\'t nullable ' ..
+                '(set skip_nullability_check_on_flatten option to true to skip check)'
+            )
+        else
+            t.assert_str_contains(
+                err.err,
+                'Field "local_id" isn\'t nullable ' ..
+                '(set skip_nullability_check_on_flatten option to true to skip check)'
+            )
+        end
+    end
 end

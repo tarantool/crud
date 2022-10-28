@@ -141,6 +141,19 @@ function helpers.truncate_space_on_cluster(cluster, space_name)
     end
 end
 
+function helpers.reset_sequence_on_cluster(cluster, sequence_name)
+    assert(cluster ~= nil)
+    for _, server in ipairs(cluster.servers) do
+        server.net_box:eval([[
+            local sequence_name = ...
+            local sequence = box.sequence[sequence_name]
+            if sequence ~= nil and not box.cfg.read_only then
+                sequence:reset()
+            end
+        ]], {sequence_name})
+    end
+end
+
 function helpers.get_test_replicasets()
     return {
         {

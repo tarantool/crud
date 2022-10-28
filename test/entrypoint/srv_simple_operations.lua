@@ -88,6 +88,30 @@ package.preload['customers-storage'] = function()
                 unique = false,
                 if_not_exists = true,
             })
+
+            local sequence_space = box.schema.space.create('notebook', {
+                format = {
+                    {name = 'local_id', type = 'unsigned', is_nullable = false},
+                    {name = 'bucket_id', type = 'unsigned', is_nullable = false},
+                    {name = 'record', type = 'string', is_nullable = false},
+                },
+                if_not_exists = true,
+                engine = engine,
+            })
+
+            box.schema.sequence.create('local_id', {if_not_exists = true})
+
+            sequence_space:create_index('local_id', {
+                parts = { {field = 'local_id'} },
+                unique = true,
+                if_not_exists = true,
+                sequence = 'local_id',
+            })
+            sequence_space:create_index('bucket_id', {
+                parts = { {field = 'bucket_id'} },
+                unique = false,
+                if_not_exists = true,
+            })
         end,
     }
 end
