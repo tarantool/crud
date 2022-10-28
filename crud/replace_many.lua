@@ -253,6 +253,7 @@ function replace_many.objects(space_name, objs, opts)
         stop_on_error = '?boolean',
         rollback_on_error = '?boolean',
         vshard_router = '?string|table',
+        skip_nullability_check_on_flatten = '?boolean',
     })
 
     opts = opts or {}
@@ -270,7 +271,8 @@ function replace_many.objects(space_name, objs, opts)
 
     for _, obj in ipairs(objs) do
 
-        local tuple, err = utils.flatten_obj_reload(vshard_router, space_name, obj)
+        local tuple, err = utils.flatten_obj_reload(vshard_router, space_name, obj,
+                                                    opts.skip_nullability_check_on_flatten)
         if err ~= nil then
             local err_obj = ReplaceManyError:new("Failed to flatten object: %s", err)
             err_obj.operation_data = obj
