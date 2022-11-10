@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [0.14.1] - 10-11-22
+
+### Added
 * `skip_nullability_check_on_flatten` option for `insert_object`,
   `insert_object_many`, `replace_object`, `replace_object_many`.
   `false` by default. By setting the option to `true` you allow
