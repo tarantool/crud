@@ -10,6 +10,7 @@ luacov.report.out
 luacov.stats.out
 build/*.cmake
 build/Makefile
+.idea
 
 # Vim Swap files.
 .*.s[a-w][a-z]
