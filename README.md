@@ -395,7 +395,7 @@ where:
   * `bucket_id` (`?number|cdata`) - bucket ID
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
   * `mode` (`?string`, `read` or `write`) - if `write` is specified then `get` is
-    performed on master
+    performed on master, default value is `read`
   * `prefer_replica` (`?boolean`) - if `true` then the preferred target is one of
     the replicas
   * `balance` (`?boolean`) - use replica according to vshard load balancing policy
@@ -892,7 +892,7 @@ where:
   * `fullscan` (`?boolean`) - if `true` then a critical log entry will be skipped
     on potentially long `select`, see [avoiding full scan](doc/select.md#avoiding-full-scan).
   * `mode` (`?string`, `read` or `write`) - if `write` is specified then `select` is
-    performed on master
+    performed on master, default value is `read`
   * `prefer_replica` (`?boolean`) - if `true` then the preferred target is one of
     the replicas
   * `balance` (`?boolean`) - use replica according to vshard load balancing policy
