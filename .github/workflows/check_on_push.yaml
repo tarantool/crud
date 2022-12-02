@@ -13,8 +13,8 @@ jobs:
     steps:
     - uses: actions/checkout@master
 
-    - name: Setup Tarantool
-      uses: tarantool/setup-tarantool@v1
+    - name: Setup Tarantool CE
+      uses: tarantool/setup-tarantool@v2
       with:
         tarantool-version: '2.6'
 
