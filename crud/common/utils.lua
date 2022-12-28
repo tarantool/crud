@@ -15,6 +15,7 @@ local FlattenError = errors.new_class("FlattenError", {capture_stack = false})
 local UnflattenError = errors.new_class("UnflattenError", {capture_stack = false})
 local ParseOperationsError = errors.new_class('ParseOperationsError', {capture_stack = false})
 local ShardingError = errors.new_class('ShardingError', {capture_stack = false})
+local GetSpaceError = errors.new_class('GetSpaceError')
 local GetSpaceFormatError = errors.new_class('GetSpaceFormatError', {capture_stack = false})
 local FilterFieldsError = errors.new_class('FilterFieldsError', {capture_stack = false})
 local NotInitializedError = errors.new_class('NotInitialized')
@@ -97,13 +98,37 @@ end
 
 function utils.get_space(space_name, replicasets)
     local replicaset = select(2, next(replicasets))
+
+    if replicaset == nil then
+        return nil, GetSpaceError:new(
+            'The router returned empty replicasets: ' ..
+            'perhaps other instances are unavailable or you have configured only the router')
+    end
+
+    if replicaset.master == nil then
+        local error_msg = string.format(
+            'The master was not found in replicaset %s, ' ..
+            'check status of the master and repeat the operation later',
+             replicaset.uuid)
+        return nil, GetSpaceError:new(error_msg)
+    end
+
+    if replicaset.master.conn.error ~= nil then
+        local error_msg = string.format(
+            'The connection to the master of replicaset %s is not valid: %s',
+             replicaset.uuid, replicaset.master.conn.error)
+        return nil, GetSpaceError:new(error_msg)
+    end
     local space = replicaset.master.conn.space[space_name]
 
     return space
 end
 
 function utils.get_space_format(space_name, replicasets)
-    local space = utils.get_space(space_name, replicasets)
+    local space, err = utils.get_space(space_name, replicasets)
+    if err ~= nil then
+        return nil, GetSpaceFormatError:new("An error occurred during the operation: %s", err)
+    end
     if space == nil then
         return nil, GetSpaceFormatError:new("Space %q doesn't exist", space_name)
     end

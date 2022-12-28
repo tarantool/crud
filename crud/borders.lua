@@ -74,7 +74,10 @@ local function call_get_border_on_router(vshard_router, border_name, space_name,
     })
 
     local replicasets = vshard_router:routeall()
-    local space = utils.get_space(space_name, replicasets)
+    local space, err = utils.get_space(space_name, replicasets)
+    if err ~= nil then
+        return nil, BorderError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
+    end
     if space == nil then
         return nil, BorderError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
     end

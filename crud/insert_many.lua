@@ -131,7 +131,12 @@ local function call_insert_many_on_router(vshard_router, space_name, original_tu
         vshard_router = '?string|table',
     })
 
-    local space = utils.get_space(space_name, vshard_router:routeall())
+    local space, err = utils.get_space(space_name, vshard_router:routeall())
+    if err ~= nil then
+        return nil, {
+            InsertManyError:new("An error occurred during the operation: %s", err)
+        }, const.NEED_SCHEMA_RELOAD
+    end
     if space == nil then
         return nil, {InsertManyError:new("Space %q doesn't exist", space_name)}, const.NEED_SCHEMA_RELOAD
     end

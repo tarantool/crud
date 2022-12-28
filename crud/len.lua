@@ -64,7 +64,10 @@ function len.call(space_name, opts)
         return nil, LenError:new(err)
     end
 
-    local space = utils.get_space(space_name, vshard_router:routeall())
+    local space, err = utils.get_space(space_name, vshard_router:routeall())
+    if err ~= nil then
+        return nil, LenError:new("An error occurred during the operation: %s", err)
+    end
     if space == nil then
         return nil, LenError:new("Space %q doesn't exist", space_name)
     end
