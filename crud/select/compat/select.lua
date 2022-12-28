@@ -47,7 +47,10 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
         return nil, SelectError:new("Failed to get router replicasets: %s", err)
     end
 
-    local space = utils.get_space(space_name, replicasets)
+    local space, err = utils.get_space(space_name, replicasets)
+    if err ~= nil then
+        return nil, SelectError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
+    end
     if space == nil then
         return nil, SelectError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
     end

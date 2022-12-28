@@ -264,7 +264,11 @@ local function resolve_space_name(space_id)
         return nil
     end
 
-    local space = utils.get_space(space_id, replicasets)
+    local space, err = utils.get_space(space_id, replicasets)
+    if err ~= nil then
+        log.warn("An error occurred during getting space: %s", err)
+        return nil
+    end
     if space == nil then
         log.warn('Failed to resolve space name for stats: no space found for id %d with default router', space_id)
         return nil
