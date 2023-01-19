@@ -37,7 +37,7 @@ local function call_reload_schema(replicasets)
     for _ = 1,replicasets_num do
         if channel:get(const.RELOAD_SCHEMA_TIMEOUT) == nil then
             for _, f in ipairs(fibers) do
-                if fiber:status() ~= 'dead' then
+                if f:status() ~= 'dead' then
                     f:cancel()
                 end
             end
