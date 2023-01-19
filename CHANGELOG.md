@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Added validation of the master presence in replicaset and the 
   master connection to the `utils.get_space` method before 
   receiving the space from the connection (#331).
+* Fixed fiber cancel on schema reload timeout in `call_reload_schema`.
 
 ## [0.14.1] - 10-11-22
 
