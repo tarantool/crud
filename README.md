@@ -204,7 +204,8 @@ where:
 * `space_name` (`string`) - name of the space to insert an object
 * `tuple` / `object` (`table`) - tuple/object to insert
 * `opts`:
-  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `timeout` (`?number`) - `vshard.call` timeout and vshard master
+    discovery timeout (in seconds), default value is 2
   * `bucket_id` (`?number|cdata`) - bucket ID
   * `fields` (`?table`) - field names for getting only a subset of fields
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
@@ -263,7 +264,8 @@ where:
 * `space_name` (`string`) - name of the space to insert an object
 * `tuples` / `objects` (`table`) - array of tuples/objects to insert
 * `opts`:
-  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `timeout` (`?number`) - `vshard.call` timeout and vshard master
+    discovery timeout (in seconds), default value is 2
   * `fields` (`?table`) - field names for getting only a subset of fields
   * `stop_on_error` (`?boolean`) - stop on a first error and report error
     regarding the failed operation and error about what tuples were not
@@ -411,7 +413,8 @@ where:
 * `opts`:
   * `fields` (`?table`) - field names for getting only a subset of fields
   * `bucket_id` (`?number|cdata`) - bucket ID
-  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `timeout` (`?number`) - `vshard.call` timeout and vshard master
+    discovery timeout (in seconds), default value is 2
   * `mode` (`?string`, `read` or `write`) - if `write` is specified then `get` is
     performed on master, default value is `read`
   * `prefer_replica` (`?boolean`) - if `true` then the preferred target is one of
@@ -450,7 +453,8 @@ where:
 * `key` (`any`) - primary key value
 * `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/update/)
 * `opts`:
-  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `timeout` (`?number`) - `vshard.call` timeout and vshard master
+    discovery timeout (in seconds), default value is 2
   * `bucket_id` (`?number|cdata`) - bucket ID
   * `fields` (`?table`) - field names for getting only a subset of fields
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
@@ -485,7 +489,8 @@ where:
 * `space_name` (`string`) - name of the space
 * `key` (`any`) - primary key value
 * `opts`:
-  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `timeout` (`?number`) - `vshard.call` timeout and vshard master
+    discovery timeout (in seconds), default value is 2
   * `bucket_id` (`?number|cdata`) - bucket ID
   * `fields` (`?table`) - field names for getting only a subset of fields
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
@@ -522,7 +527,8 @@ where:
 * `space_name` (`string`) - name of the space
 * `tuple` / `object` (`table`) - tuple/object to insert or replace exist one
 * `opts`:
-  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `timeout` (`?number`) - `vshard.call` timeout and vshard master
+    discovery timeout (in seconds), default value is 2
   * `bucket_id` (`?number|cdata`) - bucket ID
   * `fields` (`?table`) - field names for getting only a subset of fields
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
@@ -581,7 +587,8 @@ where:
 * `space_name` (`string`) - name of the space to insert/replace an object
 * `tuples` / `objects` (`table`) - array of tuples/objects to insert
 * `opts`:
-  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `timeout` (`?number`) - `vshard.call` timeout and vshard master
+    discovery timeout (in seconds), default value is 2
   * `fields` (`?table`) - field names for getting only a subset of fields
   * `stop_on_error` (`?boolean`) - stop on a first error and report error
     regarding the failed operation and error about what tuples were not
@@ -730,7 +737,8 @@ where:
 * `tuple` / `object` (`table`) - tuple/object to insert if there is no existing tuple which matches the key fields
 * `operations` (`table`) - update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/update/) if there is an existing tuple which matches the key fields of tuple
 * `opts`:
-  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `timeout` (`?number`) - `vshard.call` timeout and vshard master
+    discovery timeout (in seconds), default value is 2
   * `bucket_id` (`?number|cdata`) - bucket ID
   * `fields` (`?table`) - field names for getting only a subset of fields
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
@@ -785,7 +793,8 @@ where:
    if there is tuple with duplicate key then existing tuple will
    be updated with update operations
 * `opts`:
-  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `timeout` (`?number`) - `vshard.call` timeout and vshard master
+    discovery timeout (in seconds), default value is 2
   * `fields` (`?table`) - field names for getting only a subset of fields
   * `stop_on_error` (`?boolean`) - stop on a first error and report error
     regarding the failed operation and error about what tuples were not
@@ -1108,7 +1117,8 @@ where:
 
 * `space_name` (`string`) - name of the space
 * `opts`:
-  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `timeout` (`?number`) - `vshard.call` timeout and vshard master
+    discovery timeout (in seconds), default value is 2
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
     vshard router instance. Set this parameter if your space is not
     a part of the default vshard cluster
@@ -1220,7 +1230,8 @@ where:
 * `opts`:
   * `yield_every` (`?number`) - number of tuples processed to yield after,
     `yield_every` should be > 0, default value is 100
-  * `timeout` (`?number`) - `vshard.call` timeout (in seconds), default value is 2
+  * `timeout` (`?number`) - `vshard.call` timeout and vshard master
+    discovery timeout (in seconds), default value is 2
   * `bucket_id` (`?number|cdata`) - bucket ID
   * `force_map_call` (`?boolean`) - if `true`
     then the map call is performed without any optimizations even,

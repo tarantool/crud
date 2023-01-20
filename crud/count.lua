@@ -132,12 +132,7 @@ local function call_count_on_router(vshard_router, space_name, user_conditions, 
         return nil, CountError:new("Failed to parse conditions: %s", err)
     end
 
-    local replicasets, err = vshard_router:routeall()
-    if err ~= nil then
-        return nil, CountError:new("Failed to get router replicasets: %s", err)
-    end
-
-    local space, err = utils.get_space(space_name, replicasets)
+    local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
     if err ~= nil then
         return nil, CountError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end
@@ -169,7 +164,10 @@ local function call_count_on_router(vshard_router, space_name, user_conditions, 
     check_count_safety(space_name, plan, opts)
 
     -- set replicasets to count from
-    local replicasets_to_count = replicasets
+    local replicasets_to_count, err = vshard_router:routeall()
+    if err ~= nil then
+        return nil, CountError:new("Failed to get router replicasets: %s", err)
+    end
 
     -- Whether to call one storage replicaset or perform
     -- map-reduce?

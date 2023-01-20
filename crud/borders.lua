@@ -73,8 +73,7 @@ local function call_get_border_on_router(vshard_router, border_name, space_name,
         vshard_router = '?string|table',
     })
 
-    local replicasets = vshard_router:routeall()
-    local space, err = utils.get_space(space_name, replicasets)
+    local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
     if err ~= nil then
         return nil, BorderError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end
@@ -100,6 +99,10 @@ local function call_get_border_on_router(vshard_router, border_name, space_name,
     local cmp_key_parts = utils.merge_primary_key_parts(index.parts, primary_index.parts)
     local field_names = utils.enrich_field_names_with_cmp_key(opts.fields, cmp_key_parts, space:format())
 
+    local replicasets, err = vshard_router:routeall()
+    if err ~= nil then
+        return nil, BorderError:new("Failed to get router replicasets: %s", err)
+    end
     local call_opts = {
         mode = 'read',
         replicasets = replicasets,

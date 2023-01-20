@@ -264,7 +264,7 @@ local function resolve_space_name(space_id)
         return nil
     end
 
-    local space, err = utils.get_space(space_id, replicasets)
+    local space, err = utils.get_space(space_id, vshard_router)
     if err ~= nil then
         log.warn("An error occurred during getting space: %s", err)
         return nil
