@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Added
+* Added timeout condition for the validation of master presence in 
+  replicaset and for the master connection (#95).
 
 ### Changed
 

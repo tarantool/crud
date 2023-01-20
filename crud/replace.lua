@@ -64,7 +64,7 @@ local function call_replace_on_router(vshard_router, space_name, original_tuple,
         vshard_router = '?string|table',
     })
 
-    local space, err = utils.get_space(space_name, vshard_router:routeall())
+    local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
     if err ~= nil then
         return nil, ReplaceError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end

@@ -42,12 +42,7 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
         return nil, SelectError:new("Failed to parse conditions: %s", err)
     end
 
-    local replicasets, err = vshard_router:routeall()
-    if err ~= nil then
-        return nil, SelectError:new("Failed to get router replicasets: %s", err)
-    end
-
-    local space, err = utils.get_space(space_name, replicasets)
+    local space, err = utils.get_space(space_name, vshard_router)
     if err ~= nil then
         return nil, SelectError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end
@@ -84,7 +79,10 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
     end
 
     -- set replicasets to select from
-    local replicasets_to_select = replicasets
+    local replicasets_to_select, err = vshard_router:routeall()
+    if err ~= nil then
+        return nil, SelectError:new("Failed to get router replicasets: %s", err)
+    end
 
     -- Whether to call one storage replicaset or perform
     -- map-reduce?

@@ -62,7 +62,7 @@ local function call_upsert_on_router(vshard_router, space_name, original_tuple, 
         vshard_router = '?string|table',
     })
 
-    local space, err = utils.get_space(space_name, vshard_router:routeall())
+    local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
     if err ~= nil then
         return nil, UpsertError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end

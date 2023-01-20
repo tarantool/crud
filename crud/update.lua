@@ -84,7 +84,7 @@ local function call_update_on_router(vshard_router, space_name, key, user_operat
         vshard_router = '?string|table',
     })
 
-    local space, err = utils.get_space(space_name, vshard_router:routeall())
+    local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
     if err ~= nil then
         return nil, UpdateError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end

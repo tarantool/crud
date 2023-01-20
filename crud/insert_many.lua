@@ -131,7 +131,7 @@ local function call_insert_many_on_router(vshard_router, space_name, original_tu
         vshard_router = '?string|table',
     })
 
-    local space, err = utils.get_space(space_name, vshard_router:routeall())
+    local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
     if err ~= nil then
         return nil, {
             InsertManyError:new("An error occurred during the operation: %s", err)

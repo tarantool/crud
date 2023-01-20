@@ -452,7 +452,7 @@ function helpers.is_space_exist(router, space_name)
         local vshard = require('vshard')
         local utils = require('crud.common.utils')
 
-        local space, err = utils.get_space(..., vshard.router.routeall())
+        local space, err = utils.get_space(..., vshard.router)
         if err ~= nil then
             return nil, err
         end

@@ -21,7 +21,7 @@ local FilterFieldsError = errors.new_class('FilterFieldsError', {capture_stack =
 local NotInitializedError = errors.new_class('NotInitialized')
 local StorageInfoError = errors.new_class('StorageInfoError')
 local VshardRouterError = errors.new_class('VshardRouterError', {capture_stack = false})
-local fiber_clock = require('fiber').clock
+local fiber = require('fiber')
 
 local utils = {}
 
@@ -96,8 +96,25 @@ function utils.format_replicaset_error(replicaset_uuid, msg, ...)
     )
 end
 
-function utils.get_space(space_name, replicasets)
-    local replicaset = select(2, next(replicasets))
+function utils.get_space(space_name, vshard_router, timeout)
+    local replicasets, replicaset
+    timeout = timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
+    local deadline = fiber.clock() + timeout
+    while (
+        -- Break if the deadline condition is exceeded.
+        -- Handling for deadline errors are below in the code.
+        fiber.clock() < deadline
+    ) do
+        -- Try to get master with timeout.
+        fiber.yield()
+        replicasets = vshard_router:routeall()
+        replicaset = select(2, next(replicasets))
+        if replicaset ~= nil and
+           replicaset.master ~= nil and
+           replicaset.master.conn.error == nil then
+            break
+        end
+    end
 
     if replicaset == nil then
         return nil, GetSpaceError:new(
@@ -119,13 +136,14 @@ function utils.get_space(space_name, replicasets)
              replicaset.uuid, replicaset.master.conn.error)
         return nil, GetSpaceError:new(error_msg)
     end
+
     local space = replicaset.master.conn.space[space_name]
 
     return space
 end
 
-function utils.get_space_format(space_name, replicasets)
-    local space, err = utils.get_space(space_name, replicasets)
+function utils.get_space_format(space_name, vshard_router)
+    local space, err = utils.get_space(space_name, vshard_router)
     if err ~= nil then
         return nil, GetSpaceFormatError:new("An error occurred during the operation: %s", err)
     end
@@ -664,7 +682,7 @@ function utils.cut_rows(rows, metadata, field_names)
 end
 
 local function flatten_obj(vshard_router, space_name, obj, skip_nullability_check)
-    local space_format, err = utils.get_space_format(space_name, vshard_router:routeall())
+    local space_format, err = utils.get_space_format(space_name, vshard_router)
     if err ~= nil then
         return nil, FlattenError:new("Failed to get space format: %s", err), const.NEED_SCHEMA_RELOAD
     end
@@ -835,9 +853,9 @@ function utils.storage_info(opts)
         end
     end
 
-    local deadline = fiber_clock() + timeout
+    local deadline = fiber.clock() + timeout
     for replica_uuid, future in pairs(futures_by_replicas) do
-        local wait_timeout = deadline - fiber_clock()
+        local wait_timeout = deadline - fiber.clock()
         if wait_timeout < 0 then
             wait_timeout = 0
         end
