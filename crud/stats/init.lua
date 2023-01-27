@@ -58,6 +58,18 @@ function stats.get_default_driver()
     end
 end
 
+--- Check if provided driver is supported.
+--
+-- @function is_driver_supported
+--
+-- @string opts.driver
+--
+-- @treturn boolean Returns `true` or `false`.
+--
+function stats.is_driver_supported(driver)
+    return drivers[driver] ~= nil
+end
+
 --- Initializes statistics registry, enables callbacks and wrappers.
 --
 --  If already enabled, do nothing.
@@ -124,9 +136,8 @@ function stats.enable(opts)
     end
 
     StatsError:assert(
-        drivers[opts.driver] ~= nil,
-        'Unsupported driver: %s', opts.driver
-    )
+        stats.is_driver_supported(opts.driver),
+        'Unsupported driver: %s', opts.driver)
 
     if opts.quantiles == nil then
         opts.quantiles = false

@@ -146,3 +146,63 @@ group.test_gh_284_preset_stats_quantile_max_age_time_is_preserved = function(g)
     t.assert_equals(cfg.stats_quantile_max_age_time, 30,
         'Preset stats_quantile_max_age_time presents')
 end
+
+group.test_role_cfg = function(g)
+    local cfg = {
+        stats = true,
+        stats_driver = 'local',
+        stats_quantiles = false,
+        stats_quantile_tolerated_error = 1e-2,
+        stats_quantile_age_buckets_count = 5,
+        stats_quantile_max_age_time = 180,
+    }
+
+    g.cluster.main_server:upload_config({crud = cfg})
+
+    local actual_cfg = g.cluster:server('router'):eval("return require('crud').cfg")
+    t.assert_equals(cfg, actual_cfg)
+end
+
+group.test_role_partial_cfg = function(g)
+    local router = g.cluster:server('router')
+    local cfg_before = router:eval("return require('crud').cfg()")
+
+    local cfg_after = table.deepcopy(cfg_before)
+    cfg_after.stats = not cfg_before.stats
+
+    g.cluster.main_server:upload_config({crud = {stats = cfg_after.stats}})
+
+    local actual_cfg = g.cluster:server('router'):eval("return require('crud').cfg")
+    t.assert_equals(cfg_after, actual_cfg, "Only requested field were updated")
+end
+
+local role_cfg_error_cases = {
+    wrong_section_type = {
+        args = {crud = 'enabled'},
+        err = 'Configuration \\\"crud\\\" section must be a table',
+    },
+    wrong_structure = {
+        args = {crud = {crud = {stats = true}}},
+        err = '\\\"crud\\\" section is already presented as a name of \\\"crud.yml\\\", ' ..
+              'do not use it as a top-level section name',
+    },
+    wrong_type = {
+        args = {crud = {stats = 'enabled'}},
+        err = 'Invalid crud configuration field \\\"stats\\\" type: expected boolean, got string',
+    },
+    wrong_value = {
+        args = {crud = {stats_driver = 'prometheus'}},
+        err = 'Invalid crud configuration field \\\"stats_driver\\\" value: \\\"prometheus\\\" is not supported',
+    }
+}
+
+for name, case in pairs(role_cfg_error_cases) do
+    group['test_rolce_cfg_' .. name] = function(g)
+        local success, error = pcall(function()
+            g.cluster.main_server:upload_config(case.args)
+        end)
+
+        t.assert_equals(success, false)
+        t.assert_str_contains(error.response.body, case.err)
+    end
+end

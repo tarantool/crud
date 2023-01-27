@@ -5,13 +5,16 @@ local t = require('luatest')
 local stats_registry_utils = require('crud.stats.registry_utils')
 
 local pgroup = t.group('stats_integration', {
-    { driver = 'local' },
-    { driver = 'metrics', quantiles = false },
-    { driver = 'metrics', quantiles = true },
+    { way = 'call', args = { driver = 'local' }},
+    { way = 'call', args = { driver = 'metrics', quantiles = false }},
+    { way = 'call', args = { driver = 'metrics', quantiles = true }},
+    { way = 'role', args = { driver = 'local' }},
+    { way = 'role', args = { driver = 'metrics', quantiles = false }},
+    { way = 'role', args = { driver = 'metrics', quantiles = true }},
 })
 local group_metrics = t.group('stats_metrics_integration', {
-    { driver = 'metrics', quantiles = false },
-    { driver = 'metrics', quantiles = true },
+    { way = 'call', args = { driver = 'metrics', quantiles = false }},
+    { way = 'role', args = { driver = 'metrics', quantiles = true }},
 })
 
 local helpers = require('test.helper')
@@ -30,7 +33,7 @@ local function before_all(g)
     g.cluster:start()
     g.router = g.cluster:server('router').net_box
 
-    if g.params.driver == 'metrics' then
+    if g.params.args.driver == 'metrics' then
         local is_metrics_supported = g.router:eval([[
             return require('crud.stats.metrics_registry').is_supported()
         ]])
@@ -46,23 +49,37 @@ local function get_stats(g, space_name)
     return g.router:eval("return require('crud').stats(...)", { space_name })
 end
 
-local function enable_stats(g, params)
-    params = params or g.params
-    g.router:eval([[
-        local params = ...
-        require('crud').cfg{
-            stats = true,
-            stats_driver = params.driver,
-            stats_quantiles = params.quantiles,
-            stats_quantile_tolerated_error = 1e-3,
-            stats_quantile_age_buckets_count = 3,
-            stats_quantile_max_age_time = 60,
-        }
-    ]], { params })
+local call_cfg = function(g, way, cfg)
+    if way == 'call' then
+        g.router:eval([[
+            require('crud').cfg(...)
+        ]], { cfg })
+    elseif way == 'role' then
+        g.cluster.main_server:upload_config{crud = cfg}
+    end
+end
+
+local function enable_stats(g, args)
+    args = args or g.params.args
+
+    local cfg = {
+        stats = true,
+        stats_driver = args.driver,
+        stats_quantiles = args.quantiles,
+        stats_quantile_tolerated_error = 1e-3,
+        stats_quantile_age_buckets_count = 3,
+        stats_quantile_max_age_time = 60,
+    }
+
+    call_cfg(g, g.params.way, cfg)
 end
 
 local function disable_stats(g)
-    g.router:eval("require('crud').cfg{ stats = false }")
+    local cfg = {
+        stats = false,
+    }
+
+    call_cfg(g, g.params.way, cfg)
 end
 
 local function before_each(g)
@@ -643,7 +660,7 @@ for name, case in pairs(simple_operation_cases) do
         t.assert_le(changed_after.latency_average, ok_average_max,
             'Changed average has appropriate value')
 
-        if g.params.quantiles == true then
+        if g.params.args.quantiles == true then
             local ok_quantile_max = math.max(
                 changed_before.latency_quantile_recent or 0,
                 after_finish - before_start)
@@ -755,7 +772,7 @@ pgroup.before_test(
     generate_stats)
 
 pgroup.test_role_reload_do_not_reset_observations = function(g)
-    t.xfail_if(g.params.driver == 'metrics',
+    t.xfail_if(g.params.args.driver == 'metrics',
         'See https://github.com/tarantool/metrics/issues/334')
 
     local stats_before = get_stats(g)
@@ -870,7 +887,7 @@ end
 
 local function validate_metrics(g, metrics)
     local quantile_stats
-    if g.params.quantiles == true then
+    if g.params.args.quantiles == true then
         quantile_stats = find_metric('tnt_crud_stats', metrics)
         t.assert_type(quantile_stats, 'table', '`tnt_crud_stats` summary metrics found')
     end
@@ -885,7 +902,7 @@ local function validate_metrics(g, metrics)
     local expected_operations = { 'insert', 'insert_many', 'get', 'replace', 'replace_many', 'update',
         'upsert', 'upsert_many', 'delete', 'select', 'truncate', 'len', 'count', 'borders' }
 
-    if g.params.quantiles == true then
+    if g.params.args.quantiles == true then
         t.assert_items_equals(get_unique_label_values(quantile_stats, 'operation'), expected_operations,
             'Metrics are labelled with operation')
     end
@@ -899,7 +916,7 @@ local function validate_metrics(g, metrics)
 
     local expected_statuses = { 'ok', 'error' }
 
-    if g.params.quantiles == true then
+    if g.params.args.quantiles == true then
         t.assert_items_equals(
             get_unique_label_values(quantile_stats, 'status'),
             expected_statuses,
@@ -915,7 +932,7 @@ local function validate_metrics(g, metrics)
 
     local expected_names = { space_name }
 
-    if g.params.quantiles == true then
+    if g.params.args.quantiles == true then
         t.assert_items_equals(
             get_unique_label_values(quantile_stats, 'name'),
             expected_names,
@@ -931,7 +948,7 @@ local function validate_metrics(g, metrics)
         expected_names,
         'Metrics are labelled with space name')
 
-    if g.params.quantiles == true then
+    if g.params.args.quantiles == true then
         local expected_quantiles = { 0.99 }
         t.assert_items_equals(get_unique_label_values(quantile_stats, 'quantile'), expected_quantiles,
             'Quantile metrics presents')
