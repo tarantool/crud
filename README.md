@@ -1545,6 +1545,18 @@ return {
 
 4. Don't forget to bootstrap vshard.
 
+5. Configure the statistics with clusterwide configuration
+   (see `crud.cfg` options in [statistics](#statistics) section):
+```yaml
+crud:
+  stats: true
+  stats_driver: metrics
+  stats_quantiles: false
+  stats_quantile_tolerated_error: 0.001
+  stats_quantile_age_buckets_count: 5
+  stats_quantile_max_age_time: 180
+```
+
 Now your cluster contains storages that are configured to be used for
 CRUD-operations.
 You can simply call CRUD functions on the router to insert, select, and update

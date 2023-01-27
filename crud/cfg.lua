@@ -155,8 +155,12 @@ local function __call(self, opts)
         stats_quantile_age_buckets_count = '?number',
         stats_quantile_max_age_time = '?number',
     })
+    -- Value validation would be performed in stats checks, if required.
 
     opts = table.deepcopy(opts) or {}
+    -- opts from Cartridge clusterwide configuration is read-only,
+    -- but we want to work with copy anyway.
+    setmetatable(opts, {})
 
     configure_stats(cfg, opts)
 

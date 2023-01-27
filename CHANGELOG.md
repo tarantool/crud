@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 * Added timeout condition for the validation of master presence in 
   replicaset and for the master connection (#95).
+* Support Cartridge clusterwide configuration for `crud.cfg` (#332).
 
 ### Changed
 * **Breaking**: forbid using space id in `crud.len` (#255).
