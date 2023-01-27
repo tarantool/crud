@@ -1,7 +1,6 @@
 local crud = require('crud')
 local stash = require('crud.common.stash')
 
--- removes routes that changed in config and adds new routes
 local function init()
     crud.init_router()
     stash.setup_cartridge_reload()
