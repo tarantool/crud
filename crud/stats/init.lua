@@ -7,12 +7,9 @@ local checks = require('checks')
 local errors = require('errors')
 local fiber = require('fiber')
 local fun = require('fun')
-local log = require('log')
-local vshard = require('vshard')
 
 local dev_checks = require('crud.common.dev_checks')
 local stash = require('crud.common.stash')
-local utils = require('crud.common.utils')
 local op_module = require('crud.stats.operation')
 
 local StatsError = errors.new_class('StatsError', {capture_stack = false})
@@ -249,34 +246,6 @@ function stats.get(space_name)
     return internal:get_registry().get(space_name)
 end
 
-local function resolve_space_name(space_id)
-    -- Resolving name with custom vshard router is not supported.
-    local vshard_router = vshard.router.static
-
-    if vshard_router == nil then
-        log.warn('Failed to resolve space name for stats: default vshard router not found')
-        return nil
-    end
-
-    local replicasets = vshard_router:routeall()
-    if next(replicasets) == nil then
-        log.warn('Failed to resolve space name for stats: no replicasets found with default router')
-        return nil
-    end
-
-    local space, err = utils.get_space(space_id, vshard_router)
-    if err ~= nil then
-        log.warn("An error occurred during getting space: %s", err)
-        return nil
-    end
-    if space == nil then
-        log.warn('Failed to resolve space name for stats: no space found for id %d with default router', space_id)
-        return nil
-    end
-
-    return space.name
-end
-
 -- Hack to set __gc for a table in Lua 5.1
 -- See https://stackoverflow.com/questions/27426704/lua-5-1-workaround-for-gc-metamethod-for-tables
 -- or https://habr.com/ru/post/346892/
@@ -351,25 +320,12 @@ local function wrap_pairs_gen(build_latency, space_name, op, gen, param, state)
 end
 
 local function wrap_tail(space_name, op, pairs, start_time, call_status, ...)
-    dev_checks('string|number', 'string', 'boolean', 'number', 'boolean')
+    dev_checks('string', 'string', 'boolean', 'number', 'boolean')
 
     local finish_time = clock.monotonic()
     local latency = finish_time - start_time
 
     local registry = internal:get_registry()
-
-    -- If space id is provided instead of name, try to resolve name.
-    -- If resolve have failed, use id as string to observe space.
-    -- If using space id will be deprecated, remove this code as well,
-    -- see https://github.com/tarantool/crud/issues/255
-    if type(space_name) ~= 'string' then
-        local name = resolve_space_name(space_name)
-        if name ~= nil then
-            space_name = name
-        else
-            space_name = tostring(space_name)
-        end
-    end
 
     if call_status == false then
         registry.observe(latency, space_name, op, 'error')

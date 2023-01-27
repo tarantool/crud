@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   replicaset and for the master connection (#95).
 
 ### Changed
+* **Breaking**: forbid using space id in `crud.len` (#255).
 
 ### Fixed
 * Added validation of the master presence in replicaset and the 
