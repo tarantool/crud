@@ -1,6 +1,5 @@
 local checks = require('checks')
 local errors = require('errors')
-local log = require('log')
 
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
@@ -42,22 +41,12 @@ end
 -- @treturn[2] table Error description
 --
 function len.call(space_name, opts)
-    checks('string|number', {
+    checks('string', {
         timeout = '?number',
         vshard_router = '?string|table',
     })
 
     opts = opts or {}
-
-    if type(space_name) == 'number' then
-        log.warn('Using space id in crud.len is deprecated and will be removed in future releases.' ..
-                 'Please, use space name instead.')
-
-        if opts.vshard_router ~= nil then
-            log.warn('Using space id in crud.len and custom vshard_router is not supported by statistics.' ..
-                     'Space labels may be inconsistent.')
-        end
-    end
 
     local vshard_router, err = utils.get_vshard_router_instance(opts.vshard_router)
     if err ~= nil then
