@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Added
-* Added timeout condition for the validation of master presence in 
+* Add timeout condition for the validation of master presence in 
   replicaset and for the master connection (#95).
 * Support Cartridge clusterwide configuration for `crud.cfg` (#332).
 
@@ -16,10 +16,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * **Breaking**: forbid using space id in `crud.len` (#255).
 
 ### Fixed
-* Added validation of the master presence in replicaset and the 
+* Add validation of the master presence in replicaset and the 
   master connection to the `utils.get_space` method before 
   receiving the space from the connection (#331).
-* Fixed fiber cancel on schema reload timeout in `call_reload_schema`.
+* Fix fiber cancel on schema reload timeout in `call_reload_schema` (PR #337).
 
 ## [0.14.1] - 10-11-22
 
