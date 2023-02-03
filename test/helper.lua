@@ -553,4 +553,18 @@ function helpers.complement_tuples_batch_with_operations(tuples, operations)
     return tuples_operation_data
 end
 
+function helpers.is_metrics_0_12_0_or_older()
+    local metrics = require('metrics')
+
+    -- metrics 0.13.0 introduced VERSION, but it is likely to be deprecated in the future:
+    -- https://github.com/tarantool/metrics/commit/a7e666f50d23c3e1a11b9bc9882edddec2f4c67e
+    -- metrics 0.16.0 introduced _VERSION which is likely going to replace VERSION:
+    -- https://github.com/tarantool/metrics/commit/8f9b667f9db59ceff8e5d26e458244e2d67838da
+    if (metrics.VERSION == nil) and metrics._VERSION == nil then
+        return true
+    end
+
+    return false
+end
+
 return helpers
