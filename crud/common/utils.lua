@@ -6,6 +6,7 @@ local bit = require('bit')
 local log = require('log')
 
 local is_cartridge, cartridge = pcall(require, 'cartridge')
+local is_cartridge_hotreload, cartridge_hotreload = pcall(require, 'cartridge.hotreload')
 
 local const = require('crud.common.const')
 local schema = require('crud.common.schema')
@@ -961,6 +962,21 @@ function utils.get_vshard_router_instance(router)
     end
 
     return router_instance
+end
+
+--- Check if Tarantool Cartridge hotreload supported
+--  and get its implementaion.
+--
+-- @function is_cartridge_hotreload_supported
+--
+-- @return[1] true or false
+-- @return[1] module table, if supported
+function utils.is_cartridge_hotreload_supported()
+    if not is_cartridge_hotreload then
+        return false
+    end
+
+    return true, cartridge_hotreload
 end
 
 return utils
