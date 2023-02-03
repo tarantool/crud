@@ -2,6 +2,7 @@
 -- @module crud.common.stash
 --
 local dev_checks = require('crud.common.dev_checks')
+local utils = require('crud.common.utils')
 
 local stash = {}
 
@@ -37,7 +38,11 @@ stash.name = {
 -- @return Returns
 --
 function stash.setup_cartridge_reload()
-    local hotreload = require('cartridge.hotreload')
+    local hotreload_supported, hotreload = utils.is_cartridge_hotreload_supported()
+    if not hotreload_supported then
+        return
+    end
+
     for _, name in pairs(stash.name) do
         hotreload.whitelist_globals({ name })
     end
