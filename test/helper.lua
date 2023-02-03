@@ -8,6 +8,7 @@ local digest = require('digest')
 local fio = require('fio')
 
 local crud = require('crud')
+local crud_utils = require('crud.common.utils')
 
 if os.getenv('DEV') == nil then
     os.setenv('DEV', 'ON')
@@ -565,6 +566,10 @@ function helpers.is_metrics_0_12_0_or_older()
     end
 
     return false
+end
+
+function helpers.is_cartridge_hotreload_supported()
+    return crud_utils.is_cartridge_hotreload_supported()
 end
 
 return helpers

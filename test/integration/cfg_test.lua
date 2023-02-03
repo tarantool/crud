@@ -70,6 +70,9 @@ group.test_package_reload_preserves_values = function(g)
 end
 
 group.test_role_reload_preserves_values = function(g)
+    t.skip_if(not helpers.is_cartridge_hotreload_supported(),
+        "Cartridge roles reload is not supported")
+
     local router = g.cluster:server('router')
 
     -- Generate some non-default values.
