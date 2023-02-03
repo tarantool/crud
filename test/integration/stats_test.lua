@@ -772,8 +772,9 @@ pgroup.before_test(
     generate_stats)
 
 pgroup.test_role_reload_do_not_reset_observations = function(g)
-    t.xfail_if(g.params.args.driver == 'metrics',
-        'See https://github.com/tarantool/metrics/issues/334')
+    t.skip_if((g.params.args.driver == 'metrics')
+        and helpers.is_metrics_0_12_0_or_older(),
+        "See https://github.com/tarantool/metrics/issues/334")
 
     local stats_before = get_stats(g)
 
@@ -1084,7 +1085,8 @@ group_metrics.before_test(
     generate_stats)
 
 group_metrics.test_role_reload_do_not_reset_metrics_observations = function(g)
-    t.xfail('See https://github.com/tarantool/metrics/issues/334')
+    t.skip_if(helpers.is_metrics_0_12_0_or_older(),
+        "See https://github.com/tarantool/metrics/issues/334")
 
     helpers.reload_roles(g.cluster:server('router'))
     g.router:eval("crud = require('crud')")
