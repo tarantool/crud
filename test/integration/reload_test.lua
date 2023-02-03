@@ -77,6 +77,9 @@ g.after_each(function()
 end)
 
 function g.test_router()
+    t.skip_if(not helpers.is_cartridge_hotreload_supported(),
+        "Cartridge roles reload is not supported")
+
     g.highload_fiber = fiber.new(highload_loop, 'A')
 
     g.cluster:retrying({}, function()
@@ -99,6 +102,9 @@ function g.test_router()
 end
 
 function g.test_storage()
+    t.skip_if(not helpers.is_cartridge_hotreload_supported(),
+        "Cartridge roles reload is not supported")
+
     g.highload_fiber = fiber.new(highload_loop, 'B')
 
     g.cluster:retrying({}, function()

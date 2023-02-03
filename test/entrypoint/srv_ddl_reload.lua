@@ -8,6 +8,8 @@ local errors = require('errors')
 local cartridge = require('cartridge')
 local ddl = require('ddl')
 
+local crud_utils = require('crud.common.utils')
+
 package.preload['customers-storage'] = function()
     local customers_module = {
         sharding_func_default = function(key)
@@ -198,6 +200,11 @@ package.preload['customers-storage'] = function()
     }
 end
 
+local roles_reload_allowed = nil
+if crud_utils.is_cartridge_hotreload_supported() then
+    roles_reload_allowed = true
+end
+
 local ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
     advertise_uri = 'localhost:3301',
     http_port = 8081,
@@ -207,7 +214,7 @@ local ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
         'cartridge.roles.crud-router',
         'cartridge.roles.crud-storage',
     },
-    roles_reload_allowed = true,
+    roles_reload_allowed = roles_reload_allowed,
 })
 
 if not ok then
