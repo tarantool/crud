@@ -23,6 +23,11 @@ local stats = require('crud.stats')
 
 local crud = {}
 
+-- @refer crud.version
+-- @tfield string _VERSION
+--  Module version.
+crud._VERSION = require('crud.version')
+
 --- CRUD operations.
 -- @section crud
 
