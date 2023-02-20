@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+* Add versioning support (PR #342).
+
 ### Fixed
 * Pre-hotreload `cartridge` support (older than 2.4.0) (PR #341).
 * Tarantool version-dependent features for 3.x (PR #344).
