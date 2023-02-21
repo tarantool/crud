@@ -44,8 +44,21 @@ pgroup.before_all(function(g)
         g.cluster.main_server.net_box:call('clear_vshard_calls')
     end
 
-    g.get_vshard_calls = function()
-        return g.cluster.main_server.net_box:eval('return _G.vshard_calls')
+    g.get_vshard_call_strategies = function()
+        -- Retries are possible, especially in CI, so we don't assert
+        -- the quantity of calls, only strategies used.
+        local vshard_calls = g.cluster.main_server.net_box:eval('return _G.vshard_calls')
+
+        local vshard_call_strategies_map = {}
+        for _, v in ipairs(vshard_calls) do
+            vshard_call_strategies_map[v] = true
+        end
+
+        local vshard_call_strategies = {}
+        for k, _ in pairs(vshard_call_strategies_map) do
+            table.insert(vshard_call_strategies, k)
+        end
+        return vshard_call_strategies
     end
 
     -- patch vshard.router.call* functions
@@ -69,8 +82,8 @@ pgroup.test_get = function(g)
         prefer_replica = g.params.prefer_replica
     }})
     t.assert_equals(err, nil)
-    local vshard_calls = g.get_vshard_calls('call_single_impl')
-    t.assert_equals(vshard_calls, {g.params.exp_vshard_call})
+    local vshard_call_strategies = g.get_vshard_call_strategies('call_single_impl')
+    t.assert_equals(vshard_call_strategies, {g.params.exp_vshard_call})
 end
 
 pgroup.test_select = function(g)
@@ -82,8 +95,8 @@ pgroup.test_select = function(g)
         fullscan = true
     }})
     t.assert_equals(err, nil)
-    local vshard_calls = g.get_vshard_calls('call_impl')
-    t.assert_equals(vshard_calls, {g.params.exp_vshard_call, g.params.exp_vshard_call})
+    local vshard_call_strategies = g.get_vshard_call_strategies('call_impl')
+    t.assert_equals(vshard_call_strategies, {g.params.exp_vshard_call})
 end
 
 pgroup.test_pairs = function(g)
@@ -102,8 +115,8 @@ pgroup.test_pairs = function(g)
         for _, _ in crud.pairs('customers', nil, opts) do end
     ]], {opts})
     t.assert_equals(err, nil)
-    local vshard_calls = g.get_vshard_calls('call_impl')
-    t.assert_equals(vshard_calls, {g.params.exp_vshard_call, g.params.exp_vshard_call})
+    local vshard_call_strategies = g.get_vshard_call_strategies('call_impl')
+    t.assert_equals(vshard_call_strategies, {g.params.exp_vshard_call})
 end
 
 pgroup.test_count = function(g)
@@ -115,6 +128,6 @@ pgroup.test_count = function(g)
         fullscan = true
     }})
     t.assert_equals(err, nil)
-    local vshard_calls = g.get_vshard_calls('call_impl')
-    t.assert_equals(vshard_calls, {g.params.exp_vshard_call, g.params.exp_vshard_call})
+    local vshard_call_strategies = g.get_vshard_call_strategies('call_impl')
+    t.assert_equals(vshard_call_strategies, {g.params.exp_vshard_call})
 end
