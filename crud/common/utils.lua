@@ -22,6 +22,7 @@ local FilterFieldsError = errors.new_class('FilterFieldsError', {capture_stack =
 local NotInitializedError = errors.new_class('NotInitialized')
 local StorageInfoError = errors.new_class('StorageInfoError')
 local VshardRouterError = errors.new_class('VshardRouterError', {capture_stack = false})
+local UtilsInternalError = errors.new_class('UtilsInternalError', {capture_stack = false})
 local fiber = require('fiber')
 
 local utils = {}
@@ -294,25 +295,153 @@ function utils.enrich_field_names_with_cmp_key(field_names, key_parts, space_for
     return enriched_field_names
 end
 
-local enabled_tarantool_features = {}
 
-local function determine_enabled_features()
-    local major_minor_patch = _G._TARANTOOL:split('-', 1)[1]
-    local major_minor_patch_parts = major_minor_patch:split('.', 2)
+local function get_version_suffix(suffix_candidate)
+    if type(suffix_candidate) ~= 'string' then
+        return nil
+    end
 
+    if suffix_candidate:find('^entrypoint$')
+    or suffix_candidate:find('^alpha%d$')
+    or suffix_candidate:find('^beta%d$')
+    or suffix_candidate:find('^rc%d$') then
+        return suffix_candidate
+    end
+
+    return nil
+end
+
+utils.get_version_suffix = get_version_suffix
+
+
+local suffix_with_digit_weight = {
+    alpha = -3000,
+    beta  = -2000,
+    rc    = -1000,
+}
+
+local function get_version_suffix_weight(suffix)
+    if suffix == nil then
+        return 0
+    end
+
+    if suffix:find('^entrypoint$') then
+        return -math.huge
+    end
+
+    for header, weight in pairs(suffix_with_digit_weight) do
+        local pos, _, digits = suffix:find('^' .. header .. '(%d)$')
+        if pos ~= nil then
+            return weight + tonumber(digits)
+        end
+    end
+
+    UtilsInternalError:assert(false,
+        'Unexpected suffix %q, parse with "utils.get_version_suffix" first', suffix)
+end
+
+utils.get_version_suffix_weight = get_version_suffix_weight
+
+
+local function is_version_ge(major, minor,
+                             patch, suffix,
+                             major_to_compare, minor_to_compare,
+                             patch_to_compare, suffix_to_compare)
+    major = major or 0
+    minor = minor or 0
+    patch = patch or 0
+    local suffix_weight = get_version_suffix_weight(suffix)
+
+    major_to_compare = major_to_compare or 0
+    minor_to_compare = minor_to_compare or 0
+    patch_to_compare = patch_to_compare or 0
+    local suffix_weight_to_compare = get_version_suffix_weight(suffix_to_compare)
+
+    if major > major_to_compare then return true end
+    if major < major_to_compare then return false end
+
+    if minor > minor_to_compare then return true end
+    if minor < minor_to_compare then return false end
+
+    if patch > patch_to_compare then return true end
+    if patch < patch_to_compare then return false end
+
+    if suffix_weight > suffix_weight_to_compare then return true end
+    if suffix_weight < suffix_weight_to_compare then return false end
+
+    return true
+end
+
+utils.is_version_ge = is_version_ge
+
+
+local function is_version_in_range(major, minor,
+                                   patch, suffix,
+                                   major_left_side, minor_left_side,
+                                   patch_left_side, suffix_left_side,
+                                   major_right_side, minor_right_side,
+                                   patch_right_side, suffix_right_side)
+    return is_version_ge(major, minor,
+                         patch, suffix,
+                         major_left_side, minor_left_side,
+                         patch_left_side, suffix_left_side)
+       and is_version_ge(major_right_side, minor_right_side,
+                         patch_right_side, suffix_right_side,
+                         major, minor,
+                         patch, suffix)
+end
+
+utils.is_version_in_range = is_version_in_range
+
+
+local function get_tarantool_version()
+    local version_parts = rawget(_G, '_TARANTOOL'):split('-', 1)
+
+    local major_minor_patch_parts = version_parts[1]:split('.', 2)
     local major = tonumber(major_minor_patch_parts[1])
     local minor = tonumber(major_minor_patch_parts[2])
     local patch = tonumber(major_minor_patch_parts[3])
 
-    -- since Tarantool 2.3
-    enabled_tarantool_features.fieldpaths = major >= 2 and (minor > 3 or minor == 3 and patch >= 1)
+    local suffix = get_version_suffix(version_parts[2])
 
-    -- since Tarantool 2.4
-    enabled_tarantool_features.uuids = major >= 2 and (minor > 4 or minor == 4 and patch >= 1)
+    return major, minor, patch, suffix
+end
+
+utils.get_tarantool_version = get_tarantool_version
+
+
+local function tarantool_version_at_least(wanted_major, wanted_minor, wanted_patch)
+    local major, minor, patch, suffix = get_tarantool_version()
+
+    return is_version_ge(major, minor, patch, suffix,
+                         wanted_major, wanted_minor, wanted_patch, nil)
+end
+
+utils.tarantool_version_at_least = tarantool_version_at_least
+
+
+local enabled_tarantool_features = {}
+
+local function determine_enabled_features()
+    local major, minor, patch, suffix = get_tarantool_version()
+
+    -- since Tarantool 2.3.1
+    enabled_tarantool_features.fieldpaths = is_version_ge(major, minor, patch, suffix,
+                                                          2, 3, 1, nil)
+
+    -- since Tarantool 2.4.1
+    enabled_tarantool_features.uuids = is_version_ge(major, minor, patch, suffix,
+                                                     2, 4, 1, nil)
 
     -- since Tarantool 2.6.3 / 2.7.2 / 2.8.1
-    enabled_tarantool_features.jsonpath_indexes = major >= 3 or (major >= 2 and ((minor >= 6 and patch >= 3)
-        or (minor >= 7 and patch >= 2) or (minor >= 8 and patch >= 1) or minor >= 9))
+    enabled_tarantool_features.jsonpath_indexes = is_version_ge(major, minor, patch, suffix,
+                                                                2, 8, 1, nil)
+                                               or is_version_in_range(major, minor, patch, suffix,
+                                                                      2, 7, 2, nil,
+                                                                      2, 7, math.huge, nil)
+                                               or is_version_in_range(major, minor, patch, suffix,
+                                                                      2, 6, 3, nil,
+                                                                      2, 6, math.huge, nil)
 
     -- The merger module was implemented in 2.2.1, see [1].
     -- However it had the critical problem [2], which leads to
@@ -322,12 +451,17 @@ local function determine_enabled_features()
     --
     -- [1]: https://github.com/tarantool/tarantool/issues/3276
     -- [2]: https://github.com/tarantool/tarantool/issues/4954
-    enabled_tarantool_features.builtin_merger =
-        (major == 2 and minor == 3 and patch >= 3) or
-        (major == 2 and minor == 4 and patch >= 2) or
-        (major == 2 and minor == 5 and patch >= 1) or
-        (major >= 2 and minor >= 6) or
-        (major >= 3)
+    enabled_tarantool_features.builtin_merger = is_version_ge(major, minor, patch, suffix,
+                                                              2, 6, 0, nil)
+                                             or is_version_in_range(major, minor, patch, suffix,
+                                                                    2, 5, 1, nil,
+                                                                    2, 5, math.huge, nil)
+                                             or is_version_in_range(major, minor, patch, suffix,
+                                                                    2, 4, 2, nil,
+                                                                    2, 4, math.huge, nil)
+                                             or is_version_in_range(major, minor, patch, suffix,
+                                                                    2, 3, 3, nil,
+                                                                    2, 3, math.huge, nil)
 
     -- The external merger module leans on a set of relatively
     -- new APIs in tarantool. So it works only on tarantool
@@ -335,13 +469,20 @@ local function determine_enabled_features()
     --
     -- See README of the module:
     -- https://github.com/tarantool/tuple-merger
-    enabled_tarantool_features.external_merger =
-        (major == 1 and minor == 10 and patch >= 8) or
-        (major == 2 and minor == 4 and patch >= 3) or
-        (major == 2 and minor == 5 and patch >= 2) or
-        (major == 2 and minor == 6 and patch >= 1) or
-        (major == 2 and minor >= 7) or
-        (major >= 3)
+    enabled_tarantool_features.external_merger = is_version_ge(major, minor, patch, suffix,
+                                                               2, 7, 0, nil)
+                                              or is_version_in_range(major, minor, patch, suffix,
+                                                                     2, 6, 1, nil,
+                                                                     2, 6, math.huge, nil)
+                                              or is_version_in_range(major, minor, patch, suffix,
+                                                                     2, 5, 2, nil,
+                                                                     2, 5, math.huge, nil)
+                                              or is_version_in_range(major, minor, patch, suffix,
+                                                                     2, 4, 3, nil,
+                                                                     2, 4, math.huge, nil)
+                                              or is_version_in_range(major, minor, patch, suffix,
+                                                                     1, 10, 8, nil,
+                                                                     1, 10, math.huge, nil)
 end
 
 function utils.tarantool_supports_fieldpaths()
@@ -398,7 +539,7 @@ local function add_nullable_fields_recursive(operations, operations_map, space_f
 end
 
 -- Tarantool < 2.1 has no fields `box.error.NO_SUCH_FIELD_NO` and `box.error.NO_SUCH_FIELD_NAME`.
-if _TARANTOOL >= "2.1" then
+if tarantool_version_at_least(2, 1, 0, nil) then
     function utils.is_field_not_found(err_code)
         return err_code == box.error.NO_SUCH_FIELD_NO or err_code == box.error.NO_SUCH_FIELD_NAME
     end
