@@ -314,28 +314,7 @@ function helpers.get_other_storage_bucket_id(cluster, bucket_id)
     ]], {bucket_id})
 end
 
-function helpers.tarantool_version_at_least(wanted_major, wanted_minor,
-        wanted_patch)
-    -- Borrowed from `determine_enabled_features()` from
-    -- crud/common/utils.lua.
-    local major_minor_patch = _TARANTOOL:split('-', 1)[1]
-    local major_minor_patch_parts = major_minor_patch:split('.', 2)
-
-    local major = tonumber(major_minor_patch_parts[1])
-    local minor = tonumber(major_minor_patch_parts[2])
-    local patch = tonumber(major_minor_patch_parts[3])
-
-    if major < (wanted_major or 0) then return false end
-    if major > (wanted_major or 0) then return true end
-
-    if minor < (wanted_minor or 0) then return false end
-    if minor > (wanted_minor or 0) then return true end
-
-    if patch < (wanted_patch or 0) then return false end
-    if patch > (wanted_patch or 0) then return true end
-
-    return true
-end
+helpers.tarantool_version_at_least = crud_utils.tarantool_version_at_least
 
 function helpers.update_sharding_key_cache(cluster, space_name)
     return cluster.main_server.net_box:eval([[
