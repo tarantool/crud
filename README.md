@@ -15,6 +15,7 @@ It also provides the `crud-storage` and `crud-router` roles for
 
 - [Quickstart](#quickstart)
 - [API](#api)
+  - [Package info](#package-info)
   - [Insert](#insert)
   - [Insert many](#insert-many)
   - [Get](#get)
@@ -189,6 +190,19 @@ Current limitations for using custom sharding key:
   [#219](https://github.com/tarantool/crud/issues/219).
 - `primary_index_fieldno_map` is not cached, see
   [#243](https://github.com/tarantool/crud/issues/243).
+
+### Package info
+
+```lua
+tarantool> require('crud')._VERSION
+---
+- 1.1.0
+...
+```
+
+Use `_VERSION` handle to check installed module version.
+The handle was introduced in `1.1.0`. If installed from master,
+`_VERSION` shows last tagged version.
 
 ### Insert
 
