@@ -924,7 +924,8 @@ errs[4].tuple      -- {92, 2040, "Artur", 29}
 ### Select
 
 `CRUD` supports multi-conditional selects, treating a cluster as a single space.
-The conditions may include field names or numbers, as well as index names.
+The conditions may include field names, as well as index names.
+(Refer to [#352](https://github.com/tarantool/crud/issues/352) for field number.)
 The recommended first condition is a TREE index; this helps reducing the number
 of tuples to scan. Otherwise a full scan is performed.
 
@@ -970,7 +971,7 @@ Select conditions are very similar to Tarantool update
 Each condition is a table `{operator, field-identifier, value}`:
 
 * Supported operators are: `=` (or `==`), `>`, `>=`, `<`, `<=`.
-* Field identifier can be field name, field number, or index name.
+* Field identifier can be field name or index name. (Refer to [#352](https://github.com/tarantool/crud/issues/352) for field number.)
 
 **Example:**
 

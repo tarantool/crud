@@ -24,7 +24,7 @@
 
 ## Filtering
 
-``CRUD`` allows to filter tuples by conditions. Each condition can use field name (or number) or index name. The first condition that uses index name is used to iterate over space. If there is no conditions that match index names, full scan is performed. Other conditions are used as additional filters. Search condition for the indexed field must be placed first to avoid a full scan. In additional, don't forget to limit amount of results with ``first`` parameter. This will help to avoid too long selects in production.
+``CRUD`` allows to filter tuples by conditions. Each condition can use field name or index name. (Refer to [#352](https://github.com/tarantool/crud/issues/352) for field number.) The first condition that uses index name is used to iterate over space. If there is no conditions that match index names, full scan is performed. Other conditions are used as additional filters. Search condition for the indexed field must be placed first to avoid a full scan. In additional, don't forget to limit amount of results with ``first`` parameter. This will help to avoid too long selects in production.
 
 **Note:** If you specify sharding key or ``bucket_id`` select will be performed on single node. Otherwise Map-Reduce over all nodes will be occurred.
 
