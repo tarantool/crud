@@ -18,7 +18,6 @@ local compare_conditions = require('crud.compare.conditions')
 local CountError = errors.new_class('CountError', {capture_stack = false})
 
 local COUNT_FUNC_NAME = '_crud.count_on_storage'
-local DEFAULT_YIELD_EVERY = 1000
 
 local count = {}
 
@@ -221,7 +220,7 @@ local function call_count_on_router(vshard_router, space_name, user_conditions, 
         skip_sharding_hash_check = true
     end
 
-    local yield_every = opts.yield_every or DEFAULT_YIELD_EVERY
+    local yield_every = opts.yield_every or const.DEFAULT_YIELD_EVERY
 
     local call_opts = {
         mode = opts.mode or 'read',
