@@ -1,4 +1,5 @@
 local errors = require('errors')
+local fiber = require('fiber')
 local fun = require('fun')
 
 local dev_checks = require('crud.common.dev_checks')
@@ -17,7 +18,7 @@ local ExecuteSelectError = errors.new_class('ExecuteSelectError')
 
 local executor = {}
 
-local function scroll_to_after_tuple(gen, space, scan_index, tarantool_iter, after_tuple)
+local function scroll_to_after_tuple(gen, space, scan_index, tarantool_iter, after_tuple, yield_every)
     local primary_index = space.index[0]
 
     local scroll_key_parts = utils.merge_primary_key_parts(scan_index.parts, primary_index.parts)
@@ -25,9 +26,15 @@ local function scroll_to_after_tuple(gen, space, scan_index, tarantool_iter, aft
     local cmp_operator = select_comparators.get_cmp_operator(tarantool_iter)
     local scroll_comparator = select_comparators.gen_tuples_comparator(cmp_operator, scroll_key_parts)
 
+    local looked_up_tuples = 0
     while true do
         local tuple
         gen.state, tuple = gen(gen.param, gen.state)
+        looked_up_tuples = looked_up_tuples + 1
+
+        if yield_every ~= nil and looked_up_tuples % yield_every == 0 then
+            fiber.yield()
+        end
 
         if tuple == nil then
             return nil
@@ -73,6 +80,7 @@ function executor.execute(space, index, filter_func, opts)
         after_tuple = '?table',
         tarantool_iter = 'number',
         limit = '?number',
+        yield_every = '?number',
     })
 
     opts = opts or {}
@@ -137,7 +145,7 @@ function executor.execute(space, index, filter_func, opts)
 
     if opts.after_tuple ~= nil then
         local err
-        tuple, err = scroll_to_after_tuple(gen, space, index, opts.tarantool_iter, opts.after_tuple)
+        tuple, err = scroll_to_after_tuple(gen, space, index, opts.tarantool_iter, opts.after_tuple, opts.yield_every)
         if err ~= nil then
             return nil, ExecuteSelectError:new("Failed to scroll to the after_tuple: %s", err)
         end
@@ -151,6 +159,7 @@ function executor.execute(space, index, filter_func, opts)
         gen.state, tuple = gen(gen.param, gen.state)
     end
 
+    local looked_up_tuples = 0
     while true do
         if tuple == nil then
             break
@@ -170,6 +179,11 @@ function executor.execute(space, index, filter_func, opts)
         end
 
         gen.state, tuple = gen(gen.param, gen.state)
+        looked_up_tuples = looked_up_tuples + 1
+
+        if opts.yield_every ~= nil and looked_up_tuples % opts.yield_every == 0 then
+            fiber.yield()
+        end
     end
 
     return resp

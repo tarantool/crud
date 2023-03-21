@@ -2021,3 +2021,156 @@ pgroup.test_storage_uninit_get_error_text = function(g)
     t.assert_str_contains(err.str, "crud isn't initialized on replicaset")
     t.assert_str_contains(err.str, "or crud module versions mismatch between router and storage")
 end
+
+local function prepare_yield_counters_on_storages(g)
+    helpers.call_on_storages(
+        g.cluster,
+        function(server)
+            server.net_box:eval([[
+                local fiber = require('fiber')
+                rawset(_G, '_fiber_yield', fiber.yield)
+
+                rawset(_G, '_yield_count', 0)
+
+                fiber.yield = function()
+                    rawset(_G, '_yield_count', rawget(_G, '_yield_count') + 1)
+                    rawget(_G, '_fiber_yield')()
+                end
+            ]])
+        end)
+end
+
+local function reset_yield_counters_on_storages(g)
+    helpers.call_on_storages(
+        g.cluster,
+        function(server)
+            server.net_box:eval([[
+                rawset(_G, '_yield_count', 0)
+            ]])
+        end)
+end
+
+local function get_yields_count(g)
+    local result = {}
+    helpers.call_on_storages(
+        g.cluster,
+        function(server, replicaset_alias, result)
+            local count = server.net_box:eval([[
+                return rawget(_G, '_yield_count')
+            ]])
+
+            if result[replicaset_alias] == nil then
+                result[replicaset_alias] = 0
+            end
+
+            result[replicaset_alias] = result[replicaset_alias] + count
+        end,
+        result)
+
+    local total = 0
+    for _, v in pairs(result) do
+        total = total + v
+    end
+
+    return total
+end
+
+local function clean_yield_counters_on_storages(g)
+    helpers.call_on_storages(
+        g.cluster,
+        function(server)
+            server.net_box:eval([[
+                local fiber = require('fiber')
+
+                rawset(_G, '_yield_count', nil)
+
+                fiber.yield = rawget(_G, '_fiber_yield')
+
+                rawset(_G, '_fiber_yield', nil)
+            ]])
+        end)
+end
+
+
+local cases = {
+    select = {
+        eval = [[
+            return crud.select(...)
+        ]]
+    },
+    pairs = {
+        eval = [[
+            local resp = { rows = {} }
+            for _, v in crud.pairs(...) do
+                table.insert(resp.rows, v)
+            end
+            return resp
+        ]]
+    },
+}
+
+for op, case in pairs(cases) do
+    local name = ('test_%s_yield_every'):format(op)
+
+    pgroup.before_test(name, prepare_yield_counters_on_storages)
+    pgroup.after_test(name, clean_yield_counters_on_storages)
+
+    pgroup[name] = function(g)
+        local customers_count = 1000
+        local yield_margin = 100 -- For corner cases and yields unrelated to the call.
+
+        for id = 1, customers_count do
+            helpers.insert_objects(g, 'customers', {
+                {
+                    id = id, name = 'Masafumi', last_name = 'Gotoh',
+                    age = 46, city = 'Shimada',
+                }
+            })
+        end
+
+        local conditions = {{'=', 'age', 46}}
+        local opts = {
+            first = customers_count,
+            batch_size = customers_count,
+        }
+
+        if op == 'select' then
+            opts.fullscan = true
+        end
+
+        opts.yield_every = 1
+        reset_yield_counters_on_storages(g)
+        local resp, err = g.cluster.main_server.net_box:eval(case.eval, {'customers', conditions, opts})
+        t.assert_equals(err, nil)
+        t.assert_equals(#resp.rows, 1000)
+        local yield_count_on_each = get_yields_count(g)
+
+        opts.yield_every = customers_count * 2
+        reset_yield_counters_on_storages(g)
+        local resp, err = g.cluster.main_server.net_box:eval(case.eval, {'customers', conditions, opts})
+        t.assert_equals(err, nil)
+        t.assert_equals(#resp.rows, 1000)
+        local yield_count_none = get_yields_count(g)
+
+        t.assert_almost_equals(
+            yield_count_on_each - yield_count_none,
+            customers_count,
+            yield_margin,
+            "Expected yield on each record")
+    end
+end
+
+pgroup.test_select_yield_every_0 = function(g)
+    local resp, err = g.cluster.main_server.net_box:call('crud.select',
+        {'customers', nil, { yield_every = 0, fullscan = true }})
+    t.assert_equals(resp, nil)
+    t.assert_str_contains(err.err, "yield_every should be > 0")
+end
+
+pgroup.test_pairs_yield_every_0 = function(g)
+    t.assert_error_msg_contains("yield_every should be > 0", function()
+        g.cluster.main_server.net_box:call(
+            'crud.pairs',
+            {'customers', nil, { yield_every = 0 }})
+    end)
+end

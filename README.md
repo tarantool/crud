@@ -958,6 +958,8 @@ where:
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
     vshard router instance. Set this parameter if your space is not
     a part of the default vshard cluster
+  * `yield_every` (`?number`) - number of tuples processed on storage to yield after,
+    `yield_every` should be > 0, default value is 1000
 
 
 Returns metadata and array of rows, error.
