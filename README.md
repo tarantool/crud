@@ -1243,7 +1243,7 @@ where:
 * `conditions` (`?table`) - array of [conditions](#select-conditions)
 * `opts`:
   * `yield_every` (`?number`) - number of tuples processed to yield after,
-    `yield_every` should be > 0, default value is 100
+    `yield_every` should be > 0, default value is 1000
   * `timeout` (`?number`) - `vshard.call` timeout and vshard master
     discovery timeout (in seconds), default value is 2
   * `bucket_id` (`?number|cdata`) - bucket ID
