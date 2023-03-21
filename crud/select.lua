@@ -42,6 +42,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
+        yield_every = '?number',
     })
 
     local space = box.space[space_name]
@@ -77,6 +78,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         after_tuple = opts.after_tuple,
         tarantool_iter = opts.tarantool_iter,
         limit = opts.limit,
+        yield_every = opts.yield_every,
     })
     if err ~= nil then
         return nil, SelectError:new("Failed to execute select: %s", err)

@@ -27,6 +27,7 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
         bucket_id = '?number|cdata',
         force_map_call = '?boolean',
         field_names = '?table',
+        yield_every = '?number',
         call_opts = 'table',
     })
 
@@ -35,6 +36,12 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
     if opts.batch_size ~= nil and opts.batch_size < 1 then
         return nil, SelectError:new("batch_size should be > 0")
     end
+
+    if opts.yield_every ~= nil and opts.yield_every < 1 then
+        return nil, SelectError:new("yield_every should be > 0")
+    end
+
+    local yield_every = opts.yield_every or const.DEFAULT_YIELD_EVERY
 
     -- check conditions
     local conditions, err = compare_conditions.parse(user_conditions)
@@ -163,6 +170,7 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
         sharding_func_hash = sharding_func_hash,
         sharding_key_hash = sharding_key_data.hash,
         skip_sharding_hash_check = skip_sharding_hash_check,
+        yield_every = yield_every,
     }
 
     local merger = Merger.new(vshard_router, replicasets_to_select, space, plan.index_id,
@@ -202,6 +210,8 @@ function select_module.pairs(space_name, user_conditions, opts)
         timeout = '?number',
 
         vshard_router = '?string|table',
+
+        yield_every = '?number',
     })
 
     opts = opts or {}
@@ -222,6 +232,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         bucket_id = opts.bucket_id,
         force_map_call = opts.force_map_call,
         field_names = opts.fields,
+        yield_every = opts.yield_every,
         call_opts = {
             mode = opts.mode,
             prefer_replica = opts.prefer_replica,
@@ -273,6 +284,8 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
         timeout = '?number',
 
         vshard_router = '?string|table',
+
+        yield_every = '?number',
     })
 
     if opts.first ~= nil and opts.first < 0 then
@@ -288,6 +301,7 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
         bucket_id = opts.bucket_id,
         force_map_call = opts.force_map_call,
         field_names = opts.fields,
+        yield_every = opts.yield_every,
         call_opts = {
             mode = opts.mode,
             prefer_replica = opts.prefer_replica,

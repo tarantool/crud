@@ -28,6 +28,8 @@ function Iterator.new(opts)
 
         call_opts = 'table',
         sharding_hash = 'table',
+
+        yield_every = '?number',
     })
 
     local iter = {
@@ -57,6 +59,8 @@ function Iterator.new(opts)
         wait_for_update = false,
 
         sharding_hash = opts.sharding_hash,
+
+        yield_every = opts.yield_every,
     }
 
     setmetatable(iter, Iterator)
@@ -108,6 +112,7 @@ local function update_replicasets_tuples(iter, after_tuple, replicaset_uuid)
         call_opts = iter.call_opts,
         sharding_hash = iter.sharding_hash,
         vshard_router = iter.vshard_router,
+        yield_every = iter.yield_every,
     })
     if err ~= nil then
         if sharding.result_needs_sharding_reload(err) then
