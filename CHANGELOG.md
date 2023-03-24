@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 * Yield on select/pairs storage tuple lookup (#312).
+* Naming of `DEV` environment variable to `TARANTOOL_CRUD_ENABLE_INTERNAL_CHECKS` (#250).
 
 ### Fixed
 * Loaded functions misleading coverage (#249).
