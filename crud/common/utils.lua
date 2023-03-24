@@ -217,7 +217,7 @@ function utils.flatten(object, space_format, bucket_id, skip_nullability_check)
         fieldmap = fieldmap,
         NULL = box.NULL,
     }
-    flatten_func = assert(load(code, '@flatten', 't', env))
+    flatten_func = assert(load(code, nil, 't', env))
 
     flatten_functions_cache[space_format] = flatten_func
     local data, err = flatten_func(object, bucket_id, skip_nullability_check)
