@@ -10,8 +10,8 @@ local fio = require('fio')
 local crud = require('crud')
 local crud_utils = require('crud.common.utils')
 
-if os.getenv('DEV') == nil then
-    os.setenv('DEV', 'ON')
+if os.getenv('TARANTOOL_CRUD_ENABLE_INTERNAL_CHECKS') == nil then
+    os.setenv('TARANTOOL_CRUD_ENABLE_INTERNAL_CHECKS', 'ON')
 end
 
 local helpers = {}
@@ -478,7 +478,7 @@ function helpers.get_map_reduces_stat(router, space_name)
 end
 
 function helpers.disable_dev_checks()
-    os.setenv('DEV', 'OFF')
+    os.setenv('TARANTOOL_CRUD_ENABLE_INTERNAL_CHECKS', 'OFF')
 end
 
 function helpers.count_on_replace_triggers(server, space_name)
