@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 * Yield on select/pairs storage tuple lookup (#312).
 
+### Fixed
+* Loaded functions misleading coverage (#249).
+
 ## [1.1.0] - 13-03-23
 
 ### Added
