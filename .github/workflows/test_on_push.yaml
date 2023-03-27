@@ -19,7 +19,7 @@ jobs:
         remove-merger: [false]
         include:
           - tarantool-version: "1.10"
-            metrics-version: "0.16.0"
+            metrics-version: "0.17.0"
             cartridge-version: "2.7.8"
           - tarantool-version: "2.7"
             remove-merger: true
@@ -34,7 +34,7 @@ jobs:
             cartridge-version: "1.2.0"
           - tarantool-version: "2.10"
             coveralls: true
-            metrics-version: "0.16.0"
+            metrics-version: "0.17.0"
             cartridge-version: "2.7.8"
       fail-fast: false
     # Can't install older versions on 22.04,
