@@ -53,6 +53,13 @@ jobs:
         run: |
           sudo patch -p1 /usr/share/tarantool/luarocks/manif.lua luarocks.patch
 
+      - name: Setup tt
+        run: |
+          curl -L https://tarantool.io/release/2/installer.sh | bash
+          sudo apt-get update
+          sudo apt-get install -y tt
+          tt version
+
       - name: Install requirements for community
         run: |
           tarantool --version
@@ -62,7 +69,7 @@ jobs:
 
       - name: Install metrics
         if: matrix.metrics-version != ''
-        run: tarantoolctl rocks install metrics ${{ matrix.metrics-version }}
+        run: tt rocks install metrics ${{ matrix.metrics-version }}
 
       - name: Remove external merger if needed
         if: ${{ matrix.remove-merger }}
@@ -101,13 +108,20 @@ jobs:
         with:
           tarantool-version: ${{ matrix.tarantool-version }}
 
+      - name: Setup tt
+        run: |
+          curl -L https://tarantool.io/release/2/installer.sh | bash
+          sudo apt-get update
+          sudo apt-get install -y tt
+          tt version
+
       - name: Install requirements for community
         run: |
           tarantool --version
           ./deps.sh
 
       - name: Install metrics
-        run: tarantoolctl rocks install metrics ${{ matrix.metrics-version }}
+        run: tt rocks install metrics ${{ matrix.metrics-version }}
 
       # This server starts and listen on 8084 port that is used for tests
       - name: Stop Mono server
@@ -133,6 +147,13 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
+      - name: Setup tt
+        run: |
+          curl -L https://tarantool.io/release/2/installer.sh | bash
+          sudo apt-get update
+          sudo apt-get install -y tt
+          tt version
+
       - name: Install requirements for enterprise
         run: |
           curl -O -L https://tarantool:${{ secrets.DOWNLOAD_TOKEN }}@download.tarantool.io/enterprise/release/linux/x86_64/${{ matrix.tarantool-version.folder }}/${{ matrix.tarantool-version.bundle }}.tar.gz
@@ -145,9 +166,7 @@ jobs:
 
       - name: Install metrics
         if: matrix.metrics-version != ''
-        run: |
-          source tarantool-enterprise/env.sh
-          tarantoolctl rocks install metrics ${{ matrix.metrics-version }}
+        run: tt rocks install metrics ${{ matrix.metrics-version }}
 
       # This server starts and listen on 8084 port that is used for tests
       - name: Stop Mono server
