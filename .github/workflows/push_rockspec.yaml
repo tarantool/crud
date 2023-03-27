@@ -19,7 +19,7 @@ jobs:
       - name: Check module version
         uses: tarantool/actions/check-module-version@master
         with:
-          module-name: 'crud'
+          module-name: ${{ env.ROCK_NAME }}
 
   push-scm-rockspec:
     runs-on: ubuntu-20.04
