@@ -385,7 +385,7 @@ local res, errs =  crud.insert_object_many('customers', {
 }, {
     stop_on_error = true,
     rollback_on_error  = true,
-}})
+})
 ---
 res
 - metadata:
