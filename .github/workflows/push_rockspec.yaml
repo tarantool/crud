@@ -23,7 +23,7 @@ jobs:
 
   push-scm-rockspec:
     runs-on: ubuntu-20.04
-    if: github.ref == 'refs/heads/master'
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     steps:
       - uses: actions/checkout@master
 
@@ -34,7 +34,7 @@ jobs:
 
   push-tagged-rockspec:
     runs-on: ubuntu-20.04
-    if: startsWith(github.ref, 'refs/tags')
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
     needs: version-check
     steps:
       - uses: actions/checkout@master
