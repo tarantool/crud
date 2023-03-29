@@ -21,6 +21,7 @@ local function delete_on_storage(space_name, key, field_names, opts)
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
+        noreturn = '?boolean',
     })
 
     opts = opts or {}
@@ -44,6 +45,7 @@ local function delete_on_storage(space_name, key, field_names, opts)
     return schema.wrap_box_space_func_result(space, 'delete', {key}, {
         add_space_schema_hash = false,
         field_names = field_names,
+        noreturn = opts.noreturn,
     })
 end
 
@@ -60,6 +62,7 @@ local function call_delete_on_router(vshard_router, space_name, key, opts)
         bucket_id = '?number|cdata',
         fields = '?table',
         vshard_router = '?string|table',
+        noreturn = '?boolean',
     })
 
     local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
@@ -108,6 +111,7 @@ local function call_delete_on_router(vshard_router, space_name, key, opts)
         sharding_func_hash = bucket_id_data.sharding_func_hash,
         sharding_key_hash = sharding_key_hash,
         skip_sharding_hash_check = skip_sharding_hash_check,
+        noreturn = opts.noreturn,
     }
 
     local call_opts = {
@@ -133,6 +137,10 @@ local function call_delete_on_router(vshard_router, space_name, key, opts)
 
     if storage_result.err ~= nil then
         return nil, DeleteError:new("Failed to delete: %s", storage_result.err)
+    end
+
+    if opts.noreturn == true then
+        return nil
     end
 
     local tuple = storage_result.res
@@ -162,6 +170,9 @@ end
 --  Set this parameter if your space is not a part of the
 --  default vshard cluster.
 --
+-- @tparam ?boolean opts.noreturn
+--  Suppress returning successfully processed tuple.
+--
 -- @return[1] object
 -- @treturn[2] nil
 -- @treturn[2] table Error description
@@ -172,6 +183,7 @@ function delete.call(space_name, key, opts)
         bucket_id = '?number|cdata',
         fields = '?table',
         vshard_router = '?string|table',
+        noreturn = '?boolean',
     })
 
     opts = opts or {}

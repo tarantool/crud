@@ -1952,3 +1952,93 @@ pgroup.test_opts_not_damaged = function(g)
     t.assert_equals(err, nil)
     t.assert_equals(new_batch_insert_opts, batch_insert_opts)
 end
+
+pgroup.test_noreturn_opt = function(g)
+    -- insert_many with noreturn, all tuples are correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.insert_many', {
+        'customers',
+        {
+            {1, box.NULL, 'Fedor', 59},
+            {2, box.NULL, 'Anna', 23},
+            {3, box.NULL, 'Daria', 18}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_equals(errs, nil)
+    t.assert_equals(result, nil)
+
+    -- insert_many with noreturn, some tuples are correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.insert_many', {
+        'customers',
+        {
+            {1, box.NULL, 'Fedor', 59},
+            {4, box.NULL, 'Rom', 23},
+            {5, box.NULL, 'Max', 18}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_not_equals(errs, nil)
+    t.assert_equals(#errs, 1)
+    t.assert_equals(result, nil)
+
+    -- insert_many with noreturn, all tuples are not correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.insert_many', {
+        'customers',
+        {
+            {1, box.NULL, 'Fedor', 59},
+            {2, box.NULL, 'Anna', 23},
+            {3, box.NULL, 'Daria', 18}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_not_equals(errs, nil)
+    t.assert_equals(#errs, 3)
+    t.assert_equals(result, nil)
+
+    -- insert_object_many with noreturn, all tuples are correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.insert_object_many', {
+        'customers',
+        {
+            {id = 10, name = 'Fedor', age = 59},
+            {id = 20, name = 'Anna', age = 23},
+            {id = 30, name = 'Daria', age = 18}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_equals(errs, nil)
+    t.assert_equals(result, nil)
+
+    -- insert_object_many with noreturn, some tuples are correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.insert_object_many', {
+        'customers',
+        {
+            {id = 40, name = 'Fedor', age = 59},
+            {id = box.NULL, name = 'Anna', age = 23},
+            {id = box.NULL, name = 'Daria', age = 18}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_not_equals(errs, nil)
+    t.assert_equals(#errs, 2)
+    t.assert_equals(result, nil)
+
+    -- insert_object_many with noreturn, all tuples are not correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.insert_object_many', {
+        'customers',
+        {
+            {id = box.NULL, name = 'Fedor', age = 59},
+            {id = box.NULL, name = 'Anna', age = 23},
+            {id = box.NULL, name = 'Daria', age = 18}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_not_equals(errs, nil)
+    t.assert_equals(#errs, 3)
+    t.assert_equals(result, nil)
+end

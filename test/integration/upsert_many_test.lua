@@ -1964,3 +1964,93 @@ pgroup.test_opts_not_damaged = function(g)
     t.assert_equals(err, nil)
     t.assert_equals(new_batch_upsert_opts, batch_upsert_opts)
 end
+
+pgroup.test_noreturn_opt = function(g)
+    -- upsert_many with noreturn, all tuples are correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+        'customers',
+        {
+            {{1, box.NULL, 'Alex', 59}, {{'+', 'age', 1}}},
+            {{2, box.NULL, 'Anna', 23}, {{'+', 'age', 1}}},
+            {{3, box.NULL, 'Daria', 18}, {{'+', 'age', 1}}}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_equals(errs, nil)
+    t.assert_equals(result, nil)
+
+    -- upsert_many with noreturn, some tuples are correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+        'customers',
+        {
+            {{1, box.NULL, 'Alex', 59}, {{'+', 'age', 1}}},
+            {{box.NULL, box.NULL, 'Anna', 23}, {{'+', 'age', 1}}},
+            {{box.NULL, box.NULL, 'Daria', 18}, {{'+', 'age', 1}}}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_not_equals(errs, nil)
+    t.assert_equals(#errs, 2)
+    t.assert_equals(result, nil)
+
+    -- upsert_many with noreturn, all tuples are not correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+        'customers',
+        {
+            {{box.NULL, box.NULL, 'Alex', 59}, {{'+', 'age', 1}}},
+            {{box.NULL, box.NULL, 'Anna', 23}, {{'+', 'age', 1}}},
+            {{box.NULL, box.NULL, 'Daria', 18}, {{'+', 'age', 1}}}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_not_equals(errs, nil)
+    t.assert_equals(#errs, 3)
+    t.assert_equals(result, nil)
+
+    -- upsert_object_many with noreturn, all tuples are correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+        'customers',
+        {
+            {{id = 1, name = 'Fedor', age = 59}, {{'+', 'age', 1}}},
+            {{id = 2, name = 'Anna', age = 23}, {{'+', 'age', 1}}},
+            {{id = 3, name = 'Daria', age = 18}, {{'+', 'age', 1}}},
+        },
+        {noreturn = true},
+    })
+
+    t.assert_equals(errs, nil)
+    t.assert_equals(result, nil)
+
+    -- upsert_object_many with noreturn, some tuples are correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+        'customers',
+        {
+            {{id = 1, name = 'Fedor', age = 59}, {{'+', 'age', 1}}},
+            {{id = box.NULL, name = 'Anna', age = 23}, {{'+', 'age', 1}}},
+            {{id = box.NULL, name = 'Daria', age = 18}, {{'+', 'age', 1}}},
+        },
+        {noreturn = true},
+    })
+
+    t.assert_not_equals(errs, nil)
+    t.assert_equals(#errs, 2)
+    t.assert_equals(result, nil)
+
+    -- upsert_object_many with noreturn, all tuples are not correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+        'customers',
+        {
+            {{id = box.NULL, name = 'Fedor', age = 59}, {{'+', 'age', 1}}},
+            {{id = box.NULL, name = 'Anna', age = 23}, {{'+', 'age', 1}}},
+            {{id = box.NULL, name = 'Daria', age = 18}, {{'+', 'age', 1}}},
+        },
+        {noreturn = true},
+    })
+
+    t.assert_not_equals(errs, nil)
+    t.assert_equals(#errs, 3)
+    t.assert_equals(result, nil)
+end

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+* Add `noreturn` option for operations: 
+  `insert`, `insert_object`, `insert_many`, `insert_object_many`, 
+  `replace`, `replace_object`, `replace_many`, `insert_object_many`, 
+  `upsert`, `upsert_object`, `upsert_many`, `upsert_object_many`,
+  `update`, `delete`. (#267).
+
 ## [1.1.1] - 24-03-23
 
 ### Changed
