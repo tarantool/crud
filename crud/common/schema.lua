@@ -216,7 +216,9 @@ function schema.wrap_func_result(space, func, args, opts)
             result.space_schema_hash = get_space_schema_hash(space)
         end
     else
-        result.res = filter_tuple_fields(func_res, opts.field_names)
+        if opts.noreturn ~= true then
+            result.res = filter_tuple_fields(func_res, opts.field_names)
+        end
     end
 
     return result

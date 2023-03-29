@@ -1962,3 +1962,93 @@ pgroup.test_opts_not_damaged = function(g)
     t.assert_equals(err, nil)
     t.assert_equals(new_batch_replace_opts, batch_replace_opts)
 end
+
+pgroup.test_noreturn_opt = function(g)
+    -- replace_many with noreturn, all tuples are correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+        'customers',
+        {
+            {1, box.NULL, 'Fedor', 59},
+            {2, box.NULL, 'Anna', 23},
+            {3, box.NULL, 'Daria', 18}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_equals(errs, nil)
+    t.assert_equals(result, nil)
+
+    -- replace_many with noreturn, some tuples are correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+        'customers',
+        {
+            {1, box.NULL, 'Fedor', 59},
+            {box.NULL, box.NULL, 'Anna', 23},
+            {box.NULL, box.NULL, 'Daria', 18}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_not_equals(errs, nil)
+    t.assert_equals(#errs, 2)
+    t.assert_equals(result, nil)
+
+    -- replace_many with noreturn, all tuples are not correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+        'customers',
+        {
+            {box.NULL, box.NULL, 'Fedor', 59},
+            {box.NULL, box.NULL, 'Anna', 23},
+            {box.NULL, box.NULL, 'Daria', 18}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_not_equals(errs, nil)
+    t.assert_equals(#errs, 3)
+    t.assert_equals(result, nil)
+
+    -- replace_object_many with noreturn, all tuples are correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+        'customers',
+        {
+            {id = 1, name = 'Fedor', age = 100},
+            {id = 2, name = 'Anna', age = 100},
+            {id = 3, name = 'Daria', age = 100}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_equals(errs, nil)
+    t.assert_equals(result, nil)
+
+    -- replace_object_many with noreturn, some tuples are correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+        'customers',
+        {
+            {id = 1, name = 'Fedor', age = 100},
+            {id = box.NULL, name = 'Anna', age = 100},
+            {id = box.NULL, name = 'Daria', age = 100}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_not_equals(errs, nil)
+    t.assert_equals(#errs, 2)
+    t.assert_equals(result, nil)
+
+    -- replace_object_many with noreturn, all tuples are not correct
+    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+        'customers',
+        {
+            {id = box.NULL, name = 'Fedor', age = 100},
+            {id = box.NULL, name = 'Anna', age = 100},
+            {id = box.NULL, name = 'Daria', age = 100}
+        },
+        {noreturn = true},
+    })
+
+    t.assert_not_equals(errs, nil)
+    t.assert_equals(#errs, 3)
+    t.assert_equals(result, nil)
+end

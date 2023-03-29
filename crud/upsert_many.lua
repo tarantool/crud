@@ -26,6 +26,7 @@ local function upsert_many_on_storage(space_name, tuples, operations, opts)
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
+        noreturn = '?boolean',
     })
 
     opts = opts or {}
@@ -128,6 +129,7 @@ local function call_upsert_many_on_router(vshard_router, space_name, original_tu
         rollback_on_error = '?boolean',
         vshard_router = '?string|table',
         skip_nullability_check_on_flatten = '?boolean',
+        noreturn = '?boolean',
     })
 
     local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
@@ -201,6 +203,10 @@ local function call_upsert_many_on_router(vshard_router, space_name, original_tu
         end
     end
 
+    if opts.noreturn == true then
+        return nil, errs
+    end
+
     local res, err = utils.format_result(nil, space, opts.fields)
     if err ~= nil then
         errs = errs or {}
@@ -237,6 +243,7 @@ function upsert_many.tuples(space_name, tuples_operation_data, opts)
         stop_on_error = '?boolean',
         rollback_on_error = '?boolean',
         vshard_router = '?string|table',
+        noreturn = '?boolean',
     })
 
     opts = opts or {}
@@ -275,6 +282,7 @@ function upsert_many.objects(space_name, objs_operation_data, opts)
         stop_on_error = '?boolean',
         rollback_on_error = '?boolean',
         vshard_router = '?string|table',
+        noreturn = '?boolean',
     })
 
     opts = opts or {}

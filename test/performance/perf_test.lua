@@ -129,6 +129,7 @@ local batch_insert_cases = generate_batch_insert_cases(min_batch_size, denominat
 local row_name = {
     insert = 'insert',
     insert_many = 'insert_many',
+    insert_many_noreturn = 'insert_many (noreturn)',
     select_pk = 'select by pk',
     select_gt_pk = 'select gt by pk (limit 10)',
     select_secondary_eq = 'select eq by secondary (limit 10)',
@@ -146,7 +147,7 @@ local column_name = {
     metrics_quantile_stats = 'crud (metrics stats, with quantiles)',
 }
 
--- insert column names for insert_many/insert comparison cases
+-- insert column names for insert_many, insert_many (noreturn) and insert comparison cases
 fun.reduce(
         function(list, value) list[value] = value return list end,
         column_name, pairs(batch_insert_cases.cols_names)
@@ -278,6 +279,7 @@ g.after_all(function(g)
             row_name.select_secondary_sharded,
             row_name.insert,
             row_name.insert_many,
+            row_name.insert_many_noreturn,
         }
     })
 
@@ -303,6 +305,7 @@ g.after_all(function(g)
         rows = {
             row_name.insert,
             row_name.insert_many,
+            row_name.insert_many_noreturn,
         },
     })
 
@@ -549,6 +552,18 @@ local batch_insert_params = function(count)
     return { 'customers', batch }
 end
 
+local batch_insert_params_with_noreturn = function(count)
+    local batch = {}
+
+    count = count or 1
+
+    for _ = 1, count do
+        table.insert(batch, generate_customer())
+    end
+
+    return { 'customers', batch, { noreturn=true } }
+end
+
 local select_params_pk_eq = function()
     return { 'customers', {{'==', 'id', gen() % 10000}} }
 end
@@ -728,6 +743,29 @@ local cases = {
         integration_params = integration_params,
         perf_params = batch_insert_comparison_perf,
         row_name = row_name.insert_many,
+    },
+
+    crud_insert_many_noreturn = {
+        call = 'crud.insert_many',
+        params = batch_insert_params_with_noreturn,
+        matrix = stats_cases,
+        integration_params = integration_params,
+        perf_params = insert_perf,
+        row_name = row_name.insert_many_noreturn,
+    },
+
+    crud_insert_many_noreturn_without_stats_wrapper = {
+        prepare = function(g)
+            g.router:eval([[
+                rawset(_G, '_plain_insert_many', require('crud.insert_many').tuples)
+            ]])
+        end,
+        call = '_plain_insert_many',
+        params = batch_insert_params_with_noreturn,
+        matrix = { [''] = { column_name = column_name.without_stats_wrapper } },
+        integration_params = integration_params,
+        perf_params = batch_insert_comparison_perf,
+        row_name = row_name.insert_many_noreturn,
     },
 
     vshard_select_pk_eq = {
@@ -1006,6 +1044,15 @@ local cases = {
         integration_params = integration_params,
         perf_params = batch_insert_comparison_perf,
         row_name = row_name.insert_many,
+    },
+
+    crud_insert_many_noreturn_different_batch_size = {
+        call = 'crud.insert_many',
+        params = batch_insert_params_with_noreturn,
+        matrix = batch_insert_cases.matrix,
+        integration_params = integration_params,
+        perf_params = batch_insert_comparison_perf,
+        row_name = row_name.insert_many_noreturn,
     },
 }
 

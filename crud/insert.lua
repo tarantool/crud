@@ -21,6 +21,7 @@ local function insert_on_storage(space_name, tuple, opts)
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
+        noreturn = '?boolean',
     })
 
     opts = opts or {}
@@ -45,6 +46,7 @@ local function insert_on_storage(space_name, tuple, opts)
     return schema.wrap_box_space_func_result(space, 'insert', {tuple}, {
         add_space_schema_hash = opts.add_space_schema_hash,
         field_names = opts.fields,
+        noreturn = opts.noreturn,
     })
 end
 
@@ -63,6 +65,7 @@ local function call_insert_on_router(vshard_router, space_name, original_tuple, 
         fields = '?table',
         vshard_router = '?string|table',
         skip_nullability_check_on_flatten = '?boolean',
+        noreturn = '?boolean',
     })
 
     local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
@@ -86,6 +89,7 @@ local function call_insert_on_router(vshard_router, space_name, original_tuple, 
         sharding_func_hash = sharding_data.sharding_func_hash,
         sharding_key_hash = sharding_data.sharding_key_hash,
         skip_sharding_hash_check = sharding_data.skip_sharding_hash_check,
+        noreturn = opts.noreturn,
     }
 
     local call_opts = {
@@ -119,6 +123,10 @@ local function call_insert_on_router(vshard_router, space_name, original_tuple, 
         return nil, err_wrapped
     end
 
+    if opts.noreturn == true then
+        return nil
+    end
+
     local tuple = storage_result.res
 
     return utils.format_result({tuple}, space, opts.fields)
@@ -146,6 +154,9 @@ end
 --  Set this parameter if your space is not a part of the
 --  default vshard cluster.
 --
+-- @tparam ?boolean opts.noreturn
+--  Suppress returning successfully processed tuple.
+--
 -- @return[1] tuple
 -- @treturn[2] nil
 -- @treturn[2] table Error description
@@ -157,6 +168,7 @@ function insert.tuple(space_name, tuple, opts)
         add_space_schema_hash = '?boolean',
         fields = '?table',
         vshard_router = '?string|table',
+        noreturn = '?boolean',
     })
 
     opts = opts or {}
@@ -195,6 +207,7 @@ function insert.object(space_name, obj, opts)
         fields = '?table',
         vshard_router = '?string|table',
         skip_nullability_check_on_flatten = '?boolean',
+        noreturn = '?boolean',
     })
 
     opts = opts or {}

@@ -62,6 +62,7 @@ local function call_upsert_on_router(vshard_router, space_name, original_tuple, 
         fields = '?table',
         vshard_router = '?string|table',
         skip_nullability_check_on_flatten = '?boolean',
+        noreturn = '?boolean',
     })
 
     local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
@@ -127,7 +128,11 @@ local function call_upsert_on_router(vshard_router, space_name, original_tuple, 
         return nil, err_wrapped
     end
 
-    -- upsert always returns nil
+    if opts.noreturn == true then
+        return nil
+    end
+
+    -- upsert returns only metadata, without rows
     return utils.format_result({}, space, opts.fields)
 end
 
@@ -157,6 +162,9 @@ end
 --  Set this parameter if your space is not a part of the
 --  default vshard cluster.
 --
+-- @tparam ?boolean opts.noreturn
+--  Suppress returning successfully processed tuple.
+--
 -- @return[1] tuple
 -- @treturn[2] nil
 -- @treturn[2] table Error description
@@ -168,6 +176,7 @@ function upsert.tuple(space_name, tuple, user_operations, opts)
         add_space_schema_hash = '?boolean',
         fields = '?table',
         vshard_router = '?string|table',
+        noreturn = '?boolean',
     })
 
     opts = opts or {}
@@ -209,6 +218,7 @@ function upsert.object(space_name, obj, user_operations, opts)
         add_space_schema_hash = '?boolean',
         fields = '?table',
         vshard_router = '?string|table',
+        noreturn = '?boolean',
     })
 
     opts = opts or {}

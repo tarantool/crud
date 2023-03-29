@@ -1337,3 +1337,121 @@ for op, case in pairs(gh_328_error_cases) do
         end
     end
 end
+
+pgroup.test_noreturn_opt = function(g)
+    -- insert with noreturn success
+    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+        'customers', {1, box.NULL, 'Elizabeth', 24}, {noreturn = true}
+    })
+    t.assert_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- insert with noreturn fail
+    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+        'customers', {1, box.NULL, 'Elizabeth', 24}, {noreturn = true}
+    })
+    t.assert_not_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- insert_object with noreturn success
+    local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {
+        'customers', {id = 0, name = 'Fedor', age = 59}, {noreturn = true}
+    })
+    t.assert_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- insert_object with noreturn fail
+    local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {
+        'customers', {id = 0, name = 'Fedor', age = 59}, {noreturn = true}
+    })
+    t.assert_not_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- replace with noreturn success
+    local result, err = g.cluster.main_server.net_box:call('crud.replace', {
+        'customers', {1, box.NULL, 'Elizabeth', 24}, {noreturn = true}
+    })
+    t.assert_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- replace with noreturn fail
+    local result, err = g.cluster.main_server.net_box:call('crud.replace', {
+        'customers', {box.NULL, box.NULL, 'Elizabeth', 24}, {noreturn = true}
+    })
+    t.assert_not_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- replace_object with noreturn success
+    local result, err = g.cluster.main_server.net_box:call('crud.replace_object', {
+        'customers', {id = 0, name = 'Fedor', age = 59}, {noreturn = true}
+    })
+    t.assert_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- replace_object with noreturn fail
+    local result, err = g.cluster.main_server.net_box:call('crud.replace_object', {
+        'customers', {id = box.NULL, name = 'Fedor', age = 59}, {noreturn = true}
+    })
+    t.assert_not_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- upsert with noreturn success
+    local result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+        'customers', {1, box.NULL, 'Alice', 22},
+        {{'+', 'age', 1}}, {noreturn = true}
+    })
+    t.assert_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- upsert with noreturn fail
+    local result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+        'customers', {1, box.NULL, 'Alice', 22},
+        {{'+', 'unknown', 1}}, {noreturn = true}
+    })
+    t.assert_not_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- upsert_object with noreturn success
+    local result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
+        'customers', {id = 0, name = 'Fedor', age = 59},
+        {{'+', 'age', 1}}, {noreturn = true}
+    })
+    t.assert_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- upsert_object with noreturn fail
+    local result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
+        'customers', {id = 0, name = 'Fedor', age = 59},
+        {{'+', 'unknown', 1}}, {noreturn = true}
+    })
+    t.assert_not_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- update with noreturn success
+    local result, err = g.cluster.main_server.net_box:call('crud.update', {
+        'customers', 1, {{'+', 'age', 1},}, {noreturn = true}
+    })
+    t.assert_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- update with noreturn fail
+    local result, err = g.cluster.main_server.net_box:call('crud.update', {
+        'customers', {box.NULL, box.NULL, 'Elizabeth', 24}, {noreturn = true}
+    })
+    t.assert_not_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- delete with noreturn success
+    local result, err = g.cluster.main_server.net_box:call('crud.delete', {
+        'customers', 1, {noreturn = true}
+    })
+    t.assert_equals(err, nil)
+    t.assert_equals(result, nil)
+
+    -- delete with noreturn fail
+    local result, err = g.cluster.main_server.net_box:call('crud.delete', {
+        'customers', {box.NULL, box.NULL, 'Elizabeth', 24}, {noreturn = true}
+    })
+    t.assert_not_equals(err, nil)
+    t.assert_equals(result, nil)
+end

@@ -27,6 +27,7 @@ local function replace_many_on_storage(space_name, tuples, opts)
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
+        noreturn = '?boolean',
     })
 
     opts = opts or {}
@@ -56,6 +57,7 @@ local function replace_many_on_storage(space_name, tuples, opts)
         local insert_result = schema.wrap_box_space_func_result(space, 'replace', {tuple}, {
             add_space_schema_hash = opts.add_space_schema_hash,
             field_names = opts.fields,
+            noreturn = opts.noreturn,
         })
 
         table.insert(errs, err)
@@ -132,6 +134,7 @@ local function call_replace_many_on_router(vshard_router, space_name, original_t
         rollback_on_error = '?boolean',
         vshard_router = '?string|table',
         skip_nullability_check_on_flatten = '?boolean',
+        noreturn = '?boolean',
     })
 
     local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
@@ -151,6 +154,7 @@ local function call_replace_many_on_router(vshard_router, space_name, original_t
         fields = opts.fields,
         stop_on_error = opts.stop_on_error,
         rollback_on_error = opts.rollback_on_error,
+        noreturn = opts.noreturn,
     }
 
     local iter, err = BatchInsertIterator:new({
@@ -222,6 +226,7 @@ function replace_many.tuples(space_name, tuples, opts)
         stop_on_error = '?boolean',
         rollback_on_error = '?boolean',
         vshard_router = '?string|table',
+        noreturn = '?boolean',
     })
 
     opts = opts or {}
@@ -260,6 +265,7 @@ function replace_many.objects(space_name, objs, opts)
         rollback_on_error = '?boolean',
         vshard_router = '?string|table',
         skip_nullability_check_on_flatten = '?boolean',
+        noreturn = '?boolean',
     })
 
     opts = opts or {}

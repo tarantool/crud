@@ -234,6 +234,8 @@ where:
     since each replicaset has its own sequence. If sequence field is a part
     of the sharding key (which is true by default), choosing the bucket id is
     the sole responsibility of the developer
+  * `noreturn` (`?boolean`) - suppress successfully processed tuple
+    (first return value is `nil`). `false` by default
 
 Returns metadata and array contains one inserted row, error.
 
@@ -299,6 +301,8 @@ where:
     since each replicaset has its own sequence. If sequence field is a part
     of the sharding key (which is true by default), choosing the bucket id is
     the sole responsibility of the developer
+  * `noreturn` (`?boolean`) - suppress successfully processed tuples
+    (first return value is `nil`). `false` by default
 
 Returns metadata and array with inserted rows, array of errors.
 Each error object can contain field `operation_data`.
@@ -474,6 +478,8 @@ where:
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
     vshard router instance. Set this parameter if your space is not
     a part of the default vshard cluster
+  * `noreturn` (`?boolean`) - suppress successfully processed tuple
+    (first return value is `nil`). `false` by default
 
 Returns metadata and array contains one updated row, error.
 
@@ -510,6 +516,8 @@ where:
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
     vshard router instance. Set this parameter if your space is not
     a part of the default vshard cluster
+  * `noreturn` (`?boolean`) - suppress successfully processed tuple
+    (first return value is `nil`). `false` by default
 
 Returns metadata and array contains one deleted row (empty for vinyl), error.
 
@@ -557,6 +565,8 @@ where:
     since each replicaset has its own sequence. If sequence field is a part
     of the sharding key (which is true by default), choosing the bucket id is
     the sole responsibility of the developer
+  * `noreturn` (`?boolean`) - suppress successfully processed tuple
+    (first return value is `nil`). `false` by default
 
 Returns inserted or replaced rows and metadata or nil with error.
 
@@ -622,6 +632,8 @@ where:
     since each replicaset has its own sequence. If sequence field is a part
     of the sharding key (which is true by default), choosing the bucket id is
     the sole responsibility of the developer
+  * `noreturn` (`?boolean`) - suppress successfully processed tuples
+    (first return value is `nil`). `false` by default
 
 Returns metadata and array with inserted/replaced rows, array of errors.
 Each error object can contain field `operation_data`.
@@ -758,6 +770,8 @@ where:
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
     vshard router instance. Set this parameter if your space is not
     a part of the default vshard cluster
+  * `noreturn` (`?boolean`) - suppress successfully processed tuple
+    (first return value is `nil`). `false` by default
 
 Returns metadata and empty array of rows or nil, error.
 
@@ -819,6 +833,8 @@ where:
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
     vshard router instance. Set this parameter if your space is not
     a part of the default vshard cluster
+  * `noreturn` (`?boolean`) - suppress successfully processed tuples
+    (first return value is `nil`). `false` by default
 
 Returns metadata and array of errors.
 Each error object can contain field `operation_data`.
