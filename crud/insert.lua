@@ -62,6 +62,7 @@ local function call_insert_on_router(vshard_router, space_name, original_tuple, 
         add_space_schema_hash = '?boolean',
         fields = '?table',
         vshard_router = '?string|table',
+        skip_nullability_check_on_flatten = '?boolean',
     })
 
     local space, err = utils.get_space(space_name, vshard_router, opts.timeout)

@@ -29,6 +29,7 @@ function Iterator.new(opts)
         call_opts = 'table',
         sharding_hash = 'table',
 
+        vshard_router = 'table',
         yield_every = '?number',
     })
 
@@ -60,6 +61,7 @@ function Iterator.new(opts)
 
         sharding_hash = opts.sharding_hash,
 
+        vshard_router = opts.vshard_router,
         yield_every = opts.yield_every,
     }
 
