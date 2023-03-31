@@ -10,7 +10,6 @@ local t = require('luatest')
 local g = t.group('perf')
 
 local helpers = require('test.helper')
-helpers.disable_dev_checks()
 
 
 local id = 0
@@ -24,6 +23,15 @@ local function reset_gen()
 end
 
 g.before_all(function(g)
+    -- Run real perf tests only with flag, otherwise run short version
+    -- to test compatibility as part of unit/integration test run.
+    g.perf_mode_on = os.getenv('PERF_MODE_ON')
+
+    if g.perf_mode_on then
+        g.old_dev_checks_value = os.getenv('TARANTOOL_CRUD_ENABLE_INTERNAL_CHECKS')
+        helpers.disable_dev_checks()
+    end
+
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint('srv_ddl'),
@@ -73,10 +81,6 @@ g.before_all(function(g)
     g.router:eval([[
         rawset(_G, 'crud', require('crud'))
     ]])
-
-    -- Run real perf tests only with flag, otherwise run short version
-    -- to test compatibility as part of unit/integration test run.
-    g.perf_mode_on = os.getenv('PERF_MODE_ON')
 
     g.total_report = {}
 end)
@@ -301,6 +305,10 @@ g.after_all(function(g)
             row_name.insert_many,
         },
     })
+
+    if g.perf_mode_on then
+        os.setenv('TARANTOOL_CRUD_ENABLE_INTERNAL_CHECKS', g.old_dev_checks_value)
+    end
 end)
 
 local function generate_customer()
