@@ -131,6 +131,7 @@ local function call_replace_many_on_router(vshard_router, space_name, original_t
         stop_on_error = '?boolean',
         rollback_on_error = '?boolean',
         vshard_router = '?string|table',
+        skip_nullability_check_on_flatten = '?boolean',
     })
 
     local space, err = utils.get_space(space_name, vshard_router, opts.timeout)

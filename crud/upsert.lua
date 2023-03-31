@@ -17,6 +17,7 @@ local UPSERT_FUNC_NAME = '_crud.upsert_on_storage'
 local function upsert_on_storage(space_name, tuple, operations, opts)
     dev_checks('string', 'table', 'table', {
         add_space_schema_hash = '?boolean',
+        fields = '?table',
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
@@ -60,6 +61,7 @@ local function call_upsert_on_router(vshard_router, space_name, original_tuple, 
         add_space_schema_hash = '?boolean',
         fields = '?table',
         vshard_router = '?string|table',
+        skip_nullability_check_on_flatten = '?boolean',
     })
 
     local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
