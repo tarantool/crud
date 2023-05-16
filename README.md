@@ -55,7 +55,7 @@ project:
   ```shell
   $ git clone https://github.com/tarantool/crud.git
   $ cd crud
-  $ tarantoolctl rocks make
+  $ tt rocks make
   $ ./doc/playground.lua
   tarantool> crud.select('customers', {{'<=', 'age', 35}}, {first = 10})
   tarantool> crud.select('developers', nil, {first = 6})
@@ -63,7 +63,7 @@ project:
 * Install crud into a current directory:
 
   ```shell
-  $ tarantoolctl rocks install crud
+  $ tt rocks install crud
   ```
 
   And add the [initialization code](#API) to storage and router instance files.

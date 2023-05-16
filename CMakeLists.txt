@@ -77,6 +77,8 @@ add_custom_target(coveralls
 ## Install ####################################################################
 ###############################################################################
 
+find_package(TTCtl)
+
 if(NOT DEFINED TARANTOOL_INSTALL_LUADIR)
     set(TARANTOOL_INSTALL_LUADIR "${PROJECT_SOURCE_DIR}/.rocks/share/tarantool")
 endif()
@@ -99,9 +101,9 @@ install(
 # Don't include to rockspec as some Tarantool versions (e.g. 2.2 and 2.3)
 # don't have symbols required by "tuple-merger" and "tuple-keydef" modules.
 execute_process(
-    COMMAND bash "-c" "tarantoolctl rocks install tuple-keydef 0.0.2"
+    COMMAND bash "-c" "${TTCTL} rocks install tuple-keydef 0.0.2"
 )
 
 execute_process(
-    COMMAND bash "-c" "tarantoolctl rocks install tuple-merger 0.0.2"
+    COMMAND bash "-c" "${TTCTL} rocks install tuple-merger 0.0.2"
 )
