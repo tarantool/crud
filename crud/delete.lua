@@ -82,6 +82,9 @@ local function call_delete_on_router(vshard_router, space_name, key, opts)
 
     local sharding_key = key
     if opts.bucket_id == nil then
+        if space.index[0] == nil then
+            return nil, DeleteError:new("Cannot fetch primary index parts"), const.NEED_SCHEMA_RELOAD
+        end
         local primary_index_parts = space.index[0].parts
 
         local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(vshard_router, space_name)
