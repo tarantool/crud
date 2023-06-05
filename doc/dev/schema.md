@@ -15,6 +15,7 @@ is obtained, used and reloaded.
   - [When schema is used](#when-schema-is-used)
   - [How schema is reloaded](#how-schema-is-reloaded)
   - [When schema is reloaded and operation is retried](#when-schema-is-reloaded-and-operation-is-retried)
+  - [When schema is reloaded depending on the user option](#when-schema-is-reloaded-depending-on-the-user-option)
   - [Alternative approaches](#alternative-approaches)
 - [Sharding schema](#sharding-schema)
   - [How schema is stored](#how-schema-is-stored-1)
@@ -136,6 +137,16 @@ function crud.insert_object_many(args)
     return reload_schema_wrapper(call_insert_many_func, space_name, flatten_obj_array, opts)
 end
 ```
+
+### When schema is reloaded depending on the user option
+
+Related link: [PR#359](https://github.com/tarantool/crud/pull/359)
+
+Conditionally if the flag `fetch_latest_metadata` for DML operation that
+return metadata (or uses metadata directly) is used.
+Before receiving the space format, a mismatch check will be performed between the scheme version
+on all involved storage and the scheme version in the net_box connection of the router.
+In case of mismatch, the schema reload will be triggered.
 
 ### Alternative approaches
 

@@ -236,6 +236,10 @@ where:
     the sole responsibility of the developer
   * `noreturn` (`?boolean`) - suppress successfully processed tuple
     (first return value is `nil`). `false` by default
+  * `fetch_latest_metadata` (`?boolean`) - guarantees the
+    up-to-date metadata (space format) in first return value, otherwise 
+    it may not take into account the latest migration of the data format. 
+    Performance overhead is up to 15%. `false` by default
 
 Returns metadata and array contains one inserted row, error.
 
@@ -303,6 +307,10 @@ where:
     the sole responsibility of the developer
   * `noreturn` (`?boolean`) - suppress successfully processed tuples
     (first return value is `nil`). `false` by default
+  * `fetch_latest_metadata` (`?boolean`) - guarantees the
+    up-to-date metadata (space format) in first return value, otherwise 
+    it may not take into account the latest migration of the data format. 
+    Performance overhead is up to 15%. `false` by default
 
 Returns metadata and array with inserted rows, array of errors.
 Each error object can contain field `operation_data`.
@@ -441,6 +449,10 @@ where:
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
     vshard router instance. Set this parameter if your space is not
     a part of the default vshard cluster
+  * `fetch_latest_metadata` (`?boolean`) - guarantees the
+    up-to-date metadata (space format) in first return value, otherwise 
+    it may not take into account the latest migration of the data format. 
+    Performance overhead is up to 15%. `false` by default
 
 Returns metadata and array contains one row, error.
 
@@ -480,6 +492,10 @@ where:
     a part of the default vshard cluster
   * `noreturn` (`?boolean`) - suppress successfully processed tuple
     (first return value is `nil`). `false` by default
+  * `fetch_latest_metadata` (`?boolean`) - guarantees the
+    up-to-date metadata (space format) in first return value, otherwise 
+    it may not take into account the latest migration of the data format. 
+    Performance overhead is up to 15%. `false` by default
 
 Returns metadata and array contains one updated row, error.
 
@@ -518,6 +534,10 @@ where:
     a part of the default vshard cluster
   * `noreturn` (`?boolean`) - suppress successfully processed tuple
     (first return value is `nil`). `false` by default
+  * `fetch_latest_metadata` (`?boolean`) - guarantees the
+    up-to-date metadata (space format) in first return value, otherwise 
+    it may not take into account the latest migration of the data format. 
+    Performance overhead is up to 15%. `false` by default
 
 Returns metadata and array contains one deleted row (empty for vinyl), error.
 
@@ -567,6 +587,10 @@ where:
     the sole responsibility of the developer
   * `noreturn` (`?boolean`) - suppress successfully processed tuple
     (first return value is `nil`). `false` by default
+  * `fetch_latest_metadata` (`?boolean`) - guarantees the
+    up-to-date metadata (space format) in first return value, otherwise 
+    it may not take into account the latest migration of the data format. 
+    Performance overhead is up to 15%. `false` by default
 
 Returns inserted or replaced rows and metadata or nil with error.
 
@@ -634,6 +658,10 @@ where:
     the sole responsibility of the developer
   * `noreturn` (`?boolean`) - suppress successfully processed tuples
     (first return value is `nil`). `false` by default
+  * `fetch_latest_metadata` (`?boolean`) - guarantees the
+    up-to-date metadata (space format) in first return value, otherwise 
+    it may not take into account the latest migration of the data format. 
+    Performance overhead is up to 15%. `false` by default
 
 Returns metadata and array with inserted/replaced rows, array of errors.
 Each error object can contain field `operation_data`.
@@ -772,6 +800,10 @@ where:
     a part of the default vshard cluster
   * `noreturn` (`?boolean`) - suppress successfully processed tuple
     (first return value is `nil`). `false` by default
+  * `fetch_latest_metadata` (`?boolean`) - guarantees the
+    up-to-date metadata (space format) in first return value, otherwise 
+    it may not take into account the latest migration of the data format. 
+    Performance overhead is up to 15%. `false` by default
 
 Returns metadata and empty array of rows or nil, error.
 
@@ -835,6 +867,10 @@ where:
     a part of the default vshard cluster
   * `noreturn` (`?boolean`) - suppress successfully processed tuples
     (first return value is `nil`). `false` by default
+  * `fetch_latest_metadata` (`?boolean`) - guarantees the
+    up-to-date metadata (space format) in first return value, otherwise 
+    it may not take into account the latest migration of the data format. 
+    Performance overhead is up to 15%. `false` by default
 
 Returns metadata and array of errors.
 Each error object can contain field `operation_data`.
@@ -977,6 +1013,10 @@ where:
     a part of the default vshard cluster
   * `yield_every` (`?number`) - number of tuples processed on storage to yield after,
     `yield_every` should be > 0, default value is 1000
+  * `fetch_latest_metadata` (`?boolean`) - guarantees the
+    up-to-date metadata (space format) in first return value, otherwise 
+    it may not take into account the latest migration of the data format. 
+    Performance overhead is up to 15%. `false` by default
 
 
 Returns metadata and array of rows, error.

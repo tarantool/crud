@@ -22,6 +22,7 @@ local function replace_on_storage(space_name, tuple, opts)
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}
@@ -47,6 +48,7 @@ local function replace_on_storage(space_name, tuple, opts)
         add_space_schema_hash = opts.add_space_schema_hash,
         field_names = opts.fields,
         noreturn = opts.noreturn,
+        fetch_latest_metadata = opts.fetch_latest_metadata,
     })
 end
 
@@ -66,9 +68,10 @@ local function call_replace_on_router(vshard_router, space_name, original_tuple,
         vshard_router = '?string|table',
         skip_nullability_check_on_flatten = '?boolean',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
-    local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
+    local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router, opts.timeout)
     if err ~= nil then
         return nil, ReplaceError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end
@@ -90,6 +93,7 @@ local function call_replace_on_router(vshard_router, space_name, original_tuple,
         sharding_key_hash = sharding_data.sharding_key_hash,
         skip_sharding_hash_check = sharding_data.skip_sharding_hash_check,
         noreturn = opts.noreturn,
+        fetch_latest_metadata = opts.fetch_latest_metadata,
     }
 
     local call_opts = {
@@ -127,6 +131,14 @@ local function call_replace_on_router(vshard_router, space_name, original_tuple,
     end
 
     local tuple = storage_result.res
+
+    if opts.fetch_latest_metadata == true then
+        -- This option is temporary and is related to [1], [2].
+        -- [1] https://github.com/tarantool/crud/issues/236
+        -- [2] https://github.com/tarantool/crud/issues/361
+        space = utils.fetch_latest_metadata_when_single_storage(space, space_name, netbox_schema_version,
+                                                                vshard_router, opts, storage_result.storage_info)
+    end
 
     return utils.format_result({tuple}, space, opts.fields)
 end
@@ -168,6 +180,7 @@ function replace.tuple(space_name, tuple, opts)
         fields = '?table',
         vshard_router = '?string|table',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}
@@ -207,6 +220,7 @@ function replace.object(space_name, obj, opts)
         vshard_router = '?string|table',
         skip_nullability_check_on_flatten = '?boolean',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}

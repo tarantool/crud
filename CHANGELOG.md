@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   `upsert`, `upsert_object`, `upsert_many`, `upsert_object_many`,
   `update`, `delete`. (#267).
 
+### Fixed
+* Crud DML operations returning stale schema for metadata generation.
+  Now you may use `fetch_latest_metadata` flag to work with latest schema (#236).
+
 ## [1.1.1] - 24-03-23
 
 ### Changed

@@ -16,8 +16,8 @@ local borders = {}
 local STAT_FUNC_NAME = '_crud.get_border_on_storage'
 
 
-local function get_border_on_storage(border_name, space_name, index_id, field_names)
-    dev_checks('string', 'string', 'number', '?table')
+local function get_border_on_storage(border_name, space_name, index_id, field_names, fetch_latest_metadata)
+    dev_checks('string', 'string', 'number', '?table', '?boolean')
 
     assert(border_name == 'min' or border_name == 'max')
 
@@ -38,6 +38,7 @@ local function get_border_on_storage(border_name, space_name, index_id, field_na
     return schema.wrap_func_result(space, get_index_border, {index}, {
         add_space_schema_hash = true,
         field_names = field_names,
+        fetch_latest_metadata = fetch_latest_metadata,
     })
 end
 
@@ -71,9 +72,10 @@ local function call_get_border_on_router(vshard_router, border_name, space_name,
         timeout = '?number',
         fields = '?table',
         vshard_router = '?string|table',
+        fetch_latest_metadata = '?boolean',
     })
 
-    local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
+    local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router, opts.timeout)
     if err ~= nil then
         return nil, BorderError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end
@@ -108,9 +110,9 @@ local function call_get_border_on_router(vshard_router, border_name, space_name,
         replicasets = replicasets,
         timeout = opts.timeout,
     }
-    local results, err = call.map(vshard_router,
+    local results, err, storages_info = call.map(vshard_router,
         STAT_FUNC_NAME,
-        {border_name, space_name, index.id, field_names},
+        {border_name, space_name, index.id, field_names, opts.fetch_latest_metadata},
         call_opts
     )
 
@@ -152,6 +154,14 @@ local function call_get_border_on_router(vshard_router, border_name, space_name,
         if tuple ~= nil and is_closer(compare_sign, comparator, tuple, res_tuple) then
             res_tuple = tuple
         end
+    end
+
+    if opts.fetch_latest_metadata == true then
+        -- This option is temporary and is related to [1], [2].
+        -- [1] https://github.com/tarantool/crud/issues/236
+        -- [2] https://github.com/tarantool/crud/issues/361
+        space = utils.fetch_latest_metadata_when_map_storages(space, space_name, vshard_router, opts,
+                                                              storages_info, netbox_schema_version)
     end
 
     local result = utils.format_result({res_tuple}, space, field_names)

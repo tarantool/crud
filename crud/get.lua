@@ -21,6 +21,7 @@ local function get_on_storage(space_name, key, field_names, opts)
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}
@@ -44,6 +45,7 @@ local function get_on_storage(space_name, key, field_names, opts)
     return schema.wrap_box_space_func_result(space, 'get', {key}, {
         add_space_schema_hash = false,
         field_names = field_names,
+        fetch_latest_metadata = opts.fetch_latest_metadata,
     })
 end
 
@@ -63,9 +65,10 @@ local function call_get_on_router(vshard_router, space_name, key, opts)
         balance = '?boolean',
         mode = '?string',
         vshard_router = '?string|table',
+        fetch_latest_metadata = '?boolean',
     })
 
-    local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
+    local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router, opts.timeout)
     if err ~= nil then
         return nil, GetError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end
@@ -111,6 +114,7 @@ local function call_get_on_router(vshard_router, space_name, key, opts)
         sharding_func_hash = bucket_id_data.sharding_func_hash,
         sharding_key_hash = sharding_key_hash,
         skip_sharding_hash_check = skip_sharding_hash_check,
+        fetch_latest_metadata = opts.fetch_latest_metadata,
     }
 
     local call_opts = {
@@ -145,6 +149,14 @@ local function call_get_on_router(vshard_router, space_name, key, opts)
     -- protect against box.NULL
     if tuple == nil then
         tuple = nil
+    end
+
+    if opts.fetch_latest_metadata == true then
+        -- This option is temporary and is related to [1], [2].
+        -- [1] https://github.com/tarantool/crud/issues/236
+        -- [2] https://github.com/tarantool/crud/issues/361
+        space = utils.fetch_latest_metadata_when_single_storage(space, space_name, netbox_schema_version,
+                                                                vshard_router, opts, storage_result.storage_info)
     end
 
     return utils.format_result({tuple}, space, opts.fields)
@@ -191,6 +203,7 @@ function get.call(space_name, key, opts)
         balance = '?boolean',
         mode = '?string',
         vshard_router = '?string|table',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}

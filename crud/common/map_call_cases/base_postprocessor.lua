@@ -13,6 +13,7 @@ function BasePostprocessor:new(vshard_router)
         early_exit = false,
         errs = nil,
         vshard_router = vshard_router,
+        storage_info = {},
     }
 
     setmetatable(postprocessor, self)
@@ -52,6 +53,14 @@ function BasePostprocessor:collect(result_info, err_info)
         wrapper_args = '?table',
     })
 
+    if result_info.value ~= nil and type(result_info.value[1]) == 'table' then
+        if result_info.value[1].storage_info ~= nil then
+            self.storage_info[result_info.key] = {
+                replica_schema_version = result_info.value[1].storage_info.replica_schema_version
+            }
+        end
+    end
+
     local err = err_info.err
     if err == nil and result_info.value[1] == nil then
         err = result_info.value[2]
@@ -78,8 +87,9 @@ end
 --
 -- @return[1] table results
 -- @return[2] table errs
+-- @return[3] table storage_info
 function BasePostprocessor:get()
-    return self.results, self.errs
+    return self.results, self.errs, self.storage_info
 end
 
 return BasePostprocessor

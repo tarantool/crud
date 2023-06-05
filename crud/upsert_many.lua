@@ -27,6 +27,7 @@ local function upsert_many_on_storage(space_name, tuples, operations, opts)
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}
@@ -47,6 +48,7 @@ local function upsert_many_on_storage(space_name, tuples, operations, opts)
 
     local processed_tuples = {}
     local errs = {}
+    local replica_schema_version = nil
 
     box.begin()
     for i, tuple in ipairs(tuples) do
@@ -55,7 +57,11 @@ local function upsert_many_on_storage(space_name, tuples, operations, opts)
         -- is flattening object on router
         local insert_result = schema.wrap_box_space_func_result(space, 'upsert', {tuple, operations[i]}, {
             add_space_schema_hash = opts.add_space_schema_hash,
+            fetch_latest_metadata = opts.fetch_latest_metadata,
         })
+        if opts.fetch_latest_metadata then
+            replica_schema_version = insert_result.storage_info.replica_schema_version
+        end
 
         if insert_result.err ~= nil then
             local err = {
@@ -80,12 +86,12 @@ local function upsert_many_on_storage(space_name, tuples, operations, opts)
                                 batching_utils.rollback_on_error_msg, processed_tuples)
                     end
 
-                    return nil, errs
+                    return nil, errs, replica_schema_version
                 end
 
                 box.commit()
 
-                return nil, errs
+                return nil, errs, replica_schema_version
             end
         else
             table.insert(processed_tuples, tuple)
@@ -100,17 +106,17 @@ local function upsert_many_on_storage(space_name, tuples, operations, opts)
                         batching_utils.rollback_on_error_msg, processed_tuples)
             end
 
-            return nil, errs
+            return nil, errs, replica_schema_version
         end
 
         box.commit()
 
-        return nil, errs
+        return nil, errs, replica_schema_version
     end
 
     box.commit()
 
-    return nil
+    return nil, nil, replica_schema_version
 end
 
 function upsert_many.init()
@@ -130,9 +136,10 @@ local function call_upsert_many_on_router(vshard_router, space_name, original_tu
         vshard_router = '?string|table',
         skip_nullability_check_on_flatten = '?boolean',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
-    local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
+    local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router, opts.timeout)
     if err ~= nil then
         return nil, {
             UpsertManyError:new("An error occurred during the operation: %s", err)
@@ -166,6 +173,7 @@ local function call_upsert_many_on_router(vshard_router, space_name, original_tu
         add_space_schema_hash = opts.add_space_schema_hash,
         stop_on_error = opts.stop_on_error,
         rollback_on_error = opts.rollback_on_error,
+        fetch_latest_metadata = opts.fetch_latest_metadata,
     }
 
     local iter, err = BatchUpsertIterator:new({
@@ -181,7 +189,7 @@ local function call_upsert_many_on_router(vshard_router, space_name, original_tu
 
     local postprocessor = BatchPostprocessor:new(vshard_router)
 
-    local _, errs = call.map(vshard_router, UPSERT_MANY_FUNC_NAME, nil, {
+    local _, errs, storages_info = call.map(vshard_router, UPSERT_MANY_FUNC_NAME, nil, {
         timeout = opts.timeout,
         mode = 'write',
         iter = iter,
@@ -205,6 +213,14 @@ local function call_upsert_many_on_router(vshard_router, space_name, original_tu
 
     if opts.noreturn == true then
         return nil, errs
+    end
+
+    if opts.fetch_latest_metadata == true then
+        -- This option is temporary and is related to [1], [2].
+        -- [1] https://github.com/tarantool/crud/issues/236
+        -- [2] https://github.com/tarantool/crud/issues/361
+        space = utils.fetch_latest_metadata_when_map_storages(space, space_name, vshard_router, opts,
+                                                              storages_info, netbox_schema_version)
     end
 
     local res, err = utils.format_result(nil, space, opts.fields)
@@ -244,6 +260,7 @@ function upsert_many.tuples(space_name, tuples_operation_data, opts)
         rollback_on_error = '?boolean',
         vshard_router = '?string|table',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}
@@ -283,6 +300,7 @@ function upsert_many.objects(space_name, objs_operation_data, opts)
         rollback_on_error = '?boolean',
         vshard_router = '?string|table',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}

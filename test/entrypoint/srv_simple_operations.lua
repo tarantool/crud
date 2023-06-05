@@ -50,10 +50,37 @@ package.preload['customers-storage'] = function()
                 if_not_exists = true,
             })
 
-            rawset(_G, 'add_extra_field', function(name)
-                local new_format = box.space.developers:format()
-                table.insert(new_format, {name = name, type = 'any', is_nullable = true})
-                box.space.developers:format(new_format)
+            rawset(_G, 'add_extra_field', function(space_name, field_name)
+                local space = box.space[space_name]
+                local new_format = space:format()
+                table.insert(new_format, {name = field_name, type = 'any', is_nullable = true})
+                space:format(new_format)
+            end)
+
+            rawset(_G, 'create_space_for_gh_326_cases', function()
+                local countries_space = box.schema.space.create('countries', {
+                    format = {
+                        {name = 'id', type = 'unsigned'},
+                        {name = 'bucket_id', type = 'unsigned'},
+                        {name = 'name', type = 'string'},
+                        {name = 'population', type = 'unsigned'},
+                    },
+                    if_not_exists = true,
+                    engine = os.getenv('ENGINE') or 'memtx',
+                })
+                countries_space:create_index('id', {
+                    parts = { {field = 'id'} },
+                    if_not_exists = true,
+                })
+                countries_space:create_index('bucket_id', {
+                    parts = { {field = 'bucket_id'} },
+                    unique = false,
+                    if_not_exists = true,
+                })
+            end)
+
+            rawset(_G, 'drop_space_for_gh_326_cases', function()
+                box.space['countries']:drop()
             end)
 
             -- Space with huge amount of nullable fields

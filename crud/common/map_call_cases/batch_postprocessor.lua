@@ -39,6 +39,10 @@ function BatchPostprocessor:collect(result_info, err_info)
         wrapper_args = '?table',
     })
 
+    if result_info.value ~= nil then
+        self.storage_info[result_info.key] = {replica_schema_version = result_info.value[3]}
+    end
+
     local errs = {err_info.err}
     if err_info.err == nil then
         errs = result_info.value[2]

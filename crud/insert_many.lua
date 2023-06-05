@@ -28,6 +28,7 @@ local function insert_many_on_storage(space_name, tuples, opts)
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}
@@ -48,6 +49,7 @@ local function insert_many_on_storage(space_name, tuples, opts)
 
     local inserted_tuples = {}
     local errs = {}
+    local replica_schema_version = nil
 
     box.begin()
     for i, tuple in ipairs(tuples) do
@@ -58,7 +60,11 @@ local function insert_many_on_storage(space_name, tuples, opts)
             add_space_schema_hash = opts.add_space_schema_hash,
             field_names = opts.fields,
             noreturn = opts.noreturn,
+            fetch_latest_metadata = opts.fetch_latest_metadata,
         })
+        if opts.fetch_latest_metadata then
+            replica_schema_version = insert_result.storage_info.replica_schema_version
+        end
 
         if insert_result.err ~= nil then
             local err = {
@@ -83,12 +89,12 @@ local function insert_many_on_storage(space_name, tuples, opts)
                                 batching_utils.rollback_on_error_msg, inserted_tuples)
                     end
 
-                    return nil, errs
+                    return nil, errs, replica_schema_version
                 end
 
                 box.commit()
 
-                return inserted_tuples, errs
+                return inserted_tuples, errs, replica_schema_version
             end
         end
 
@@ -103,17 +109,17 @@ local function insert_many_on_storage(space_name, tuples, opts)
                         batching_utils.rollback_on_error_msg, inserted_tuples)
             end
 
-            return nil, errs
+            return nil, errs, replica_schema_version
         end
 
         box.commit()
 
-        return inserted_tuples, errs
+        return inserted_tuples, errs, replica_schema_version
     end
 
     box.commit()
 
-    return inserted_tuples
+    return inserted_tuples, nil, replica_schema_version
 end
 
 function insert_many.init()
@@ -133,9 +139,10 @@ local function call_insert_many_on_router(vshard_router, space_name, original_tu
         vshard_router = '?string|table',
         skip_nullability_check_on_flatten = '?boolean',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
-    local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
+    local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router, opts.timeout)
     if err ~= nil then
         return nil, {
             InsertManyError:new("An error occurred during the operation: %s", err)
@@ -153,6 +160,7 @@ local function call_insert_many_on_router(vshard_router, space_name, original_tu
         stop_on_error = opts.stop_on_error,
         rollback_on_error = opts.rollback_on_error,
         noreturn = opts.noreturn,
+        fetch_latest_metadata = opts.fetch_latest_metadata,
     }
 
     local iter, err = BatchInsertIterator:new({
@@ -167,7 +175,7 @@ local function call_insert_many_on_router(vshard_router, space_name, original_tu
 
     local postprocessor = BatchPostprocessor:new(vshard_router)
 
-    local rows, errs = call.map(vshard_router, INSERT_MANY_FUNC_NAME, nil, {
+    local rows, errs, storages_info = call.map(vshard_router, INSERT_MANY_FUNC_NAME, nil, {
         timeout = opts.timeout,
         mode = 'write',
         iter = iter,
@@ -187,6 +195,14 @@ local function call_insert_many_on_router(vshard_router, space_name, original_tu
 
     if next(rows) == nil then
         return nil, errs
+    end
+
+    if opts.fetch_latest_metadata == true then
+        -- This option is temporary and is related to [1], [2].
+        -- [1] https://github.com/tarantool/crud/issues/236
+        -- [2] https://github.com/tarantool/crud/issues/361
+        space = utils.fetch_latest_metadata_when_map_storages(space, space_name, vshard_router, opts,
+                                                              storages_info, netbox_schema_version)
     end
 
     local res, err = utils.format_result(rows, space, opts.fields)
@@ -225,6 +241,7 @@ function insert_many.tuples(space_name, tuples, opts)
         rollback_on_error = '?boolean',
         vshard_router = '?string|table',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}
@@ -264,6 +281,7 @@ function insert_many.objects(space_name, objs, opts)
         vshard_router = '?string|table',
         skip_nullability_check_on_flatten = '?boolean',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}

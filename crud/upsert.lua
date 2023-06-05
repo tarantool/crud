@@ -21,6 +21,7 @@ local function upsert_on_storage(space_name, tuple, operations, opts)
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}
@@ -44,6 +45,7 @@ local function upsert_on_storage(space_name, tuple, operations, opts)
     -- is flattening object on router
     return schema.wrap_box_space_func_result(space, 'upsert', {tuple, operations}, {
         add_space_schema_hash = opts.add_space_schema_hash,
+        fetch_latest_metadata = opts.fetch_latest_metadata,
     })
 end
 
@@ -63,9 +65,10 @@ local function call_upsert_on_router(vshard_router, space_name, original_tuple, 
         vshard_router = '?string|table',
         skip_nullability_check_on_flatten = '?boolean',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
-    local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
+    local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router, opts.timeout)
     if err ~= nil then
         return nil, UpsertError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end
@@ -95,6 +98,7 @@ local function call_upsert_on_router(vshard_router, space_name, original_tuple, 
         sharding_func_hash = sharding_data.sharding_func_hash,
         sharding_key_hash = sharding_data.sharding_key_hash,
         skip_sharding_hash_check = sharding_data.skip_sharding_hash_check,
+        fetch_latest_metadata = opts.fetch_latest_metadata,
     }
 
     local call_opts = {
@@ -130,6 +134,14 @@ local function call_upsert_on_router(vshard_router, space_name, original_tuple, 
 
     if opts.noreturn == true then
         return nil
+    end
+
+    if opts.fetch_latest_metadata == true then
+        -- This option is temporary and is related to [1], [2].
+        -- [1] https://github.com/tarantool/crud/issues/236
+        -- [2] https://github.com/tarantool/crud/issues/361
+        space = utils.fetch_latest_metadata_when_single_storage(space, space_name, netbox_schema_version,
+                                                                vshard_router, opts, storage_result.storage_info)
     end
 
     -- upsert returns only metadata, without rows
@@ -177,6 +189,7 @@ function upsert.tuple(space_name, tuple, user_operations, opts)
         fields = '?table',
         vshard_router = '?string|table',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}
@@ -219,6 +232,7 @@ function upsert.object(space_name, obj, user_operations, opts)
         fields = '?table',
         vshard_router = '?string|table',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}
