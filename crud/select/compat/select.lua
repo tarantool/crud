@@ -1,6 +1,7 @@
 local checks = require('checks')
 local errors = require('errors')
 
+local fiber = require('fiber')
 local const = require('crud.common.const')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
@@ -49,14 +50,13 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
         return nil, SelectError:new("Failed to parse conditions: %s", err)
     end
 
-    local space, err = utils.get_space(space_name, vshard_router)
+    local space, err, netbox_schema_version  = utils.get_space(space_name, vshard_router)
     if err ~= nil then
         return nil, SelectError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end
     if space == nil then
         return nil, SelectError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
     end
-    local space_format = space:format()
 
     local sharding_key_data = {}
     local sharding_func_hash = nil
@@ -171,6 +171,7 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
         sharding_key_hash = sharding_key_data.hash,
         skip_sharding_hash_check = skip_sharding_hash_check,
         yield_every = yield_every,
+        fetch_latest_metadata = opts.call_opts.fetch_latest_metadata,
     }
 
     local merger = Merger.new(vshard_router, replicasets_to_select, space, plan.index_id,
@@ -179,18 +180,12 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
             {tarantool_iter = plan.tarantool_iter, field_names = plan.field_names, call_opts = opts.call_opts}
         )
 
-    -- filter space format by plan.field_names (user defined fields + primary key + scan key)
-    -- to pass it user as metadata
-    local filtered_space_format, err = utils.get_fields_format(space_format, plan.field_names)
-    if err ~= nil then
-        return nil, err
-    end
-
     return {
         tuples_limit = tuples_limit,
         merger = merger,
         plan = plan,
-        space_format = filtered_space_format,
+        space = space,
+        netbox_schema_version = netbox_schema_version,
     }
 end
 
@@ -203,6 +198,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         bucket_id = '?number|cdata',
         force_map_call = '?boolean',
         fields = '?table',
+        fetch_latest_metadata = '?boolean',
 
         mode = '?vshard_call_mode',
         prefer_replica = '?boolean',
@@ -238,6 +234,7 @@ function select_module.pairs(space_name, user_conditions, opts)
             prefer_replica = opts.prefer_replica,
             balance = opts.balance,
             timeout = opts.timeout,
+            fetch_latest_metadata = opts.fetch_latest_metadata,
         },
     }
 
@@ -249,11 +246,30 @@ function select_module.pairs(space_name, user_conditions, opts)
         error(string.format("Failed to generate iterator: %s", err))
     end
 
+    -- filter space format by plan.field_names (user defined fields + primary key + scan key)
+    -- to pass it user as metadata
+    local filtered_space_format, err = utils.get_fields_format(iter.space:format(), iter.plan.field_names)
+    if err ~= nil then
+        return nil, err
+    end
+
     local gen, param, state = iter.merger:pairs()
     if opts.use_tomap == true then
         gen, param, state = gen:map(function(tuple)
+            if opts.fetch_latest_metadata then
+                -- This option is temporary and is related to [1], [2].
+                -- [1] https://github.com/tarantool/crud/issues/236
+                -- [2] https://github.com/tarantool/crud/issues/361
+                local storages_info = fiber.self().storage.storages_info_on_select
+                iter = utils.fetch_latest_metadata_for_select(space_name, vshard_router, opts,
+                                                              storages_info, iter)
+                filtered_space_format, err = utils.get_fields_format(iter.space:format(), iter.plan.field_names)
+                if err ~= nil then
+                    return nil, err
+                end
+            end
             local result
-            result, err = utils.unflatten(tuple, iter.space_format)
+            result, err = utils.unflatten(tuple, filtered_space_format)
             if err ~= nil then
                 error(string.format("Failed to unflatten next object: %s", err))
             end
@@ -277,6 +293,7 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
         force_map_call = '?boolean',
         fields = '?table',
         fullscan = '?boolean',
+        fetch_latest_metadata = '?boolean',
 
         mode = '?vshard_call_mode',
         prefer_replica = '?boolean',
@@ -307,6 +324,7 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
             prefer_replica = opts.prefer_replica,
             balance = opts.balance,
             timeout = opts.timeout,
+            fetch_latest_metadata = opts.fetch_latest_metadata,
         },
     }
 
@@ -336,8 +354,24 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
         utils.reverse_inplace(tuples)
     end
 
+    if opts.fetch_latest_metadata then
+        -- This option is temporary and is related to [1], [2].
+        -- [1] https://github.com/tarantool/crud/issues/236
+        -- [2] https://github.com/tarantool/crud/issues/361
+        local storages_info = fiber.self().storage.storages_info_on_select
+        iter = utils.fetch_latest_metadata_for_select(space_name, vshard_router, opts,
+                                                      storages_info, iter)
+    end
+
+    -- filter space format by plan.field_names (user defined fields + primary key + scan key)
+    -- to pass it user as metadata
+    local filtered_space_format, err = utils.get_fields_format(iter.space:format(), iter.plan.field_names)
+    if err ~= nil then
+        return nil, err
+    end
+
     return {
-        metadata = table.copy(iter.space_format),
+        metadata = table.copy(filtered_space_format),
         rows = tuples,
     }
 end

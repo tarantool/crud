@@ -47,13 +47,14 @@ local function select_iteration(space_name, plan, opts)
         sharding_key_hash = opts.sharding_hash.sharding_key_hash,
         skip_sharding_hash_check = opts.sharding_hash.skip_sharding_hash_check,
         yield_every = opts.yield_every,
+        fetch_latest_metadata = true,
     }
 
     local storage_select_args = {
         space_name, plan.index_id, plan.conditions, storage_select_opts,
     }
 
-    local results, err = call.map(opts.vshard_router, common.SELECT_FUNC_NAME, storage_select_args, {
+    local results, err, storages_info = call.map(opts.vshard_router, common.SELECT_FUNC_NAME, storage_select_args, {
         replicasets = opts.replicasets,
         timeout = call_opts.timeout,
         mode = call_opts.mode or 'read',
@@ -62,7 +63,7 @@ local function select_iteration(space_name, plan, opts)
     })
 
     if err ~= nil then
-        return nil, err
+        return nil, err, storages_info
     end
 
     local tuples = {}
@@ -78,7 +79,7 @@ local function select_iteration(space_name, plan, opts)
         tuples[replicaset_uuid] = replicaset_results[2]
     end
 
-    return tuples
+    return tuples, nil, storages_info
 end
 
 -- returns result, err, need_reload
@@ -116,14 +117,13 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
         return nil, SelectError:new("Failed to parse conditions: %s", err)
     end
 
-    local space, err = utils.get_space(space_name, vshard_router)
+    local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router)
     if err ~= nil then
         return nil, SelectError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end
     if space == nil then
         return nil, SelectError:new("Space %q doesn't exist", space_name), const.NEED_SCHEMA_RELOAD
     end
-    local space_format = space:format()
 
     local sharding_hash = {}
     local sharding_key_as_index_obj = nil
@@ -195,23 +195,17 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
     -- to update fieldno in each part in cmp_key_parts because storage result contains
     -- fields in order specified by field_names
     local tuples_comparator = select_comparators.gen_tuples_comparator(
-        cmp_operator, cmp_key_parts, plan.field_names, space_format
+        cmp_operator, cmp_key_parts, plan.field_names, space:format()
     )
 
     local function comparator(node1, node2)
         return not tuples_comparator(node1.obj, node2.obj)
     end
 
-    -- filter space format by plan.field_names (user defined fields + primary key + scan key)
-    -- to pass it user as metadata
-    local filtered_space_format, err = utils.get_fields_format(space_format, plan.field_names)
-    if err ~= nil then
-        return nil, err
-    end
-
     local iter = Iterator.new({
         space_name = space_name,
-        space_format = filtered_space_format,
+        space = space,
+        netbox_schema_version = netbox_schema_version,
         iteration_func = select_iteration,
         comparator = comparator,
 
@@ -238,6 +232,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         bucket_id = '?number|cdata',
         force_map_call = '?boolean',
         fields = '?table',
+        fetch_latest_metadata = '?boolean',
 
         mode = '?vshard_call_mode',
         prefer_replica = '?boolean',
@@ -273,6 +268,7 @@ function select_module.pairs(space_name, user_conditions, opts)
             prefer_replica = opts.prefer_replica,
             balance = opts.balance,
             timeout = opts.timeout,
+            fetch_latest_metadata = opts.fetch_latest_metadata,
         },
     }
 
@@ -289,6 +285,13 @@ function select_module.pairs(space_name, user_conditions, opts)
         tuples_limit = math.abs(tuples_limit)
     end
 
+    -- filter space format by plan.field_names (user defined fields + primary key + scan key)
+    -- to pass it user as metadata
+    local filtered_space_format, err = utils.get_fields_format(iter.space:format(), iter.plan.field_names)
+    if err ~= nil then
+        return nil, err
+    end
+
     local gen = function(_, iter)
         local tuple, err = iter:get()
         if err ~= nil then
@@ -303,9 +306,21 @@ function select_module.pairs(space_name, user_conditions, opts)
             return nil
         end
 
+        if opts.fetch_latest_metadata then
+            -- This option is temporary and is related to [1], [2].
+            -- [1] https://github.com/tarantool/crud/issues/236
+            -- [2] https://github.com/tarantool/crud/issues/361
+            iter = utils.fetch_latest_metadata_for_select(space_name, vshard_router, opts,
+                                                          iter.storages_info, iter)
+            filtered_space_format, err = utils.get_fields_format(iter.space:format(), iter.plan.field_names)
+            if err ~= nil then
+                return nil, err
+            end
+        end
+
         local result = tuple
         if opts.use_tomap == true then
-            result, err = utils.unflatten(tuple, iter.space_format)
+            result, err = utils.unflatten(tuple, filtered_space_format)
             if err ~= nil then
                 error(string.format("Failed to unflatten next object: %s", err))
             end
@@ -345,6 +360,7 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
             prefer_replica = opts.prefer_replica,
             balance = opts.balance,
             timeout = opts.timeout,
+            fetch_latest_metadata = opts.fetch_latest_metadata,
         },
     }
 
@@ -379,8 +395,23 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
         utils.reverse_inplace(tuples)
     end
 
+    if opts.fetch_latest_metadata then
+        -- This option is temporary and is related to [1], [2].
+        -- [1] https://github.com/tarantool/crud/issues/236
+        -- [2] https://github.com/tarantool/crud/issues/361
+        iter = utils.fetch_latest_metadata_for_select(space_name, vshard_router, opts,
+                                                      iter.storages_info, iter)
+    end
+
+    -- filter space format by plan.field_names (user defined fields + primary key + scan key)
+    -- to pass it user as metadata
+    local filtered_space_format, err = utils.get_fields_format(iter.space:format(), iter.plan.field_names)
+    if err ~= nil then
+        return nil, err
+    end
+
     return {
-        metadata = table.copy(iter.space_format),
+        metadata = table.copy(filtered_space_format),
         rows = tuples,
     }
 end
@@ -394,6 +425,7 @@ function select_module.call(space_name, user_conditions, opts)
         force_map_call = '?boolean',
         fields = '?table',
         fullscan = '?boolean',
+        fetch_latest_metadata = '?boolean',
 
         mode = '?vshard_call_mode',
         prefer_replica = '?boolean',

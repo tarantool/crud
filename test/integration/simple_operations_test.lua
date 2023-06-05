@@ -411,7 +411,7 @@ pgroup.test_intermediate_nullable_fields_update = function(g)
 
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         for i = 1, 12 do
-            server.net_box:call('add_extra_field', {'extra_' .. tostring(i)})
+            server.net_box:call('add_extra_field', {'developers', 'extra_' .. tostring(i)})
         end
     end)
 
@@ -488,6 +488,241 @@ pgroup.test_intermediate_nullable_fields_update = function(g)
             extra_12 = 'extra_value_12'
         }
     })
+end
+
+local gh_236_metadata_field_name = {
+    crud_update = 'extra_gh_236_update',
+    crud_insert = 'extra_gh_236_insert',
+    crud_insert_object = 'extra_gh_236_insert_object',
+    crud_insert_many = 'extra_gh_236_insert_many',
+    crud_insert_object_many = 'extra_gh_236_insert_object_many',
+    crud_replace = 'extra_gh_236_replace',
+    crud_replace_object = 'extra_gh_236_replace_object',
+    crud_replace_many = 'extra_gh_236_replace_many',
+    crud_replace_object_many = 'extra_gh_236_replace_object_many',
+    crud_get = 'extra_gh_236_get',
+    crud_delete = 'extra_gh_236_delete',
+    crud_upsert = 'extra_gh_236_upsert',
+    crud_upsert_object = 'extra_gh_236_upsert_object',
+    crud_upsert_many = 'extra_gh_236_upsert_many',
+    crud_upsert_object_many = 'extra_gh_236_upsert_object_many',
+    crud_max = 'extra_gh_236_max',
+    crud_min = 'extra_gh_236_min',
+    crud_select = 'extra_gh_236_select',
+    crud_pairs = 'extra_gh_236_pairs',
+}
+
+local gh_236_cases = {
+    crud_update = {
+        operation_name = 'crud.update',
+        input = {'countries', 3,
+            {{'=', gh_236_metadata_field_name.crud_update, 'testing'}},
+            {fetch_latest_metadata = true}},
+        need_pre_insert_data = true,
+    },
+    crud_insert = {
+        operation_name = 'crud.insert',
+        input = {'countries', {3, box.NULL, 'vatican', 825},
+            {fetch_latest_metadata = true}},
+        need_pre_insert_data = false,
+    },
+    crud_insert_object = {
+        operation_name = 'crud.insert_object',
+        input = {'countries',
+            {id=3, bucket_id = box.NULL, name = 'vatican', population = 825},
+            {fetch_latest_metadata = true}},
+        need_pre_insert_data = false,
+    },
+    crud_insert_many = {
+        operation_name = 'crud.insert_many',
+        input = {'countries', {{3, box.NULL, 'vatican', 825}},
+            {fetch_latest_metadata = true}},
+        need_pre_insert_data = false,
+    },
+    crud_insert_object_many = {
+        operation_name = 'crud.insert_object_many',
+        input = {'countries',
+            {{id=3, bucket_id = box.NULL, name = 'vatican', population = 825}},
+            {fetch_latest_metadata = true}},
+        need_pre_insert_data = false,
+    },
+    crud_replace = {
+        operation_name = 'crud.replace',
+        input = {'countries', {3, box.NULL, 'vatican', 825},
+            {fetch_latest_metadata = true}},
+        need_pre_insert_data = true,
+    },
+    crud_replace_object = {
+        operation_name = 'crud.replace_object',
+        input = {'countries',
+            {id=3, bucket_id = box.NULL, name = 'vatican', population = 825},
+            {fetch_latest_metadata = true}},
+        need_pre_insert_data = true,
+    },
+    crud_replace_many = {
+        operation_name = 'crud.replace_many',
+        input = {'countries', {{3, box.NULL, 'vatican', 825}},
+            {fetch_latest_metadata = true}},
+        need_pre_insert_data = true,
+    },
+    crud_replace_object_many = {
+        operation_name = 'crud.replace_object_many',
+        input = {'countries',
+            {{id=3, bucket_id = box.NULL, name = 'vatican', population = 825}},
+            {fetch_latest_metadata = true}},
+        need_pre_insert_data = true,
+    },
+    crud_get = {
+        operation_name = 'crud.get',
+        input = {'countries', 3, {fetch_latest_metadata = true}},
+        need_pre_insert_data = true,
+    },
+    crud_delete = {
+        operation_name = 'crud.delete',
+        input = {'countries', 3, {fetch_latest_metadata = true}},
+        need_pre_insert_data = true,
+    },
+    crud_upsert = {
+        operation_name = 'crud.upsert',
+        input = {'countries',
+            {3, box.NULL, 'vatican', 825}, {{'+', 'population', 1}},
+            {fetch_latest_metadata = true}},
+        need_pre_insert_data = false,
+    },
+    crud_upsert_object = {
+        operation_name = 'crud.upsert_object',
+        input = {'countries',
+            {id=3, bucket_id = box.NULL, name = 'vatican', population = 825},
+            {{'+', 'population', 1}},
+            {fetch_latest_metadata = true}},
+        need_pre_insert_data = false,
+    },
+    crud_upsert_many = {
+        operation_name = 'crud.upsert_many',
+        input = {'countries',
+        {
+            {{3, box.NULL, 'vatican', 825},
+            {{'+', 'population', 1}}}
+        },
+        {fetch_latest_metadata = true}},
+        need_pre_insert_data = false,
+    },
+    crud_upsert_object_many = {
+        operation_name = 'crud.upsert_object_many',
+        input = {'countries',
+        {
+            {
+                {id=3, bucket_id = box.NULL, name = 'vatican', population = 825},
+                {{'+', 'population', 1}}
+            }
+        },
+        {fetch_latest_metadata = true}},
+        need_pre_insert_data = false,
+    },
+    crud_max = {
+        operation_name = 'crud.max',
+        input = {'countries', 'id', {fetch_latest_metadata = true}},
+        need_pre_insert_data = true,
+    },
+    crud_min = {
+        operation_name = 'crud.min',
+        input = {'countries', 'id', {fetch_latest_metadata = true}},
+        need_pre_insert_data = true,
+    },
+    crud_select = {
+        operation_name = 'crud.select',
+        input = {'countries', {}, {fetch_latest_metadata = true}},
+        need_pre_insert_data = true,
+    },
+    crud_pairs = {
+        operation_name = 'crud.pairs',
+        input = { --[[ hardcoded inside eval --]] },
+        need_pre_insert_data = true,
+    },
+}
+
+local gh_236_case_prepare = function(g)
+    helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'},
+            function(server)
+                server.net_box:call('create_space_for_gh_326_cases')
+    end)
+end
+
+local gh_236_case_after = function(g)
+    helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'},
+            function(server)
+                server.net_box:call('drop_space_for_gh_326_cases')
+    end)
+end
+
+for case_name, case in pairs(gh_236_cases) do
+    -- These tests check the relevance of metadata when crud DML operation working.
+    -- The reproduction of the bug in the issue [1] was detected when working
+    -- with bucket_id 2804 (id = 3 at countries space), which base on another
+    -- storage relative to bucket 477 (id = 1 at countries space).
+    -- Related to the issue [2].
+    -- [1] https://github.com/tarantool/crud/issues/236
+    -- [2] https://github.com/tarantool/crud/issues/361
+
+    local test_name = ('test_gh_236_dml_operation_return_actual_metadata_%s'):format(case_name)
+
+    pgroup.before_test(test_name, gh_236_case_prepare)
+    pgroup[test_name] = function(g)
+        local result, err
+
+        -- Perform request to fetch initial space format.
+        result, err = g.cluster.main_server.net_box:call(
+            'crud.delete', {'countries', 3})
+        t.assert_not_equals(result, nil)
+        t.assert_equals(err, nil)
+
+        if case.need_pre_insert_data then
+            result, err = g.cluster.main_server.net_box:call(
+                'crud.insert', {'countries', {3, box.NULL, 'vatican', 825, 'extra_test_data'}})
+            t.assert_equals(err, nil)
+            t.assert_not_equals(result, nil)
+        end
+
+        -- Schema migration.
+        helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'},
+            function(server)
+                server.net_box:call('add_extra_field',
+                    {'countries', gh_236_metadata_field_name[case_name]})
+        end)
+
+        if case.operation_name ~= 'crud.pairs' then
+            result, err = g.cluster.main_server.net_box:call(case.operation_name, case.input)
+            t.assert_equals(err, nil)
+            local found_extra_field = false
+            for _, v in pairs(result.metadata) do
+                if v.name == gh_236_metadata_field_name[case_name] then
+                    found_extra_field = true
+                end
+            end
+            t.assert_equals(found_extra_field, true,
+                string.format('cannot find the expected metadata for case: %s',
+                            case.operation_name))
+        else
+            local object = g.cluster.main_server.net_box:eval([[
+                local objects = {}
+                for _, object in crud.pairs('countries', nil,
+                        {fetch_latest_metadata = true, use_tomap = true}) do
+                    table.insert(objects, object)
+                end
+                return objects[1]
+            ]])
+            local found_extra_field = false
+            for field_name, _ in pairs(object) do
+                if field_name == gh_236_metadata_field_name[case_name] then
+                    found_extra_field = true
+                end
+            end
+            t.assert_equals(found_extra_field, true,
+                string.format('cannot find the expected metadata for case: %s',
+                              case.operation_name))
+        end
+    end
+    pgroup.after_test(test_name, gh_236_case_after)
 end
 
 pgroup.test_object_with_nullable_fields = function(g)

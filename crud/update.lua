@@ -22,6 +22,7 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}
@@ -46,6 +47,7 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
         add_space_schema_hash = false,
         field_names = field_names,
         noreturn = opts.noreturn,
+        fetch_latest_metadata = opts.fetch_latest_metadata,
     })
 
     if err ~= nil then
@@ -85,9 +87,10 @@ local function call_update_on_router(vshard_router, space_name, key, user_operat
         fields = '?table',
         vshard_router = '?string|table',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
-    local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
+    local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router, opts.timeout)
     if err ~= nil then
         return nil, UpdateError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end
@@ -144,6 +147,7 @@ local function call_update_on_router(vshard_router, space_name, key, user_operat
         sharding_key_hash = sharding_key_hash,
         skip_sharding_hash_check = skip_sharding_hash_check,
         noreturn = opts.noreturn,
+        fetch_latest_metadata = opts.fetch_latest_metadata,
     }
 
     local call_opts = {
@@ -176,6 +180,14 @@ local function call_update_on_router(vshard_router, space_name, key, user_operat
     end
 
     local tuple = storage_result.res
+
+    if opts.fetch_latest_metadata == true then
+        -- This option is temporary and is related to [1], [2].
+        -- [1] https://github.com/tarantool/crud/issues/236
+        -- [2] https://github.com/tarantool/crud/issues/361
+        space = utils.fetch_latest_metadata_when_single_storage(space, space_name, netbox_schema_version,
+                                                                vshard_router, opts, storage_result.storage_info)
+    end
 
     return utils.format_result({tuple}, space, opts.fields)
 end
@@ -220,6 +232,7 @@ function update.call(space_name, key, user_operations, opts)
         fields = '?table',
         vshard_router = '?string|table',
         noreturn = '?boolean',
+        fetch_latest_metadata = '?boolean',
     })
 
     opts = opts or {}

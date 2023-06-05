@@ -16,7 +16,8 @@ Iterator.__index = Iterator
 function Iterator.new(opts)
     dev_checks({
         space_name = 'string',
-        space_format = 'table',
+        space = 'table',
+        netbox_schema_version = '?number',
         comparator = 'function',
         iteration_func = 'function',
 
@@ -35,7 +36,9 @@ function Iterator.new(opts)
 
     local iter = {
         space_name = opts.space_name,
-        space_format = opts.space_format,
+        space = opts.space,
+        netbox_schema_version = opts.netbox_schema_version,
+        storages_info = {},
         iteration_func = opts.iteration_func,
 
         plan = opts.plan,
@@ -106,7 +109,7 @@ local function update_replicasets_tuples(iter, after_tuple, replicaset_uuid)
         limit_per_storage_call = math.min(iter.batch_size, iter.total_tuples_count - iter.tuples_count)
     end
 
-    local results_map, err = iter.iteration_func(iter.space_name, iter.plan, {
+    local results_map, err, storages_info = iter.iteration_func(iter.space_name, iter.plan, {
         after_tuple = after_tuple,
         replicasets = replicasets,
         limit = limit_per_storage_call,
@@ -116,6 +119,7 @@ local function update_replicasets_tuples(iter, after_tuple, replicaset_uuid)
         vshard_router = iter.vshard_router,
         yield_every = iter.yield_every,
     })
+    iter.storages_info = storages_info
     if err ~= nil then
         if sharding.result_needs_sharding_reload(err) then
             return false, err

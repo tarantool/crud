@@ -98,7 +98,19 @@ function utils.format_replicaset_error(replicaset_uuid, msg, ...)
     )
 end
 
-function utils.get_space(space_name, vshard_router, timeout)
+local function get_replicaset_by_replica_uuid(replicasets, uuid)
+    for replicaset_uuid, replicaset in pairs(replicasets) do
+        for replica_uuid, _ in pairs(replicaset.replicas) do
+            if replica_uuid == uuid then
+                return replicasets[replicaset_uuid]
+            end
+        end
+    end
+
+    return nil
+end
+
+function utils.get_space(space_name, vshard_router, timeout, replica_uuid)
     local replicasets, replicaset
     timeout = timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
     local deadline = fiber.clock() + timeout
@@ -110,7 +122,16 @@ function utils.get_space(space_name, vshard_router, timeout)
         -- Try to get master with timeout.
         fiber.yield()
         replicasets = vshard_router:routeall()
-        replicaset = select(2, next(replicasets))
+        if replica_uuid ~= nil then
+            -- Get the same replica on which the last DML operation was performed.
+            -- This approach is temporary and is related to [1], [2].
+            -- [1] https://github.com/tarantool/crud/issues/236
+            -- [2] https://github.com/tarantool/crud/issues/361
+            replicaset = get_replicaset_by_replica_uuid(replicasets, replica_uuid)
+            break
+        else
+            replicaset = select(2, next(replicasets))
+        end
         if replicaset ~= nil and
            replicaset.master ~= nil and
            replicaset.master.conn.error == nil then
@@ -141,7 +162,7 @@ function utils.get_space(space_name, vshard_router, timeout)
 
     local space = replicaset.master.conn.space[space_name]
 
-    return space
+    return space, nil, replicaset.master.conn.schema_version
 end
 
 function utils.get_space_format(space_name, vshard_router)
@@ -156,6 +177,120 @@ function utils.get_space_format(space_name, vshard_router)
     local space_format = space:format()
 
     return space_format
+end
+
+function utils.fetch_latest_metadata_when_single_storage(space, space_name, netbox_schema_version,
+                                                         vshard_router, opts, storage_info)
+    -- Checking the relevance of the schema version is necessary
+    -- to prevent the irrelevant metadata of the DML operation.
+    -- This approach is temporary and is related to [1], [2].
+    -- [1] https://github.com/tarantool/crud/issues/236
+    -- [2] https://github.com/tarantool/crud/issues/361
+    local latest_space, err
+    assert(storage_info.replica_schema_version ~= nil,
+           'check the replica_schema_version value from storage ' ..
+           'for correct use of the fetch_latest_metadata opt')
+    assert(storage_info.replica_uuid ~= nil,
+           'check the replica_uuid value from storage ' ..
+           'for correct use of the fetch_latest_metadata opt')
+    assert(netbox_schema_version ~= nil,
+           'check the netbox_schema_version value from net_box conn on router ' ..
+           'for correct use of the fetch_latest_metadata opt')
+    if storage_info.replica_schema_version ~= netbox_schema_version then
+        local ok, reload_schema_err = schema.reload_schema(vshard_router)
+        if ok then
+            latest_space, err = utils.get_space(space_name, vshard_router,
+                                                opts.timeout, storage_info.replica_uuid)
+            if err ~= nil then
+                local warn_msg = "Failed to fetch space for latest schema actualization, metadata may be outdated: %s"
+                log.warn(warn_msg, err)
+            end
+            if latest_space == nil then
+                log.warn("Failed to find space for latest schema actualization, metadata may be outdated")
+            end
+        else
+            log.warn("Failed to reload schema, metadata may be outdated: %s", reload_schema_err)
+        end
+    end
+    if err == nil and latest_space ~= nil then
+        space = latest_space
+    end
+
+    return space
+end
+
+function utils.fetch_latest_metadata_when_map_storages(space, space_name, vshard_router, opts,
+                                                       storages_info, netbox_schema_version)
+    -- Checking the relevance of the schema version is necessary
+    -- to prevent the irrelevant metadata of the DML operation.
+    -- This approach is temporary and is related to [1], [2].
+    -- [1] https://github.com/tarantool/crud/issues/236
+    -- [2] https://github.com/tarantool/crud/issues/361
+    local latest_space, err
+    for _, storage_info in pairs(storages_info) do
+        assert(storage_info.replica_schema_version ~= nil,
+            'check the replica_schema_version value from storage ' ..
+            'for correct use of the fetch_latest_metadata opt')
+        assert(netbox_schema_version ~= nil,
+               'check the netbox_schema_version value from net_box conn on router ' ..
+               'for correct use of the fetch_latest_metadata opt')
+        if storage_info.replica_schema_version ~= netbox_schema_version then
+            local ok, reload_schema_err = schema.reload_schema(vshard_router)
+            if ok then
+                latest_space, err = utils.get_space(space_name, vshard_router, opts.timeout)
+                if err ~= nil then
+                    local warn_msg = "Failed to fetch space for latest schema actualization, " ..
+                                     "metadata may be outdated: %s"
+                    log.warn(warn_msg, err)
+                end
+                if latest_space == nil then
+                    log.warn("Failed to find space for latest schema actualization, metadata may be outdated")
+                end
+            else
+                log.warn("Failed to reload schema, metadata may be outdated: %s", reload_schema_err)
+            end
+            if err == nil and latest_space ~= nil then
+                space = latest_space
+            end
+            break
+        end
+    end
+
+    return space
+end
+
+function utils.fetch_latest_metadata_for_select(space_name, vshard_router, opts,
+                                                storages_info, iter)
+    -- Checking the relevance of the schema version is necessary
+    -- to prevent the irrelevant metadata of the DML operation.
+    -- This approach is temporary and is related to [1], [2].
+    -- [1] https://github.com/tarantool/crud/issues/236
+    -- [2] https://github.com/tarantool/crud/issues/361
+    for _, storage_info in pairs(storages_info) do
+        assert(storage_info.replica_schema_version ~= nil,
+               'check the replica_schema_version value from storage ' ..
+               'for correct use of the fetch_latest_metadata opt')
+        assert(iter.netbox_schema_version ~= nil,
+               'check the netbox_schema_version value from net_box conn on router ' ..
+               'for correct use of the fetch_latest_metadata opt')
+        if storage_info.replica_schema_version ~= iter.netbox_schema_version then
+            local ok, reload_schema_err = schema.reload_schema(vshard_router)
+            if ok then
+                local err
+                iter.space, err = utils.get_space(space_name, vshard_router, opts.timeout)
+                if err ~= nil then
+                    local warn_msg = "Failed to fetch space for latest schema actualization, " ..
+                                     "metadata may be outdated: %s"
+                    log.warn(warn_msg, err)
+                end
+            else
+                log.warn("Failed to reload schema, metadata may be outdated: %s", reload_schema_err)
+            end
+            break
+        end
+    end
+
+    return iter
 end
 
 local function append(lines, s, ...)

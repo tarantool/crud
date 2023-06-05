@@ -3,6 +3,7 @@ local errors = require('errors')
 local msgpack = require('msgpack')
 local ffi = require('ffi')
 local call = require('crud.common.call')
+local fiber = require('fiber')
 local sharding = require('crud.common.sharding')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 
@@ -132,6 +133,17 @@ local function fetch_chunk(context, state)
         error(wrapped_err)
     end
 
+    if context.fetch_latest_metadata then
+        if fiber.self().storage.storages_info_on_select == nil then
+            fiber.self().storage.storages_info_on_select = {}
+        end
+        local replica_uuid = cursor.storage_info.replica_uuid
+        local replica_schema_version = cursor.storage_info.replica_schema_version
+        local fiber_storage = fiber.self().storage.storages_info_on_select
+        fiber_storage[replica_uuid] = {}
+        fiber_storage[replica_uuid].replica_schema_version = replica_schema_version
+    end
+
     -- Extract stats info.
     -- Stats extracted with callback here and not passed
     -- outside to wrapper because fetch for pairs can be
@@ -188,9 +200,11 @@ local function new(vshard_router, replicasets, space, index_id, func_name, func_
             replicaset = replicaset,
             vshard_call_name = vshard_call_name,
             timeout = call_opts.timeout,
+            fetch_latest_metadata = call_opts.fetch_latest_metadata,
             space_name = space.name,
             vshard_router = vshard_router,
         }
+
         local state = {future = future}
         local source = merger_lib.new_buffer_source(fetch_chunk, context, state)
         table.insert(merger_sources, source)

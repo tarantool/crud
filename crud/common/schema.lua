@@ -51,7 +51,7 @@ end
 local reload_in_progress = {}
 local reload_schema_cond = {}
 
-local function reload_schema(vshard_router)
+function schema.reload_schema(vshard_router)
     local replicasets = vshard_router:routeall()
     local vshard_router_name = vshard_router.name
 
@@ -96,7 +96,7 @@ function schema.wrap_func_reload(vshard_router, func, ...)
             break
         end
 
-        local ok, reload_schema_err = reload_schema(vshard_router)
+        local ok, reload_schema_err = schema.reload_schema(vshard_router)
         if not ok then
             log.warn("Failed to reload schema: %s", reload_schema_err)
             break
@@ -104,6 +104,8 @@ function schema.wrap_func_reload(vshard_router, func, ...)
 
         i = i + 1
         if i > const.RELOAD_RETRIES_NUM then
+            local warn_msg = "Number of attempts to reload schema has been ended: %s"
+            log.warn(warn_msg, const.RELOAD_RETRIES_NUM)
             break
         end
     end
@@ -219,6 +221,19 @@ function schema.wrap_func_result(space, func, args, opts)
         if opts.noreturn ~= true then
             result.res = filter_tuple_fields(func_res, opts.field_names)
         end
+    end
+
+    if opts.fetch_latest_metadata == true then
+        local replica_schema_version
+        if box.info.schema_version ~= nil then
+            replica_schema_version = box.info.schema_version
+        else
+            replica_schema_version = box.internal.schema_version()
+        end
+        result.storage_info = {
+            replica_uuid = box.info().uuid,
+            replica_schema_version = replica_schema_version,
+        }
     end
 
     return result
