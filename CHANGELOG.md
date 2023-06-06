@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   `insert`, `insert_object`, `insert_many`, `insert_object_many`, 
   `replace`, `replace_object`, `replace_many`, `insert_object_many`, 
   `upsert`, `upsert_object`, `upsert_many`, `upsert_object_many`,
-  `update`, `delete`. (#267).
+  `update`, `delete` (#267).
 
 ### Fixed
 * Crud DML operations returning stale schema for metadata generation.
