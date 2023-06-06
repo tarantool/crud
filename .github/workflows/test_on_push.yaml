@@ -13,27 +13,27 @@ jobs:
       matrix:
         # We need 1.10.6 here to check that module works with
         # old Tarantool versions that don't have "tuple-keydef"/"tuple-merger" support.
-        tarantool-version: ["1.10.6", "1.10", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.10"]
+        tarantool-version: ["1.10.6", "1.10", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.10", "2.11"]
         metrics-version: [""]
-        cartridge-version: ["2.7.8"]
+        cartridge-version: ["2.8.0"]
         remove-merger: [false]
         include:
           - tarantool-version: "1.10"
-            metrics-version: "0.16.0"
-            cartridge-version: "2.7.8"
+            metrics-version: "1.0.0"
+            cartridge-version: "2.8.0"
           - tarantool-version: "2.7"
             remove-merger: true
-            cartridge-version: "2.7.8"
-          - tarantool-version: "2.10"
+            cartridge-version: "2.8.0"
+          - tarantool-version: "2.11"
             metrics-version: "0.1.8"
-            cartridge-version: "2.7.8"
-          - tarantool-version: "2.10"
+            cartridge-version: "2.8.0"
+          - tarantool-version: "2.11"
             metrics-version: "0.10.0"
-            cartridge-version: "2.7.8"
-          - tarantool-version: "2.10"
+            cartridge-version: "2.8.0"
+          - tarantool-version: "2.11"
             coveralls: true
-            metrics-version: "0.16.0"
-            cartridge-version: "2.7.8"
+            metrics-version: "1.0.0"
+            cartridge-version: "2.8.0"
       fail-fast: false
     # Can't install older versions on 22.04,
     # see https://github.com/tarantool/setup-tarantool/issues/36
@@ -87,8 +87,8 @@ jobs:
       github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
     strategy:
       matrix:
-        tarantool-version: ["1.10", "2.10"]
-        metrics-version: ["0.12.0"]
+        tarantool-version: ["1.10", "2.11"]
+        metrics-version: ["1.0.0"]
       fail-fast: false
     runs-on: ubuntu-20.04
     steps:
@@ -122,10 +122,10 @@ jobs:
       matrix:
         tarantool-version:
           - folder: "1.10"
-            bundle: "tarantool-enterprise-sdk-1.10.13-48-r523"
-          - folder: "2.10"
-            bundle: "tarantool-enterprise-sdk-nogc64-2.10.4-0-r523.linux.x86_64"
-        metrics-version: ["", "0.12.0"]
+            bundle: "tarantool-enterprise-sdk-1.10.15-0-r563"
+          - folder: "2.11"
+            bundle: "tarantool-enterprise-sdk-nogc64-2.11.0-0-r563.linux.x86_64"
+        metrics-version: ["", "1.0.0"]
       fail-fast: false
     runs-on: ubuntu-20.04
     steps:
