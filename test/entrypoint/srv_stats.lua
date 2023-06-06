@@ -51,15 +51,21 @@ if crud_utils.is_cartridge_hotreload_supported() then
     roles_reload_allowed = true
 end
 
+local is_metrics = pcall(require, 'metrics')
+local roles = {
+    'cartridge.roles.crud-router',
+    'cartridge.roles.crud-storage',
+    'customers-storage',
+}
+if is_metrics then
+    table.insert(roles, 'cartridge.roles.metrics')
+end
+
 local ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
     advertise_uri = 'localhost:3301',
     http_port = 8081,
     bucket_count = 3000,
-    roles = {
-        'cartridge.roles.crud-router',
-        'cartridge.roles.crud-storage',
-        'customers-storage',
-    },
+    roles = roles,
     roles_reload_allowed = roles_reload_allowed,
 })
 

@@ -851,7 +851,7 @@ end
 -- https://github.com/tarantool/metrics/blob/fc5a67072340b12f983f09b7d383aca9e2f10cf1/test/utils.lua#L22-L31
 local function find_obs(metric_name, label_pairs, observations)
     for _, obs in pairs(observations) do
-        local same_label_pairs = pcall(t.assert_equals, obs.label_pairs, label_pairs)
+        local same_label_pairs = pcall(t.assert_covers, obs.label_pairs, label_pairs)
         if obs.metric_name == metric_name and same_label_pairs then
             return obs
         end
