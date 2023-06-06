@@ -30,8 +30,6 @@ jobs:
           - tarantool-version: "2.10"
             metrics-version: "0.10.0"
             cartridge-version: "2.7.8"
-          - tarantool-version: "1.10"
-            cartridge-version: "1.2.0"
           - tarantool-version: "2.10"
             coveralls: true
             metrics-version: "0.16.0"
