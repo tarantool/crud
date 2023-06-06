@@ -26,7 +26,7 @@ tarantoolctl rocks install "${LUACOV_COVERALLS_ROCKSPEC_FILE}"
 rm "${LUACOV_COVERALLS_ROCKSPEC_FILE}"
 rmdir "${TMPDIR}"
 
-CARTRIDGE_VERSION="${CARTRIDGE_VERSION:-2.7.8}"
+CARTRIDGE_VERSION="${CARTRIDGE_VERSION:-2.8.0}"
 
 tarantoolctl rocks install cartridge "$CARTRIDGE_VERSION"
 tarantoolctl rocks install ddl 1.6.2
