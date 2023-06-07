@@ -72,6 +72,7 @@ end
 group.test_role_reload_preserves_values = function(g)
     t.skip_if(not helpers.is_cartridge_hotreload_supported(),
         "Cartridge roles reload is not supported")
+    helpers.skip_old_tarantool_cartridge_hotreload()
 
     local router = g.cluster:server('router')
 
