@@ -74,10 +74,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run tests and code coverage analysis
-        run: make -C build coverage
+      - name: Run tests
+        if: matrix.coveralls != true # See https://github.com/actions/runner/issues/1173
+        run: make -C build luatest-no-coverage
 
-      - name: Send code coverage to coveralls.io
+      - name: Run tests with coverage and send results to coveralls.io
         run: make -C build coveralls
         if: ${{ matrix.coveralls }}
 
@@ -153,5 +154,5 @@ jobs:
 
       - run: cmake -S . -B build
 
-      - name: Run tests and code coverage analysis
-        run: make -C build coverage
+      - name: Run tests
+        run: make -C build luatest-no-coverage
