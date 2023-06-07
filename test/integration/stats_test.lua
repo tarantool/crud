@@ -777,6 +777,7 @@ pgroup.test_role_reload_do_not_reset_observations = function(g)
     t.skip_if((g.params.args.driver == 'metrics')
         and helpers.is_metrics_0_12_0_or_older(),
         "See https://github.com/tarantool/metrics/issues/334")
+    helpers.skip_old_tarantool_cartridge_hotreload()
 
     local stats_before = get_stats(g)
 
@@ -1091,6 +1092,7 @@ group_metrics.test_role_reload_do_not_reset_metrics_observations = function(g)
         "Cartridge roles reload is not supported")
     t.skip_if(helpers.is_metrics_0_12_0_or_older(),
         "See https://github.com/tarantool/metrics/issues/334")
+    helpers.skip_old_tarantool_cartridge_hotreload()
 
     helpers.reload_roles(g.cluster:server('router'))
     g.router:eval("crud = require('crud')")
@@ -1130,6 +1132,7 @@ group_metrics.before_test(
 group_metrics.test_stats_changed_in_metrics_registry_after_role_reload = function(g)
     t.skip_if(not helpers.is_cartridge_hotreload_supported(),
         "Cartridge roles reload is not supported")
+    helpers.skip_old_tarantool_cartridge_hotreload()
 
     helpers.reload_roles(g.cluster:server('router'))
     g.router:eval("crud = require('crud')")

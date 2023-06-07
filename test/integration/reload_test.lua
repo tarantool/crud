@@ -79,6 +79,7 @@ end)
 function g.test_router()
     t.skip_if(not helpers.is_cartridge_hotreload_supported(),
         "Cartridge roles reload is not supported")
+    helpers.skip_old_tarantool_cartridge_hotreload()
 
     g.highload_fiber = fiber.new(highload_loop, 'A')
 
@@ -104,6 +105,7 @@ end
 function g.test_storage()
     t.skip_if(not helpers.is_cartridge_hotreload_supported(),
         "Cartridge roles reload is not supported")
+    helpers.skip_old_tarantool_cartridge_hotreload()
 
     g.highload_fiber = fiber.new(highload_loop, 'B')
 

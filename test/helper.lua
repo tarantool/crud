@@ -1,6 +1,7 @@
 require('strict').on()
 
 local t = require('luatest')
+local luatest_utils = require('luatest.utils')
 
 local log = require('log')
 local checks = require('checks')
@@ -549,6 +550,19 @@ end
 
 function helpers.is_cartridge_hotreload_supported()
     return crud_utils.is_cartridge_hotreload_supported()
+end
+
+function helpers.skip_old_tarantool_cartridge_hotreload()
+    -- Cartridge hotreload tests stuck for vshard 0.1.22+ on Tarantool 1.10.6, 2.2, 2.3 and 2.4.
+    -- Logs display a lot of following errors:
+    -- main/137/vshard.recovery util.lua:103 E> recovery_f has been failed: .../.rocks/share/tarantool/vshard/storage/init.lua:1268: assertion failed!
+    -- main/136/vshard.gc util.lua:103 E> gc_bucket_f has been failed: .../.rocks/share/tarantool/vshard/storage/init.lua:2530: assertion failed!
+    local tarantool_version = luatest_utils.get_tarantool_version()
+    t.skip_if(luatest_utils.version_ge(luatest_utils.version(1, 10, 13), tarantool_version),
+        "Cartridge hotreload tests stuck for vshard 0.1.22+ on Tarantool 1.10.6")
+    t.skip_if(luatest_utils.version_ge(tarantool_version, luatest_utils.version(2, 0, 0))
+          and luatest_utils.version_ge(luatest_utils.version(2, 5, 1), tarantool_version),
+        "Cartridge hotreload tests stuck for vshard 0.1.22+ on Tarantool 2.2, 2.3 and 2.4")
 end
 
 return helpers

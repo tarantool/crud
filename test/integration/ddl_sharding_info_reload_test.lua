@@ -307,6 +307,7 @@ for sharding_case_name, sharding_case in pairs(sharding_cases) do
                 ((reload_case == 'reload_roles')
                 and not helpers.is_cartridge_hotreload_supported()),
                 "Cartridge roles reload is not supported")
+            helpers.skip_old_tarantool_cartridge_hotreload()
 
             local storage = g.cluster:server('s1-master')
 
@@ -333,6 +334,12 @@ for _, sharding_case in pairs(sharding_cases) do
                            sharding_case.ddl_space, reload_case_name)
 
         pgroup_storage[test_name] = function(g)
+            t.skip_if(
+                ((reload_case == 'reload_roles')
+                and not helpers.is_cartridge_hotreload_supported()),
+                "Cartridge roles reload is not supported")
+            helpers.skip_old_tarantool_cartridge_hotreload()
+
             local storage = g.cluster:server('s1-master')
 
             -- Init the cache.
