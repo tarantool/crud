@@ -13,6 +13,11 @@ conditions.operators = {
     LE = '<=',
     GT = '>',
     GE = '>=',
+    NO = '@<>',
+    BTW = '@>><<',
+    OUT = '@<<>>',
+    OUTN = '@<<!>>',
+    INC = '@>)',
 }
 
 local tarantool_iter_by_cond_operators = {
@@ -54,6 +59,11 @@ local cond_operators_by_func_names = {
     le = conditions.operators.LE,
     gt = conditions.operators.GT,
     ge = conditions.operators.GE,
+    no = conditions.operators.NO,
+    between = conditions.operators.BTW,
+    outer = conditions.operators.OUT,
+    outer_or_null = conditions.operators.OUTN,
+    include = conditions.operators.INC,
 }
 
 for func_name, operator in pairs(cond_operators_by_func_names) do
@@ -75,6 +85,11 @@ local funcs_by_symbols = {
     ['<='] = conditions.funcs.le,
     ['>'] = conditions.funcs.gt,
     ['>='] = conditions.funcs.ge,
+    ['<>'] = conditions.funcs.no,
+    ['>><<'] = conditions.funcs.between,
+    ['<<>>'] = conditions.funcs.outer,
+    ['<<!>>'] = conditions.funcs.outer_or_null,
+    ['>)'] = conditions.funcs.include
 }
 
 function conditions.parse(user_conditions)
