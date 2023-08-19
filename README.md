@@ -376,10 +376,10 @@ res
   - [5, 1172, 'Sergey', 25],
   - [22, 655, 'Alex', 34],
 
-#errs              -- 1
-errs[1].class_name -- BatchInsertError
-errs[1].err        -- 'Duplicate key exists <...>'
-errs[1].tuple      -- {3, 2804, 'Anastasia', 22}
+#errs                  -- 1
+errs[1].class_name     -- BatchInsertError
+errs[1].err            -- 'Duplicate key exists <...>'
+errs[1].operation_data -- {3, 2804, 'Anastasia', 22}
 ...
 
 -- Partial success with stop and rollback on error
@@ -408,22 +408,22 @@ res
   rows:
   - [4, 1161, 'Sergey', 25],
   - [6, 1064, 'Alex', 34],
-#errs              -- 4
-errs[1].class_name -- InsertManyError
-errs[1].err        -- 'Duplicate key exists <...>'
-errs[1].tuple      -- {3, 2804, 'Anastasia', 22}
+#errs                  -- 4
+errs[1].class_name     -- InsertManyError
+errs[1].err            -- 'Duplicate key exists <...>'
+errs[1].operation_data -- {3, 2804, 'Anastasia', 22}
 
-errs[2].class_name -- NotPerformedError
-errs[2].err        -- 'Operation with tuple was not performed'
-errs[2].tuple      -- {9, 1644, "Anna", 30}
+errs[2].class_name     -- NotPerformedError
+errs[2].err            -- 'Operation with tuple was not performed'
+errs[2].operation_data -- {9, 1644, "Anna", 30}
 
-errs[3].class_name -- NotPerformedError
-errs[3].err        -- 'Operation with tuple was not performed'
-errs[3].tuple      -- {71, 1802, "Oksana", 29}
+errs[3].class_name     -- NotPerformedError
+errs[3].err            -- 'Operation with tuple was not performed'
+errs[3].operation_data -- {71, 1802, "Oksana", 29}
 
-errs[4].class_name -- NotPerformedError
-errs[4].err        -- 'Operation with tuple was rollback'
-errs[4].tuple      -- {92, 2040, "Artur", 29}
+errs[4].class_name     -- NotPerformedError
+errs[4].err            -- 'Operation with tuple was rollback'
+errs[4].operation_data -- {92, 2040, "Artur", 29}
 ```
 
 ### Get
@@ -728,10 +728,10 @@ res
   - [5, 1172, 'Sergey', 's.petrenko'],
   - [22, 655, 'Alex', 'pushkinn'],
 
-#errs              -- 1
-errs[1].class_name -- ReplaceManyError
-errs[1].err        -- 'Duplicate key exists <...>'
-errs[1].tuple      -- {3, 2804, 'Anastasia', 'qwerty'}
+#errs                  -- 1
+errs[1].class_name     -- ReplaceManyError
+errs[1].err            -- 'Duplicate key exists <...>'
+errs[1].operation_data -- {3, 2804, 'Anastasia', 'qwerty'}
 
 -- Partial success with stop and rollback on error
 -- stop_on_error = true, rollback_on_error = true
@@ -757,22 +757,22 @@ res
   rows:
   - [4, 1161, 'Sergey', 's.smirnov'],
   - [6, 1064, 'Alex', 'alexpushkin'],
-#errs              -- 4
-errs[1].class_name -- ReplaceManyError
-errs[1].err        -- 'Duplicate key exists <...>'
-errs[1].tuple      -- {11, 2652, "Anastasia", "qwerty"}
+#errs                  -- 4
+errs[1].class_name     -- ReplaceManyError
+errs[1].err            -- 'Duplicate key exists <...>'
+errs[1].operation_data -- {11, 2652, "Anastasia", "qwerty"}
 
-errs[2].class_name -- NotPerformedError
-errs[2].err        -- 'Operation with tuple was not performed'
-errs[2].tuple      -- {9, 1644, "Anna", "AnnaBlack"}
+errs[2].class_name     -- NotPerformedError
+errs[2].err            -- 'Operation with tuple was not performed'
+errs[2].operation_data -- {9, 1644, "Anna", "AnnaBlack"}
 
-errs[3].class_name -- NotPerformedError
-errs[3].err        -- 'Operation with tuple was not performed'
-errs[3].tuple      -- {17, 2900, "Oksana", "OKonov"}
+errs[3].class_name     -- NotPerformedError
+errs[3].err            -- 'Operation with tuple was not performed'
+errs[3].operation_data -- {17, 2900, "Oksana", "OKonov"}
 
-errs[4].class_name -- NotPerformedError
-errs[4].err        -- 'Operation with tuple was rollback'
-errs[4].tuple      -- {92, 2040, "Artur", "AGolden"}
+errs[4].class_name     -- NotPerformedError
+errs[4].err            -- 'Operation with tuple was rollback'
+errs[4].operation_data -- {92, 2040, "Artur", "AGolden"}
 ...
 ```
 
@@ -928,10 +928,10 @@ res
   - {'name': 'name', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
 
-#errs              -- 1
-errs[1].class_name -- BatchUpsertError
-errs[1].err        -- 'Tuple field 4 (age) type does not match one required by operation <...>'
-errs[1].tuple      -- {3, 2804, 'Anastasia', 22}
+#errs                  -- 1
+errs[1].class_name     -- BatchUpsertError
+errs[1].err            -- 'Tuple field 4 (age) type does not match one required by operation <...>'
+errs[1].operation_data -- {3, 2804, 'Anastasia', 22}
 ...
 -- Partial success success with stop and rollback on error
 -- stop_on_error = true, rollback_on_error = true
@@ -955,22 +955,22 @@ res
   - {'name': 'bucket_id', 'type': 'unsigned'}
   - {'name': 'name', 'type': 'string'}
   - {'name': 'age', 'type': 'number'}
-#errs              -- 4
-errs[1].class_name -- UpsertManyError
-errs[1].err        -- 'Duplicate key exists <...>'
-errs[1].tuple      -- {3, 2804, 'Anastasia', 22}
+#errs                  -- 4
+errs[1].class_name     -- UpsertManyError
+errs[1].err            -- 'Duplicate key exists <...>'
+errs[1].operation_data -- {3, 2804, 'Anastasia', 22}
 
-errs[2].class_name -- NotPerformedError
-errs[2].err        -- 'Operation with tuple was not performed'
-errs[2].tuple      -- {9, 1644, "Anna", 30}
+errs[2].class_name     -- NotPerformedError
+errs[2].err            -- 'Operation with tuple was not performed'
+errs[2].operation_data -- {9, 1644, "Anna", 30}
 
-errs[3].class_name -- NotPerformedError
-errs[3].err        -- 'Operation with tuple was not performed'
-errs[3].tuple      -- {71, 1802, "Oksana", 29}
+errs[3].class_name     -- NotPerformedError
+errs[3].err            -- 'Operation with tuple was not performed'
+errs[3].operation_data -- {71, 1802, "Oksana", 29}
 
-errs[4].class_name -- NotPerformedError
-errs[4].err        -- 'Operation with tuple was rollback'
-errs[4].tuple      -- {92, 2040, "Artur", 29}
+errs[4].class_name     -- NotPerformedError
+errs[4].err            -- 'Operation with tuple was rollback'
+errs[4].operation_data -- {92, 2040, "Artur", 29}
 ```
 
 ### Select
