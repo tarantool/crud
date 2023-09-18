@@ -34,6 +34,13 @@ else
     fio.rmtree(tempdir)
 end
 
+local replicaset_uuid
+if box.info().replicaset ~= nil then
+    replicaset_uuid = box.info().replicaset.uuid
+else
+    replicaset_uuid = box.info().cluster.uuid
+end
+
 -- Setup vshard.
 _G.vshard = vshard
 box.once('guest', function()
@@ -43,7 +50,7 @@ local uri = 'guest@localhost:3301'
 local cfg = {
     bucket_count = 3000,
     sharding = {
-        [box.info().cluster.uuid] = {
+        [replicaset_uuid] = {
             replicas = {
                 [box.info().uuid] = {
                     uri = uri,
