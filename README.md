@@ -71,8 +71,8 @@ project:
   ```shell
   $ tt rocks install crud
   ```
-
-  And add the [initialization code](#API) to storage and router instance files.
+* Add the [crud initialization code](#API) to router and storage instances
+  initialization code for [VShard](https://github.com/tarantool/vshard).
 * Add crud into dependencies of a Cartridge application and add crud roles into
   dependencies of your roles (see [Cartridge roles](#cartridge-roles) section).
 * Add crud into dependencies of your application (rockspec, RPM spec -- depends
@@ -82,12 +82,19 @@ project:
 ## API
 
 The CRUD operations should be called from router.
-All storage replica sets should call `crud.init_storage()`
-(or enable the `crud-storage` role)
+
+All VShard storages should call `crud.init_storage()` after
+`vshard.storage.cfg()` (or enable the `crud-storage` role for Cartridge)
 first to initialize storage-side functions that are used to manipulate data
 across the cluster.
-All routers should call `crud.init_router()` (or enable the `crud-router` role)
-to make `crud` functions callable via `net.box`.
+
+All VShard routers should call `crud.init_router()` after `vshard.router.cfg()`
+(or enable the `crud-router` role for Cartridge) to make `crud` functions
+callable via `net.box`.
+
+You can check out an example of the configuration for local development
+(a single instance that combines router and storage) in
+[playground.lua](./doc/playground.lua).
 
 All operations return a table that contains rows (tuples) and metadata
 (space format).
