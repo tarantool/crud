@@ -113,15 +113,12 @@ function schema.wrap_func_reload(vshard_router, func, ...)
     return res, err
 end
 
-local function get_space_schema_hash(space)
-    if space == nil then
-        return ''
-    end
-
+schema.get_normalized_space_schema = function(space)
     local indexes_info = {}
     for i = 0, table.maxn(space.index) do
         local index = space.index[i]
         if index ~= nil then
+            -- Starts from zero...
             indexes_info[i] = {
                 unique = index.unique,
                 parts = index.parts,
@@ -133,12 +130,18 @@ local function get_space_schema_hash(space)
         end
     end
 
-    local space_info = {
+    return {
         format = space:format(),
         indexes = indexes_info,
     }
+end
 
-    return digest.murmur(msgpack.encode(space_info))
+local function get_space_schema_hash(space)
+    if space == nil then
+        return ''
+    end
+
+    return digest.murmur(msgpack.encode(schema.get_normalized_space_schema(space)))
 end
 
 function schema.filter_obj_fields(obj, field_names)

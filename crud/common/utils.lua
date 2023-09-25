@@ -4,6 +4,7 @@ local vshard = require('vshard')
 local fun = require('fun')
 local bit = require('bit')
 local log = require('log')
+local checks = require('checks')
 
 local is_cartridge, cartridge = pcall(require, 'cartridge')
 local is_cartridge_hotreload, cartridge_hotreload = pcall(require, 'cartridge.hotreload')
@@ -23,6 +24,7 @@ local NotInitializedError = errors.new_class('NotInitialized')
 local StorageInfoError = errors.new_class('StorageInfoError')
 local VshardRouterError = errors.new_class('VshardRouterError', {capture_stack = false})
 local UtilsInternalError = errors.new_class('UtilsInternalError', {capture_stack = false})
+local GetSchemaError = errors.new_class('GetSchemaError', {capture_stack = false})
 local fiber = require('fiber')
 
 local utils = {}
@@ -110,7 +112,7 @@ local function get_replicaset_by_replica_uuid(replicasets, uuid)
     return nil
 end
 
-function utils.get_space(space_name, vshard_router, timeout, replica_uuid)
+function utils.get_spaces(vshard_router, timeout, replica_uuid)
     local replicasets, replicaset
     timeout = timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
     local deadline = fiber.clock() + timeout
@@ -160,9 +162,15 @@ function utils.get_space(space_name, vshard_router, timeout, replica_uuid)
         return nil, GetSpaceError:new(error_msg)
     end
 
-    local space = replicaset.master.conn.space[space_name]
+    return replicaset.master.conn.space, nil, replicaset.master.conn.schema_version
+end
 
-    return space, nil, replicaset.master.conn.schema_version
+function utils.get_space(space_name, vshard_router, timeout, replica_uuid)
+    local spaces, err, schema_version = utils.get_spaces(vshard_router, timeout, replica_uuid)
+    if spaces == nil then
+        return nil, err
+    end
+    return spaces[space_name], nil, schema_version
 end
 
 function utils.get_space_format(space_name, vshard_router)
@@ -1253,6 +1261,88 @@ function utils.is_cartridge_hotreload_supported()
     end
 
     return true, cartridge_hotreload
+end
+
+local system_spaces = {
+    -- https://github.com/tarantool/tarantool/blob/3240201a2f5bac3bddf8a74015db9b351954e0b5/src/box/schema_def.h#L77-L127
+    ['_vinyl_deferred_delete'] = true,
+    ['_schema'] = true,
+    ['_collation'] = true,
+    ['_vcollation'] = true,
+    ['_space'] = true,
+    ['_vspace'] = true,
+    ['_sequence'] = true,
+    ['_sequence_data'] = true,
+    ['_vsequence'] = true,
+    ['_index'] = true,
+    ['_vindex'] = true,
+    ['_func'] = true,
+    ['_vfunc'] = true,
+    ['_user'] = true,
+    ['_vuser'] = true,
+    ['_priv'] = true,
+    ['_vpriv'] = true,
+    ['_cluster'] = true,
+    ['_trigger'] = true,
+    ['_truncate'] = true,
+    ['_space_sequence'] = true,
+    ['_vspace_sequence'] = true,
+    ['_fk_constraint'] = true,
+    ['_ck_constraint'] = true,
+    ['_func_index'] = true,
+    ['_session_settings'] = true,
+    -- https://github.com/tarantool/vshard/blob/b3c27b32637863e9a03503e641bb7c8c69779a00/vshard/storage/init.lua#L752
+    ['_bucket'] = true,
+    -- https://github.com/tarantool/ddl/blob/b55d0ff7409f32e4d527e2d25444d883bce4163b/test/set_sharding_metadata_test.lua#L92-L98
+    ['_ddl_sharding_key'] = true,
+    ['_ddl_sharding_func'] = true,
+}
+
+utils.get_schema = function(space_name, opts)
+    checks('?string', {
+        vshard_router = '?string|table',
+        timeout = '?number',
+        cached = '?boolean',
+    })
+
+    opts = opts or {}
+
+    local vshard_router, err = utils.get_vshard_router_instance(opts.vshard_router)
+    if err ~= nil then
+        return nil, GetSchemaError:new(err)
+    end
+
+    if opts.cached ~= true then
+        local _, err = schema.reload_schema(vshard_router)
+        if err ~= nil then
+            return nil, GetSchemaError:new(err)
+        end
+    end
+
+    local spaces, err = utils.get_spaces(vshard_router, opts.timeout)
+    if err ~= nil then
+        return nil, GetSchemaError:new(err)
+    end
+
+    if space_name ~= nil then
+        local space = spaces[space_name]
+        if space == nil then
+            return nil, GetSchemaError:new("Space %q doesn't exist", space_name)
+        end
+        return schema.get_normalized_space_schema(space)
+    else
+        local resp = {}
+
+        for name, space in pairs(spaces) do
+            -- Can be indexed by space id and space name,
+            -- so we need to be careful with duplicates.
+            if type(name) == 'string' and system_spaces[name] == nil then
+                resp[name] = schema.get_normalized_space_schema(space)
+            end
+        end
+
+        return resp
+    end
 end
 
 return utils

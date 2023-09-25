@@ -1690,3 +1690,122 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_not_equals(err, nil)
     t.assert_equals(result, nil)
 end
+
+pgroup.test_get_schema = function(g)
+    local schema = g.cluster.main_server.net_box:call('crud.schema')
+    t.assert_equals(schema, {
+        customers = {
+            format = {
+                {name = "id", type = "unsigned"},
+                {name = "bucket_id", type = "unsigned"},
+                {name = "name", type = "string"},
+                {name = "age", type = "number"},
+            },
+            indexes = {
+                [0] = {
+                    id = 0,
+                    name = "id",
+                    parts = {{exclude_null = false, fieldno = 1, is_nullable = false, type = "unsigned"}},
+                    type = "TREE",
+                    unique = true,
+                },
+                {
+                    id = 1,
+                    name = "bucket_id",
+                    parts = {{exclude_null = false, fieldno = 2, is_nullable = false, type = "unsigned"}},
+                    type = "TREE",
+                    unique = false,
+                },
+            },
+        },
+        developers = {
+            format = {
+                {name = "id", type = "unsigned"},
+                {name = "bucket_id", type = "unsigned"},
+                {is_nullable = true, name = "extra_1", type = "any"},
+                {is_nullable = true, name = "extra_2", type = "any"},
+                {is_nullable = true, name = "extra_3", type = "any"},
+                {is_nullable = true, name = "extra_4", type = "any"},
+                {is_nullable = true, name = "extra_5", type = "any"},
+                {is_nullable = true, name = "extra_6", type = "any"},
+                {is_nullable = true, name = "extra_7", type = "any"},
+                {is_nullable = true, name = "extra_8", type = "any"},
+                {is_nullable = true, name = "extra_9", type = "any"},
+                {is_nullable = true, name = "extra_10", type = "any"},
+                {is_nullable = true, name = "extra_11", type = "any"},
+                {is_nullable = true, name = "extra_12", type = "any"},
+            },
+            indexes = {
+                [0] = {
+                    id = 0,
+                    name = "id",
+                    parts = {{exclude_null = false, fieldno = 1, is_nullable = false, type = "unsigned"}},
+                    type = "TREE",
+                    unique = true,
+                },
+                {
+                    id = 1,
+                    name = "bucket_id",
+                    parts = {{exclude_null = false, fieldno = 2, is_nullable = false, type = "unsigned"}},
+                    type = "TREE",
+                    unique = false,
+                },
+            },
+        },
+        notebook = {
+            format = {
+                {is_nullable = false, name = "local_id", type = "unsigned"},
+                {is_nullable = false, name = "bucket_id", type = "unsigned"},
+                {is_nullable = false, name = "record", type = "string"},
+            },
+            indexes = {
+                [0] = {
+                    id = 0,
+                    name = "local_id",
+                    parts = {{exclude_null = false, fieldno = 1, is_nullable = false, type = "unsigned"}},
+                    type = "TREE",
+                    unique = true,
+                },
+                {
+                    id = 1,
+                    name = "bucket_id",
+                    parts = {{exclude_null = false, fieldno = 2, is_nullable = false, type = "unsigned"}},
+                    type = "TREE",
+                    unique = false,
+                },
+            },
+        },
+        tags = {
+            format = {
+                {name = "id", type = "unsigned"},
+                {name = "bucket_id", type = "unsigned"},
+                {is_nullable = true, name = "is_red", type = "boolean"},
+                {is_nullable = true, name = "is_green", type = "boolean"},
+                {is_nullable = true, name = "is_blue", type = "boolean"},
+                {is_nullable = true, name = "is_yellow", type = "boolean"},
+                {is_nullable = true, name = "is_sweet", type = "boolean"},
+                {is_nullable = true, name = "is_dirty", type = "boolean"},
+                {is_nullable = true, name = "is_long", type = "boolean"},
+                {is_nullable = true, name = "is_short", type = "boolean"},
+                {is_nullable = true, name = "is_useful", type = "boolean"},
+                {is_nullable = true, name = "is_correct", type = "boolean"},
+            },
+            indexes = {
+                [0] = {
+                    id = 0,
+                    name = "id",
+                    parts = {{exclude_null = false, fieldno = 1, is_nullable = false, type = "unsigned"}},
+                    type = "TREE",
+                    unique = true,
+                },
+                {
+                    id = 1,
+                    name = "bucket_id",
+                    parts = {{exclude_null = false, fieldno = 2, is_nullable = false, type = "unsigned"}},
+                    type = "TREE",
+                    unique = false,
+                },
+            },
+        },
+    })
+end

@@ -147,6 +147,8 @@ crud.reset_stats = stats.reset
 -- @function storage_info
 crud.storage_info = utils.storage_info
 
+crud.schema = utils.get_schema
+
 --- Initializes crud on node
 --
 -- Exports all functions that are used for calls
