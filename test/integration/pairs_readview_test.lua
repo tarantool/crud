@@ -1,33 +1,21 @@
-local fio = require('fio')
-
 local t = require('luatest')
 
 local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
 
-local pgroup = t.group('pairs_readview', {
+local pgroup = t.group('pairs_readview', helpers.backend_matrix({
     {engine = 'memtx'},
-})
+}))
 
 pgroup.before_all(function(g)
 
     if (not helpers.tarantool_version_at_least(2, 11, 0))
     or (not require('luatest.tarantool').is_enterprise_package()) then
         t.skip('Readview is supported only for Tarantool Enterprise starting from v2.11.0')
-   end
+    end
 
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_select'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-        env = {
-            ['ENGINE'] = g.params.engine,
-        },
-    })
-
-    g.cluster:start()
+    helpers.start_default_cluster(g, 'srv_select')
 
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
 
@@ -36,7 +24,9 @@ pgroup.before_all(function(g)
     ]])
 end)
 
-pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end)
 
 pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
@@ -839,7 +829,7 @@ pgroup.test_pairs_no_map_reduce = function(g)
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
-    local router = g.cluster:server('router').net_box
+    local router = helpers.get_router(g.cluster, g.params.backend).net_box
     local map_reduces_before = helpers.get_map_reduces_stat(router, 'customers')
 
     -- Case: no conditions, just bucket id.

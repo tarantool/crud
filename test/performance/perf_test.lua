@@ -7,10 +7,10 @@ local log = require('log')
 local fun = require('fun')
 
 local t = require('luatest')
-local g = t.group('perf')
 
 local helpers = require('test.helper')
 
+local g = t.group('perf', helpers.backend_matrix())
 
 local id = 0
 local function gen()
@@ -22,6 +22,81 @@ local function reset_gen()
     id = 0
 end
 
+local vshard_cfg_template = {
+    sharding = {
+        {
+            replicas = {
+                ['s1-master'] = {
+                    master = true,
+                },
+                ['s1-replica'] = {},
+            },
+        },
+        {
+            replicas = {
+                ['s2-master'] = {
+                    master = true,
+                },
+                ['s2-replica'] = {},
+            },
+        },
+        {
+            replicas = {
+                ['s3-master'] = {
+                    master = true,
+                },
+                ['s3-replica'] = {},
+            },
+        },
+    },
+    bucket_count = 3000,
+    storage_init = helpers.entrypoint_vshard_storage('srv_ddl'),
+    crud_init = true,
+}
+
+local cartridge_cfg_template = {
+    datadir = fio.tempdir(),
+    server_command = helpers.entrypoint_cartridge('srv_ddl'),
+    use_vshard = true,
+    replicasets = {
+        {
+            uuid = helpers.uuid('a'),
+            alias = 'router',
+            roles = { 'crud-router' },
+            servers = {
+                { instance_uuid = helpers.uuid('a', 1), alias = 'router' },
+            },
+        },
+        {
+            uuid = helpers.uuid('b'),
+            alias = 's-1',
+            roles = { 'customers-storage', 'crud-storage' },
+            servers = {
+                { instance_uuid = helpers.uuid('b', 1), alias = 's1-master' },
+                { instance_uuid = helpers.uuid('b', 2), alias = 's1-replica' },
+            },
+        },
+        {
+            uuid = helpers.uuid('c'),
+            alias = 's-2',
+            roles = { 'customers-storage', 'crud-storage' },
+            servers = {
+                { instance_uuid = helpers.uuid('c', 1), alias = 's2-master' },
+                { instance_uuid = helpers.uuid('c', 2), alias = 's2-replica' },
+            },
+        },
+        {
+            uuid = helpers.uuid('d'),
+            alias = 's-3',
+            roles = { 'customers-storage', 'crud-storage' },
+            servers = {
+                { instance_uuid = helpers.uuid('d', 1), alias = 's3-master' },
+                { instance_uuid = helpers.uuid('d', 2), alias = 's3-replica' },
+            },
+        }
+    },
+}
+
 g.before_all(function(g)
     -- Run real perf tests only with flag, otherwise run short version
     -- to test compatibility as part of unit/integration test run.
@@ -32,51 +107,9 @@ g.before_all(function(g)
         helpers.disable_dev_checks()
     end
 
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_ddl'),
-        use_vshard = true,
-        replicasets = {
-            {
-                uuid = helpers.uuid('a'),
-                alias = 'router',
-                roles = { 'crud-router' },
-                servers = {
-                    { instance_uuid = helpers.uuid('a', 1), alias = 'router' },
-                },
-            },
-            {
-                uuid = helpers.uuid('b'),
-                alias = 's-1',
-                roles = { 'customers-storage', 'crud-storage' },
-                servers = {
-                    { instance_uuid = helpers.uuid('b', 1), alias = 's1-master' },
-                    { instance_uuid = helpers.uuid('b', 2), alias = 's1-replica' },
-                },
-            },
-            {
-                uuid = helpers.uuid('c'),
-                alias = 's-2',
-                roles = { 'customers-storage', 'crud-storage' },
-                servers = {
-                    { instance_uuid = helpers.uuid('c', 1), alias = 's2-master' },
-                    { instance_uuid = helpers.uuid('c', 2), alias = 's2-replica' },
-                },
-            },
-            {
-                uuid = helpers.uuid('d'),
-                alias = 's-3',
-                roles = { 'customers-storage', 'crud-storage' },
-                servers = {
-                    { instance_uuid = helpers.uuid('d', 1), alias = 's3-master' },
-                    { instance_uuid = helpers.uuid('d', 2), alias = 's3-replica' },
-                },
-            }
-        },
-    })
-    g.cluster:start()
+    helpers.start_cluster(g, cartridge_cfg_template, vshard_cfg_template)
 
-    g.router = g.cluster:server('router').net_box
+    g.router = helpers.get_router(g.cluster, g.params.backend).net_box
 
     g.router:eval([[
         rawset(_G, 'crud', require('crud'))
@@ -259,8 +292,7 @@ g.after_each(function(g)
 end)
 
 g.after_all(function(g)
-    g.cluster:stop()
-    fio.rmtree(g.cluster.datadir)
+    helpers.stop_cluster(g.cluster, g.params.backend)
 
     visualize_report(g.total_report, 'STATISTICS PERFORMANCE REPORT', {
         columns = {
@@ -1111,7 +1143,7 @@ for name, case in pairs(cases) do
 
             local connections = {}
 
-            local router = g.cluster:server('router')
+            local router = helpers.get_router(g.cluster, g.params.backend)
             for _ = 1, params.connection_count do
                 local c = net_box:connect(router.net_box_uri, router.net_box_credentials)
                 if c == nil then

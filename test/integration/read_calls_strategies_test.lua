@@ -1,8 +1,8 @@
-local fio = require('fio')
-
 local t = require('luatest')
 
-local pgroup = t.group('read_calls_strategies', {
+local helpers = require('test.helper')
+
+local pgroup = t.group('read_calls_strategies', helpers.backend_matrix({
     -- mode: write
     {exp_vshard_call = 'callrw', mode = 'write'},
 
@@ -24,19 +24,10 @@ local pgroup = t.group('read_calls_strategies', {
 
     -- prefer_replica, balance -> callbre
     {exp_vshard_call = 'callbre', prefer_replica = true, balance = true},
-})
-
-local helpers = require('test.helper')
+}))
 
 pgroup.before_all(function(g)
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_read_calls_strategies'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-    })
-
-    g.cluster:start()
+    helpers.start_default_cluster(g, 'srv_read_calls_strategies')
 
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
 
@@ -67,7 +58,7 @@ pgroup.before_all(function(g)
 end)
 
 pgroup.after_all(function(g)
-    helpers.stop_cluster(g.cluster)
+    helpers.stop_cluster(g.cluster, g.params.backend)
 end)
 
 pgroup.before_each(function(g)

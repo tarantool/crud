@@ -12,9 +12,11 @@ local pgroup = t.group('vshard_custom', {
 })
 
 pgroup.before_all(function(g)
+    helpers.skip_cartridge_unsupported()
+
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_vshard_custom'),
+        server_command = helpers.entrypoint_cartridge('srv_vshard_custom'),
         use_vshard = true,
         replicasets = {
             {
@@ -86,7 +88,7 @@ pgroup.before_all(function(g)
     g.router = g.cluster:server('router').net_box
 end)
 
-pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g) helpers.stop_cartridge_cluster(g.cluster) end)
 
 pgroup.before_all(function(g)
     g.router:eval([[

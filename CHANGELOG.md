@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
+### Changed
+* `deps.sh` installs the `vshard` instead of the `cartridge` by default (#364).
+  You could to specify an environment variable `CARTIRDGE_VERSION` to install
+  the `cartridge` and run tests cases with it.
+
 ### Fixed
 * `crud.readview` resource cleanup on garbage collect (#379).
 * `doc/playground.lua` does not work with Tarantool 3 (#371).
+* Tests with Tarantool 3 (#364).
 
 ## [1.3.0] - 27-09-23
 

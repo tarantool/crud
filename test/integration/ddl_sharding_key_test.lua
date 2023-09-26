@@ -1,5 +1,5 @@
-local fio = require('fio')
 local crud = require('crud')
+
 local t = require('luatest')
 
 local helpers = require('test.helper')
@@ -9,22 +9,14 @@ if not ok then
     t.skip('Lua module ddl is required to run test')
 end
 
-local pgroup = t.group('ddl_sharding_key', {
+local pgroup = t.group('ddl_sharding_key', helpers.backend_matrix({
     {engine = 'memtx'},
     {engine = 'vinyl'},
-})
+}))
 
 pgroup.before_all(function(g)
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_ddl'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-        env = {
-            ['ENGINE'] = g.params.engine,
-        },
-    })
-    g.cluster:start()
+    helpers.start_default_cluster(g, 'srv_ddl')
+
     local result, err = g.cluster.main_server.net_box:eval([[
         local ddl = require('ddl')
 
@@ -34,12 +26,15 @@ pgroup.before_all(function(g)
     t.assert_equals(type(result), 'table')
     t.assert_equals(err, nil)
 
-    g.cluster.main_server.net_box:eval([[
+    g.router = helpers.get_router(g.cluster, g.params.backend)
+    g.router.net_box:eval([[
         require('crud').cfg{ stats = true }
     ]])
 end)
 
-pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end)
 
 pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
@@ -562,7 +557,7 @@ for name, case in pairs(cases) do
     pgroup[('test_%s_wont_lead_to_map_reduce'):format(name)] = function(g)
         case.prepare_data(g, case.space_name)
 
-        local router = g.cluster:server('router').net_box
+        local router = g.router.net_box
         local map_reduces_before = helpers.get_map_reduces_stat(router, case.space_name)
 
         local result, err = router:call('crud.select', {
@@ -582,7 +577,7 @@ pgroup.test_select_for_part_of_sharding_key_will_lead_to_map_reduce = function(g
     local space_name = 'customers_name_age_key_different_indexes'
     prepare_data_name_age_sharding_key(g, space_name)
 
-    local router = g.cluster:server('router').net_box
+    local router = g.router.net_box
     local map_reduces_before = helpers.get_map_reduces_stat(router, space_name)
 
     local result, err = router:call('crud.select', {

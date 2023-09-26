@@ -1,4 +1,3 @@
-local fio = require('fio')
 local t = require('luatest')
 
 local sharding_utils = require('crud.common.sharding.utils')
@@ -10,43 +9,34 @@ if not ok then
     t.skip('Lua module ddl is required to run test')
 end
 
-local pgroup_storage = t.group('ddl_storage_sharding_info', {
+local pgroup_storage = t.group('ddl_storage_sharding_info', helpers.backend_matrix({
     {engine = 'memtx'},
     {engine = 'vinyl'},
-})
+}))
 
-local pgroup_new_space = t.group('ddl_sharding_info_on_new_space', {
+local pgroup_new_space = t.group('ddl_sharding_info_on_new_space', helpers.backend_matrix({
     {engine = 'memtx'},
     {engine = 'vinyl'},
-})
+}))
 
-local pgroup_key_change = t.group('ddl_sharding_key_reload_after_schema_change', {
+local pgroup_key_change = t.group('ddl_sharding_key_reload_after_schema_change', helpers.backend_matrix({
     {engine = 'memtx'},
     {engine = 'vinyl'},
-})
+}))
 
-local pgroup_func_change = t.group('ddl_sharding_func_reload_after_schema_change', {
+local pgroup_func_change = t.group('ddl_sharding_func_reload_after_schema_change', helpers.backend_matrix({
     {engine = 'memtx'},
     {engine = 'vinyl'},
-})
+}))
 
 local select_limit = 100
 
 local function start_cluster(g)
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_ddl_reload'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-        env = {
-            ['ENGINE'] = g.params.engine,
-        },
-    })
-    g.cluster:start()
+    helpers.start_default_cluster(g, 'srv_ddl_reload')
 end
 
 local function stop_cluster(g)
-    helpers.stop_cluster(g.cluster)
+    helpers.stop_cluster(g.cluster, g.params.backend)
 end
 
 pgroup_storage.before_all(start_cluster)
@@ -229,6 +219,8 @@ pgroup_storage.test_gh_310_ddl_key_record_delete_removes_cache_entry = function(
 
     -- Drop space together with sharding info.
     local _, err = storage:eval([[
+        local ddl = require('ddl')
+
         local space_name = ...
 
         local current_schema, err = ddl.get_schema()
@@ -263,6 +255,8 @@ pgroup_storage.test_gh_310_ddl_func_record_delete_removes_cache_entry = function
 
     -- Drop space together with sharding info.
     local _, err = storage:eval([[
+        local ddl = require('ddl')
+
         local space_name = ...
 
         local current_schema, err = ddl.get_schema()
@@ -303,6 +297,7 @@ for sharding_case_name, sharding_case in pairs(sharding_cases) do
                            reload_case_name, sharding_case_name)
 
         pgroup_storage[test_name] = function(g)
+            helpers.skip_not_cartridge_backend(g.params.backend)
             t.skip_if(
                 ((reload_case == 'reload_roles')
                 and not helpers.is_cartridge_hotreload_supported()),
@@ -334,6 +329,7 @@ for _, sharding_case in pairs(sharding_cases) do
                            sharding_case.ddl_space, reload_case_name)
 
         pgroup_storage[test_name] = function(g)
+            helpers.skip_not_cartridge_backend(g.params.backend)
             t.skip_if(
                 ((reload_case == 'reload_roles')
                 and not helpers.is_cartridge_hotreload_supported()),

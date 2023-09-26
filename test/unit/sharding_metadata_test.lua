@@ -45,14 +45,27 @@ g.before_each(function()
     box.schema.space.create('fetch_on_storage')
 end)
 
+-- Since Tarantool 3.0 triggers still live after a space drop. To properly
+-- clean up for the unit tests we need to remove all triggers from
+-- the space. This is necessary because `crud` adds its own triggers to the
+-- `ddl` spaces.
+--
+-- In practice `ddl` does not drop this spaces so it is the tests problem.
+local function drop_ddl_space(space)
+    for _, t in pairs(space:on_replace()) do
+        space:on_replace(nil, t)
+    end
+    space:drop()
+end
+
 g.after_each(function()
     -- Cleanup.
     if box.space._ddl_sharding_key ~= nil then
-        box.space._ddl_sharding_key:drop()
+        drop_ddl_space(box.space._ddl_sharding_key)
     end
 
     if box.space._ddl_sharding_func ~= nil then
-        box.space._ddl_sharding_func:drop()
+        drop_ddl_space(box.space._ddl_sharding_func)
     end
 
     box.space.fetch_on_storage:drop()

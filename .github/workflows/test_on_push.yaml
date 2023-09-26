@@ -13,6 +13,10 @@ jobs:
       matrix:
         # We need 1.10.6 here to check that module works with
         # old Tarantool versions that don't have "tuple-keydef"/"tuple-merger" support.
+        # We test old metrics with Tarantool 2.10 because since Tarantool 2.11.1
+        # it uses its own metrics package.
+        # We test old metrics with Cartridge 2.7.9 because since 2.8.0 it
+        # requires metrics 1.0.0.
         tarantool-version: ["1.10.6", "1.10", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.10", "2.11"]
         metrics-version: [""]
         cartridge-version: ["2.8.0"]
@@ -24,16 +28,19 @@ jobs:
           - tarantool-version: "2.7"
             remove-merger: true
             cartridge-version: "2.8.0"
-          - tarantool-version: "2.11"
-            metrics-version: "0.1.8"
-            cartridge-version: "2.8.0"
-          - tarantool-version: "2.11"
+          - tarantool-version: "2.10"
             metrics-version: "0.10.0"
-            cartridge-version: "2.8.0"
+            cartridge-version: "2.7.9"
           - tarantool-version: "2.11"
             coveralls: true
             metrics-version: "1.0.0"
             cartridge-version: "2.8.0"
+          - tarantool-version: "2.11"
+            metrics-version: "1.0.0"
+            vshard-version: "0.1.24"
+          - tarantool-version: "master"
+            metrics-version: "1.0.0"
+            vshard-version: "0.1.24"
       fail-fast: false
     # Can't install older versions on 22.04,
     # see https://github.com/tarantool/setup-tarantool/issues/36
@@ -42,9 +49,41 @@ jobs:
       - uses: actions/checkout@master
 
       - name: Setup Tarantool CE
+        if: matrix.tarantool-version != 'master'
         uses: tarantool/setup-tarantool@v2
         with:
           tarantool-version: ${{ matrix.tarantool-version }}
+
+      - name: Setup tt
+        run: |
+          curl -L https://tarantool.io/release/2/installer.sh | sudo bash
+          sudo apt install -y tt
+          tt version
+
+      - name: Get Tarantool master latest commit
+        if: matrix.tarantool-version == 'master'
+        run: |
+          commit_hash=$(git ls-remote https://github.com/tarantool/tarantool.git --branch master | head -c 8)
+          echo "LATEST_COMMIT=${commit_hash}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Cache Tarantool master
+        if: matrix.tarantool-version == 'master'
+        id: cache-latest
+        uses: actions/cache@v3
+        with:
+          path: "${GITHUB_WORKSPACE}/bin"
+          key: cache-latest-${{ env.LATEST_COMMIT }}
+
+      - name: Setup Tarantool master
+        if: matrix.tarantool-version == 'master' && steps.cache-latest.outputs.cache-hit != 'true'
+        run: |
+          tt init
+          tt install tarantool master
+
+      - name: Add Tarantool master to PATH
+        if: matrix.tarantool-version == 'master'
+        run: echo "${GITHUB_WORKSPACE}/bin" >> $GITHUB_PATH
 
       - name: Fix luarocks in Tarantool CE 1.10.6
         if: matrix.tarantool-version == '1.10.6'
@@ -57,10 +96,11 @@ jobs:
           ./deps.sh
         env:
           CARTRIDGE_VERSION: ${{ matrix.cartridge-version }}
+          VSHARD_VERSION: ${{ matrix.vshard-version }}
 
       - name: Install metrics
         if: matrix.metrics-version != ''
-        run: tarantoolctl rocks install metrics ${{ matrix.metrics-version }}
+        run: tt rocks install metrics ${{ matrix.metrics-version }}
 
       - name: Remove external merger if needed
         if: ${{ matrix.remove-merger }}
@@ -90,23 +130,64 @@ jobs:
       matrix:
         tarantool-version: ["1.10", "2.11"]
         metrics-version: ["1.0.0"]
+        cartridge-version: ["2.8.0"]
+        include:
+          - tarantool-version: "master"
+            metrics-version: "1.0.0"
+            vshard-version: "0.1.24"
       fail-fast: false
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@master
 
       - name: Setup Tarantool CE
+        if: matrix.tarantool-version != 'master'
         uses: tarantool/setup-tarantool@v2
         with:
           tarantool-version: ${{ matrix.tarantool-version }}
+
+      - name: Setup tt
+        run: |
+          curl -L https://tarantool.io/release/2/installer.sh | sudo bash
+          sudo apt install -y tt
+          tt version
+
+      - name: Get Tarantool master latest commit
+        if: matrix.tarantool-version == 'master'
+        run: |
+          commit_hash=$(git ls-remote https://github.com/tarantool/tarantool.git --branch master | head -c 8)
+          echo "LATEST_COMMIT=${commit_hash}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Cache Tarantool master
+        if: matrix.tarantool-version == 'master'
+        id: cache-latest
+        uses: actions/cache@v3
+        with:
+          path: "${GITHUB_WORKSPACE}/bin"
+          key: cache-latest-${{ env.LATEST_COMMIT }}
+
+      - name: Setup Tarantool master
+        if: matrix.tarantool-version == 'master' && steps.cache-latest.outputs.cache-hit != 'true'
+        run: |
+          tt init
+          tt install tarantool master
+
+      - name: Add Tarantool master to PATH
+        if: matrix.tarantool-version == 'master'
+        run: echo "${GITHUB_WORKSPACE}/bin" >> $GITHUB_PATH
 
       - name: Install requirements for community
         run: |
           tarantool --version
           ./deps.sh
+        env:
+          CARTRIDGE_VERSION: ${{ matrix.cartridge-version }}
+          VSHARD_VERSION: ${{ matrix.vshard-version }}
 
       - name: Install metrics
-        run: tarantoolctl rocks install metrics ${{ matrix.metrics-version }}
+        if: matrix.metrics-version != ''
+        run: tt rocks install metrics ${{ matrix.metrics-version }}
 
       # This server starts and listen on 8084 port that is used for tests
       - name: Stop Mono server
@@ -127,6 +208,7 @@ jobs:
           - folder: "2.11"
             bundle: "tarantool-enterprise-sdk-nogc64-2.11.0-0-r563.linux.x86_64"
         metrics-version: ["", "1.0.0"]
+        cartridge-version: ["2.8.0"]
       fail-fast: false
     runs-on: ubuntu-20.04
     steps:
@@ -138,9 +220,13 @@ jobs:
           tar -xzf ${{ matrix.tarantool-version.bundle }}.tar.gz
           rm -f ${{ matrix.tarantool-version.bundle }}.tar.gz
           sudo cp tarantool-enterprise/tarantool /usr/bin/tarantool
+          sudo rm tarantool-enterprise/tt
           source tarantool-enterprise/env.sh
           tarantool --version
           ./deps.sh
+        env:
+          CARTRIDGE_VERSION: ${{ matrix.cartridge-version }}
+          VSHARD_VERSION: ${{ matrix.vshard-version }}
 
       - name: Install metrics
         if: matrix.metrics-version != ''

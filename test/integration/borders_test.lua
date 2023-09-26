@@ -1,33 +1,23 @@
-local fio = require('fio')
-
 local t = require('luatest')
 
 local crud = require('crud')
 
 local helpers = require('test.helper')
 
-local pgroup = t.group('borders', {
+local pgroup = t.group('borders', helpers.backend_matrix({
     {engine = 'memtx'},
     {engine = 'vinyl'},
-})
+}))
 
 pgroup.before_all(function(g)
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_select'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-        env = {
-            ['ENGINE'] = g.params.engine,
-        },
-    })
-
-    g.cluster:start()
+    helpers.start_default_cluster(g, 'srv_select')
 
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
 end)
 
-pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end)
 
 pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')

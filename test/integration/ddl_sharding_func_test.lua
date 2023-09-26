@@ -1,4 +1,3 @@
-local fio = require('fio')
 local crud = require('crud')
 local t = require('luatest')
 
@@ -9,34 +8,26 @@ if not ok then
     t.skip('Lua module ddl is required to run test')
 end
 
-local pgroup = t.group('ddl_sharding_func', {
+local pgroup = t.group('ddl_sharding_func', helpers.backend_matrix({
     {engine = 'memtx', space_name = 'customers_G_func'},
     {engine = 'memtx', space_name = 'customers_body_func'},
     {engine = 'vinyl', space_name = 'customers_G_func'},
     {engine = 'vinyl', space_name = 'customers_body_func'},
-})
+}))
 
-local cache_group = t.group('ddl_sharding_func_cache', {
+local cache_group = t.group('ddl_sharding_func_cache', helpers.backend_matrix({
     {engine = 'memtx'},
     {engine = 'vinyl'},
-})
+}))
 
-local vshard_group = t.group('ddl_vshard_sharding_func', {
+local vshard_group = t.group('ddl_vshard_sharding_func', helpers.backend_matrix({
     {engine = 'memtx'},
     {engine = 'vinyl'},
-})
+}))
 
-pgroup.before_all(function(g)
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_ddl'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-        env = {
-            ['ENGINE'] = g.params.engine,
-        },
-    })
-    g.cluster:start()
+local function before_all(g)
+    helpers.start_default_cluster(g, 'srv_ddl')
+
     local result, err = g.cluster.main_server.net_box:eval([[
         local ddl = require('ddl')
 
@@ -45,65 +36,30 @@ pgroup.before_all(function(g)
     ]])
     t.assert_equals(type(result), 'table')
     t.assert_equals(err, nil)
-end)
+end
 
-pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+local function after_all(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end
+
+pgroup.before_all(before_all)
+pgroup.after_all(after_all)
 
 pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers_G_func')
     helpers.truncate_space_on_cluster(g.cluster, 'customers_body_func')
 end)
 
-cache_group.before_all(function(g)
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_ddl'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-        env = {
-            ['ENGINE'] = g.params.engine,
-        },
-    })
-    g.cluster:start()
-    local result, err = g.cluster.main_server.net_box:eval([[
-        local ddl = require('ddl')
-
-        local ok, err = ddl.get_schema()
-        return ok, err
-    ]])
-    t.assert_equals(type(result), 'table')
-    t.assert_equals(err, nil)
-end)
-
-cache_group.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+cache_group.before_all(before_all)
+cache_group.after_all(after_all)
 
 cache_group.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers_G_func')
     helpers.truncate_space_on_cluster(g.cluster, 'customers_body_func')
 end)
 
-vshard_group.before_all(function(g)
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_ddl'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-        env = {
-            ['ENGINE'] = g.params.engine,
-        },
-    })
-    g.cluster:start()
-    local result, err = g.cluster.main_server.net_box:eval([[
-        local ddl = require('ddl')
-
-        local ok, err = ddl.get_schema()
-        return ok, err
-    ]])
-    t.assert_equals(type(result), 'table')
-    t.assert_equals(err, nil)
-end)
-
-vshard_group.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+vshard_group.before_all(before_all)
+vshard_group.after_all(after_all)
 
 vshard_group.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers_vshard_mpcrc32')

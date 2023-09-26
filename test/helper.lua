@@ -1,30 +1,49 @@
 require('strict').on()
 
 local t = require('luatest')
+local vtest = require('test.vshard_helpers.vtest')
+
+local luatest_capture = require('luatest.capture')
+local luatest_helpers = require('luatest.helpers')
 local luatest_utils = require('luatest.utils')
 
-local log = require('log')
 local checks = require('checks')
 local digest = require('digest')
 local fio = require('fio')
 
 local crud = require('crud')
 local crud_utils = require('crud.common.utils')
+local cartridge_installed, cartridge_helpers = pcall(require, 'cartridge.test-helpers')
 
 if os.getenv('TARANTOOL_CRUD_ENABLE_INTERNAL_CHECKS') == nil then
     os.setenv('TARANTOOL_CRUD_ENABLE_INTERNAL_CHECKS', 'ON')
 end
 
-local helpers = {}
+local helpers = {
+    backend = {
+        VSHARD = 'vshard',
+        CARTRIDGE = 'cartridge',
+    },
+}
 
-local ok, cartridge_helpers = pcall(require, 'cartridge.test-helpers')
-if not ok then
-    log.error('Please, install cartridge rock to run tests')
-    os.exit(1)
+local function is_cartridge_supported()
+    local tarantool_version = luatest_utils.get_tarantool_version()
+    local unsupported_version = luatest_utils.version(3, 0, 0)
+    return not luatest_utils.version_ge(tarantool_version, unsupported_version)
 end
 
-for name, value in pairs(cartridge_helpers) do
-    helpers[name] = value
+local function is_cartridge_installed()
+    return cartridge_installed
+end
+
+if is_cartridge_supported() and is_cartridge_installed() then
+    for name, value in pairs(cartridge_helpers) do
+        helpers[name] = value
+    end
+else
+    for name, value in pairs(luatest_helpers) do
+        helpers[name] = value
+    end
 end
 
 helpers.project_root = fio.dirname(debug.sourcedir())
@@ -43,16 +62,40 @@ fio.tempdir = function(base)
     end
 end
 
-function helpers.entrypoint(name)
+function helpers.entrypoint_cartridge(name)
     local path = fio.pathjoin(
         helpers.project_root,
-        'test', 'entrypoint',
-        string.format('%s.lua', name)
+        'test', 'entrypoint', name, 'cartridge_init.lua'
     )
     if not fio.path.exists(path) then
-        error(path .. ': no such entrypoint', 2)
+        error(path .. ': no such cartridge entrypoint', 2)
     end
     return path
+end
+
+local function entrypoint_vshard(name, entrypoint, err)
+    local path = fio.pathjoin(
+        'test', 'entrypoint', name, entrypoint
+    )
+    if not fio.path.exists(path .. ".lua") then
+        if err then
+            error(path .. ': no such entrypoint', 2)
+        end
+        return nil, false
+    end
+    return path, true
+end
+
+function helpers.entrypoint_vshard_storage(name)
+    return entrypoint_vshard(name, 'storage_init', true)
+end
+
+function helpers.entrypoint_vshard_router(name)
+    return entrypoint_vshard(name, 'router_init', true)
+end
+
+function helpers.entrypoint_vshard_all(name)
+    return entrypoint_vshard(name, 'all_init', true)
 end
 
 function helpers.table_keys(t)
@@ -111,7 +154,7 @@ function helpers.get_objects_by_idxs(objects, idxs)
     return results
 end
 
-function helpers.stop_cluster(cluster)
+function helpers.stop_cartridge_cluster(cluster)
     assert(cluster ~= nil)
     cluster:stop()
     fio.rmtree(cluster.datadir)
@@ -156,7 +199,7 @@ function helpers.reset_sequence_on_cluster(cluster, sequence_name)
     end
 end
 
-function helpers.get_test_replicasets()
+function helpers.get_test_cartridge_replicasets()
     return {
         {
             uuid = helpers.uuid('a'),
@@ -172,7 +215,7 @@ function helpers.get_test_replicasets()
             roles = { 'customers-storage', 'crud-storage' },
             servers = {
                 { instance_uuid = helpers.uuid('b', 1), alias = 's1-master' },
-                { instance_uuid = helpers.uuid('b', 2), alias = 's1-replica' },
+                { instance_uuid = helpers.uuid('b', 10), alias = 's1-replica' },
             },
         },
         {
@@ -181,10 +224,38 @@ function helpers.get_test_replicasets()
             roles = { 'customers-storage', 'crud-storage' },
             servers = {
                 { instance_uuid = helpers.uuid('c', 1), alias = 's2-master' },
-                { instance_uuid = helpers.uuid('c', 2), alias = 's2-replica' },
+                { instance_uuid = helpers.uuid('c', 10), alias = 's2-replica' },
             },
         }
     }
+end
+
+function helpers.get_test_vshard_sharding()
+    local sharding = {
+        {
+            replicas = {
+                ['s1-master'] = {
+                    instance_uuid = helpers.uuid('b', 1),
+                    master = true,
+                },
+                ['s1-replica'] = {
+                    instance_uuid = helpers.uuid('b', 10),
+                },
+            },
+        },
+        {
+            replicas = {
+                ['s2-master'] = {
+                    instance_uuid = helpers.uuid('c', 1),
+                    master = true,
+                },
+                ['s2-replica'] = {
+                    instance_uuid = helpers.uuid('c', 10),
+                },
+            },
+        },
+    }
+    return sharding
 end
 
 function helpers.call_on_servers(cluster, aliases, func)
@@ -236,30 +307,38 @@ function helpers.call_on_storages(cluster, func, ...)
     -- NB: The 'servers' field contains server configs. They are
     -- not the same as server objects: say, there is no 'net_box'
     -- field here.
-    local alias_map = {}
-    for _, replicaset in ipairs(cluster.replicasets) do
-        -- Whether it is a storage replicaset?
-        local has_crud_storage_role = false
-        for _, role in ipairs(replicaset.roles) do
-            if role == 'crud-storage' then
-                has_crud_storage_role = true
-                break
+    if cluster.replicasets ~= nil then
+        local alias_map = {}
+        for _, replicaset in ipairs(cluster.replicasets) do
+            -- Whether it is a storage replicaset?
+            local has_crud_storage_role = false
+            for _, role in ipairs(replicaset.roles) do
+                if role == 'crud-storage' then
+                    has_crud_storage_role = true
+                    break
+                end
+            end
+
+            -- If so, add servers of the replicaset into the mapping.
+            if has_crud_storage_role then
+                for _, server in ipairs(replicaset.servers) do
+                    alias_map[server.alias] = replicaset
+                end
             end
         end
 
-        -- If so, add servers of the replicaset into the mapping.
-        if has_crud_storage_role then
-            for _, server in ipairs(replicaset.servers) do
-                alias_map[server.alias] = replicaset
+        -- Call given function for each storage node.
+        for _, server in ipairs(cluster.servers) do
+            local replicaset_alias = alias_map[server.alias]
+            if replicaset_alias ~= nil then
+                func(server, replicaset_alias, ...)
             end
         end
-    end
-
-    -- Call given function for each storage node.
-    for _, server in ipairs(cluster.servers) do
-        local replicaset_alias = alias_map[server.alias]
-        if replicaset_alias ~= nil then
-            func(server, replicaset_alias, ...)
+    else
+        for _, server in ipairs(cluster.servers) do
+            if server.vtest and server.vtest.is_storage then
+                func(server, server.vtest.replicaset, ...)
+            end
         end
     end
 end
@@ -511,6 +590,50 @@ function helpers.assert_timeout_error(value, message)
     error(err, 2)
 end
 
+function helpers.get_command_log(router, backend, call, args)
+    local capture
+    local logfile
+    if backend == helpers.backend.CARTRIDGE then
+        capture = luatest_capture:new()
+        capture:enable()
+    elseif backend == helpers.backend.VSHARD then
+        local logpath = router.net_box:eval('return box.cfg.log')
+        logfile = fio.open(logpath, {'O_RDONLY', 'O_NONBLOCK'})
+        logfile:read()
+    end
+
+    local _, err = router.net_box:call(call, args)
+    if err ~= nil then
+        if backend == helpers.backend.CARTRIDGE then
+            capture:disable()
+        elseif backend == helpers.backend.VSHARD then
+            logfile:close()
+        end
+        return nil, err
+    end
+
+    -- Sometimes we have a delay here. This hack helps to wait for the end of
+    -- the output. It shouldn't take much time.
+    router.net_box:eval([[
+        require('log').error("crud fflush message")
+    ]])
+    local captured = ""
+    while not string.find(captured, "crud fflush message", 1, true) do
+        if backend == helpers.backend.CARTRIDGE then
+            captured = captured .. (capture:flush().stdout or "")
+        elseif backend == helpers.backend.VSHARD then
+            captured = captured .. (logfile:read() or "")
+        end
+    end
+
+    if backend == helpers.backend.CARTRIDGE then
+        capture:disable()
+    elseif backend == helpers.backend.VSHARD then
+        logfile:close()
+    end
+    return captured, nil
+end
+
 function helpers.fflush_main_server_stdout(cluster, capture)
     -- Sometimes we have a delay here. This hack helps to wait for the end of
     -- the output. It shouldn't take much time.
@@ -548,6 +671,17 @@ function helpers.is_metrics_0_12_0_or_older()
     return false
 end
 
+function helpers.skip_cartridge_unsupported()
+    t.skip_if(not is_cartridge_supported(),
+        "Cartridge is not supported on Tarantool 3+")
+    t.skip_if(not is_cartridge_installed(),
+        "Cartridge is not installed")
+end
+
+function helpers.skip_not_cartridge_backend(backend)
+    t.skip_if(backend ~= helpers.backend.CARTRIDGE, "The test is for cartridge only")
+end
+
 function helpers.is_cartridge_hotreload_supported()
     return crud_utils.is_cartridge_hotreload_supported()
 end
@@ -563,6 +697,75 @@ function helpers.skip_old_tarantool_cartridge_hotreload()
     t.skip_if(luatest_utils.version_ge(tarantool_version, luatest_utils.version(2, 0, 0))
           and luatest_utils.version_ge(luatest_utils.version(2, 5, 1), tarantool_version),
         "Cartridge hotreload tests stuck for vshard 0.1.22+ on Tarantool 2.2, 2.3 and 2.4")
+end
+
+function helpers.start_default_cluster(g, srv_name)
+    local cartridge_cfg = {
+        datadir = fio.tempdir(),
+        server_command = helpers.entrypoint_cartridge(srv_name),
+        use_vshard = true,
+        replicasets = helpers.get_test_cartridge_replicasets(),
+    }
+    local vshard_cfg = {
+        sharding = helpers.get_test_vshard_sharding(),
+        bucket_count = 3000,
+        storage_init = entrypoint_vshard(srv_name, 'storage_init', false),
+        router_init = entrypoint_vshard(srv_name, 'router_init', false),
+        all_init = entrypoint_vshard(srv_name, 'all_init', false),
+        crud_init = true,
+    }
+
+    helpers.start_cluster(g, cartridge_cfg, vshard_cfg)
+end
+
+function helpers.start_cluster(g, cartridge_cfg, vshard_cfg)
+    if g.params.backend == helpers.backend.CARTRIDGE then
+        helpers.skip_cartridge_unsupported()
+
+        local cfg = table.deepcopy(cartridge_cfg)
+        cfg.env = {
+            ['ENGINE'] = g.params.engine
+        }
+
+        g.cluster = helpers.Cluster:new(cfg)
+        g.cluster:start()
+    elseif g.params.backend == helpers.backend.VSHARD then
+        local cfg = table.deepcopy(vshard_cfg)
+        cfg.engine = g.params.engine
+
+        local global_cfg = vtest.config_new(cfg)
+        vtest.cluster_new(g, global_cfg)
+    end
+end
+
+function helpers.stop_cluster(cluster, backend)
+    if backend == helpers.backend.CARTRIDGE then
+        helpers.stop_cartridge_cluster(cluster)
+    elseif backend == helpers.backend.VSHARD then
+        cluster:drop()
+    end
+end
+
+function helpers.get_router(cluster, backend)
+    if backend == helpers.backend.CARTRIDGE then
+        return cluster:server('router')
+    elseif backend == helpers.backend.VSHARD then
+        return cluster.main_server
+    end
+end
+
+function helpers.backend_matrix(base_matrix)
+    base_matrix = base_matrix or {{}}
+    local backends = {helpers.backend.VSHARD, helpers.backend.CARTRIDGE}
+    local matrix = {}
+    for _, backend in ipairs(backends) do
+        for _, base in ipairs(base_matrix) do
+            base = table.deepcopy(base)
+            base.backend = backend
+            table.insert(matrix, base)
+        end
+    end
+    return matrix
 end
 
 return helpers

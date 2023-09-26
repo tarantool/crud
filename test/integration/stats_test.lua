@@ -1,38 +1,41 @@
-local fio = require('fio')
 local clock = require('clock')
+local helpers = require('test.helper')
 local t = require('luatest')
 
 local stats_registry_utils = require('crud.stats.registry_utils')
 
-local pgroup = t.group('stats_integration', {
+local matrix = helpers.backend_matrix({
     { way = 'call', args = { driver = 'local' }},
     { way = 'call', args = { driver = 'metrics', quantiles = false }},
     { way = 'call', args = { driver = 'metrics', quantiles = true }},
-    { way = 'role', args = { driver = 'local' }},
-    { way = 'role', args = { driver = 'metrics', quantiles = false }},
-    { way = 'role', args = { driver = 'metrics', quantiles = true }},
 })
-local group_metrics = t.group('stats_metrics_integration', {
-    { way = 'call', args = { driver = 'metrics', quantiles = false }},
-    { way = 'role', args = { driver = 'metrics', quantiles = true }},
+table.insert(matrix, {backend = helpers.backend.CARTRIDGE,
+    way = 'role', args = { driver = 'local' },
 })
+table.insert(matrix, {backend = helpers.backend.CARTRIDGE,
+    way = 'role', args = { driver = 'metrics', quantiles = false },
+})
+table.insert(matrix, {backend = helpers.backend.CARTRIDGE,
+    way = 'role', args = { driver = 'metrics', quantiles = true },
+})
+local pgroup = t.group('stats_integration', matrix)
 
-local helpers = require('test.helper')
+matrix = helpers.backend_matrix({
+    { way = 'call', args = { driver = 'metrics', quantiles = false }},
+})
+table.insert(matrix, {backend = helpers.backend.CARTRIDGE,
+    way = 'role', args = { driver = 'metrics', quantiles = true },
+})
+local group_metrics = t.group('stats_metrics_integration', matrix)
 
 local space_name = 'customers'
 local non_existing_space_name = 'non_existing_space'
 local new_space_name = 'newspace'
 
 local function before_all(g)
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_stats'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-    })
-    g.cluster:start()
-    g.router = g.cluster:server('router').net_box
+    helpers.start_default_cluster(g, 'srv_stats')
 
+    g.router = helpers.get_router(g.cluster, g.params.backend).net_box
     if g.params.args.driver == 'metrics' then
         local is_metrics_supported = g.router:eval([[
             return require('crud.stats.metrics_registry').is_supported()
@@ -42,7 +45,7 @@ local function before_all(g)
 end
 
 local function after_all(g)
-    helpers.stop_cluster(g.cluster)
+    helpers.stop_cluster(g.cluster, g.params.backend)
 end
 
 local function get_stats(g, space_name)
@@ -855,11 +858,13 @@ pgroup.before_test(
     generate_stats)
 
 pgroup.test_role_reload_do_not_reset_observations = function(g)
+    helpers.skip_not_cartridge_backend(g.params.backend)
     t.skip_if(not helpers.is_cartridge_hotreload_supported(),
         "Cartridge roles reload is not supported")
     t.skip_if((g.params.args.driver == 'metrics')
         and helpers.is_metrics_0_12_0_or_older(),
         "See https://github.com/tarantool/metrics/issues/334")
+
     helpers.skip_old_tarantool_cartridge_hotreload()
 
     local stats_before = get_stats(g)
@@ -876,6 +881,8 @@ pgroup.before_test(
     generate_stats)
 
 pgroup.test_module_reload_do_not_reset_observations = function(g)
+    helpers.skip_not_cartridge_backend(g.params.backend)
+
     local stats_before = get_stats(g)
 
     helpers.reload_package(g.cluster:server('router'))
@@ -1171,6 +1178,7 @@ group_metrics.before_test(
     generate_stats)
 
 group_metrics.test_role_reload_do_not_reset_metrics_observations = function(g)
+    helpers.skip_not_cartridge_backend(g.params.backend)
     t.skip_if(not helpers.is_cartridge_hotreload_supported(),
         "Cartridge roles reload is not supported")
     t.skip_if(helpers.is_metrics_0_12_0_or_older(),
@@ -1213,6 +1221,7 @@ group_metrics.before_test(
     prepare_select_data)
 
 group_metrics.test_stats_changed_in_metrics_registry_after_role_reload = function(g)
+    helpers.skip_not_cartridge_backend(g.params.backend)
     t.skip_if(not helpers.is_cartridge_hotreload_supported(),
         "Cartridge roles reload is not supported")
     helpers.skip_old_tarantool_cartridge_hotreload()

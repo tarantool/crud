@@ -1,12 +1,10 @@
-local fio = require('fio')
-
 local t = require('luatest')
 
 local helpers = require('test.helper')
 
-local pgroup = t.group('readview_not_supported', {
+local pgroup = t.group('readview_not_supported', helpers.backend_matrix({
     {engine = 'memtx'},
-})
+}))
 
 
 pgroup.before_all(function(g)
@@ -14,22 +12,15 @@ pgroup.before_all(function(g)
     and require('luatest.tarantool').is_enterprise_package() then
         t.skip("Readview is supported")
     end
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_select'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-        env = {
-            ['ENGINE'] = g.params.engine,
-        },
-    })
 
-    g.cluster:start()
+    helpers.start_default_cluster(g, 'srv_select')
 
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
 end)
 
-pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end)
 
 pgroup.test_open = function(g)
     local obj, err = g.cluster.main_server.net_box:eval([[

@@ -1,42 +1,32 @@
-local fio = require('fio')
-
 local t = require('luatest')
-local luatest_capture = require('luatest.capture')
 
 local crud = require('crud')
 local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
 
-local pgroup = t.group('select', {
+local pgroup = t.group('select', helpers.backend_matrix({
     {engine = 'memtx'},
     {engine = 'vinyl'},
-})
+}))
 
 pgroup.before_all(function(g)
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_select'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-        env = {
-            ['ENGINE'] = g.params.engine,
-        },
-    })
-
-    g.cluster:start()
+    helpers.start_default_cluster(g, 'srv_select')
 
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
 
-    g.cluster:server('router').net_box:eval([[
+    g.router = helpers.get_router(g.cluster, g.params.backend)
+    g.router.net_box:eval([[
         require('crud').cfg{ stats = true }
     ]])
-    g.cluster:server('router').net_box:eval([[
+    g.router.net_box:eval([[
         require('crud.ratelimit').disable()
     ]])
 end)
 
-pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end)
 
 pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
@@ -160,8 +150,6 @@ for name, case in pairs(select_safety_cases) do
     pgroup[test_name] = function(g)
         local uc = case.user_conditions
         local opts = case.opts
-        local capture = luatest_capture:new()
-        capture:enable()
 
         if opts ~= nil and opts.first ~= nil and opts.first < 0 then
             local after_tuple = {
@@ -171,18 +159,15 @@ for name, case in pairs(select_safety_cases) do
             opts.after = crud_utils.flatten(after_tuple, g.space_format)
         end
 
-        local _, err = g.cluster.main_server.net_box:call('crud.select', {space, uc, opts})
+        local captured, err = helpers.get_command_log(g.router,
+            g.params.backend, 'crud.select', {space, uc, opts})
         t.assert_equals(err, nil)
-
-        local captured = helpers.fflush_main_server_stdout(g.cluster, capture)
 
         if case.has_crit then
             t.assert_str_contains(captured, crit_log)
         else
             t.assert_equals(string.find(captured, crit_log, 1, true), nil)
         end
-
-        capture:disable()
     end
 end
 
@@ -1889,7 +1874,7 @@ pgroup.test_select_no_map_reduce = function(g)
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
-    local router = g.cluster:server('router').net_box
+    local router = g.router.net_box
     local map_reduces_before = helpers.get_map_reduces_stat(router, 'customers')
 
     -- Case: no conditions, just bucket id.
