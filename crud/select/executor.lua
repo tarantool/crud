@@ -81,6 +81,8 @@ function executor.execute(space, index, filter_func, opts)
         tarantool_iter = 'number',
         limit = '?number',
         yield_every = '?number',
+        readview = '?boolean',
+        readview_index = '?table'
     })
 
     opts = opts or {}
@@ -132,7 +134,12 @@ function executor.execute(space, index, filter_func, opts)
     end
 
     local tuple
-    local raw_gen, param, state = index:pairs(value, {iterator = opts.tarantool_iter})
+    local raw_gen, param, state
+    if opts.readview then
+        raw_gen, param, state = opts.readview_index:pairs(value, {iterator = opts.tarantool_iter})
+    else
+        raw_gen, param, state = index:pairs(value, {iterator = opts.tarantool_iter})
+    end
     local gen = fun.wrap(function(param, state)
         local next_state, var = raw_gen(param, state)
 

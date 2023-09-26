@@ -30,6 +30,7 @@ stash.name = {
     stats_metrics_registry = '__crud_stats_metrics_registry',
     ddl_triggers = '__crud_ddl_spaces_triggers',
     select_module_compat_info = '__select_module_compat_info',
+    storage_readview = '__crud_storage_readview',
 }
 
 --- Setup Tarantool Cartridge reload.

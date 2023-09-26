@@ -37,6 +37,12 @@ It also provides the `crud-storage` and `crud-router` roles for
   - [Count](#count)
   - [Call options for crud methods](#call-options-for-crud-methods)
   - [Statistics](#statistics)
+  - [Read view](#read-view)
+    - [Creating a read view](#creating-a-read-view)
+    - [Closing a read view](#closing-a-read-view)
+    - [Read view select](#read-view-select)
+      - [Read view select conditions](#read-view-select-conditions)
+    - [Read view pairs](#read-view-pairs)
 - [Cartridge roles](#cartridge-roles)
   - [Usage](#usage)
 - [License](#license)
@@ -1540,6 +1546,170 @@ if you use CRUD Cartridge roles. Beware that metrics 0.12.0 and below do not
 support preserving stats between role reload
 (see [tarantool/metrics#334](https://github.com/tarantool/metrics/issues/334)),
 thus this feature will be unsupported for `metrics` driver.
+
+### Read view
+
+A read view is an in-memory snapshot of data on instance that isn’t affected by future data modifications. Read views allow you to retrieve data using the `read_view_object:select()` and `read_view_object:pairs()` operations.
+
+Read views can be used to make complex analytical queries. This reduces the load on the main database and improves RPS for a single Tarantool instance.
+
+Read views have the following limitations:
+
+  * Only the memtx engine is supported.
+  * Read view can be used starting from Tarantool Enterprise v2.11.0.
+  * There is no clusterwide readview support. For a sharded cluster, we open a readview on each storage. Due to a cluster's distributed nature, it is not guaranteed that they will open simultaneously.
+
+#### Creating a read view
+
+To create a read view, call the `crud.readview()` function.
+
+```lua
+local rv = crud.readview(opts)
+```
+
+where:
+
+* `opts`:
+  * `name` (`?string`) - name of the read view
+  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+
+**Example:**
+
+```lua
+local rv = crud.readview({name = 'foo', timeout = 3})
+```
+
+#### Closing a read view
+
+When a read view is no longer needed, close it using the `read_view_object:close()` method because a read view may consume a substantial amount of memory.
+
+```lua
+local rv = crud.readview()
+rv:close(opts)
+```
+
+where:
+
+* `opts`:
+  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+
+A read view is also closed implicitly when the read view object is collected by the Lua garbage collector.
+
+**Example:**
+
+```lua
+local rv = crud.readview()
+rv:close({timeout = 3})
+```
+
+#### Read view select
+
+`read_view_object:select()` supports multi-conditional selects, treating a cluster as a single space, same as `crud.select`.
+
+```lua
+local rv = crud.readview()
+local objects, err = rv:select(space_name, conditions, opts)
+rv:close()
+```
+
+Opts are the same as [select opts](#select), except `balance`, `prefer_replica` and `mode` are not supported.
+
+Returns metadata and array of rows, error.
+
+**Example:**
+
+```lua
+local rv = crud.readview()
+rv:select('customers', nil, {batch_size=1, fullscan=true})
+---
+- metadata: [{'name': 'id', 'type': 'unsigned'}, {'name': 'bucket_id', 'type': 'unsigned'},
+    {'name': 'name', 'type': 'string'}, {'name': 'age', 'type': 'number'}]
+  rows:
+  - [1, 477, 'Elizabeth', 12]
+  - [2, 401, 'Mary', 46]
+  - [3, 2804, 'David', 33]
+  - [4, 1161, 'William', 81]
+  - [5, 1172, 'Jack', 35]
+  - [6, 1064, 'William', 25]
+  - [7, 693, 'Elizabeth', 18]
+- null
+...
+crud.insert('customers', {8, box.NULL, 'Elizabeth', 23})
+---
+- rows:
+  - [8, 185, 'Elizabeth', 23]
+  metadata: [{'name': 'id', 'type': 'unsigned'}, {'name': 'bucket_id', 'type': 'unsigned'},
+    {'name': 'name', 'type': 'string'}, {'name': 'age', 'type': 'number'}]
+- null
+...
+rv:select('customers', nil, {batch_size=1, fullscan=true})
+---
+- metadata: [{'name': 'id', 'type': 'unsigned'}, {'name': 'bucket_id', 'type': 'unsigned'},
+    {'name': 'name', 'type': 'string'}, {'name': 'age', 'type': 'number'}]
+  rows:
+  - [1, 477, 'Elizabeth', 12]
+  - [2, 401, 'Mary', 46]
+  - [3, 2804, 'David', 33]
+  - [4, 1161, 'William', 81]
+  - [5, 1172, 'Jack', 35]
+  - [6, 1064, 'William', 25]
+  - [7, 693, 'Elizabeth', 18]
+- null
+...
+rv:close()
+```
+
+##### Read view select conditions
+
+Select conditions for `read_view_object:select()` are the same as [select conditions](#select-conditions) for `crud.select`.
+
+**Example:**
+
+```lua
+rv = crud.readview()
+rv:select('customers', {{'<=', 'age', 35}}, {first = 10})
+---
+- metadata:
+  - {'name': 'id', 'type': 'unsigned'}
+  - {'name': 'bucket_id', 'type': 'unsigned'}
+  - {'name': 'name', 'type': 'string'}
+  - {'name': 'age', 'type': 'number'}
+  rows:
+  - [5, 1172, 'Jack', 35]
+  - [3, 2804, 'David', 33]
+  - [6, 1064, 'William', 25]
+  - [7, 693, 'Elizabeth', 18]
+  - [1, 477, 'Elizabeth', 12]
+...
+rv.close()
+```
+
+#### Read view pairs
+
+You can iterate across a distributed space using the `read_view_object:pairs()` method.
+Its arguments are the same as [`crud.readview.select`](#read-view-select) arguments except
+`fullscan` (it does not exist because `crud.pairs` does not generate a critical
+log entry on potentially long requests) and negative `first` values aren't
+allowed.
+User could pass `use_tomap` flag (`false` by default) to iterate over flat tuples or objects.
+
+**Example:**
+
+```lua
+rv = crud.readview()
+local tuples = {}
+for _, tuple in rv:pairs('customers', {{'<=', 'age', 35}}, {use_tomap = false}) do
+    -- {5, 1172, 'Jack', 35}
+    table.insert(tuples, tuple)
+end
+
+local objects = {}
+for _, object in rv:pairs('customers', {{'<=', 'age', 35}}, {use_tomap = true}) do
+    -- {id = 5, name = 'Jack', bucket_id = 1172, age = 35}
+    table.insert(objects, object)
+end
+rv:close()
+```
 
 ## Cartridge roles
 

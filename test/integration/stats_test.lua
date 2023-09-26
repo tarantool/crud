@@ -494,6 +494,13 @@ local prepare_select_data = function(g)
     })
 end
 
+local is_readview_supported = function()
+    if (not helpers.tarantool_version_at_least(2, 11, 0))
+    or (not require('luatest.tarantool').is_enterprise_package()) then
+        t.skip('Readview is supported only for Tarantool Enterprise starting from v2.11.0')
+    end
+end
+
 local select_cases = {
     select_by_primary_index = {
         func = 'crud.select',
@@ -739,6 +746,82 @@ for name, case in pairs(select_cases) do
             _, err = g.router:eval(case.eval, { space_name, case.conditions })
         else
             _, err = g.router:call(case.func, { space_name, case.conditions })
+        end
+
+        t.assert_equals(err, nil)
+
+        -- Collect stats after call.
+        local stats_after = get_stats(g, space_name)
+        t.assert_type(stats_after, 'table')
+
+        local op_before = set_defaults_if_empty(stats_before, op)
+        local details_before = op_before.details
+        local op_after = set_defaults_if_empty(stats_after, op)
+        local details_after = op_after.details
+
+        local tuples_fetched_diff = details_after.tuples_fetched - details_before.tuples_fetched
+        t.assert_equals(tuples_fetched_diff, case.tuples_fetched,
+            'Expected count of tuples fetched')
+
+        local tuples_lookup_diff = details_after.tuples_lookup - details_before.tuples_lookup
+        t.assert_equals(tuples_lookup_diff, case.tuples_lookup,
+            'Expected count of tuples looked up on storage')
+
+        local map_reduces_diff = details_after.map_reduces - details_before.map_reduces
+        t.assert_equals(map_reduces_diff, case.map_reduces,
+            'Expected count of map reduces planned')
+    end
+end
+
+for name, case in pairs(select_cases) do
+    local test_name = ('test_%s_details_readview'):format(name)
+    pgroup.before_test(test_name, is_readview_supported)
+    pgroup.before_test(test_name, prepare_select_data)
+
+    pgroup[test_name] = function(g)
+        local op = 'select'
+        local space_name = space_name
+
+        -- Collect stats before call.
+        local stats_before = get_stats(g, space_name)
+        t.assert_type(stats_before, 'table')
+
+        -- Call operation.
+        local _, err
+        if case.eval ~= nil then
+            _, err = g.router:eval([[
+                local crud = require('crud')
+                local conditions, space_name = ...
+
+                local foo, err = crud.readview({name = 'foo'})
+                if err ~= nil then
+                    return nil, err
+                end
+
+                local result = {}
+                for _, v in foo:pairs(space_name, conditions, { batch_size = 1 }) do
+                    table.insert(result, v)
+                end
+                foo:close()
+
+                return result
+
+            ]], {case.conditions, space_name})
+        else
+            _, err = g.router:eval([[
+                local crud = require('crud')
+                local conditions, space_name = ...
+
+                local foo, err = crud.readview({name = 'foo'})
+                if err ~= nil then
+                    return nil, err
+                end
+                local result, err = foo:select(space_name, conditions)
+
+                foo:close()
+
+                return result, err
+            ]], {case.conditions, space_name})
         end
 
         t.assert_equals(err, nil)
