@@ -1,4 +1,3 @@
-local fio = require('fio')
 local fiber = require('fiber')
 
 local t = require('luatest')
@@ -9,39 +8,35 @@ local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
 
-local pgroup = t.group('select_readview', {
+local pgroup = t.group('select_readview', helpers.backend_matrix({
     {engine = 'memtx'},
-})
+}))
 
+local function init_cluster(g)
+    helpers.start_default_cluster(g, 'srv_select')
+
+    g.space_format = g.cluster.servers[2].net_box.space.customers:format()
+
+    g.router = helpers.get_router(g.cluster, g.params.backend)
+    g.router.net_box:eval([[
+        require('crud').cfg{ stats = true }
+    ]])
+    g.router.net_box:eval([[
+        require('crud.ratelimit').disable()
+    ]])
+end
 
 pgroup.before_all(function(g)
     if (not helpers.tarantool_version_at_least(2, 11, 0))
     or (not require('luatest.tarantool').is_enterprise_package()) then
         t.skip('Readview is supported only for Tarantool Enterprise starting from v2.11.0')
     end
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_select'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-        env = {
-            ['ENGINE'] = g.params.engine,
-        },
-    })
-
-    g.cluster:start()
-
-    g.space_format = g.cluster.servers[2].net_box.space.customers:format()
-
-    g.cluster:server('router').net_box:eval([[
-        require('crud').cfg{ stats = true }
-    ]])
-    g.cluster:server('router').net_box:eval([[
-        require('crud.ratelimit').disable()
-    ]])
+    init_cluster(g)
 end)
 
-pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end)
 
 pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
@@ -2211,7 +2206,7 @@ pgroup.test_select_no_map_reduce = function(g)
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
-    local router = g.cluster:server('router').net_box
+    local router = g.router.net_box
     local map_reduces_before = helpers.get_map_reduces_stat(router, 'customers')
 
     -- Case: no conditions, just bucket id.
@@ -2309,8 +2304,14 @@ pgroup.test_stop_select = function(g)
         local result, err = foo:select('customers', nil, {fullscan = true})
         return result, err
     ]])
-    t.assert_str_contains(err.err, 'Connection refused')
+    t.assert_error(err.err)
     g.cluster:server('s2-master'):start()
+
+    if g.params.backend == helpers.backend.VSHARD then
+        g.cluster:server('s2-master'):exec(function()
+            require('crud').init_storage()
+        end)
+    end
 
     local _, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
@@ -2321,7 +2322,19 @@ pgroup.test_stop_select = function(g)
     t.assert_equals(err, nil)
 end
 
+pgroup.after_test('test_stop_select', function(g)
+    -- It seems more easy to restart the cluster rather then restore it
+    -- original state.
+    if g.params.backend == helpers.backend.VSHARD then
+        helpers.stop_cluster(g.cluster, g.params.backend)
+        g.cluster = nil
+        init_cluster(g)
+    end
+end)
+
 pgroup.test_select_switch_master = function(g)
+    helpers.skip_not_cartridge_backend(g.params.backend)
+
     helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -2349,7 +2362,7 @@ pgroup.test_select_switch_master = function(g)
     ]])
     t.assert_equals(err, nil)
 
-    local replicasets = helpers.get_test_replicasets()
+    local replicasets = helpers.get_test_cartridge_replicasets()
     set_master(g.cluster, replicasets[2].uuid, replicasets[2].servers[2].instance_uuid)
 
     local obj, err = g.cluster.main_server.net_box:eval([[
@@ -2371,7 +2384,10 @@ pgroup.test_select_switch_master = function(g)
 
 end
 
+-- TODO: https://github.com/tarantool/crud/issues/383
 pgroup.test_select_switch_master_first = function(g)
+    helpers.skip_not_cartridge_backend(g.params.backend)
+
     local customers = helpers.insert_objects(g, 'customers', {
         {
             id = 1, name = "Elizabeth", last_name = "Jackson",
@@ -2402,7 +2418,7 @@ pgroup.test_select_switch_master_first = function(g)
     local objects = crud.unflatten_rows(obj.rows, obj.metadata)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1, 2}))
 
-    local replicasets = helpers.get_test_replicasets()
+    local replicasets = helpers.get_test_cartridge_replicasets()
     set_master(g.cluster, replicasets[3].uuid, replicasets[3].servers[2].instance_uuid)
 
     local obj, err = g.cluster.main_server.net_box:eval([[
@@ -2424,6 +2440,7 @@ pgroup.test_select_switch_master_first = function(g)
 
 end
 
+-- TODO: https://github.com/tarantool/crud/issues/383
 pgroup.test_select_closed_readview = function(g)
     helpers.insert_objects(g, 'customers', {
         {

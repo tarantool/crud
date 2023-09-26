@@ -1,45 +1,71 @@
 local fio = require('fio')
 
 local t = require('luatest')
-local g = t.group('call')
 
 local helpers = require('test.helper')
 
-g.before_all = function()
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_say_hi'),
-        use_vshard = true,
-        replicasets = {
-            {
-                uuid = helpers.uuid('a'),
-                alias = 'router',
-                roles = { 'crud-router' },
-                servers = {
-                    { instance_uuid = helpers.uuid('a', 1), alias = 'router' },
+local pgroup = t.group('call', helpers.backend_matrix())
+
+local vshard_cfg_template = {
+    sharding = {
+        {
+            replicas = {
+                ['s1-master'] = {
+                    master = true,
                 },
+                ['s1-replica'] = {},
             },
-            {
-                uuid = helpers.uuid('b'),
-                alias = 's-1',
-                roles = { 'crud-storage' },
-                servers = {
-                    { instance_uuid = helpers.uuid('b', 1), alias = 's1-master' },
-                    { instance_uuid = helpers.uuid('b', 2), alias = 's1-replica' },
-                },
-            },
-            {
-                uuid = helpers.uuid('c'),
-                alias = 's-2',
-                roles = { 'crud-storage' },
-                servers = {
-                    { instance_uuid = helpers.uuid('c', 1), alias = 's2-master' },
-                    { instance_uuid = helpers.uuid('c', 2), alias = 's2-replica' },
-                },
-            }
         },
-    })
-    g.cluster:start()
+        {
+            replicas = {
+                ['s2-master'] = {
+                    master = true,
+                },
+                ['s2-replica'] = {},
+            },
+        },
+    },
+    bucket_count = 3000,
+    all_init = helpers.entrypoint_vshard_all('srv_say_hi'),
+    crud_init = true,
+}
+
+local cartridge_cfg_template = {
+    datadir = fio.tempdir(),
+    server_command = helpers.entrypoint_cartridge('srv_say_hi'),
+    use_vshard = true,
+    replicasets = {
+        {
+            uuid = helpers.uuid('a'),
+            alias = 'router',
+            roles = { 'crud-router' },
+            servers = {
+                { instance_uuid = helpers.uuid('a', 1), alias = 'router' },
+            },
+        },
+        {
+            uuid = helpers.uuid('b'),
+            alias = 's-1',
+            roles = { 'crud-storage' },
+            servers = {
+                { instance_uuid = helpers.uuid('b', 1), alias = 's1-master' },
+                { instance_uuid = helpers.uuid('b', 2), alias = 's1-replica' },
+            },
+        },
+        {
+            uuid = helpers.uuid('c'),
+            alias = 's-2',
+            roles = { 'crud-storage' },
+            servers = {
+                { instance_uuid = helpers.uuid('c', 1), alias = 's2-master' },
+                { instance_uuid = helpers.uuid('c', 2), alias = 's2-replica' },
+            },
+        }
+    },
+}
+
+pgroup.before_all(function(g)
+    helpers.start_cluster(g, cartridge_cfg_template, vshard_cfg_template)
 
     g.clear_vshard_calls = function()
         g.cluster.main_server.net_box:call('clear_vshard_calls')
@@ -52,14 +78,13 @@ g.before_all = function()
     -- patch vshard.router.call* functions
     local vshard_call_names = {'callro', 'callbro', 'callre', 'callbre', 'callrw'}
     g.cluster.main_server.net_box:call('patch_vshard_calls', {vshard_call_names})
-end
+end)
 
-g.after_all = function()
-    g.cluster:stop()
-    fio.rmtree(g.cluster.datadir)
-end
+pgroup.after_all(function(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end)
 
-g.test_map_non_existent_func = function()
+pgroup.test_map_non_existent_func = function(g)
     local results, err = g.cluster.main_server.net_box:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
@@ -68,11 +93,11 @@ g.test_map_non_existent_func = function()
     ]])
 
     t.assert_equals(results, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
+    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-00000000000%d", true)
     t.assert_str_contains(err.err, "Function non_existent_func is not registered")
 end
 
-g.test_single_non_existent_func = function()
+pgroup.test_single_non_existent_func = function(g)
     local results, err = g.cluster.main_server.net_box:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
@@ -81,11 +106,11 @@ g.test_single_non_existent_func = function()
     ]])
 
     t.assert_equals(results, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
+    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-00000000000%d", true)
     t.assert_str_contains(err.err, "Function non_existent_func is not registered")
 end
 
-g.test_map_invalid_mode = function()
+pgroup.test_map_invalid_mode = function(g)
     local results, err = g.cluster.main_server.net_box:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
@@ -97,7 +122,7 @@ g.test_map_invalid_mode = function()
     t.assert_str_contains(err.err, "Unknown call mode: invalid")
 end
 
-g.test_single_invalid_mode = function()
+pgroup.test_single_invalid_mode = function(g)
     local results, err = g.cluster.main_server.net_box:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
@@ -109,7 +134,7 @@ g.test_single_invalid_mode = function()
     t.assert_str_contains(err.err, "Unknown call mode: invalid")
 end
 
-g.test_map_no_args = function()
+pgroup.test_map_no_args = function(g)
     local results_map, err  = g.cluster.main_server.net_box:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
@@ -120,10 +145,10 @@ g.test_map_no_args = function()
     t.assert_equals(err, nil)
     local results = helpers.get_results_list(results_map)
     t.assert_equals(#results, 2)
-    t.assert_items_include(results, {{"HI, handsome! I am s1-master"}, {"HI, handsome! I am s2-master"}})
+    t.assert_items_include(results, {{"HI, handsome! I am 1"}, {"HI, handsome! I am 1"}})
 end
 
-g.test_args = function()
+pgroup.test_args = function(g)
     local results_map, err = g.cluster.main_server.net_box:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
@@ -134,10 +159,10 @@ g.test_args = function()
     t.assert_equals(err, nil)
     local results = helpers.get_results_list(results_map)
     t.assert_equals(#results, 2)
-    t.assert_items_include(results, {{"HI, dokshina! I am s1-master"}, {"HI, dokshina! I am s2-master"}})
+    t.assert_items_include(results, {{"HI, dokshina! I am 1"}, {"HI, dokshina! I am 1"}})
 end
 
-g.test_timeout = function()
+pgroup.test_timeout = function(g)
     local timeout = 0.2
 
     local results, err = g.cluster.main_server.net_box:eval([[
@@ -153,7 +178,7 @@ g.test_timeout = function()
     ]], {timeout + 0.1, timeout})
 
     t.assert_equals(results, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
+    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-00000000000%d", true)
     helpers.assert_timeout_error(err.err)
 end
 
@@ -185,7 +210,7 @@ local function check_map_vshard_call(g, exp_vshard_call, opts)
     t.assert_equals(vshard_calls, {exp_vshard_call, exp_vshard_call})
 end
 
-g.test_single_vshard_calls = function()
+pgroup.test_single_vshard_calls = function(g)
     -- mode: write
 
     check_single_vshard_call(g, 'callrw', {
@@ -224,7 +249,7 @@ g.test_single_vshard_calls = function()
     })
 end
 
-g.test_map_vshard_calls = function()
+pgroup.test_map_vshard_calls = function(g)
     -- mode: write
 
     check_map_vshard_call(g, 'callrw', {
@@ -263,7 +288,7 @@ g.test_map_vshard_calls = function()
     })
 end
 
-g.test_any_vshard_call = function()
+pgroup.test_any_vshard_call = function(g)
     g.clear_vshard_calls()
     local results, err = g.cluster.main_server.net_box:eval([[
         local vshard = require('vshard')
@@ -272,11 +297,11 @@ g.test_any_vshard_call = function()
         return call.any(vshard.router.static, 'say_hi_politely', {'dude'}, {})
     ]])
 
-    t.assert_equals(results, 'HI, dude! I am s2-master')
+    t.assert_equals(results, 'HI, dude! I am 1')
     t.assert_equals(err, nil)
 end
 
-g.test_any_vshard_call_timeout = function()
+pgroup.test_any_vshard_call_timeout = function(g)
     local timeout = 0.2
 
     local results, err = g.cluster.main_server.net_box:eval([[
@@ -291,6 +316,6 @@ g.test_any_vshard_call_timeout = function()
     ]], {timeout + 0.1, timeout})
 
     t.assert_equals(results, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-000000000000", true)
+    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-00000000000%d", true)
     helpers.assert_timeout_error(err.err)
 end

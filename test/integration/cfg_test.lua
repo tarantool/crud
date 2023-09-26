@@ -1,27 +1,22 @@
-local fio = require('fio')
-
 local t = require('luatest')
 
 local stats = require('crud.stats')
 local helpers = require('test.helper')
 
-local group = t.group('cfg')
+local group = t.group('cfg', helpers.backend_matrix())
 
 group.before_all(function(g)
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_stats'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-    })
+    helpers.start_default_cluster(g, 'srv_stats')
 
-    g.cluster:start()
+    g.router = helpers.get_router(g.cluster, g.params.backend)
 end)
 
-group.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+group.after_all(function(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end)
 
 group.test_defaults = function(g)
-    local cfg = g.cluster:server('router'):eval("return require('crud').cfg")
+    local cfg = g.router:eval("return require('crud').cfg")
     t.assert_equals(cfg, {
         stats = false,
         stats_driver = stats.get_default_driver(),
@@ -33,12 +28,12 @@ group.test_defaults = function(g)
 end
 
 group.test_change_value = function(g)
-    local new_cfg = g.cluster:server('router'):eval("return require('crud').cfg({ stats = true })")
+    local new_cfg = g.router:eval("return require('crud').cfg({ stats = true })")
     t.assert_equals(new_cfg.stats, true)
 end
 
 group.test_table_is_immutable = function(g)
-    local router = g.cluster:server('router')
+    local router = g.router
 
     t.assert_error_msg_contains(
         'Use crud.cfg{} instead',
@@ -58,7 +53,7 @@ group.test_table_is_immutable = function(g)
 end
 
 group.test_package_reload_preserves_values = function(g)
-    local router = g.cluster:server('router')
+    local router = g.router
 
     -- Generate some non-default values.
     router:eval("return require('crud').cfg({ stats = true })")
@@ -70,11 +65,12 @@ group.test_package_reload_preserves_values = function(g)
 end
 
 group.test_role_reload_preserves_values = function(g)
+    helpers.skip_not_cartridge_backend(g.params.backend)
     t.skip_if(not helpers.is_cartridge_hotreload_supported(),
         "Cartridge roles reload is not supported")
     helpers.skip_old_tarantool_cartridge_hotreload()
 
-    local router = g.cluster:server('router')
+    local router = g.router
 
     -- Generate some non-default values.
     router:eval("return require('crud').cfg({ stats = true })")
@@ -87,19 +83,19 @@ end
 
 group.test_gh_284_preset_stats_quantile_tolerated_error_is_preserved = function(g)
     -- Arrange some cfg values so test case will not depend on defaults.
-    local cfg = g.cluster:server('router'):eval(
+    local cfg = g.router:eval(
         "return require('crud').cfg(...)",
         {{ stats = false }})
     t.assert_equals(cfg.stats, false)
 
     -- Set stats_quantile_tolerated_error.
-    local cfg = g.cluster:server('router'):eval(
+    local cfg = g.router:eval(
         "return require('crud').cfg(...)",
         {{ stats_quantile_tolerated_error = 1e-4 }})
     t.assert_equals(cfg.stats_quantile_tolerated_error, 1e-4)
 
     -- Set another cfg parameter, assert preset stats_quantile_tolerated_error presents.
-    local cfg = g.cluster:server('router'):eval(
+    local cfg = g.router:eval(
         "return require('crud').cfg(...)",
         {{ stats = true }})
     t.assert_equals(cfg.stats, true)
@@ -109,19 +105,19 @@ end
 
 group.test_gh_284_preset_stats_quantile_age_buckets_count_is_preserved = function(g)
     -- Arrange some cfg values so test case will not depend on defaults.
-    local cfg = g.cluster:server('router'):eval(
+    local cfg = g.router:eval(
         "return require('crud').cfg(...)",
         {{ stats = false }})
     t.assert_equals(cfg.stats, false)
 
     -- Set stats_age_buckets_count.
-    local cfg = g.cluster:server('router'):eval(
+    local cfg = g.router:eval(
         "return require('crud').cfg(...)",
         {{ stats_quantile_age_buckets_count = 3 }})
     t.assert_equals(cfg.stats_quantile_age_buckets_count, 3)
 
     -- Set another cfg parameter, assert preset stats_quantile_age_buckets_count presents.
-    local cfg = g.cluster:server('router'):eval(
+    local cfg = g.router:eval(
         "return require('crud').cfg(...)",
         {{ stats = true }})
     t.assert_equals(cfg.stats, true)
@@ -131,19 +127,19 @@ end
 
 group.test_gh_284_preset_stats_quantile_max_age_time_is_preserved = function(g)
     -- Arrange some cfg values so test case will not depend on defaults.
-    local cfg = g.cluster:server('router'):eval(
+    local cfg = g.router:eval(
         "return require('crud').cfg(...)",
         {{ stats = false }})
     t.assert_equals(cfg.stats, false)
 
     -- Set stats_age_buckets_count.
-    local cfg = g.cluster:server('router'):eval(
+    local cfg = g.router:eval(
         "return require('crud').cfg(...)",
         {{ stats_quantile_max_age_time = 30 }})
     t.assert_equals(cfg.stats_quantile_max_age_time, 30)
 
     -- Set another cfg parameter, assert preset stats_quantile_max_age_time presents.
-    local cfg = g.cluster:server('router'):eval(
+    local cfg = g.router:eval(
         "return require('crud').cfg(...)",
         {{ stats = true }})
     t.assert_equals(cfg.stats, true)
@@ -152,6 +148,8 @@ group.test_gh_284_preset_stats_quantile_max_age_time_is_preserved = function(g)
 end
 
 group.test_role_cfg = function(g)
+    helpers.skip_not_cartridge_backend(g.params.backend)
+
     local cfg = {
         stats = true,
         stats_driver = 'local',
@@ -163,12 +161,14 @@ group.test_role_cfg = function(g)
 
     g.cluster.main_server:upload_config({crud = cfg})
 
-    local actual_cfg = g.cluster:server('router'):eval("return require('crud').cfg")
+    local actual_cfg = g.router:eval("return require('crud').cfg")
     t.assert_equals(cfg, actual_cfg)
 end
 
 group.test_role_partial_cfg = function(g)
-    local router = g.cluster:server('router')
+    helpers.skip_not_cartridge_backend(g.params.backend)
+
+    local router = g.router
     local cfg_before = router:eval("return require('crud').cfg()")
 
     local cfg_after = table.deepcopy(cfg_before)
@@ -176,7 +176,7 @@ group.test_role_partial_cfg = function(g)
 
     g.cluster.main_server:upload_config({crud = {stats = cfg_after.stats}})
 
-    local actual_cfg = g.cluster:server('router'):eval("return require('crud').cfg")
+    local actual_cfg = g.router:eval("return require('crud').cfg")
     t.assert_equals(cfg_after, actual_cfg, "Only requested field were updated")
 end
 
@@ -201,7 +201,8 @@ local role_cfg_error_cases = {
 }
 
 for name, case in pairs(role_cfg_error_cases) do
-    group['test_rolce_cfg_' .. name] = function(g)
+    group['test_role_cfg_' .. name] = function(g)
+        helpers.skip_not_cartridge_backend(g.params.backend)
         local success, error = pcall(function()
             g.cluster.main_server:upload_config(case.args)
         end)

@@ -789,7 +789,7 @@ return M]]
 
     local filter_func = select_filters.internal.compile(filter_code)
     t.assert_equals({ filter_func(box.tuple.new({1, 2, {f2 = {f3 = "a"}}, {f3 = "b"}})) }, {true, false})
-    t.assert_equals({ filter_func(box.tuple.new({1, 2, {f3 = "b"}}, {f2 = {f3 = "a"}})) }, {false, true})
+    t.assert_equals({ filter_func(box.tuple.new({1, 2, {f3 = "b"}, {f2 = {f3 = "a"}}})) }, {false, true})
     t.assert_equals({ filter_func(box.tuple.new({1, 2, {f2 = {f3 = "a"}}, "b"})) }, {false, true})
 end
 

@@ -1,30 +1,24 @@
 local clock = require('clock')
-local fio = require('fio')
 local fun = require('fun')
+local helpers = require('test.helper')
 local t = require('luatest')
 
 local stats_module = require('crud.stats')
 
-local pgroup = t.group('stats_unit', {
+local pgroup = t.group('stats_unit', helpers.backend_matrix({
     { driver = 'local' },
     { driver = 'metrics', quantiles = false },
     { driver = 'metrics', quantiles = true },
-})
-local group_driver = t.group('stats_driver_unit')
-local helpers = require('test.helper')
+}))
+local group_driver = t.group('stats_driver_unit', helpers.backend_matrix({
+    {},
+}))
 
 local space_name = 'customers'
 
 local function before_all(g)
-    -- Enable test cluster for "is space exist?" checks.
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_stats'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-    })
-    g.cluster:start()
-    g.router = g.cluster:server('router').net_box
+    helpers.start_default_cluster(g, 'srv_stats')
+    g.router = helpers.get_router(g.cluster, g.params.backend).net_box
 
     helpers.prepare_simple_functions(g.router)
     g.router:eval("stats_module = require('crud.stats')")
@@ -39,7 +33,7 @@ local function before_all(g)
 end
 
 local function after_all(g)
-    helpers.stop_cluster(g.cluster)
+    helpers.stop_cluster(g.cluster, g.params.backend)
 end
 
 local function get_stats(g, space_name)
@@ -48,6 +42,10 @@ end
 
 local function enable_stats(g, params)
     params = params or g.params
+    if params ~= nil then
+        params = table.deepcopy(params)
+        params.backend = nil
+    end
     g.router:eval("stats_module.enable(...)", { params })
 end
 

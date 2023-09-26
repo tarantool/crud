@@ -9,11 +9,13 @@ local g = t.group()
 local helpers = require('test.helper')
 
 g.before_all(function()
+    helpers.skip_cartridge_unsupported()
+
     g.cluster = helpers.Cluster:new({
         datadir = fio.tempdir(),
         use_vshard = true,
-        server_command = helpers.entrypoint('srv_reload'),
-        replicasets = helpers.get_test_replicasets(),
+        server_command = helpers.entrypoint_cartridge('srv_reload'),
+        replicasets = helpers.get_test_cartridge_replicasets(),
     })
 
     g.cluster:start()

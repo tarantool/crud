@@ -1,5 +1,3 @@
-local fio = require('fio')
-
 local t = require('luatest')
 local crud = require('crud')
 
@@ -7,26 +5,18 @@ local helpers = require('test.helper')
 
 local batching_utils = require('crud.common.batching_utils')
 
-local pgroup = t.group('insert_many', {
+local pgroup = t.group('insert_many', helpers.backend_matrix({
     {engine = 'memtx'},
     {engine = 'vinyl'},
-})
+}))
 
 pgroup.before_all(function(g)
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_batch_operations'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-        env = {
-            ['ENGINE'] = g.params.engine,
-        },
-    })
-
-    g.cluster:start()
+    helpers.start_default_cluster(g, 'srv_batch_operations')
 end)
 
-pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end)
 
 pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')

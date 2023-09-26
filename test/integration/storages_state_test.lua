@@ -1,14 +1,12 @@
-local fio = require('fio')
-
 local t = require('luatest')
 
 local helpers = require('test.helper')
 
 local fiber = require("fiber")
 
-local pgroup = t.group('storage_info', {
+local pgroup = t.group('storage_info', helpers.backend_matrix({
     {engine = 'memtx'}
-})
+}))
 
 -- Waits for storages to initialize.
 -- This is a workaround for "peer closed" errors for some connections right after the cluster start.
@@ -40,16 +38,7 @@ local function wait_storages_init(g)
 end
 
 pgroup.before_all(function(g)
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_select'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-        env = {
-            ['ENGINE'] = g.params.engine,
-        },
-    })
-    g.cluster:start()
+    helpers.start_default_cluster(g, 'srv_select')
 end)
 
 pgroup.before_each(function(g)
@@ -57,8 +46,7 @@ pgroup.before_each(function(g)
 end)
 
 pgroup.after_all(function(g)
-    helpers.stop_cluster(g.cluster)
-    fio.rmtree(g.cluster.datadir)
+    helpers.stop_cluster(g.cluster, g.params.backend)
 end)
 
 pgroup.test_crud_storage_status_of_stopped_servers = function(g)
@@ -71,7 +59,7 @@ pgroup.test_crud_storage_status_of_stopped_servers = function(g)
             status = "running",
             is_master = true
         },
-        [helpers.uuid('b', 2)] = {
+        [helpers.uuid('b', 10)] = {
             status = "running",
             is_master = false
         },
@@ -79,7 +67,7 @@ pgroup.test_crud_storage_status_of_stopped_servers = function(g)
             status = "running",
             is_master = true
         },
-        [helpers.uuid('c', 2)] = {
+        [helpers.uuid('c', 10)] = {
             status = "error",
             is_master = false,
             message = "Peer closed"
@@ -89,9 +77,14 @@ end
 
 pgroup.after_test('test_crud_storage_status_of_stopped_servers', function(g)
     g.cluster:server("s2-replica"):start()
+    g.cluster:server("s2-replica"):exec(function()
+        require('crud').init_storage()
+    end)
 end)
 
 pgroup.test_disabled_storage_role = function(g)
+    helpers.skip_not_cartridge_backend(g.params.backend)
+
     -- stop crud storage role on one replica
     local server = g.cluster:server("s1-replica")
     local results = server.net_box:eval([[
@@ -110,7 +103,7 @@ pgroup.test_disabled_storage_role = function(g)
             status = "running",
             is_master = true
         },
-        [helpers.uuid('b', 2)] = {
+        [helpers.uuid('b', 10)] = {
             status = "uninitialized",
             is_master = false
         },
@@ -118,7 +111,7 @@ pgroup.test_disabled_storage_role = function(g)
             status = "running",
             is_master = true
         },
-        [helpers.uuid('c', 2)] = {
+        [helpers.uuid('c', 10)] = {
             status = "running",
             is_master = false
         }
@@ -152,7 +145,7 @@ pgroup.test_storage_call_failure = function(g)
             status = "running",
             is_master = true
         },
-        [helpers.uuid('b', 2)] = {
+        [helpers.uuid('b', 10)] = {
             status = "running",
             is_master = false
         },
@@ -160,7 +153,7 @@ pgroup.test_storage_call_failure = function(g)
             status = "running",
             is_master = true
         },
-        [helpers.uuid('c', 2)] = {
+        [helpers.uuid('c', 10)] = {
             status = "error",
             is_master = false,
             message = "attempt to call a table value"

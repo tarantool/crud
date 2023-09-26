@@ -1,38 +1,29 @@
-local fio = require('fio')
 local clock = require('clock')
 
 local t = require('luatest')
-local luatest_capture = require('luatest.capture')
 
 local helpers = require('test.helper')
 
-local pgroup = t.group('count', {
+local pgroup = t.group('count', helpers.backend_matrix({
     {engine = 'memtx'},
     {engine = 'vinyl'},
-})
+}))
 
 pgroup.before_all(function(g)
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_select'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-        env = {
-            ['ENGINE'] = g.params.engine,
-        },
-    })
+    helpers.start_default_cluster(g, 'srv_select')
 
-    g.cluster:start()
-
-    g.cluster:server('router').net_box:eval([[
+    g.router = helpers.get_router(g.cluster, g.params.backend)
+    g.router.net_box:eval([[
         require('crud').cfg{ stats = true }
     ]])
-    g.cluster:server('router').net_box:eval([[
+    g.router.net_box:eval([[
         require('crud.ratelimit').disable()
     ]])
 end)
 
-pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end)
 
 pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
@@ -148,21 +139,15 @@ for name, case in pairs(count_safety_cases) do
     pgroup[test_name] = function(g)
         local uc = case.user_conditions
         local opts = case.opts
-        local capture = luatest_capture:new()
-        capture:enable()
+        local captured, err = helpers.get_command_log(g.router,
+            g.params.backend, 'crud.count', {space, uc, opts})
 
-        local _, err = g.cluster.main_server.net_box:call('crud.count', {space, uc, opts})
         t.assert_equals(err, nil)
-
-        local captured = helpers.fflush_main_server_stdout(g.cluster, capture)
-
         if case.has_crit then
             t.assert_str_contains(captured, crit_log)
         else
             t.assert_equals(string.find(captured, crit_log, 1, true), nil)
         end
-
-        capture:disable()
     end
 end
 
@@ -657,7 +642,7 @@ pgroup.test_count_no_map_reduce = function(g)
         },
     })
 
-    local router = g.cluster:server('router').net_box
+    local router = g.router.net_box
     local map_reduces_before = helpers.get_map_reduces_stat(router, 'customers')
 
     -- Case: no conditions, just bucket id.

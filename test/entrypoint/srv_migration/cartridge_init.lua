@@ -7,23 +7,16 @@ local log = require('log')
 local errors = require('errors')
 local cartridge = require('cartridge')
 
+if package.setsearchroot ~= nil then
+    package.setsearchroot()
+else
+    package.path = package.path .. debug.sourcedir() .. "/?.lua;"
+end
+
 package.preload['customers-storage'] = function()
     return {
         role_name = 'customers-storage',
-        init = function(opts)
-            if opts.is_master then
-                box.schema.space.create('customers')
-
-                box.space['customers']:format{
-                    {name = 'id',           is_nullable = false, type = 'unsigned'},
-                    {name = 'bucket_id',    is_nullable = false, type = 'unsigned'},
-                    {name = 'sharding_key', is_nullable = false, type = 'unsigned'},
-                }
-
-                box.space['customers']:create_index('pk',        {parts = { 'id' }})
-                box.space['customers']:create_index('bucket_id', {parts = { 'bucket_id' }})
-            end
-        end,
+        init = require('storage_init')
     }
 end
 

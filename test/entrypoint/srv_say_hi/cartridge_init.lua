@@ -6,7 +6,12 @@ _G.is_initialized = function() return false end
 local log = require('log')
 local errors = require('errors')
 local cartridge = require('cartridge')
-local crud = require('crud')
+
+if package.setsearchroot ~= nil then
+    package.setsearchroot()
+else
+    package.path = package.path .. debug.sourcedir() .. "/?.lua;"
+end
 
 local ok, err
 
@@ -25,17 +30,6 @@ if not ok then
     os.exit(1)
 end
 
-rawset(_G, "global_func", function() return "global" end)
-rawset(_G, "common_func", function() return "common-global" end)
-
-ok, err = crud.register({
-    registered_func = function() return "registered" end,
-    common_func = function() return "common-registered" end,
-})
-
-if not ok then
-    log.error('%s', err)
-    os.exit(1)
-end
+require('all_init')()
 
 _G.is_initialized = cartridge.is_healthy

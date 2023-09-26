@@ -1,28 +1,20 @@
-local fio = require('fio')
-
 local t = require('luatest')
 
 local helpers = require('test.helper')
 
+-- The migrations package requires cartridge as a dependency.
 local pgroup = t.group('migration', {
-    {engine = 'memtx'},
-    {engine = 'vinyl'},
+    {backend = helpers.backend.CARTRIDGE, engine = 'memtx'},
+    {backend = helpers.backend.CARTRIDGE, engine = 'vinyl'},
 })
 
 pgroup.before_all(function(g)
-    g.cluster = helpers.Cluster:new({
-        datadir = fio.tempdir(),
-        server_command = helpers.entrypoint('srv_migration'),
-        use_vshard = true,
-        replicasets = helpers.get_test_replicasets(),
-        env = {
-            ['ENGINE'] = g.params.engine,
-        },
-    })
-    g.cluster:start()
+    helpers.start_default_cluster(g, 'srv_migration')
 end)
 
-pgroup.after_all(function(g) helpers.stop_cluster(g.cluster) end)
+pgroup.after_all(function(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end)
 
 pgroup.test_gh_308_select_after_improper_ddl_space_drop = function(g)
     -- Create a space sharded by key with ddl tools.
