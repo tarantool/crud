@@ -20,6 +20,7 @@ local borders = require('crud.borders')
 local sharding_metadata = require('crud.common.sharding.sharding_metadata')
 local utils = require('crud.common.utils')
 local stats = require('crud.stats')
+local readview = require('crud.readview')
 
 local crud = {}
 
@@ -147,6 +148,10 @@ crud.reset_stats = stats.reset
 -- @function storage_info
 crud.storage_info = utils.storage_info
 
+-- @refer readview.new
+-- @function readview
+crud.readview = readview.new
+
 --- Initializes crud on node
 --
 -- Exports all functions that are used for calls
@@ -174,6 +179,7 @@ function crud.init_storage()
     count.init()
     borders.init()
     sharding_metadata.init()
+    readview.init()
 
     _G._crud.storage_info_on_storage = utils.storage_info_on_storage
 end

@@ -152,9 +152,10 @@ local function fetch_chunk(context, state)
         stats.update_fetch_stats(cursor.stats, space_name)
     end
 
+    local next_state = {}
+
     -- Check whether we need the next call.
     if cursor.is_end then
-        local next_state = {}
         return next_state, buf
     end
 
@@ -164,9 +165,13 @@ local function fetch_chunk(context, state)
 
     -- change context.func_args too, but it does not matter
     next_func_args[4].after_tuple = cursor.after_tuple
-    local next_future = replicaset[vshard_call_name](replicaset, func_name, next_func_args, net_box_opts)
 
-    local next_state = {future = next_future}
+    if context.readview then
+        next_state = {future = context.future_replica.conn:call(func_name, next_func_args, net_box_opts)}
+    else
+        local next_future = replicaset[vshard_call_name](replicaset, func_name, next_func_args, net_box_opts)
+        next_state = {future = next_future}
+    end
     return next_state, buf
 end
 
@@ -203,6 +208,7 @@ local function new(vshard_router, replicasets, space, index_id, func_name, func_
             fetch_latest_metadata = call_opts.fetch_latest_metadata,
             space_name = space.name,
             vshard_router = vshard_router,
+            readview = false,
         }
 
         local state = {future = future}
@@ -230,6 +236,67 @@ local function new(vshard_router, replicasets, space, index_id, func_name, func_
     return merger
 end
 
+
+local function new_readview(vshard_router, replicasets, readview_uuid, space, index_id, func_name, func_args, opts)
+    opts = opts or {}
+    local call_opts = opts.call_opts
+
+    -- Request a first data chunk and create merger sources.
+    local merger_sources = {}
+    for _, replicaset in pairs(replicasets) do
+        for replica_uuid, replica in pairs(replicaset.replicas) do
+            for _, value in pairs(readview_uuid) do
+                if replica_uuid == value.uuid then
+                    -- Perform a request.
+                    local buf = buffer.ibuf()
+                    local net_box_opts = {is_async = true, buffer = buf, skip_header = false}
+                    func_args[4].readview_id = value.id
+                    local future = replica.conn:call(func_name, func_args, net_box_opts)
+
+                    -- Create a source.
+                    local context = {
+                        net_box_opts = net_box_opts,
+                        buffer = buf,
+                        func_name = func_name,
+                        func_args = func_args,
+                        replicaset = replicaset,
+                        vshard_call_name = nil,
+                        timeout = call_opts.timeout,
+                        fetch_latest_metadata = call_opts.fetch_latest_metadata,
+                        space_name = space.name,
+                        vshard_router = vshard_router,
+                        readview = true,
+                        future_replica = replica
+                    }
+                    local state = {future = future}
+                    local source = merger_lib.new_buffer_source(fetch_chunk, context, state)
+                    table.insert(merger_sources, source)
+                end
+            end
+        end
+    end
+
+    -- Trick for performance.
+    --
+    -- No need to create merger, key_def and pass tuples over the
+    -- merger, when we have only one tuple source.
+    if #merger_sources == 1 then
+        return merger_sources[1]
+    end
+
+    local keydef = Keydef.new(space, opts.field_names, index_id)
+    -- When built-in merger is used with external keydef, `merger_lib.new(keydef)`
+    -- fails. It's simply fixed by casting `keydef` to 'struct key_def&'.
+    keydef = ffi.cast('struct key_def&', keydef)
+
+    local merger = merger_lib.new(keydef, merger_sources, {
+        reverse = reverse_tarantool_iters[opts.tarantool_iter],
+    })
+
+    return merger
+end
+
 return {
     new = new,
+    new_readview = new_readview,
 }

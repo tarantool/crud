@@ -30,6 +30,8 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
         field_names = '?table',
         yield_every = '?number',
         call_opts = 'table',
+        readview = '?boolean',
+        readview_uuid = '?table',
     })
 
     opts = opts or {}
@@ -173,13 +175,21 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
         yield_every = yield_every,
         fetch_latest_metadata = opts.call_opts.fetch_latest_metadata,
     }
+    local merger
 
-    local merger = Merger.new(vshard_router, replicasets_to_select, space, plan.index_id,
-            common.SELECT_FUNC_NAME,
-            {space_name, plan.index_id, plan.conditions, select_opts},
-            {tarantool_iter = plan.tarantool_iter, field_names = plan.field_names, call_opts = opts.call_opts}
-        )
-
+    if opts.readview then
+        merger = Merger.new_readview(vshard_router, replicasets_to_select, opts.readview_uuid,
+        space, plan.index_id, common.READVIEW_SELECT_FUNC_NAME,
+        {space_name, plan.index_id, plan.conditions, select_opts},
+        {tarantool_iter = plan.tarantool_iter, field_names = plan.field_names, call_opts = opts.call_opts}
+    )
+    else
+        merger = Merger.new(vshard_router, replicasets_to_select, space, plan.index_id,
+                common.SELECT_FUNC_NAME,
+                {space_name, plan.index_id, plan.conditions, select_opts},
+                {tarantool_iter = plan.tarantool_iter, field_names = plan.field_names, call_opts = opts.call_opts}
+            )
+    end
     return {
         tuples_limit = tuples_limit,
         merger = merger,
@@ -204,6 +214,8 @@ function select_module.pairs(space_name, user_conditions, opts)
         prefer_replica = '?boolean',
         balance = '?boolean',
         timeout = '?number',
+        readview = '?boolean',
+        readview_uuid = '?table',
 
         vshard_router = '?string|table',
 
@@ -211,6 +223,24 @@ function select_module.pairs(space_name, user_conditions, opts)
     })
 
     opts = opts or {}
+
+    if opts.readview == true then
+        if opts.mode ~= nil then
+            return nil, SelectError:new("Readview does not support 'mode' option")
+        end
+
+        if opts.prefer_replica ~= nil then
+            return nil, SelectError:new("Readview does not support 'prefer_replica' option")
+        end
+
+        if opts.balance ~= nil then
+            return nil, SelectError:new("Readview does not support 'balance' option")
+        end
+
+        if opts.vshard_router ~= nil then
+            return nil, SelectError:new("Readview does not support 'vshard_router' option")
+        end
+    end
 
     if opts.first ~= nil and opts.first < 0 then
         error(string.format("Negative first isn't allowed for pairs"))
@@ -236,6 +266,8 @@ function select_module.pairs(space_name, user_conditions, opts)
             timeout = opts.timeout,
             fetch_latest_metadata = opts.fetch_latest_metadata,
         },
+        readview = opts.readview,
+        readview_uuid = opts.readview_uuid,
     }
 
     local iter, err = schema.wrap_func_reload(
@@ -299,11 +331,31 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
         prefer_replica = '?boolean',
         balance = '?boolean',
         timeout = '?number',
+        readview = '?boolean',
+        readview_uuid = '?table',
 
         vshard_router = '?string|table',
 
         yield_every = '?number',
     })
+
+    if opts.readview == true then
+        if opts.mode ~= nil then
+            return nil, SelectError:new("Readview does not support 'mode' option")
+        end
+
+        if opts.prefer_replica ~= nil then
+            return nil, SelectError:new("Readview does not support 'prefer_replica' option")
+        end
+
+        if opts.balance ~= nil then
+            return nil, SelectError:new("Readview does not support 'balance' option")
+        end
+
+        if opts.vshard_router ~= nil then
+            return nil, SelectError:new("Readview does not support 'vshard_router' option")
+        end
+    end
 
     if opts.first ~= nil and opts.first < 0 then
         if opts.after == nil then
@@ -326,6 +378,8 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
             timeout = opts.timeout,
             fetch_latest_metadata = opts.fetch_latest_metadata,
         },
+        readview = opts.readview,
+        readview_uuid = opts.readview_uuid,
     }
 
     local iter, err = schema.wrap_func_reload(
