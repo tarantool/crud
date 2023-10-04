@@ -1298,6 +1298,16 @@ local system_spaces = {
     ['_ddl_sharding_func'] = true,
 }
 
+local function storage_to_router_schema(sch)
+    for _, v in ipairs(sch.format) do
+        if v.name == 'bucket_id' then
+            v.is_nullable = true
+        end
+    end
+
+    return sch
+end
+
 utils.get_schema = function(space_name, opts)
     checks('?string', {
         vshard_router = '?string|table',
@@ -1329,7 +1339,7 @@ utils.get_schema = function(space_name, opts)
         if space == nil then
             return nil, GetSchemaError:new("Space %q doesn't exist", space_name)
         end
-        return schema.get_normalized_space_schema(space)
+        return storage_to_router_schema(schema.get_normalized_space_schema(space))
     else
         local resp = {}
 
@@ -1337,7 +1347,7 @@ utils.get_schema = function(space_name, opts)
             -- Can be indexed by space id and space name,
             -- so we need to be careful with duplicates.
             if type(name) == 'string' and system_spaces[name] == nil then
-                resp[name] = schema.get_normalized_space_schema(space)
+                resp[name] = storage_to_router_schema(schema.get_normalized_space_schema(space))
             end
         end
 
