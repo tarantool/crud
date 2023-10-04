@@ -1,4 +1,5 @@
 local fio = require('fio')
+local fiber = require('fiber')
 
 local t = require('luatest')
 
@@ -176,7 +177,7 @@ pgroup.test_gc_on_storage = function(g)
     })
 end
 
-pgroup.test_close_gc_on_router = function(g)
+pgroup.test_gc_rv_not_referenced_on_router = function(g)
     local _, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         local foo, err = crud.readview({name = 'foo'})
@@ -187,15 +188,63 @@ pgroup.test_close_gc_on_router = function(g)
         collectgarbage("collect")
         collectgarbage("collect")
     ]])
+    fiber.sleep(1)
     t.assert_equals(err, nil)
     local res = {}
-    helpers.call_on_storages(g.cluster, function(server, replicaset, res)
+    helpers.call_on_storages(g.cluster, function(server)
         local instance_res = server.net_box:eval([[
         return box.read_view.list()]])
-        res[replicaset.alias] = instance_res
-     end, res)
-    t.assert_equals(res, {["s-1"] = {}, ["s-2"] = {}})
+        table.insert(res, instance_res)
+    end, res)
+    t.assert_equals(res, {{}, {}, {}, {}})
 
+end
+
+pgroup.test_gc_rv_referenced_on_router = function(g)
+    helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 81, city = "Chicago",
+        },
+    })
+
+    local _, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        local foo, err = crud.readview({name = 'foo'})
+        if err ~= nil then
+            return nil, err
+        end
+        collectgarbage("collect")
+        collectgarbage("collect")
+        rawset(_G, 'foo', foo)
+    ]])
+    fiber.sleep(1)
+    t.assert_equals(err, nil)
+    local obj, err = g.cluster.main_server.net_box:eval([[
+        local crud = require('crud')
+        local foo = rawget(_G, 'foo')
+        local result, err = foo:select('customers', nil, {fullscan = true})
+
+        foo:close()
+        return result, err
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert_equals(obj.rows, {
+        {1, 477, "Elizabeth", "Jackson", 12, "New York"},
+        {2, 401, "Mary", "Brown", 46, "Los Angeles"},
+        {3, 2804, "David", "Smith", 33, "Los Angeles"},
+        {4, 1161, "William", "White", 81, "Chicago"},
+    })
 end
 
 pgroup.test_close = function(g)
@@ -209,12 +258,12 @@ pgroup.test_close = function(g)
     ]])
     t.assert_equals(err, nil)
     local res = {}
-    helpers.call_on_storages(g.cluster, function(server, replicaset, res)
+    helpers.call_on_storages(g.cluster, function(server)
         local instance_res = server.net_box:eval([[
         return box.read_view.list()]])
-        res[replicaset.alias] = instance_res
-     end, res)
-    t.assert_equals(res, {["s-1"] = {}, ["s-2"] = {}})
+        table.insert(res, instance_res)
+    end, res)
+    t.assert_equals(res, {{}, {}, {}, {}})
 
 end
 

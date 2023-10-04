@@ -285,7 +285,17 @@ end
 
 function Readview_obj.create(vshard_router, opts)
     local readview = {}
+
+    -- For tarantool lua (and lua 5.1) __gc metamethod only works for cdata types.
+    -- So in order to create a proper GC hook, we need to create cdata with
+    -- __gc call.
+    -- __gc call for this cdata will be a __gc call for our readview.
+    -- https://github.com/tarantool/tarantool/issues/5770
+    local proxy = newproxy(true)
+    getmetatable(proxy).__gc = function(_) Readview_obj.__gc(readview) end
+    readview[proxy] = true
     setmetatable(readview, Readview_obj)
+
     readview._name = opts.name
     local results, err, err_uuid = vshard_router:map_callrw('_crud.readview_open_on_storage',
         {readview._name}, {timeout = opts.timeout})
