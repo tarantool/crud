@@ -639,7 +639,7 @@ local result, err = crud.replace_object_many(space_name, objects, opts)
 where:
 
 * `space_name` (`string`) - name of the space to insert/replace an object
-* `tuples` / `objects` (`table`) - array of tuples/objects to insert
+* `tuples` / `objects` (`table`) - array of tuples/objects to replace
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout and vshard master
     discovery timeout (in seconds), default value is 2
