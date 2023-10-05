@@ -288,7 +288,7 @@ local result, err = crud.insert_object_many(space_name, objects, opts)
 where:
 
 * `space_name` (`string`) - name of the space to insert an object
-* `tuples` / `objects` (`table`) - array of tuples/objects to insert
+* `tuples` / `objects` (`table`) - array of tuples/objects to insert (at least one)
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout and vshard master
     discovery timeout (in seconds), default value is 2
@@ -639,7 +639,7 @@ local result, err = crud.replace_object_many(space_name, objects, opts)
 where:
 
 * `space_name` (`string`) - name of the space to insert/replace an object
-* `tuples` / `objects` (`table`) - array of tuples/objects to replace
+* `tuples` / `objects` (`table`) - array of tuples/objects to replace (at least one)
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout and vshard master
     discovery timeout (in seconds), default value is 2
@@ -855,7 +855,7 @@ where:
 * `tuples_operation_data` / `objects_operation_data` (`table`) - array of
    tuples/objects to insert
    and update [operations](https://www.tarantool.io/en/doc/latest/reference/reference_lua/box_space/#box-space-update)
-   in format {{tuple_1, operation_1}, ..., {tuple_n, operation_n}},
+   in format {{tuple_1, operation_1}, ..., {tuple_n, operation_n}} (at least one),
    if there is tuple with duplicate key then existing tuple will
    be updated with update operations
 * `opts`:

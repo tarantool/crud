@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * `deps.sh` installs the `vshard` instead of the `cartridge` by default (#364).
   You could to specify an environment variable `CARTIRDGE_VERSION` to install
   the `cartridge` and run tests cases with it.
+* Return explicit error for `*_many` call with no tuples/objects (#377).
 
 ### Fixed
 * `crud.readview` resource cleanup on garbage collect (#379).
