@@ -2043,3 +2043,23 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(#errs, 3)
     t.assert_equals(result, nil)
 end
+
+pgroup.test_zero_tuples = function(g)
+    local result, errs = g.cluster.main_server.net_box:call(
+        'crud.replace_many', {'customers', {}})
+
+    t.assert_not_equals(errs, nil)
+    t.assert_equals(#errs, 1)
+    t.assert_str_contains(errs[1].err, "At least one tuple expected")
+    t.assert_equals(result, nil)
+end
+
+pgroup.test_zero_objects = function(g)
+    local result, errs = g.cluster.main_server.net_box:call(
+        'crud.replace_object_many', {'customers', {}})
+
+    t.assert_not_equals(errs, nil)
+    t.assert_equals(#errs, 1)
+    t.assert_str_contains(errs[1].err, "At least one object expected")
+    t.assert_equals(result, nil)
+end

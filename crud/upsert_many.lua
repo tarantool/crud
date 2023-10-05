@@ -263,6 +263,10 @@ function upsert_many.tuples(space_name, tuples_operation_data, opts)
         fetch_latest_metadata = '?boolean',
     })
 
+    if next(tuples_operation_data) == nil then
+        return nil, {UpsertManyError:new("At least one tuple expected")}
+    end
+
     opts = opts or {}
 
     local vshard_router, err = utils.get_vshard_router_instance(opts.vshard_router)
@@ -302,6 +306,10 @@ function upsert_many.objects(space_name, objs_operation_data, opts)
         noreturn = '?boolean',
         fetch_latest_metadata = '?boolean',
     })
+
+    if next(objs_operation_data) == nil then
+        return nil, {UpsertManyError:new("At least one object expected")}
+    end
 
     opts = opts or {}
 

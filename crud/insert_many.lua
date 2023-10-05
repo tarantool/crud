@@ -244,6 +244,10 @@ function insert_many.tuples(space_name, tuples, opts)
         fetch_latest_metadata = '?boolean',
     })
 
+    if next(tuples) == nil then
+        return nil, {InsertManyError:new("At least one tuple expected")}
+    end
+
     opts = opts or {}
 
     local vshard_router, err = utils.get_vshard_router_instance(opts.vshard_router)
@@ -283,6 +287,10 @@ function insert_many.objects(space_name, objs, opts)
         noreturn = '?boolean',
         fetch_latest_metadata = '?boolean',
     })
+
+    if next(objs) == nil then
+        return nil, {InsertManyError:new("At least one object expected")}
+    end
 
     opts = opts or {}
 
