@@ -8,7 +8,7 @@ local utils = require('crud.common.utils')
 
 local schema = {}
 
-local system_spaces = {
+schema.system_spaces = {
     -- https://github.com/tarantool/tarantool/blob/3240201a2f5bac3bddf8a74015db9b351954e0b5/src/box/schema_def.h#L77-L127
     ['_vinyl_deferred_delete'] = true,
     ['_schema'] = true,
@@ -69,6 +69,7 @@ schema.call = function(space_name, opts)
     checks('?string', {
         vshard_router = '?string|table',
         timeout = '?number',
+        cached = '?boolean',
     })
 
     opts = opts or {}
@@ -78,9 +79,11 @@ schema.call = function(space_name, opts)
         return nil, SchemaError:new(err)
     end
 
-    local _, err = schema_module.reload_schema(vshard_router)
-    if err ~= nil then
-        return nil, SchemaError:new(err)
+    if opts.cached ~= true then
+        local _, err = schema_module.reload_schema(vshard_router)
+        if err ~= nil then
+            return nil, SchemaError:new(err)
+        end
     end
 
     local spaces, err = utils.get_spaces(vshard_router, opts.timeout)
@@ -100,7 +103,7 @@ schema.call = function(space_name, opts)
         for name, space in pairs(spaces) do
             -- Can be indexed by space id and space name,
             -- so we need to be careful with duplicates.
-            if type(name) == 'string' and system_spaces[name] == nil then
+            if type(name) == 'string' and schema.system_spaces[name] == nil then
                 resp[name] = get_crud_schema(space)
             end
         end
