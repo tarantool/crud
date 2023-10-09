@@ -21,6 +21,7 @@ local sharding_metadata = require('crud.common.sharding.sharding_metadata')
 local utils = require('crud.common.utils')
 local stats = require('crud.stats')
 local readview = require('crud.readview')
+local schema = require('crud.schema')
 
 local crud = {}
 
@@ -151,6 +152,10 @@ crud.storage_info = utils.storage_info
 -- @refer readview.new
 -- @function readview
 crud.readview = readview.new
+
+-- @refer schema.call
+-- @function schema
+crud.schema = schema.call
 
 --- Initializes crud on node
 --

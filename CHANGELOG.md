@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
+### Added
+* Space schema introspection API `crud.schema` (#380).
+
 ### Changed
 * `deps.sh` installs the `vshard` instead of the `cartridge` by default (#364).
   You could to specify an environment variable `CARTIRDGE_VERSION` to install

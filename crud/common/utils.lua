@@ -110,7 +110,7 @@ local function get_replicaset_by_replica_uuid(replicasets, uuid)
     return nil
 end
 
-function utils.get_space(space_name, vshard_router, timeout, replica_uuid)
+function utils.get_spaces(vshard_router, timeout, replica_uuid)
     local replicasets, replicaset
     timeout = timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
     local deadline = fiber.clock() + timeout
@@ -160,9 +160,17 @@ function utils.get_space(space_name, vshard_router, timeout, replica_uuid)
         return nil, GetSpaceError:new(error_msg)
     end
 
-    local space = replicaset.master.conn.space[space_name]
+    return replicaset.master.conn.space, nil, replicaset.master.conn.schema_version
+end
 
-    return space, nil, replicaset.master.conn.schema_version
+function utils.get_space(space_name, vshard_router, timeout, replica_uuid)
+    local spaces, err, schema_version = utils.get_spaces(vshard_router, timeout, replica_uuid)
+
+    if spaces == nil then
+        return nil, err
+    end
+
+    return spaces[space_name], err, schema_version
 end
 
 function utils.get_space_format(space_name, vshard_router)
