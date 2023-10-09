@@ -1728,6 +1728,8 @@ where:
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
     vshard router instance. Set this parameter if your space is not
     a part of the default vshard cluster
+  * `cached` (`?boolean`) - if `false`, reloads storages schema on call;
+    if `true`, return last known schema; default value is `false`
 
 Returns space schema (or spaces schema map), error.
 
