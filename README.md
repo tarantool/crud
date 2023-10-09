@@ -1711,6 +1711,82 @@ end
 rv:close()
 ```
 
+### Schema
+
+`crud` routers provide API to introspect spaces schema.
+
+```lua
+local schema, err = crud.update(space_name, opts)
+```
+
+where:
+
+* `space_name` (`?string`) - name of the space (if `nil`, provides info for all spaces)
+* `opts`:
+  * `timeout` (`?number`) - `vshard.call` timeout and vshard master
+    discovery timeout (in seconds), default value is 2
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
+
+Returns space schema (or spaces schema map), error.
+
+Beware that schema info is not exactly the same as underlying storage spaces schema.
+The reason is that `crud` generates `bucket_id`, if it isn't provided,
+so this field is actually nullable for a `crud` user. We also do not expose
+`bucket_id` index info since it's a vshard utility and do not related
+to application logic.
+
+**Example:**
+
+```lua
+crud.schema('customers')
+---
+- format:
+    - name: id
+      type: unsigned
+    - name: bucket_id
+      type: unsigned
+      is_nullable: true
+    - name: name
+      type: string
+    - name: age
+      type: number
+  indexes:
+    0:
+      unique: true
+      parts:
+      - fieldno: 1
+        type: unsigned
+        exclude_null: false
+        is_nullable: false
+      id: 0
+      type: TREE
+      name: primary_index
+    2:
+      unique: false
+      parts:
+      - fieldno: 4
+        type: number
+        exclude_null: false
+        is_nullable: false
+      id: 2
+      type: TREE
+      name: age
+...
+```
+
+```lua
+crud.schema()
+---
+- customers:
+    format: ...
+    indexes: ...
+  shops:
+    format: ...
+    indexes: ...
+```
+
 ## Cartridge roles
 
 `cartridge.roles.crud-storage` is a Tarantool Cartridge role that depends on the

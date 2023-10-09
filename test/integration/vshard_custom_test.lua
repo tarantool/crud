@@ -1631,3 +1631,40 @@ pgroup.test_call_upsert_object_many_wrong_option = function(g)
     t.assert_str_contains(errs[1].err,
                           "Invalid opts.vshard_router table value, a vshard router instance has been expected")
 end
+
+pgroup.test_schema = function(g)
+    local result, err = g.router:call('crud.schema', {'customers', {vshard_router = 'customers'}})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result, helpers.schema_compatibility({customers = {
+        format = {
+            {name = "id", type = "unsigned", is_nullable = false},
+            {name = "bucket_id", type = "unsigned", is_nullable = true},
+            {name = "name", type = "string", is_nullable = false},
+            {name = "age", type = "number", is_nullable = false},
+        },
+        indexes = {
+            [0] = {
+                id = 0,
+                name = "pk",
+                parts = {{exclude_null = false, fieldno = 1, is_nullable = false, type = "unsigned"}},
+                type = "TREE",
+                unique = true,
+            },
+            [2] = {
+                id = 2,
+                name = "age",
+                parts = {{exclude_null = false, fieldno = 4, is_nullable = false, type = "number"}},
+                type = "TREE",
+                unique = false,
+            },
+        },
+    }})['customers'])
+end
+
+pgroup.test_schema_router_mismatch = function(g)
+    local result, err = g.router:call('crud.schema', {'customers', {vshard_router = 'locations'}})
+
+    t.assert_equals(result, nil, err)
+    t.assert_str_contains(err.err, "Space \"customers\" doesn't exist")
+end

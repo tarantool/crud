@@ -768,4 +768,28 @@ function helpers.backend_matrix(base_matrix)
     return matrix
 end
 
+function helpers.schema_compatibility(schema)
+    -- https://github.com/tarantool/tarantool/issues/4091
+    if not helpers.tarantool_version_at_least(2, 2, 1) then
+        for _, s in pairs(schema) do
+            for _, i in pairs(s.indexes) do
+                i.unique = false
+            end
+        end
+    end
+
+    -- https://github.com/tarantool/tarantool/commit/17c9c034933d726925910ce5bf8b20e8e388f6e3
+    if not helpers.tarantool_version_at_least(2, 8, 1) then
+        for _, s in pairs(schema) do
+            for _, i in pairs(s.indexes) do
+                for _, p in pairs(i.parts) do
+                    p.exclude_null = nil
+                end
+            end
+        end
+    end
+
+    return schema
+end
+
 return helpers
