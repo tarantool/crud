@@ -17,7 +17,8 @@ local compare_conditions = require('crud.compare.conditions')
 
 local CountError = errors.new_class('CountError', {capture_stack = false})
 
-local COUNT_FUNC_NAME = '_crud.count_on_storage'
+local COUNT_FUNC_NAME = 'count_on_storage'
+local CRUD_COUNT_FUNC_NAME = utils.get_storage_call(COUNT_FUNC_NAME)
 
 local count = {}
 
@@ -85,8 +86,8 @@ local function count_on_storage(space_name, index_id, conditions, opts)
     return tuples_count
 end
 
-function count.init()
-    _G._crud.count_on_storage = count_on_storage
+function count.init(user)
+    utils.init_storage_call(user, COUNT_FUNC_NAME, count_on_storage)
 end
 
 local check_count_safety_rl = ratelimit.new()
@@ -240,7 +241,7 @@ local function call_count_on_router(vshard_router, space_name, user_conditions, 
         skip_sharding_hash_check = skip_sharding_hash_check,
     }
 
-    local results, err = call.map(vshard_router, COUNT_FUNC_NAME, {
+    local results, err = call.map(vshard_router, CRUD_COUNT_FUNC_NAME, {
         space_name, plan.index_id, plan.conditions, count_opts
     }, call_opts)
 

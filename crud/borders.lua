@@ -13,7 +13,8 @@ local BorderError = errors.new_class('BorderError', {capture_stack = false})
 
 local borders = {}
 
-local STAT_FUNC_NAME = '_crud.get_border_on_storage'
+local STAT_FUNC_NAME = 'get_border_on_storage'
+local CRUD_STAT_FUNC_NAME = utils.get_storage_call(STAT_FUNC_NAME)
 
 
 local function get_border_on_storage(border_name, space_name, index_id, field_names, fetch_latest_metadata)
@@ -42,8 +43,8 @@ local function get_border_on_storage(border_name, space_name, index_id, field_na
     })
 end
 
-function borders.init()
-   _G._crud.get_border_on_storage = get_border_on_storage
+function borders.init(user)
+    utils.init_storage_call(user, STAT_FUNC_NAME, get_border_on_storage)
 end
 
 local is_closer
@@ -111,7 +112,7 @@ local function call_get_border_on_router(vshard_router, border_name, space_name,
         timeout = opts.timeout,
     }
     local results, err, storages_info = call.map(vshard_router,
-        STAT_FUNC_NAME,
+        CRUD_STAT_FUNC_NAME,
         {border_name, space_name, index.id, field_names, opts.fetch_latest_metadata},
         call_opts
     )

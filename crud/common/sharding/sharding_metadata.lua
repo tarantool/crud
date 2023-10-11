@@ -4,6 +4,7 @@ local log = require('log')
 
 local call = require('crud.common.call')
 local const = require('crud.common.const')
+local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 local router_cache = require('crud.common.sharding.router_metadata_cache')
 local storage_cache = require('crud.common.sharding.storage_metadata_cache')
@@ -13,7 +14,8 @@ local sharding_utils = require('crud.common.sharding.utils')
 
 local FetchShardingMetadataError = errors.new_class('FetchShardingMetadataError', {capture_stack = false})
 
-local FETCH_FUNC_NAME = '_crud.fetch_on_storage'
+local FETCH_FUNC_NAME = 'fetch_on_storage'
+local CRUD_FETCH_FUNC_NAME = utils.get_storage_call(FETCH_FUNC_NAME)
 
 local sharding_metadata_module = {}
 
@@ -107,7 +109,7 @@ local _fetch_on_router = locked(function(vshard_router, space_name, metadata_map
         return
     end
 
-    local metadata_map, err = call.any(vshard_router, FETCH_FUNC_NAME, {}, {
+    local metadata_map, err = call.any(vshard_router, CRUD_FETCH_FUNC_NAME, {}, {
         timeout = timeout
     })
     if err ~= nil then
@@ -212,8 +214,8 @@ function sharding_metadata_module.reload_sharding_cache(vshard_router, space_nam
     end
 end
 
-function sharding_metadata_module.init()
-   _G._crud.fetch_on_storage = sharding_metadata_module.fetch_on_storage
+function sharding_metadata_module.init(user)
+    utils.init_storage_call(user, FETCH_FUNC_NAME, sharding_metadata_module.fetch_on_storage)
 end
 
 return sharding_metadata_module

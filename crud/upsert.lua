@@ -12,7 +12,8 @@ local UpsertError = errors.new_class('UpsertError', { capture_stack = false})
 
 local upsert = {}
 
-local UPSERT_FUNC_NAME = '_crud.upsert_on_storage'
+local UPSERT_FUNC_NAME = 'upsert_on_storage'
+local CRUD_UPSERT_FUNC_NAME = utils.get_storage_call(UPSERT_FUNC_NAME)
 
 local function upsert_on_storage(space_name, tuple, operations, opts)
     dev_checks('string', 'table', 'table', {
@@ -49,8 +50,8 @@ local function upsert_on_storage(space_name, tuple, operations, opts)
     })
 end
 
-function upsert.init()
-   _G._crud.upsert_on_storage = upsert_on_storage
+function upsert.init(user)
+    utils.init_storage_call(user, UPSERT_FUNC_NAME, upsert_on_storage)
 end
 
 -- returns result, err, need_reload
@@ -107,7 +108,7 @@ local function call_upsert_on_router(vshard_router, space_name, original_tuple, 
     }
 
     local storage_result, err = call.single(vshard_router,
-        sharding_data.bucket_id, UPSERT_FUNC_NAME,
+        sharding_data.bucket_id, CRUD_UPSERT_FUNC_NAME,
         {space_name, tuple, operations, upsert_on_storage_opts},
         call_opts
     )

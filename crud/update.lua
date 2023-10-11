@@ -14,7 +14,8 @@ local UpdateError = errors.new_class('UpdateError', {capture_stack = false})
 
 local update = {}
 
-local UPDATE_FUNC_NAME = '_crud.update_on_storage'
+local UPDATE_FUNC_NAME = 'update_on_storage'
+local CRUD_UPDATE_FUNC_NAME = utils.get_storage_call(UPDATE_FUNC_NAME)
 
 local function update_on_storage(space_name, key, operations, field_names, opts)
     dev_checks('string', '?', 'table', '?table', {
@@ -73,8 +74,8 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
     return res, err
 end
 
-function update.init()
-   _G._crud.update_on_storage = update_on_storage
+function update.init(user)
+    utils.init_storage_call(user, UPDATE_FUNC_NAME, update_on_storage)
 end
 
 -- returns result, err, need_reload
@@ -156,7 +157,7 @@ local function call_update_on_router(vshard_router, space_name, key, user_operat
     }
 
     local storage_result, err = call.single(vshard_router,
-        bucket_id_data.bucket_id, UPDATE_FUNC_NAME,
+        bucket_id_data.bucket_id, CRUD_UPDATE_FUNC_NAME,
         {space_name, key, operations, opts.fields, update_on_storage_opts},
         call_opts
     )

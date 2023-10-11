@@ -16,7 +16,8 @@ local ReplaceManyError = errors.new_class('ReplaceManyError', {capture_stack = f
 
 local replace_many = {}
 
-local REPLACE_MANY_FUNC_NAME = '_crud.replace_many_on_storage'
+local REPLACE_MANY_FUNC_NAME = 'replace_many_on_storage'
+local CRUD_REPLACE_MANY_FUNC_NAME = utils.get_storage_call(REPLACE_MANY_FUNC_NAME)
 
 local function replace_many_on_storage(space_name, tuples, opts)
     dev_checks('string', 'table', {
@@ -125,8 +126,8 @@ local function replace_many_on_storage(space_name, tuples, opts)
     return inserted_tuples, nil, replica_schema_version
 end
 
-function replace_many.init()
-    _G._crud.replace_many_on_storage = replace_many_on_storage
+function replace_many.init(user)
+    utils.init_storage_call(user, REPLACE_MANY_FUNC_NAME, replace_many_on_storage)
 end
 
 -- returns result, err, need_reload
@@ -178,7 +179,7 @@ local function call_replace_many_on_router(vshard_router, space_name, original_t
 
     local postprocessor = BatchPostprocessor:new(vshard_router)
 
-    local rows, errs, storages_info = call.map(vshard_router, REPLACE_MANY_FUNC_NAME, nil, {
+    local rows, errs, storages_info = call.map(vshard_router, CRUD_REPLACE_MANY_FUNC_NAME, nil, {
         timeout = opts.timeout,
         mode = 'write',
         iter = iter,

@@ -12,7 +12,8 @@ local ReplaceError = errors.new_class('ReplaceError', { capture_stack = false })
 
 local replace = {}
 
-local REPLACE_FUNC_NAME = '_crud.replace_on_storage'
+local REPLACE_FUNC_NAME = 'replace_on_storage'
+local CRUD_REPLACE_FUNC_NAME = utils.get_storage_call(REPLACE_FUNC_NAME)
 
 local function replace_on_storage(space_name, tuple, opts)
     dev_checks('string', 'table', {
@@ -52,8 +53,8 @@ local function replace_on_storage(space_name, tuple, opts)
     })
 end
 
-function replace.init()
-   _G._crud.replace_on_storage = replace_on_storage
+function replace.init(user)
+    utils.init_storage_call(user, REPLACE_FUNC_NAME, replace_on_storage)
 end
 
 -- returns result, err, need_reload
@@ -101,7 +102,7 @@ local function call_replace_on_router(vshard_router, space_name, original_tuple,
         timeout = opts.timeout,
     }
     local storage_result, err = call.single(vshard_router,
-        sharding_data.bucket_id, REPLACE_FUNC_NAME,
+        sharding_data.bucket_id, CRUD_REPLACE_FUNC_NAME,
         {space_name, tuple, replace_on_storage_opts},
         call_opts
     )

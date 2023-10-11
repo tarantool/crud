@@ -8,7 +8,8 @@ local LenError = errors.new_class('LenError', {capture_stack = false})
 
 local len = {}
 
-local LEN_FUNC_NAME = '_crud.len_on_storage'
+local LEN_FUNC_NAME = 'len_on_storage'
+local CRUD_LEN_FUNC_NAME = utils.get_storage_call(LEN_FUNC_NAME)
 
 local function len_on_storage(space_name)
     dev_checks('string|number')
@@ -16,8 +17,8 @@ local function len_on_storage(space_name)
     return box.space[space_name]:len()
 end
 
-function len.init()
-    _G._crud.len_on_storage = len_on_storage
+function len.init(user)
+    utils.init_storage_call(user, LEN_FUNC_NAME, len_on_storage)
 end
 
 --- Calculates the number of tuples in the space for memtx engine
@@ -61,7 +62,7 @@ function len.call(space_name, opts)
         return nil, LenError:new("Space %q doesn't exist", space_name)
     end
 
-    local results, err = vshard_router:map_callrw(LEN_FUNC_NAME, {space_name}, opts)
+    local results, err = vshard_router:map_callrw(CRUD_LEN_FUNC_NAME, {space_name}, opts)
 
     if err ~= nil then
         return nil, LenError:new("Failed to call len on storage-side: %s", err)

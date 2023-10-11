@@ -14,7 +14,8 @@ local DeleteError = errors.new_class('DeleteError', {capture_stack = false})
 
 local delete = {}
 
-local DELETE_FUNC_NAME = '_crud.delete_on_storage'
+local DELETE_FUNC_NAME = 'delete_on_storage'
+local CRUD_DELETE_FUNC_NAME = utils.get_storage_call(DELETE_FUNC_NAME)
 
 local function delete_on_storage(space_name, key, field_names, opts)
     dev_checks('string', '?', '?table', {
@@ -51,8 +52,8 @@ local function delete_on_storage(space_name, key, field_names, opts)
     })
 end
 
-function delete.init()
-   _G._crud.delete_on_storage = delete_on_storage
+function delete.init(user)
+    utils.init_storage_call(user, DELETE_FUNC_NAME, delete_on_storage)
 end
 
 -- returns result, err, need_reload
@@ -127,7 +128,7 @@ local function call_delete_on_router(vshard_router, space_name, key, opts)
     }
 
     local storage_result, err = call.single(vshard_router,
-        bucket_id_data.bucket_id, DELETE_FUNC_NAME,
+        bucket_id_data.bucket_id, CRUD_DELETE_FUNC_NAME,
         {space_name, key, opts.fields, delete_on_storage_opts},
         call_opts
     )

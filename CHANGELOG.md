@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * `crud.readview` resource cleanup on garbage collect (#379).
 * `doc/playground.lua` does not work with Tarantool 3 (#371).
 * Tests with Tarantool 3 (#364).
+* VShard storage user have not execution rights for internal functions (#366).
 
 ## [1.3.0] - 27-09-23
 

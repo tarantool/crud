@@ -393,7 +393,7 @@ local function cluster_new(g, cfg)
 
             cfg.engine = nil
             require('vshard.storage').cfg(cfg, box.info.uuid)
-            box.schema.user.grant('storage', 'super')
+            box.schema.user.grant('storage', 'write,read', 'universe')
 
             box.session.su(user)
         end, {cfg})

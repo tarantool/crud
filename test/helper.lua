@@ -727,14 +727,16 @@ function helpers.start_cluster(g, cartridge_cfg, vshard_cfg)
             ['ENGINE'] = g.params.engine
         }
 
+        g.cfg = cfg
         g.cluster = helpers.Cluster:new(cfg)
         g.cluster:start()
     elseif g.params.backend == helpers.backend.VSHARD then
         local cfg = table.deepcopy(vshard_cfg)
         cfg.engine = g.params.engine
 
-        local global_cfg = vtest.config_new(cfg)
-        vtest.cluster_new(g, global_cfg)
+        g.cfg = vtest.config_new(cfg)
+        vtest.cluster_new(g, g.cfg)
+        g.cfg.engine = nil
     end
 end
 

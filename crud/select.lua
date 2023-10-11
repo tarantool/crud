@@ -12,6 +12,8 @@ local SelectError = errors.new_class('SelectError')
 
 local select_module
 
+local SELECT_FUNC_NAME = 'select_on_storage'
+
 local select_module_compat_info = stash.get(stash.name.select_module_compat_info)
 local has_merger = (utils.tarantool_supports_external_merger() and
     package.search('tuple.merger')) or utils.tarantool_has_builtin_merger()
@@ -123,8 +125,8 @@ local function select_on_storage(space_name, index_id, conditions, opts)
     return unpack(result)
 end
 
-function select_module.init()
-   _G._crud.select_on_storage = select_on_storage
+function select_module.init(user)
+    utils.init_storage_call(user, SELECT_FUNC_NAME, select_on_storage)
 end
 
 return select_module

@@ -76,10 +76,9 @@ pgroup.test_crud_storage_status_of_stopped_servers = function(g)
 end
 
 pgroup.after_test('test_crud_storage_status_of_stopped_servers', function(g)
-    g.cluster:server("s2-replica"):start()
-    g.cluster:server("s2-replica"):exec(function()
-        require('crud').init_storage()
-    end)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+    g.cluster = nil
+    helpers.start_default_cluster(g, 'srv_select')
 end)
 
 pgroup.test_disabled_storage_role = function(g)
