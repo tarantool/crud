@@ -12,7 +12,8 @@ local InsertError = errors.new_class('InsertError', {capture_stack = false})
 
 local insert = {}
 
-local INSERT_FUNC_NAME = '_crud.insert_on_storage'
+local INSERT_FUNC_NAME = 'insert_on_storage'
+local CRUD_INSERT_FUNC_NAME = utils.get_storage_call(INSERT_FUNC_NAME)
 
 local function insert_on_storage(space_name, tuple, opts)
     dev_checks('string', 'table', {
@@ -52,8 +53,8 @@ local function insert_on_storage(space_name, tuple, opts)
     })
 end
 
-function insert.init()
-   _G._crud.insert_on_storage = insert_on_storage
+function insert.init(user)
+    utils.init_storage_call(user, INSERT_FUNC_NAME, insert_on_storage)
 end
 
 -- returns result, err, need_reload
@@ -102,7 +103,7 @@ local function call_insert_on_router(vshard_router, space_name, original_tuple, 
     }
 
     local storage_result, err = call.single(vshard_router,
-        sharding_data.bucket_id, INSERT_FUNC_NAME,
+        sharding_data.bucket_id, CRUD_INSERT_FUNC_NAME,
         {space_name, tuple, insert_on_storage_opts},
         call_opts
     )

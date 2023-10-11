@@ -23,6 +23,9 @@ local stats = require('crud.stats')
 local readview = require('crud.readview')
 local schema = require('crud.schema')
 
+local vshard = require('vshard')
+local luri = require('uri')
+
 local crud = {}
 
 -- @refer crud.version
@@ -165,28 +168,57 @@ crud.schema = schema.call
 -- @function init
 --
 function crud.init_storage()
+    if type(box.cfg) ~= 'table' then
+        error('box.cfg() must be called first')
+    end
+
+    local user = nil
+    if not box.info.ro then
+        local ok, storage_info = pcall(vshard.storage.info)
+        if not ok then
+            error('vshard.storage.cfg() must be called first')
+        end
+
+        local box_info = box.info()
+        local replicaset_uuid
+        if box_info.replicaset ~= nil then
+            replicaset_uuid = box_info.replicaset.uuid
+        else
+            replicaset_uuid = box_info.cluster.uuid
+        end
+        local replicaset_info = storage_info.replicasets[replicaset_uuid]
+        if replicaset_info == nil or replicaset_info.master == nil then
+            error(string.format('Failed to find a vshard configuration for ' ..
+                ' replicaset with replicaset_uuid %s.',
+                replicaset_uuid))
+        end
+        user = luri.parse(replicaset_info.master.uri).login or 'guest'
+    end
+
     if rawget(_G, '_crud') == nil then
         rawset(_G, '_crud', {})
     end
 
-    insert.init()
-    insert_many.init()
-    get.init()
-    replace.init()
-    replace_many.init()
-    update.init()
-    upsert.init()
-    upsert_many.init()
-    delete.init()
-    select.init()
-    truncate.init()
-    len.init()
-    count.init()
-    borders.init()
-    sharding_metadata.init()
-    readview.init()
+    insert.init(user)
+    insert_many.init(user)
+    get.init(user)
+    replace.init(user)
+    replace_many.init(user)
+    update.init(user)
+    upsert.init(user)
+    upsert_many.init(user)
+    delete.init(user)
+    select.init(user)
+    truncate.init(user)
+    len.init(user)
+    count.init(user)
+    borders.init(user)
+    sharding_metadata.init(user)
+    readview.init(user)
 
-    _G._crud.storage_info_on_storage = utils.storage_info_on_storage
+    utils.init_storage_call(user, 'storage_info_on_storage',
+        utils.storage_info_on_storage
+    )
 end
 
 function crud.init_router()

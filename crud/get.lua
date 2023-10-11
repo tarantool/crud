@@ -14,7 +14,8 @@ local GetError = errors.new_class('GetError', {capture_stack = false})
 
 local get = {}
 
-local GET_FUNC_NAME = '_crud.get_on_storage'
+local GET_FUNC_NAME = 'get_on_storage'
+local CRUD_GET_FUNC_NAME = utils.get_storage_call(GET_FUNC_NAME)
 
 local function get_on_storage(space_name, key, field_names, opts)
     dev_checks('string', '?', '?table', {
@@ -49,8 +50,8 @@ local function get_on_storage(space_name, key, field_names, opts)
     })
 end
 
-function get.init()
-   _G._crud.get_on_storage = get_on_storage
+function get.init(user)
+    utils.init_storage_call(user, GET_FUNC_NAME, get_on_storage)
 end
 
 -- returns result, err, need_reload
@@ -125,7 +126,7 @@ local function call_get_on_router(vshard_router, space_name, key, opts)
     }
 
     local storage_result, err = call.single(vshard_router,
-        bucket_id_data.bucket_id, GET_FUNC_NAME,
+        bucket_id_data.bucket_id, CRUD_GET_FUNC_NAME,
         {space_name, key, opts.fields, get_on_storage_opts},
         call_opts
     )

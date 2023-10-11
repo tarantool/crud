@@ -86,11 +86,14 @@ The CRUD operations should be called from router.
 All VShard storages should call `crud.init_storage()` after
 `vshard.storage.cfg()` (or enable the `crud-storage` role for Cartridge)
 first to initialize storage-side functions that are used to manipulate data
-across the cluster.
+across the cluster. The storage-side functions have the same access
+as a user calling `crud.init_storage()`. Therefore, if `crud` do not have
+enough access to modify some space, then you need to give access to the user.
 
 All VShard routers should call `crud.init_router()` after `vshard.router.cfg()`
 (or enable the `crud-router` role for Cartridge) to make `crud` functions
-callable via `net.box`.
+callable via `net.box`. If a user is allowed to execute `crud` functions on
+the router-side then the user does not need additional access on storages.
 
 You can check out an example of the configuration for local development
 (a single instance that combines router and storage) in

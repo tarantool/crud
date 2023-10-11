@@ -2308,9 +2308,10 @@ pgroup.test_stop_select = function(g)
     g.cluster:server('s2-master'):start()
 
     if g.params.backend == helpers.backend.VSHARD then
-        g.cluster:server('s2-master'):exec(function()
+        g.cluster:server('s2-master'):exec(function(cfg)
+            require('vshard.storage').cfg(cfg, box.info.uuid)
             require('crud').init_storage()
-        end)
+        end, {g.cfg})
     end
 
     local _, err = g.cluster.main_server.net_box:eval([[

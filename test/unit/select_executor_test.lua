@@ -1,5 +1,3 @@
-local crud = require('crud')
-
 local select_plan = require('crud.compare.plan')
 local select_executor = require('crud.select.executor')
 local select_filters = require('crud.compare.filters')
@@ -56,8 +54,6 @@ g.before_all = function()
         unique = false,
         if_not_exists = true,
     })
-
-    crud.init_storage()
 end
 
 g.after_each(function()

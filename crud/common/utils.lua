@@ -27,6 +27,19 @@ local fiber = require('fiber')
 
 local utils = {}
 
+--- Returns a full call string for a storage function name.
+--
+--  @param string name a base name of the storage function.
+--
+--  @return a full string for the call.
+function utils.get_storage_call(name)
+    dev_checks('string')
+
+    return '_crud.' .. name
+end
+
+local CRUD_STORAGE_INFO_FUNC_NAME = utils.get_storage_call('storage_info_on_storage')
+
 local space_format_cache = setmetatable({}, {__mode = 'k'})
 
 -- copy from LuaJIT lj_char.c
@@ -1034,8 +1047,11 @@ function utils.update_storage_call_error_description(err, func_name, replicaset_
         return nil
     end
 
-    if err.type == 'ClientError' and type(err.message) == 'string' then
-        if err.message == string.format("Procedure '%s' is not defined", func_name) then
+    if (err.type == 'ClientError' or err.type == 'AccessDeniedError')
+        and type(err.message) == 'string' then
+        local not_defined_str = string.format("Procedure '%s' is not defined", func_name)
+        local access_denied_str = string.format("Execute access to function '%s' is denied", func_name)
+        if err.message == not_defined_str or err.message:startswith(access_denied_str) then
             if func_name:startswith('_crud.') then
                 err = NotInitializedError:new("Function %s is not registered: " ..
                     "crud isn't initialized on replicaset %q or crud module versions mismatch " ..
@@ -1121,7 +1137,7 @@ function utils.storage_info(opts)
                 status = "error",
                 is_master = replicaset.master == replica
             }
-            local ok, res = pcall(replica.conn.call, replica.conn, "_crud.storage_info_on_storage",
+            local ok, res = pcall(replica.conn.call, replica.conn, CRUD_STORAGE_INFO_FUNC_NAME,
                                   {}, async_opts)
             if ok then
                 futures_by_replicas[replica_uuid] = res
@@ -1175,6 +1191,30 @@ end
 -- @return a table with storage status.
 function utils.storage_info_on_storage()
     return {status = "running"}
+end
+
+--- Initializes a storage function by its name.
+--
+--  It adds the function into the global scope by its name and required
+--  access to a vshard storage user.
+--
+--  @function init_storage_call
+--
+--  @param string name of a user or nil if there is no need to setup access.
+--  @param string name a name of the function.
+--  @param function func the function.
+--
+--  @return nil
+function utils.init_storage_call(user, name, func)
+    dev_checks('?string', 'string', 'function')
+
+    rawset(_G['_crud'], name, func)
+
+    if user ~= nil then
+        name = utils.get_storage_call(name)
+        box.schema.func.create(name, {setuid = true, if_not_exists = true})
+        box.schema.user.grant(user, 'execute', 'function', name, {if_not_exists=true})
+    end
 end
 
 local expected_vshard_api = {

@@ -18,6 +18,12 @@ local ReadviewError = errors.new_class('ReadviewError', {capture_stack = false})
 local has_merger = (utils.tarantool_supports_external_merger() and
     package.search('tuple.merger')) or utils.tarantool_has_builtin_merger()
 
+local OPEN_FUNC_NAME = 'readview_open_on_storage'
+local CRUD_OPEN_FUNC_NAME = utils.get_storage_call(OPEN_FUNC_NAME)
+local SELECT_FUNC_NAME = 'select_readview_on_storage'
+local CLOSE_FUNC_NAME = 'readview_close_on_storage'
+local CRUD_CLOSE_FUNC_NAME = utils.get_storage_call(CLOSE_FUNC_NAME)
+
 if (not utils.tarantool_version_at_least(2, 11, 0))
 or (tarantool.package ~= 'Tarantool Enterprise') or (not has_merger) then
     return {
@@ -223,10 +229,10 @@ function Readview_obj:pairs(space_name, user_conditions, opts)
     return pairs_call(space_name, user_conditions, opts)
 end
 
-function readview.init()
-    _G._crud.readview_open_on_storage = readview_open_on_storage
-    _G._crud.readview_close_on_storage = readview_close_on_storage
-    _G._crud.select_readview_on_storage = select_readview_on_storage
+function readview.init(user)
+    utils.init_storage_call(user, OPEN_FUNC_NAME, readview_open_on_storage)
+    utils.init_storage_call(user, CLOSE_FUNC_NAME, readview_close_on_storage)
+    utils.init_storage_call(user, SELECT_FUNC_NAME, select_readview_on_storage)
  end
 
 function Readview_obj:close(opts)
@@ -257,7 +263,7 @@ function Readview_obj:close(opts)
         for replica_uuid, replica in pairs(replicaset.replicas) do
             for _, value in pairs(self._uuid) do
                 if replica_uuid == value.uuid then
-                    local replica_result, replica_err = replica.conn:call('_crud.readview_close_on_storage',
+                    local replica_result, replica_err = replica.conn:call(CRUD_CLOSE_FUNC_NAME,
                     {self._uuid}, {timeout = opts.timeout})
                     if replica_err ~= nil then
                         table.insert(errors, ReadviewError:new("Failed to close Readview on storage: %s", replica_err))
@@ -297,7 +303,7 @@ function Readview_obj.create(vshard_router, opts)
     setmetatable(readview, Readview_obj)
 
     readview._name = opts.name
-    local results, err, err_uuid = vshard_router:map_callrw('_crud.readview_open_on_storage',
+    local results, err, err_uuid = vshard_router:map_callrw(CRUD_OPEN_FUNC_NAME,
         {readview._name}, {timeout = opts.timeout})
     if err ~= nil then
         return nil,

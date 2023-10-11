@@ -43,9 +43,6 @@ end
 
 -- Setup vshard.
 _G.vshard = vshard
-box.once('guest', function()
-    box.schema.user.grant('guest', 'super')
-end)
 local uri = 'guest@localhost:3301'
 local cfg = {
     bucket_count = 3000,

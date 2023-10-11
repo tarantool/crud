@@ -9,7 +9,8 @@ local TruncateError = errors.new_class('TruncateError', {capture_stack = false})
 
 local truncate = {}
 
-local TRUNCATE_FUNC_NAME = '_crud.truncate_on_storage'
+local TRUNCATE_FUNC_NAME = 'truncate_on_storage'
+local CRUD_TRUNCATE_FUNC_NAME = utils.get_storage_call(TRUNCATE_FUNC_NAME)
 
 local function truncate_on_storage(space_name)
     dev_checks('string')
@@ -22,8 +23,8 @@ local function truncate_on_storage(space_name)
     return space:truncate()
 end
 
-function truncate.init()
-   _G._crud.truncate_on_storage = truncate_on_storage
+function truncate.init(user)
+    utils.init_storage_call(user, TRUNCATE_FUNC_NAME, truncate_on_storage)
 end
 
 --- Truncates specified space
@@ -59,7 +60,7 @@ function truncate.call(space_name, opts)
     end
 
     local replicasets = vshard_router:routeall()
-    local _, err = call.map(vshard_router, TRUNCATE_FUNC_NAME, {space_name}, {
+    local _, err = call.map(vshard_router, CRUD_TRUNCATE_FUNC_NAME, {space_name}, {
         mode = 'write',
         replicasets = replicasets,
         timeout = opts.timeout,

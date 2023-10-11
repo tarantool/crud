@@ -520,6 +520,14 @@ local vshard_prepare = function(g)
 
     for _, server in ipairs(g.cluster.servers) do
         server.net_box:eval([[
+            local function add_storage_execute(func_name)
+                if box.cfg.read_only == false and box.schema.user.exists('storage') then
+                    box.schema.func.create(func_name, {setuid = true, if_not_exists = true})
+                    box.schema.user.grant('storage', 'execute', 'function', func_name,
+                        {if_not_exists = true})
+                end
+            end
+
             local function _vshard_insert_storage(space_name, tuple, bucket_id)
                 local space = box.space[space_name]
                 assert(space ~= nil)
@@ -529,7 +537,7 @@ local vshard_prepare = function(g)
             end
 
             rawset(_G, '_vshard_insert_storage', _vshard_insert_storage)
-
+            add_storage_execute('_vshard_insert_storage')
 
             local function _vshard_select_storage(space_name, key, index_name, iterator, limit)
                 local space = box.space[space_name]
@@ -548,7 +556,7 @@ local vshard_prepare = function(g)
             end
 
             rawset(_G, '_vshard_select_storage', _vshard_select_storage)
-
+            add_storage_execute('_vshard_select_storage')
 
             local function _vshard_select_customer_by_name_and_age_storage(key)
                 local space = box.space.customers_name_age_key_different_indexes
@@ -564,6 +572,7 @@ local vshard_prepare = function(g)
 
             rawset(_G, '_vshard_select_customer_by_name_and_age_storage',
                 _vshard_select_customer_by_name_and_age_storage)
+            add_storage_execute('_vshard_select_customer_by_name_and_age_storage')
         ]])
     end
 end

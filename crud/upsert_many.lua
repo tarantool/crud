@@ -16,7 +16,8 @@ local UpsertManyError = errors.new_class('UpsertManyError', {capture_stack = fal
 
 local upsert_many = {}
 
-local UPSERT_MANY_FUNC_NAME = '_crud.upsert_many_on_storage'
+local UPSERT_MANY_FUNC_NAME = 'upsert_many_on_storage'
+local CRUD_UPSERT_MANY_FUNC_NAME = utils.get_storage_call(UPSERT_MANY_FUNC_NAME)
 
 local function upsert_many_on_storage(space_name, tuples, operations, opts)
     dev_checks('string', 'table', 'table', {
@@ -119,8 +120,8 @@ local function upsert_many_on_storage(space_name, tuples, operations, opts)
     return nil, nil, replica_schema_version
 end
 
-function upsert_many.init()
-    _G._crud.upsert_many_on_storage = upsert_many_on_storage
+function upsert_many.init(user)
+    utils.init_storage_call(user, UPSERT_MANY_FUNC_NAME, upsert_many_on_storage)
 end
 
 -- returns result, err, need_reload
@@ -189,7 +190,7 @@ local function call_upsert_many_on_router(vshard_router, space_name, original_tu
 
     local postprocessor = BatchPostprocessor:new(vshard_router)
 
-    local _, errs, storages_info = call.map(vshard_router, UPSERT_MANY_FUNC_NAME, nil, {
+    local _, errs, storages_info = call.map(vshard_router, CRUD_UPSERT_MANY_FUNC_NAME, nil, {
         timeout = opts.timeout,
         mode = 'write',
         iter = iter,

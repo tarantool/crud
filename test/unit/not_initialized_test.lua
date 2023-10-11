@@ -1,6 +1,7 @@
 local fio = require('fio')
 local helpers = require('test.helper')
 local t = require('luatest')
+local server = require('luatest.server')
 
 local pgroup = t.group('not-initialized', helpers.backend_matrix({
     {},
@@ -62,3 +63,43 @@ pgroup.test_insert = function(g)
     t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-00000000000%d", true)
     t.assert_str_contains(err.err, "crud isn't initialized on replicaset")
 end
+
+pgroup.test_no_box_cfg = function()
+    t.assert_error_msg_contains('box.cfg() must be called first', function()
+        require('crud').init_storage()
+    end)
+end
+
+pgroup.before_test('test_no_vshard_storage_cfg', function(g)
+    g.test_server = server:new({alias = 'master'})
+    g.test_server:start({wait_until_ready = true})
+
+    local appdir = fio.abspath(debug.sourcedir() .. '/../../')
+    g.test_server:exec(function(appdir)
+        if package.setsearchroot ~= nil then
+            package.setsearchroot(appdir)
+        else
+            package.path = package.path .. appdir .. '/?.lua;'
+            package.path = package.path .. appdir .. '/?/init.lua;'
+            package.path = package.path .. appdir .. '/.rocks/share/tarantool/?.lua;'
+            package.path = package.path .. appdir .. '/.rocks/share/tarantool/?/init.lua;'
+            package.cpath = package.cpath .. appdir .. '/?.so;'
+            package.cpath = package.cpath .. appdir .. '/?.dylib;'
+            package.cpath = package.cpath .. appdir .. '/.rocks/lib/tarantool/?.so;'
+            package.cpath = package.cpath .. appdir .. '/.rocks/lib/tarantool/?.dylib;'
+        end
+    end, {appdir})
+end)
+
+pgroup.test_no_vshard_storage_cfg = function(g)
+    t.assert_error_msg_contains('vshard.storage.cfg() must be called first', function()
+        g.test_server:exec(function()
+            require('crud').init_storage()
+        end)
+    end)
+end
+
+pgroup.after_test('test_no_vshard_storage_cfg', function(g)
+    g.test_server:stop()
+    g.test_server = nil
+end)

@@ -16,7 +16,8 @@ local InsertManyError = errors.new_class('InsertManyError', {capture_stack = fal
 
 local insert_many = {}
 
-local INSERT_MANY_FUNC_NAME = '_crud.insert_many_on_storage'
+local INSERT_MANY_FUNC_NAME = 'insert_many_on_storage'
+local CRUD_INSERT_MANY_FUNC_NAME = utils.get_storage_call(INSERT_MANY_FUNC_NAME)
 
 local function insert_many_on_storage(space_name, tuples, opts)
     dev_checks('string', 'table', {
@@ -122,8 +123,8 @@ local function insert_many_on_storage(space_name, tuples, opts)
     return inserted_tuples, nil, replica_schema_version
 end
 
-function insert_many.init()
-    _G._crud.insert_many_on_storage = insert_many_on_storage
+function insert_many.init(user)
+    utils.init_storage_call(user, INSERT_MANY_FUNC_NAME, insert_many_on_storage)
 end
 
 -- returns result, err, need_reload
@@ -175,7 +176,7 @@ local function call_insert_many_on_router(vshard_router, space_name, original_tu
 
     local postprocessor = BatchPostprocessor:new(vshard_router)
 
-    local rows, errs, storages_info = call.map(vshard_router, INSERT_MANY_FUNC_NAME, nil, {
+    local rows, errs, storages_info = call.map(vshard_router, CRUD_INSERT_MANY_FUNC_NAME, nil, {
         timeout = opts.timeout,
         mode = 'write',
         iter = iter,
