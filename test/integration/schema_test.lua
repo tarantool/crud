@@ -1,5 +1,8 @@
 local t = require('luatest')
 
+local json = require('json')
+local luatest_comparator = require('luatest.comparator')
+
 local helpers = require('test.helper')
 
 local pgroup = t.group('schema', helpers.backend_matrix({
@@ -119,14 +122,37 @@ pgroup.test_timeout_option = function(g)
     t.assert_equals(err, nil)
 end
 
+-- Lazy reimplementation of
+-- https://github.com/tarantool/luatest/pull/294
+local function assert_one_of(t, actual, expected)
+    local err_msg = nil
+    local res = false
+    for _, v in ipairs(expected) do
+        if luatest_comparator.equals(actual, v) then
+            res = true
+            break
+        end
+        if err_msg == nil then
+            err_msg = ("expected %s to be one of %s"):format(json.encode(expected), json.encode(v))
+        else
+            err_msg = err_msg .. " ," .. json.encode(v)
+        end
+    end
+    if not res then
+        t.fail(err_msg)
+    end
+end
+
 pgroup.test_schema_cached = function(g)
     helpers.call_on_servers(g.cluster, {'s1-master', 's2-master'}, function(server)
         server:call('alter_schema')
     end)
 
+    -- We cannot guarantee net.box hadn't reloaded the schema, so
+    -- it's either old or new.
     local result_after, err = g.router:call('crud.schema', {nil, {cached = true}})
     t.assert_equals(err, nil)
-    t.assert_equals(result_after, expected_schema())
+    assert_one_of(t, result_after, {expected_schema(), altered_schema()})
 end
 
 pgroup.test_schema_reloaded = function(g)
