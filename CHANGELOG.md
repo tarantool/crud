@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [1.4.0] - 16-10-23
 
 ### Added
 * Space schema introspection API `crud.schema` (#380).
@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * `doc/playground.lua` does not work with Tarantool 3 (#371).
 * Tests with Tarantool 3 (#364).
 * VShard storage user have not execution rights for internal functions (#366).
+* Compatibility with Tarantool 3.0 tuple objects (#387).
 
 ## [1.3.0] - 27-09-23
 
