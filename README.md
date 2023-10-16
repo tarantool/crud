@@ -1739,7 +1739,10 @@ where:
     vshard router instance. Set this parameter if your space is not
     a part of the default vshard cluster
   * `cached` (`?boolean`) - if `false`, reloads storages schema on call;
-    if `true`, return last known schema; default value is `false`
+    if `true`, return last known schema; default value is `false`.
+    Beware that consequent calls with `cached=true` do not guarantee
+    the same result if schema had chaned since net.box connections
+    still may perform reload on internal ping or any other request
 
 Returns space schema (or spaces schema map), error.
 
