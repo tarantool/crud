@@ -99,7 +99,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         cursor.is_end = true
     else
         local last_tuple = resp.tuples[#resp.tuples]
-        cursor.after_tuple = last_tuple
+        cursor.after_tuple = last_tuple:totable()
     end
 
     cursor.stats = {
