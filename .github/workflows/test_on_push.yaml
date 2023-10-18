@@ -20,13 +20,13 @@ jobs:
         tarantool-version: ["1.10.6", "1.10", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.10", "2.11"]
         metrics-version: [""]
         cartridge-version: ["2.8.0"]
-        remove-merger: [false]
+        external-tuple-merger-version: [""]
+        external-tuple-keydef-version: [""]
         include:
           - tarantool-version: "1.10"
             metrics-version: "1.0.0"
             cartridge-version: "2.8.0"
           - tarantool-version: "2.7"
-            remove-merger: true
             cartridge-version: "2.8.0"
           - tarantool-version: "2.10"
             metrics-version: "0.10.0"
@@ -38,6 +38,9 @@ jobs:
           - tarantool-version: "2.11"
             metrics-version: "1.0.0"
             vshard-version: "0.1.24"
+          - tarantool-version: "2.11"
+            external-merger-version: "0.0.5"
+            external-keydef-version: "0.0.4"
           - tarantool-version: "master"
             metrics-version: "1.0.0"
             vshard-version: "0.1.24"
@@ -102,9 +105,13 @@ jobs:
         if: matrix.metrics-version != ''
         run: tt rocks install metrics ${{ matrix.metrics-version }}
 
-      - name: Remove external merger if needed
-        if: ${{ matrix.remove-merger }}
-        run: rm .rocks/lib/tarantool/tuple/merger.so
+      - name: Install external tuple-merger
+        if: matrix.external-tuple-merger-version != ''
+        run: tt rocks install tuple-merger ${{ matrix.external-tuple-merger-version }}
+
+      - name: Install external tuple-keydef
+        if: matrix.external-tuple-keydef-version != ''
+        run: tt rocks install tuple-keydef ${{ matrix.external-tuple-keydef-version }}
 
       # This server starts and listen on 8084 port that is used for tests
       - name: Stop Mono server
