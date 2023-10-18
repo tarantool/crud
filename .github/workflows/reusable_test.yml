@@ -37,6 +37,9 @@ jobs:
       - name: Install metrics
         run: tarantoolctl rocks install metrics 1.0.0
 
+      - name: Remove external merger
+        run: rm .rocks/lib/tarantool/tuple/merger.so
+
       # This server starts and listen on 8084 port that is used for tests
       - name: Stop Mono server
         run: sudo kill -9 $(sudo lsof -t -i tcp:8084) || true
