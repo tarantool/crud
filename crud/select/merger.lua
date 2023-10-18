@@ -7,8 +7,7 @@ local fiber = require('fiber')
 local sharding = require('crud.common.sharding')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 
-local compat = require('crud.common.compat')
-local merger_lib = compat.require('tuple.merger', 'merger')
+local merger_lib = require('tuple.merger')
 
 local Keydef = require('crud.compare.keydef')
 local stats = require('crud.stats')

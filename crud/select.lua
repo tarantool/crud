@@ -1,6 +1,5 @@
 local errors = require('errors')
 
-local stash = require('crud.common.stash')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local select_executor = require('crud.select.executor')
@@ -10,20 +9,9 @@ local schema = require('crud.common.schema')
 
 local SelectError = errors.new_class('SelectError')
 
-local select_module
-
 local SELECT_FUNC_NAME = 'select_on_storage'
 
-local select_module_compat_info = stash.get(stash.name.select_module_compat_info)
-local has_merger = (utils.tarantool_supports_external_merger() and
-    package.search('tuple.merger')) or utils.tarantool_has_builtin_merger()
-if has_merger then
-    select_module = require('crud.select.compat.select')
-    select_module_compat_info.has_merger = true
-else
-    select_module = require('crud.select.compat.select_old')
-    select_module_compat_info.has_merger = false
-end
+local select_module = require('crud.select.module')
 
 function checkers.vshard_call_mode(p)
     return p == 'write' or p == 'read'
@@ -114,14 +102,6 @@ local function select_on_storage(space_name, index_id, conditions, opts)
     local filtered_tuples = schema.filter_tuples_fields(resp.tuples, opts.field_names)
 
     local result = {cursor, filtered_tuples}
-
-    local select_module_compat_info = stash.get(stash.name.select_module_compat_info)
-    if not select_module_compat_info.has_merger then
-        if opts.fetch_latest_metadata then
-            result[3] = cursor.storage_info.replica_schema_version
-        end
-    end
-
     return unpack(result)
 end
 

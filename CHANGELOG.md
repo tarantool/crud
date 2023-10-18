@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+* Drop testing on Tarantool 1.10.6 and Tarantool 2.x older than 2.8 (#365).
+* Drop support of Tarantool 1.10.x older than 1.10.8 and
+  Tarantool 2.x older than 2.5.2 (#365).
+* Unlock `tuple-keydef` and `tuple-merger` version dependencies (#365).
+* Require `tuple-keydef` and `tuple-merger` for work (#365).
+
 ## [1.4.0] - 16-10-23
 
 ### Added
