@@ -58,17 +58,7 @@ end
 
 local data = ffi.new('const unsigned char *[1]')
 
-local function decode_response_headers(buf)
-    -- {48: [cursor, [tuple_1, tuple_2, ...]]} (exactly 1 pair of key-value)
-    data[0] = buf.rpos
-
-    -- 48 (key)
-    data[0] = data[0] + 1
-
-    -- [cursor, [tuple_1, tuple_2, ...]] (value)
-    data[0] = data[0] + 1
-
-    -- Decode array header
+local function decode_response_array_header()
     local c = data[0][0]
     data[0] = data[0] + 1
     if c == 0xdc then
@@ -78,6 +68,22 @@ local function decode_response_headers(buf)
     end
 
     return ffi.cast(char_ptr, data[0])
+end
+
+local function decode_response_headers(buf)
+    data[0] = buf.rpos
+
+    if not utils.tarantool_supports_netbox_skip_header_option() then
+        -- {48: [cursor, [tuple_1, tuple_2, ...]]} (exactly 1 pair of key-value)
+
+        -- 48 (key)
+        data[0] = data[0] + 1
+
+        -- [cursor, [tuple_1, tuple_2, ...]] (value)
+        data[0] = data[0] + 1
+    end
+
+    return decode_response_array_header()
 end
 
 local function decode_metainfo(buf)
@@ -192,7 +198,8 @@ local function new(vshard_router, replicasets, space, index_id, func_name, func_
     for _, replicaset in pairs(replicasets) do
         -- Perform a request.
         local buf = buffer.ibuf()
-        local net_box_opts = {is_async = true, buffer = buf, skip_header = false}
+        local net_box_opts = {is_async = true, buffer = buf,
+                              skip_header = utils.tarantool_supports_netbox_skip_header_option()}
         local future = replicaset[vshard_call_name](replicaset, func_name, func_args,
                 net_box_opts)
 
@@ -249,7 +256,8 @@ local function new_readview(vshard_router, replicasets, readview_uuid, space, in
                 if replica_uuid == value.uuid then
                     -- Perform a request.
                     local buf = buffer.ibuf()
-                    local net_box_opts = {is_async = true, buffer = buf, skip_header = false}
+                    local net_box_opts = {is_async = true, buffer = buf,
+                                          skip_header = utils.tarantool_supports_netbox_skip_header_option()}
                     func_args[4].readview_id = value.id
                     local future = replica.conn:call(func_name, func_args, net_box_opts)
 
