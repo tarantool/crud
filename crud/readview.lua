@@ -15,9 +15,6 @@ local stats = require('crud.stats')
 
 local ReadviewError = errors.new_class('ReadviewError', {capture_stack = false})
 
-local has_merger = (utils.tarantool_supports_external_merger() and
-    package.search('tuple.merger')) or utils.tarantool_has_builtin_merger()
-
 local OPEN_FUNC_NAME = 'readview_open_on_storage'
 local CRUD_OPEN_FUNC_NAME = utils.get_storage_call(OPEN_FUNC_NAME)
 local SELECT_FUNC_NAME = 'select_readview_on_storage'
@@ -25,13 +22,13 @@ local CLOSE_FUNC_NAME = 'readview_close_on_storage'
 local CRUD_CLOSE_FUNC_NAME = utils.get_storage_call(CLOSE_FUNC_NAME)
 
 if (not utils.tarantool_version_at_least(2, 11, 0))
-or (tarantool.package ~= 'Tarantool Enterprise') or (not has_merger) then
+or (tarantool.package ~= 'Tarantool Enterprise') then
     return {
         new = function() return nil,
         ReadviewError:new("Tarantool does not support readview") end,
         init = function() return nil end}
 end
-local select = require('crud.select.compat.select')
+local select = require('crud.select.module')
 
 local readview = {}
 
@@ -187,13 +184,6 @@ local function select_readview_on_storage(space_name, index_id, conditions, opts
     local filtered_tuples = schema.filter_tuples_fields(resp.tuples, opts.field_names)
 
     local result = {cursor, filtered_tuples}
-
-    local select_module_compat_info = stash.get(stash.name.select_module_compat_info)
-    if not select_module_compat_info.has_merger then
-        if opts.fetch_latest_metadata then
-            result[3] = cursor.storage_info.replica_schema_version
-        end
-    end
 
     return unpack(result)
 end

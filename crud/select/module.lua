@@ -6,10 +6,10 @@ local const = require('crud.common.const')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
-local common = require('crud.select.compat.common')
 local schema = require('crud.common.schema')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 local stats = require('crud.stats')
+local ratelimit = require('crud.ratelimit')
 
 local compare_conditions = require('crud.compare.conditions')
 local select_plan = require('crud.compare.plan')
@@ -19,6 +19,31 @@ local Merger = require('crud.select.merger')
 local SelectError = errors.new_class('SelectError')
 
 local select_module = {}
+
+local check_select_safety_rl = ratelimit.new()
+
+local SELECT_FUNC_NAME = utils.get_storage_call('select_on_storage')
+local READVIEW_SELECT_FUNC_NAME = utils.get_storage_call('select_readview_on_storage')
+local DEFAULT_BATCH_SIZE = 100
+
+local function check_select_safety(space_name, plan, opts)
+    if opts.fullscan == true then
+        return
+    end
+
+    if opts.first ~= nil and math.abs(opts.first) <= 1000 then
+        return
+    end
+
+    local iter = plan.tarantool_iter
+    if iter == box.index.EQ or iter == box.index.REQ then
+        return
+    end
+
+    local rl = check_select_safety_rl
+    local traceback = debug.traceback()
+    rl:log_crit("Potentially long select from space '%s'\n %s", space_name, traceback)
+end
 
 local function build_select_iterator(vshard_router, space_name, user_conditions, opts)
     dev_checks('table', 'string', '?table', {
@@ -153,10 +178,10 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
     -- If opts.batch_size is missed we should specify it to min(tuples_limit, DEFAULT_BATCH_SIZE)
     local batch_size
     if opts.batch_size == nil then
-        if tuples_limit ~= nil and tuples_limit < common.DEFAULT_BATCH_SIZE then
+        if tuples_limit ~= nil and tuples_limit < DEFAULT_BATCH_SIZE then
             batch_size = tuples_limit
         else
-            batch_size = common.DEFAULT_BATCH_SIZE
+            batch_size = DEFAULT_BATCH_SIZE
         end
     else
         batch_size = opts.batch_size
@@ -179,13 +204,13 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
 
     if opts.readview then
         merger = Merger.new_readview(vshard_router, replicasets_to_select, opts.readview_uuid,
-        space, plan.index_id, common.READVIEW_SELECT_FUNC_NAME,
+        space, plan.index_id, READVIEW_SELECT_FUNC_NAME,
         {space_name, plan.index_id, plan.conditions, select_opts},
         {tarantool_iter = plan.tarantool_iter, field_names = plan.field_names, call_opts = opts.call_opts}
     )
     else
         merger = Merger.new(vshard_router, replicasets_to_select, space, plan.index_id,
-                common.SELECT_FUNC_NAME,
+                SELECT_FUNC_NAME,
                 {space_name, plan.index_id, plan.conditions, select_opts},
                 {tarantool_iter = plan.tarantool_iter, field_names = plan.field_names, call_opts = opts.call_opts}
             )
@@ -389,7 +414,7 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
     if err ~= nil then
         return nil, err
     end
-    common.check_select_safety(space_name, iter.plan, opts)
+    check_select_safety(space_name, iter.plan, opts)
 
     local tuples = {}
 

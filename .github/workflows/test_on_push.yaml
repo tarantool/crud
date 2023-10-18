@@ -18,13 +18,9 @@ jobs:
         tarantool-version: ["1.10", "2.8", "2.10", "2.11"]
         metrics-version: [""]
         cartridge-version: ["2.8.0"]
-        remove-merger: [false]
         include:
           - tarantool-version: "1.10"
             metrics-version: "1.0.0"
-            cartridge-version: "2.8.0"
-          - tarantool-version: "2.7"
-            remove-merger: true
             cartridge-version: "2.8.0"
           - tarantool-version: "2.10"
             metrics-version: "0.10.0"
@@ -94,10 +90,6 @@ jobs:
       - name: Install metrics
         if: matrix.metrics-version != ''
         run: tt rocks install metrics ${{ matrix.metrics-version }}
-
-      - name: Remove external merger if needed
-        if: ${{ matrix.remove-merger }}
-        run: rm .rocks/lib/tarantool/tuple/merger.so
 
       # This server starts and listen on 8084 port that is used for tests
       - name: Stop Mono server

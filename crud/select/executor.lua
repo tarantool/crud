@@ -2,16 +2,10 @@ local errors = require('errors')
 local fiber = require('fiber')
 local fun = require('fun')
 
+local keydef_lib = require('tuple.keydef')
+
 local dev_checks = require('crud.common.dev_checks')
 local select_comparators = require('crud.compare.comparators')
-local compat = require('crud.common.compat')
-local has_keydef = compat.exists('tuple.keydef', 'key_def')
-
-local keydef_lib
-if has_keydef then
-    keydef_lib = compat.require('tuple.keydef', 'key_def')
-end
-
 local utils = require('crud.common.utils')
 
 local ExecuteSelectError = errors.new_class('ExecuteSelectError')
@@ -46,31 +40,15 @@ local function scroll_to_after_tuple(gen, space, scan_index, tarantool_iter, aft
     end
 end
 
-local generate_value
-
-if has_keydef then
-    generate_value = function(after_tuple, scan_value, index_parts, tarantool_iter)
-        local key_def = keydef_lib.new(index_parts)
-        if #scan_value == 0 and after_tuple ~= nil then
-            return key_def:extract_key(after_tuple)
-        end
-        local cmp_operator = select_comparators.get_cmp_operator(tarantool_iter)
-        local cmp = key_def:compare_with_key(after_tuple, scan_value)
-        if (cmp_operator == '<' and cmp < 0) or (cmp_operator == '>' and cmp > 0) then
-            return key_def:extract_key(after_tuple)
-        end
+local function generate_value(after_tuple, scan_value, index_parts, tarantool_iter)
+    local key_def = keydef_lib.new(index_parts)
+    if #scan_value == 0 and after_tuple ~= nil then
+        return key_def:extract_key(after_tuple)
     end
-else
-    generate_value = function(after_tuple, scan_value, index_parts, tarantool_iter)
-        local after_tuple_key = utils.extract_key(after_tuple, index_parts)
-        if #scan_value == 0 and after_tuple ~= nil then
-            return after_tuple_key
-        end
-        local cmp_operator = select_comparators.get_cmp_operator(tarantool_iter)
-        local scan_comparator = select_comparators.gen_tuples_comparator(cmp_operator, index_parts)
-        if scan_comparator(after_tuple_key, scan_value) then
-            return after_tuple_key
-        end
+    local cmp_operator = select_comparators.get_cmp_operator(tarantool_iter)
+    local cmp = key_def:compare_with_key(after_tuple, scan_value)
+    if (cmp_operator == '<' and cmp < 0) or (cmp_operator == '>' and cmp > 0) then
+        return key_def:extract_key(after_tuple)
     end
 end
 
@@ -106,21 +84,11 @@ function executor.execute(space, index, filter_func, opts)
             end
 
             local is_eq = iter == box.index.EQ
-            local is_after_bigger
-            if has_keydef then
-                local key_def = keydef_lib.new(parts)
-                local cmp = key_def:compare_with_key(opts.after_tuple, value)
-                is_after_bigger = (is_eq and cmp > 0) or (not is_eq and cmp < 0)
-            else
-                local comparator
-                if is_eq then
-                    comparator = select_comparators.gen_func('<=', parts)
-                else
-                    comparator = select_comparators.gen_func('>=', parts)
-                end
-                local after_key = utils.extract_key(opts.after_tuple, parts)
-                is_after_bigger = not comparator(after_key, value)
-            end
+
+            local key_def = keydef_lib.new(parts)
+            local cmp = key_def:compare_with_key(opts.after_tuple, value)
+            local is_after_bigger = (is_eq and cmp > 0) or (not is_eq and cmp < 0)
+
             if is_after_bigger then
                 -- it makes no sence to continue
                 return resp
