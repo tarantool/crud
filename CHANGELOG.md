@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 * Drop testing on Tarantool 1.10.6 and Tarantool 2.x older than 2.8 (#365).
+* Drop support of Tarantool 1.10.x older than 1.10.8 and
+  Tarantool 2.x older than 2.5.2 (#365).
+* Unlock `tuple-keydef` and `tuple-merger` version dependencies (#365).
 
 ## [1.4.0] - 16-10-23
 
