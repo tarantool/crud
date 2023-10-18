@@ -639,6 +639,9 @@ local function determine_enabled_features()
                                               or is_version_in_range(major, minor, patch, suffix,
                                                                      1, 10, 8, nil,
                                                                      1, 10, math.huge, nil)
+
+    enabled_tarantool_features.netbox_skip_header_option = is_version_ge(major, minor, patch, suffix,
+                                                                         2, 2, 0, nil)
 end
 
 function utils.tarantool_supports_fieldpaths()
@@ -679,6 +682,14 @@ function utils.tarantool_supports_external_merger()
     end
 
     return enabled_tarantool_features.external_merger
+end
+
+function utils.tarantool_supports_netbox_skip_header_option()
+    if enabled_tarantool_features.netbox_skip_header_option == nil then
+        determine_enabled_features()
+    end
+
+    return enabled_tarantool_features.netbox_skip_header_option
 end
 
 local function add_nullable_fields_recursive(operations, operations_map, space_format, tuple, id)

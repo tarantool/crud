@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Dropped external tuple merger and tuple keydef modules installation from the
   package build (#390).
 
+### Fixed
+* Compatibility with Tarantool 3.0 binary protocol change (#390).
+
 ## [1.4.0] - 16-10-23
 
 ### Added
