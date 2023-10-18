@@ -11,13 +11,11 @@ jobs:
       github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
     strategy:
       matrix:
-        # We need 1.10.6 here to check that module works with
-        # old Tarantool versions that don't have "tuple-keydef"/"tuple-merger" support.
         # We test old metrics with Tarantool 2.10 because since Tarantool 2.11.1
         # it uses its own metrics package.
         # We test old metrics with Cartridge 2.7.9 because since 2.8.0 it
         # requires metrics 1.0.0.
-        tarantool-version: ["1.10.6", "1.10", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.10", "2.11"]
+        tarantool-version: ["1.10", "2.8", "2.10", "2.11"]
         metrics-version: [""]
         cartridge-version: ["2.8.0"]
         remove-merger: [false]
@@ -84,11 +82,6 @@ jobs:
       - name: Add Tarantool master to PATH
         if: matrix.tarantool-version == 'master'
         run: echo "${GITHUB_WORKSPACE}/bin" >> $GITHUB_PATH
-
-      - name: Fix luarocks in Tarantool CE 1.10.6
-        if: matrix.tarantool-version == '1.10.6'
-        run: |
-          sudo patch -p1 /usr/share/tarantool/luarocks/manif.lua luarocks.patch
 
       - name: Install requirements for community
         run: |
