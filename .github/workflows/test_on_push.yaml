@@ -41,6 +41,7 @@ jobs:
           - tarantool-version: "master"
             metrics-version: "1.0.0"
             vshard-version: "0.1.24"
+            remove-merger: true
       fail-fast: false
     # Can't install older versions on 22.04,
     # see https://github.com/tarantool/setup-tarantool/issues/36
@@ -49,7 +50,7 @@ jobs:
       - uses: actions/checkout@master
 
       - name: Setup Tarantool CE
-        if: matrix.tarantool-version != 'master'
+        if: matrix.tarantool-version != 'master' && matrix.tarantool-version != 'pr/8630'
         uses: tarantool/setup-tarantool@v2
         with:
           tarantool-version: ${{ matrix.tarantool-version }}
@@ -81,8 +82,14 @@ jobs:
           tt init
           tt install tarantool master
 
+      - name: Setup Tarantool from PR
+        if: matrix.tarantool-version == 'pr/8630'
+        run: |
+          tt init
+          tt install tarantool pr/8630
+
       - name: Add Tarantool master to PATH
-        if: matrix.tarantool-version == 'master'
+        if: matrix.tarantool-version == 'master' || matrix.tarantool-version == 'pr/8630'
         run: echo "${GITHUB_WORKSPACE}/bin" >> $GITHUB_PATH
 
       - name: Fix luarocks in Tarantool CE 1.10.6
@@ -102,10 +109,6 @@ jobs:
         if: matrix.metrics-version != ''
         run: tt rocks install metrics ${{ matrix.metrics-version }}
 
-      - name: Remove external merger if needed
-        if: ${{ matrix.remove-merger }}
-        run: rm .rocks/lib/tarantool/tuple/merger.so
-
       # This server starts and listen on 8084 port that is used for tests
       - name: Stop Mono server
         run: sudo kill -9 $(sudo lsof -t -i tcp:8084) || true
@@ -113,6 +116,10 @@ jobs:
       - run: cmake -S . -B build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove external merger if needed
+        if: ${{ matrix.remove-merger }}
+        run: rm .rocks/lib/tarantool/tuple/merger.so -rf
 
       - name: Run tests
         if: matrix.coveralls != true # See https://github.com/actions/runner/issues/1173
