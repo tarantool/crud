@@ -76,8 +76,8 @@ end
 
 function executor.execute(space, index, filter_func, opts)
     dev_checks('table', 'table', 'function', {
-        scan_value = 'table',
-        after_tuple = '?table',
+        scan_value = 'table|cdata',
+        after_tuple = '?table|cdata',
         tarantool_iter = 'number',
         limit = '?number',
         yield_every = '?number',
