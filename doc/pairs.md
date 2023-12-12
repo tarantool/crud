@@ -174,7 +174,7 @@ age_sum
 
 ```lua
 objects = {}
-for _, obj in crud.pairs('developers', nil, { use_tomap = true }):map(function(x) return {id = obj.id, name = obj.name, age = obj.age * 2}) do
+for _, obj in crud.pairs('developers', nil, { use_tomap = true }):map(function(x) return {id = x.id, name = x.name, age = x.age * 2} end) do
     table.insert(objects, obj)
 end
 
