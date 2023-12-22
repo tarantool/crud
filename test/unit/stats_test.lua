@@ -45,6 +45,7 @@ local function enable_stats(g, params)
     if params ~= nil then
         params = table.deepcopy(params)
         params.backend = nil
+        params.backend_cfg = nil
     end
     g.router:eval("stats_module.enable(...)", { params })
 end

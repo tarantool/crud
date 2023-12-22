@@ -260,16 +260,16 @@ function Readview_obj:close(opts)
 
     local errors = {}
     for _, replicaset in pairs(replicasets) do
-        for replica_uuid, replica in pairs(replicaset.replicas) do
+        for _, replica in pairs(replicaset.replicas) do
             for _, value in pairs(self._uuid) do
-                if replica_uuid == value.uuid then
+                if replica.uuid == value.uuid then
                     local replica_result, replica_err = replica.conn:call(CRUD_CLOSE_FUNC_NAME,
                     {self._uuid}, {timeout = opts.timeout})
                     if replica_err ~= nil then
                         table.insert(errors, ReadviewError:new("Failed to close Readview on storage: %s", replica_err))
                     end
                     if replica_err == nil and (not replica_result) then
-                        table.insert(errors, ReadviewError:new("Readview was not found on storage: %s", replica_uuid))
+                        table.insert(errors, ReadviewError:new("Readview was not found on storage: %s", replica.uuid))
                     end
                 end
             end

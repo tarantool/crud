@@ -9,7 +9,7 @@ local pgroup = t.group('not-initialized', helpers.backend_matrix({
 
 local vshard_cfg_template = {
     sharding = {
-        {
+        storages = {
             replicas = {
                 storage = {
                     master = true,

@@ -8,7 +8,7 @@ local pgroup = t.group('call', helpers.backend_matrix())
 
 local vshard_cfg_template = {
     sharding = {
-        {
+        ['s-1'] = {
             replicas = {
                 ['s1-master'] = {
                     master = true,
@@ -16,7 +16,7 @@ local vshard_cfg_template = {
                 ['s1-replica'] = {},
             },
         },
-        {
+        ['s-2'] = {
             replicas = {
                 ['s2-master'] = {
                     master = true,

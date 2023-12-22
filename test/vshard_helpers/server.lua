@@ -204,6 +204,23 @@ function Server:replicaset_uuid()
     return uuid
 end
 
+function Server:replicaset_name()
+    -- Cache the value when found it first time.
+    if self.replicaset_name_value then
+        return self.replicaset_name_value
+    end
+    local name = self:exec(function()
+        local info = box.info
+        if info.replicaset then
+            return info.replicaset.name
+        end
+        return nil
+    end)
+
+    self.replicaset_uuid_value = name
+    return name
+end
+
 function Server:election_term()
     return self:exec(function() return box.info.election.term end)
 end
