@@ -1111,41 +1111,43 @@ pgroup.test_call_replace_object_many_wrong_option = function(g)
 end
 
 pgroup.test_call_select_with_default_sharding = function(g)
-    local result, err = g:call_router_opts3(
-        'select',
+    local result, err = g:call_router_opts3('select',
         'locations',
         {{'=', 'name', 'Sky Finance'}},
-        {vshard_router = 'locations'})
+        {vshard_router = 'locations', mode = 'write'}
+    )
 
     t.assert_equals(err, nil)
     t.assert_items_equals(result.rows, {{'Sky Finance', 26826, 'Credit company', 2}})
 end
 
 pgroup.test_call_select_with_ddl_sharding = function(g)
-    local result, err = g:call_router_opts3(
-        'select',
+    local result, err = g:call_router_opts3('select',
         'customers_ddl',
         {{'=', 'id', 2}, {'=', 'name', 'Kazuma Kiryu'}},
-        {vshard_router = 'customers'})
+        {vshard_router = 'customers', mode = 'write'}
+    )
 
     t.assert_equals(err, nil)
     t.assert_items_equals(result.rows, {{2, 8768, 'Kazuma Kiryu', 41}})
 end
 
 pgroup.test_call_select_wrong_router = function(g)
-    local result, err = g:call_router_opts3(
-        'select',
+    local result, err = g:call_router_opts3('select',
         'locations',
         {{'=', 'name', 'Sky Finance'}},
-        {vshard_router = 'customers'})
+        {vshard_router = 'customers', mode = 'write'}
+    )
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Space \"locations\" doesn't exist")
 end
 
 pgroup.test_call_select_no_router = function(g)
-    local result, err = g:call_router_opts3(
-        'select', 'locations', {{'=', 'name', 'Sky Finance'}})
+    local result, err = g:call_router_opts3('select',
+        'locations',
+        {{'=', 'name', 'Sky Finance'}}
+    )
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err,
@@ -1165,7 +1167,8 @@ pgroup.test_call_pairs_with_default_sharding = function(g)
     local result, err = g:call_router_pairs(
         'locations',
         {{'=', 'name', 'Sky Finance'}},
-        {vshard_router = 'locations'})
+        {vshard_router = 'locations', mode = 'write'}
+    )
 
     t.assert_equals(err, nil)
     t.assert_items_equals(result, {{'Sky Finance', 26826, 'Credit company', 2}})
@@ -1175,7 +1178,8 @@ pgroup.test_call_pairs_with_ddl_sharding = function(g)
     local result, err = g:call_router_pairs(
         'customers_ddl',
         {{'=', 'id', 2}, {'=', 'name', 'Kazuma Kiryu'}},
-        {vshard_router = 'customers'})
+        {vshard_router = 'customers', mode = 'write'}
+    )
 
     t.assert_equals(err, nil)
     t.assert_items_equals(result, {{2, 8768, 'Kazuma Kiryu', 41}})

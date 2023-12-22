@@ -39,7 +39,7 @@ end
 
 local function check_get(g, space_name, id, bucket_id, tuple)
     local result, err = g.cluster.main_server.net_box:call('crud.get', {
-        space_name, id,
+        space_name, id, {mode = 'write'},
     })
 
     t.assert_equals(err, nil)
@@ -48,7 +48,7 @@ local function check_get(g, space_name, id, bucket_id, tuple)
 
     -- get w/ right bucket_id
     local result, err = g.cluster.main_server.net_box:call('crud.get', {
-        space_name, id, {bucket_id = bucket_id}
+        space_name, id, {bucket_id = bucket_id, mode = 'write'},
     })
 
     t.assert_equals(err, nil)
@@ -119,7 +119,7 @@ pgroup.test_delete = function(g)
 
     -- get w/ right bucket_id
     local result, err = g.cluster.main_server.net_box:call('crud.get', {
-        'customers', tuple[1], {bucket_id = bucket_id},
+        'customers', tuple[1], {bucket_id = bucket_id, mode = 'write'},
     })
 
     t.assert_equals(err, nil)
@@ -137,7 +137,7 @@ pgroup.test_delete = function(g)
 
     -- get w/ right bucket_id
     local result, err = g.cluster.main_server.net_box:call('crud.get', {
-        'customers', tuple[1], {bucket_id = bucket_id},
+        'customers', tuple[1], {bucket_id = bucket_id, mode = 'write'},
     })
 
     t.assert_equals(err, nil)
@@ -548,7 +548,7 @@ pgroup.test_select = function(g)
 
     -- select w/ right bucket_id
     local result, err = g.cluster.main_server.net_box:call('crud.select', {
-        'customers', conditions, {bucket_id = bucket_id},
+        'customers', conditions, {bucket_id = bucket_id, mode = 'write'},
     })
 
     t.assert_equals(err, nil)

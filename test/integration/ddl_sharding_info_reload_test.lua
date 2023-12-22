@@ -612,6 +612,7 @@ pgroup_key_change.test_select = function(g)
         {
             'customers',
             {{'==', 'id', 1}, {'==', 'name', 'Emma'}, {'==', 'age', 22}},
+            {mode = 'write'},
         })
     t.assert_equals(err, nil)
     t.assert_equals(obj.rows, {test_customers_age_tuple})
@@ -631,6 +632,7 @@ pgroup_key_change.test_count = function(g)
         {
             'customers',
             {{'==', 'id', 1}, {'==', 'name', 'Emma'}, {'==', 'age', 22}},
+            {mode = 'write'},
         })
     t.assert_equals(err, nil)
     t.assert_equals(obj, 1)
@@ -824,9 +826,9 @@ pgroup_func_change.test_select = function(g)
     end)
 
     -- Assert operation bucket_id is computed based on updated ddl info.
-    local obj, err = g.cluster.main_server.net_box:call(
-        'crud.select',
-        {'customers_pk', {{'==', 'id', 1}}})
+    local obj, err = g.cluster.main_server.net_box:call('crud.select', {
+        'customers_pk', {{'==', 'id', 1}}, {mode = 'write'},
+    })
     t.assert_equals(err, nil)
     t.assert_equals(obj.rows, {test_customers_pk_func_tuple})
 end
@@ -841,7 +843,9 @@ pgroup_func_change.test_get = function(g)
     end)
 
     -- Assert operation bucket_id is computed based on updated ddl info.
-    local obj, err = g.cluster.main_server.net_box:call('crud.get', {'customers_pk', 1})
+    local obj, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers_pk', 1, {mode = 'write'},
+    })
     t.assert_equals(err, nil)
     t.assert_equals(obj.rows, {test_customers_pk_func_tuple})
 end
@@ -856,9 +860,9 @@ pgroup_func_change.test_count = function(g)
     end)
 
     -- Assert operation bucket_id is computed based on updated ddl info.
-    local obj, err = g.cluster.main_server.net_box:call(
-        'crud.count',
-        {'customers_pk', {{'==', 'id', 1}}})
+    local obj, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers_pk', {{'==', 'id', 1}}, {mode = 'write'},
+    })
     t.assert_equals(err, nil)
     t.assert_equals(obj, 1)
 end

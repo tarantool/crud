@@ -89,17 +89,17 @@ local count_safety_cases = {
     nil_and_nil_opts = {
         has_crit = true,
         user_conditions = nil,
-        opts = nil,
+        opts = {mode = 'write'},
     },
     fullscan_false = {
         has_crit = true,
         user_conditions = nil,
-        opts = {fullscan = false},
+        opts = {fullscan = false, mode = 'write'},
     },
     fullscan_true = {
         has_crit = false,
         user_conditions = nil,
-        opts = {fullscan = true},
+        opts = {fullscan = true, mode = 'write'},
     },
     non_equal_conditions = {
         has_crit = true,
@@ -109,7 +109,7 @@ local count_safety_cases = {
             {'>', 'age', 20},
             {'<', 'age', 30},
         },
-        opts = nil,
+        opts = {mode = 'write'},
     },
     equal_condition = {
         has_crit = false,
@@ -118,7 +118,7 @@ local count_safety_cases = {
             {'<=', 'last_name', 'Z'},
             {'=', 'age', 25},
         },
-        opts = nil,
+        opts = {mode = 'write'},
     },
     equal_condition2 = {
         has_crit = false,
@@ -127,7 +127,7 @@ local count_safety_cases = {
             {'<=', 'last_name', 'Z'},
             {'==', 'age', 25},
         },
-        opts = nil,
+        opts = {mode = 'write'},
     },
 }
 
@@ -179,9 +179,9 @@ pgroup.test_count_all = function(g)
         },
     })
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', nil, {fullscan = true}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers', nil, {fullscan = true, mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 5)
@@ -215,9 +215,9 @@ pgroup.test_count_all_with_yield_every = function(g)
         },
     })
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', nil, {yield_every = 1, fullscan = true}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers', nil, {yield_every = 1, fullscan = true, mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 5)
@@ -251,9 +251,9 @@ pgroup.test_count_all_with_yield_every_0 = function(g)
         },
     })
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', nil, {yield_every = 0, fullscan = true}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers', nil, {yield_every = 0, fullscan = true, mode = 'write'}
+    })
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "yield_every should be > 0")
@@ -289,9 +289,9 @@ pgroup.test_count_by_primary_index = function(g)
 
     local conditions = {{'==', 'id_index', 3}}
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers', conditions, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 1)
@@ -331,9 +331,9 @@ pgroup.test_eq_condition_with_index = function(g)
 
     local expected_len = 2
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers', conditions, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, expected_len)
@@ -373,9 +373,9 @@ pgroup.test_ge_condition_with_index = function(g)
 
     local expected_len = 3
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions, {fullscan = true}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers', conditions, {fullscan = true, mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, expected_len)
@@ -415,9 +415,9 @@ pgroup.test_gt_condition_with_index = function(g)
 
     local expected_len = 1
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions, {fullscan = true}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers', conditions, {fullscan = true, mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, expected_len)
@@ -457,9 +457,9 @@ pgroup.test_le_condition_with_index = function(g)
 
     local expected_len = 4
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions, {fullscan = true}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers', conditions, {fullscan = true, mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, expected_len)
@@ -499,9 +499,9 @@ pgroup.test_lt_condition_with_index = function(g)
 
     local expected_len = 2
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions, {fullscan = true}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers', conditions, {fullscan = true, mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, expected_len)
@@ -543,9 +543,9 @@ pgroup.test_multiple_conditions = function(g)
 
     local expected_len = 2
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers', conditions, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, expected_len)
@@ -565,17 +565,17 @@ pgroup.test_multipart_primary_index = function(g)
     })
 
     local conditions = {{'=', 'primary', 0}}
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'coord', conditions}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'coord', conditions, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 3)
 
     local conditions = {{'=', 'primary', {0, 2}}}
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'coord', conditions}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'coord', conditions, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 1)
@@ -649,7 +649,7 @@ pgroup.test_count_no_map_reduce = function(g)
     local result, err = g.cluster.main_server.net_box:call('crud.count', {
         'customers',
         nil,
-        {bucket_id = 2804, timeout = 1, fullscan = true},
+        {bucket_id = 2804, timeout = 1, fullscan = true, mode = 'write'},
     })
     t.assert_equals(err, nil)
     t.assert_equals(result, 1)
@@ -663,7 +663,7 @@ pgroup.test_count_no_map_reduce = function(g)
     local result, err = g.cluster.main_server.net_box:call('crud.count', {
         'customers',
         {{'==', 'age', 81}},
-        {bucket_id = 1161, timeout = 1},
+        {bucket_id = 1161, timeout = 1, mode = 'write'},
     })
     t.assert_equals(err, nil)
     t.assert_equals(result, 1)
@@ -709,9 +709,9 @@ pgroup.test_count_timeout = function(g)
     local timeout = 4
     local begin = clock.proc()
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions, {timeout = timeout, fullscan = true}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers', conditions, {timeout = timeout, fullscan = true, mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, expected_len)
@@ -751,7 +751,9 @@ pgroup.test_composite_index = function(g)
     }
 
     -- no after
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {'customers', conditions, {fullscan = true}})
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers', conditions, {fullscan = true, mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 4)
@@ -761,7 +763,9 @@ pgroup.test_composite_index = function(g)
         {'==', 'full_name', "Elizabeth"},
     }
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {'customers', conditions})
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers', conditions, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 3)
@@ -781,7 +785,9 @@ pgroup.test_composite_primary_index = function(g)
 
     local conditions = {{'=', 'id', {5, 'Ukrainian', 55}}}
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {'book_translation', conditions})
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'book_translation', conditions, {mode = 'write'},
+    })
     t.assert_equals(err, nil)
     t.assert_equals(result, 1)
 end
@@ -815,7 +821,9 @@ pgroup.test_count_by_full_sharding_key = function(g)
     })
 
     local conditions = {{'==', 'id', 3}}
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {'customers', conditions})
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers', conditions, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 1)
@@ -846,14 +854,14 @@ pgroup.test_count_force_map_call = function(g)
     })
 
     local result, err = g.cluster.main_server.net_box:call('crud.count', {
-        'customers', {{'==', 'id', key}},
+        'customers', {{'==', 'id', key}}, {mode = 'write'},
     })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 1)
 
     result, err = g.cluster.main_server.net_box:call('crud.count', {
-        'customers', {{'==', 'id', key}}, {force_map_call = true}
+        'customers', {{'==', 'id', key}}, {force_map_call = true, mode = 'write'},
     })
 
     t.assert_equals(err, nil)

@@ -474,7 +474,7 @@ pgroup.test_select = function(g)
 
     local conditions = {{'==', 'id', 18}}
     local result, err = g.cluster.main_server.net_box:call('crud.select', {
-        g.params.space_name, conditions,
+        g.params.space_name, conditions, {mode = 'write'},
     })
 
     t.assert_equals(err, nil)
@@ -494,7 +494,7 @@ pgroup.test_select = function(g)
     -- but tuple is on s1 replicaset -> result will be empty
     local conditions = {{'==', 'id', 19}}
     local result, err = g.cluster.main_server.net_box:call('crud.select', {
-        g.params.space_name, conditions,
+        g.params.space_name, conditions, {mode = 'write'},
     })
 
     t.assert_equals(err, nil)
@@ -571,7 +571,7 @@ pgroup.test_get = function(g)
 
     -- Get a tuple.
     local result, err = g.cluster.main_server.net_box:call('crud.get', {
-        g.params.space_name, {12, 'Ivan'},
+        g.params.space_name, {12, 'Ivan'}, {mode = 'write'},
     })
     t.assert_equals(err, nil)
     t.assert_equals(result.rows, {{12, 2, 'Ivan', 20}})
@@ -588,7 +588,7 @@ pgroup.test_get = function(g)
     -- select will be performed on s2 replicaset
     -- but tuple is on s1 replicaset -> result will be empty
     local result, err = g.cluster.main_server.net_box:call('crud.get', {
-        g.params.space_name, {18, 'Ivan'},
+        g.params.space_name, {18, 'Ivan'}, {mode = 'write'},
     })
     t.assert_equals(err, nil)
     t.assert_equals(result.rows, {})
@@ -654,7 +654,7 @@ pgroup.test_count = function(g)
 
     local conditions = {{'==', 'id', 18}}
     local result, err = g.cluster.main_server.net_box:call('crud.count', {
-        g.params.space_name, conditions,
+        g.params.space_name, conditions, {mode = 'write'},
     })
 
     t.assert_equals(err, nil)
@@ -674,7 +674,7 @@ pgroup.test_count = function(g)
     -- count = 0
     local conditions = {{'==', 'id', 19}}
     local result, err = g.cluster.main_server.net_box:call('crud.count', {
-        g.params.space_name, conditions,
+        g.params.space_name, conditions, {mode = 'write'},
     })
 
     t.assert_equals(err, nil)
@@ -861,12 +861,12 @@ local known_bucket_id_read_cases = {
     get = {
         func = 'crud.get',
         input_2 = known_bucket_id_key,
-        input_3 = {bucket_id = known_bucket_id},
+        input_3 = {bucket_id = known_bucket_id, mode = 'write'},
     },
     select = {
         func = 'crud.select',
         input_2 = {{ '==', 'id', known_bucket_id_key}},
-        input_3 = {bucket_id = known_bucket_id},
+        input_3 = {bucket_id = known_bucket_id, mode = 'write'},
     },
 }
 
@@ -903,7 +903,7 @@ pgroup.test_gh_278_pairs_with_explicit_bucket_id_and_ddl = function(g)
     ]], {
         g.params.space_name,
         {{ '==', 'id', known_bucket_id_key}},
-        {bucket_id = known_bucket_id}
+        {bucket_id = known_bucket_id, mode = 'write'},
     })
 
     t.assert_equals(err, nil)
@@ -916,13 +916,11 @@ pgroup.before_test(
     prepare_known_bucket_id_data)
 
 pgroup.test_gh_278_count_with_explicit_bucket_id_and_ddl = function(g)
-    local obj, err = g.cluster.main_server.net_box:call(
-        'crud.count',
-        {
-            g.params.space_name,
-            {{ '==', 'id', known_bucket_id_key}},
-            {bucket_id = known_bucket_id}
-        })
+    local obj, err = g.cluster.main_server.net_box:call('crud.count', {
+        g.params.space_name,
+        {{ '==', 'id', known_bucket_id_key}},
+        {bucket_id = known_bucket_id, mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_is_not(obj, nil)
@@ -1000,7 +998,7 @@ for name, case in pairs(vshard_cases) do
 
         local conditions = {{'==', 'id', 1}}
         local result, err = g.cluster.main_server.net_box:call('crud.select', {
-            space_name, conditions,
+            space_name, conditions, {mode = 'write'},
         })
 
         t.assert_equals(err, nil)
