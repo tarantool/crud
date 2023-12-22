@@ -232,7 +232,7 @@ end
 
 function helpers.get_test_vshard_sharding()
     local sharding = {
-        {
+        ['s-1'] = {
             replicas = {
                 ['s1-master'] = {
                     instance_uuid = helpers.uuid('b', 1),
@@ -243,7 +243,7 @@ function helpers.get_test_vshard_sharding()
                 },
             },
         },
-        {
+        ['s-2'] = {
             replicas = {
                 ['s2-master'] = {
                     instance_uuid = helpers.uuid('c', 1),
@@ -361,12 +361,12 @@ function helpers.get_other_storage_bucket_id(cluster, bucket_id)
 
         local replicasets = vshard.router.routeall()
 
-        local other_replicaset_uuid
-        for replicaset_uuid, replicaset in pairs(replicasets) do
+        local other_replicaset
+        for _, replicaset in pairs(replicasets) do
             local stat, err = replicaset:callrw('vshard.storage.bucket_stat', {bucket_id})
 
             if err ~= nil and err.name == 'WRONG_BUCKET' then
-                other_replicaset_uuid = replicaset_uuid
+                other_replicaset = replicaset
                 break
             end
 
@@ -378,13 +378,8 @@ function helpers.get_other_storage_bucket_id(cluster, bucket_id)
             end
         end
 
-        if other_replicaset_uuid == nil then
-            return nil, 'Other replicaset is not found'
-        end
-
-        local other_replicaset = replicasets[other_replicaset_uuid]
         if other_replicaset == nil then
-            return nil, string.format('Replicaset %s not found', other_replicaset_uuid)
+            return nil, 'Other replicaset is not found'
         end
 
         local buckets_info = other_replicaset:callrw('vshard.storage.buckets_info')
@@ -734,7 +729,7 @@ function helpers.start_cluster(g, cartridge_cfg, vshard_cfg)
         local cfg = table.deepcopy(vshard_cfg)
         cfg.engine = g.params.engine
 
-        g.cfg = vtest.config_new(cfg)
+        g.cfg = vtest.config_new(cfg, g.params.backend_cfg)
         vtest.cluster_new(g, g.cfg)
         g.cfg.engine = nil
     end
@@ -756,14 +751,57 @@ function helpers.get_router(cluster, backend)
     end
 end
 
+function helpers.parse_module_version(str)
+    -- https://github.com/tarantool/luatest/blob/f37b353b77be50a1f1ce87c1ff2edf0c1b96d5d1/luatest/utils.lua#L166-L173
+    local splitstr = str:split('.')
+    local major = tonumber(splitstr[1]:match('%d+'))
+    local minor = tonumber(splitstr[2]:match('%d+'))
+    local patch = tonumber(splitstr[3]:match('%d+'))
+    return luatest_utils.version(major, minor, patch)
+end
+
+function helpers.is_name_supported_as_vshard_id()
+    local vshard_version = helpers.parse_module_version(require('vshard')._VERSION)
+    local is_vshard_supports = luatest_utils.version_ge(vshard_version,
+        luatest_utils.version(0, 1, 25))
+
+    local tarantool_version = luatest_utils.get_tarantool_version()
+    local is_tarantool_supports = luatest_utils.version_ge(tarantool_version,
+        luatest_utils.version(3, 0, 0))
+    return is_vshard_supports and is_tarantool_supports
+end
+
 function helpers.backend_matrix(base_matrix)
     base_matrix = base_matrix or {{}}
-    local backends = {helpers.backend.VSHARD, helpers.backend.CARTRIDGE}
+    local backend_params = {
+        {
+            backend = helpers.backend.CARTRIDGE,
+            backend_cfg = nil,
+        },
+    }
+
+    if helpers.is_name_supported_as_vshard_id() then
+        table.insert(backend_params, {
+            backend = helpers.backend.VSHARD,
+            backend_cfg = {identification_mode = 'uuid_as_key'},
+        })
+        table.insert(backend_params, {
+            backend = helpers.backend.VSHARD,
+            backend_cfg = {identification_mode = 'name_as_key'},
+        })
+    else
+        table.insert(backend_params, {
+            backend = helpers.backend.VSHARD,
+            backend_cfg = nil,
+        })
+    end
+
     local matrix = {}
-    for _, backend in ipairs(backends) do
+    for _, params in ipairs(backend_params) do
         for _, base in ipairs(base_matrix) do
             base = table.deepcopy(base)
-            base.backend = backend
+            base.backend = params.backend
+            base.backend_cfg = params.backend_cfg
             table.insert(matrix, base)
         end
     end

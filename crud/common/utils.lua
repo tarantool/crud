@@ -112,10 +112,10 @@ function utils.format_replicaset_error(replicaset_uuid, msg, ...)
 end
 
 local function get_replicaset_by_replica_uuid(replicasets, uuid)
-    for replicaset_uuid, replicaset in pairs(replicasets) do
-        for replica_uuid, _ in pairs(replicaset.replicas) do
-            if replica_uuid == uuid then
-                return replicasets[replicaset_uuid]
+    for _, replicaset in pairs(replicasets) do
+        for _, replica in pairs(replicaset.replicas) do
+            if replica.uuid == uuid then
+                return replicaset
             end
         end
     end
@@ -1143,23 +1143,23 @@ function utils.storage_info(opts)
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
 
     for _, replicaset in pairs(replicasets) do
-        for replica_uuid, replica in pairs(replicaset.replicas) do
-            replica_state_by_uuid[replica_uuid] = {
+        for _, replica in pairs(replicaset.replicas) do
+            replica_state_by_uuid[replica.uuid] = {
                 status = "error",
                 is_master = replicaset.master == replica
             }
             local ok, res = pcall(replica.conn.call, replica.conn, CRUD_STORAGE_INFO_FUNC_NAME,
                                   {}, async_opts)
             if ok then
-                futures_by_replicas[replica_uuid] = res
+                futures_by_replicas[replica.uuid] = res
             else
-                local err_msg = string.format("Error getting storage info for %s", replica_uuid)
+                local err_msg = string.format("Error getting storage info for %s", replica.uuid)
                 if res ~= nil then
                     log.error("%s: %s", err_msg, res)
-                    replica_state_by_uuid[replica_uuid].message = tostring(res)
+                    replica_state_by_uuid[replica.uuid].message = tostring(res)
                 else
                     log.error(err_msg)
-                    replica_state_by_uuid[replica_uuid].message = err_msg
+                    replica_state_by_uuid[replica.uuid].message = err_msg
                 end
             end
         end
@@ -1312,6 +1312,31 @@ function utils.is_cartridge_hotreload_supported()
     end
 
     return true, cartridge_hotreload
+end
+
+function utils.get_self_vshard_replicaset()
+    local box_info = box.info()
+
+    local ok, storage_info = pcall(vshard.storage.info)
+    assert(ok, 'vshard.storage.cfg() must be called first')
+
+    local replicaset_uuid
+    if box_info.replicaset ~= nil then
+        replicaset_uuid = box_info.replicaset.uuid
+    else
+        replicaset_uuid = box_info.cluster.uuid
+    end
+
+    local replicaset
+    -- Identification key may be name since vshard 0.1.25.
+    -- See also https://github.com/tarantool/vshard/issues/460.
+    for _, v in pairs(storage_info.replicasets) do
+        if v.uuid == replicaset_uuid then
+            replicaset = v
+        end
+    end
+
+    return replicaset_uuid, replicaset
 end
 
 return utils

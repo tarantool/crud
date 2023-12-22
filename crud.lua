@@ -23,7 +23,6 @@ local stats = require('crud.stats')
 local readview = require('crud.readview')
 local schema = require('crud.schema')
 
-local vshard = require('vshard')
 local luri = require('uri')
 
 local crud = {}
@@ -174,25 +173,14 @@ function crud.init_storage()
 
     local user = nil
     if not box.info.ro then
-        local ok, storage_info = pcall(vshard.storage.info)
-        if not ok then
-            error('vshard.storage.cfg() must be called first')
-        end
+        local replicaset_uuid, replicaset = utils.get_self_vshard_replicaset()
 
-        local box_info = box.info()
-        local replicaset_uuid
-        if box_info.replicaset ~= nil then
-            replicaset_uuid = box_info.replicaset.uuid
-        else
-            replicaset_uuid = box_info.cluster.uuid
-        end
-        local replicaset_info = storage_info.replicasets[replicaset_uuid]
-        if replicaset_info == nil or replicaset_info.master == nil then
+        if replicaset == nil or replicaset.master == nil then
             error(string.format('Failed to find a vshard configuration for ' ..
                 ' replicaset with replicaset_uuid %s.',
                 replicaset_uuid))
         end
-        user = luri.parse(replicaset_info.master.uri).login or 'guest'
+        user = luri.parse(replicaset.master.uri).login or 'guest'
     end
 
     if rawget(_G, '_crud') == nil then

@@ -87,15 +87,18 @@ end
 -- Build a valid vshard config by a template. A template does not specify
 -- anything volatile such as URIs, UUIDs - these are installed at runtime.
 --
-local function config_new(templ)
+local function config_new(templ, additional_cfg)
+    additional_cfg = additional_cfg or {}
+
     local res = table.deepcopy(templ)
     local sharding = {}
     res.sharding = sharding
     -- Is supposed to intensify reconnects when replication and listen URIs
     -- change.
     res.replication_timeout = 0.1
-    for i, replicaset_templ in pairs(templ.sharding) do
-        local replicaset_uuid = replicaset_name_to_uuid(i)
+    res.identification_mode = additional_cfg.identification_mode
+    for replicaset_name, replicaset_templ in pairs(templ.sharding) do
+        local replicaset_uuid = replicaset_name_to_uuid(replicaset_name)
         local replicas = {}
         local replicaset = table.deepcopy(replicaset_templ)
         replicaset.replicas = replicas
@@ -110,7 +113,6 @@ local function config_new(templ)
             replica.port_uri = nil
             replica.port_count = nil
             replica.instance_uuid = nil
-            replica.name = replica_name
 
             local port_count = replica_templ.port_count
             local creds = 'storage:storage@'
@@ -146,10 +148,25 @@ local function config_new(templ)
                     }
                 }
             end
-            replicas[replica_uuid] = replica
+
+            if res.identification_mode == 'name_as_key' then
+                replica.uuid = replica_uuid
+                replicas[replica_name] = replica
+            else
+                replica.name = replica_name
+                replicas[replica_uuid] = replica
+            end
         end
-        sharding[replicaset_uuid] = replicaset
+
+        if res.identification_mode == 'name_as_key' then
+            replicaset.uuid = replicaset_uuid
+            sharding[replicaset_name] = replicaset
+        else
+            replicaset.name = replicaset_name
+            sharding[replicaset_uuid] = replicaset
+        end
     end
+
     return res
 end
 
@@ -222,15 +239,38 @@ local function cluster_bootstrap(g, cfg)
     local masters = {}
     local etalon_balance = {}
     local replicaset_count = 0
-    for rs_uuid, rs in pairs(cfg.sharding) do
+
+    for rs_id, rs in pairs(cfg.sharding) do
         local is_master_found = false
-        for _, rep in pairs(rs.replicas) do
+
+        local rs_uuid
+        if cfg.identification_mode == 'name_as_key' then
+            rs_uuid = rs.uuid
+        else
+            rs_uuid = rs_id
+        end
+
+        for rep_id, rep in pairs(rs.replicas) do
             if rep.master then
                 t.assert(not is_master_found, 'only one master')
-                local server = g.cluster[rep.name]
-                t.assert_not_equals(server, nil, 'find master instance')
-                t.assert_equals(server:replicaset_uuid(), rs_uuid,
-                                'replicaset uuid')
+
+                local rep_name
+                if cfg.identification_mode == 'name_as_key' then
+                    rep_name = rep_id
+                else
+                    rep_name = rep.name
+                end
+
+                local server = g.cluster[rep_name]
+                t.assert_not_equals(server, nil, ('find master instance for %s'):format(rep_name))
+
+                if cfg.identification_mode == 'name_as_key' then
+                    t.assert_equals(server:replicaset_name(), rs_id,
+                                    'replicaset name')
+                else
+                    t.assert_equals(server:replicaset_uuid(), rs_id,
+                                    'replicaset uuid')
+                end
                 masters[rs_uuid] = server
                 is_master_found = true
             end
@@ -334,7 +374,7 @@ local function cluster_new(g, cfg)
     cfg.all_init = nil
     cfg.crud_init = nil
 
-    for replicaset_uuid, replicaset in pairs(cfg.sharding) do
+    for replicaset_id, replicaset in pairs(cfg.sharding) do
         -- Luatest depends on box.cfg being ready and listening. Need to
         -- configure it before vshard.storage.cfg().
         local box_repl = {}
@@ -346,11 +386,24 @@ local function cluster_new(g, cfg)
             -- Speed retries up.
             replication_timeout = 0.1,
         }
-        for replica_uuid, replica in pairs(replicaset.replicas) do
-            local name = replica.name
-            box_cfg.instance_uuid = replica_uuid
-            box_cfg.replicaset_uuid = replicaset_uuid
-            box_cfg.listen = instance_uri(replica.name)
+        for replica_id, replica in pairs(replicaset.replicas) do
+            local name
+
+            if cfg.identification_mode == 'name_as_key' then
+                name = replica_id
+
+                box_cfg.instance_uuid = replica.uuid
+                box_cfg.replicaset_uuid = replicaset.uuid
+                box_cfg.instance_name = replica_id
+                box_cfg.replicaset_name = replicaset_id
+            else
+                name = replica.name
+
+                box_cfg.instance_uuid = replica_id
+                box_cfg.replicaset_uuid = replicaset_id
+            end
+
+            box_cfg.listen = instance_uri(name)
             -- Need to specify read-only explicitly to know how is master.
             box_cfg.read_only = not replica.master
             box_cfg.memtx_use_mvcc_engine = cfg.memtx_use_mvcc_engine
@@ -364,7 +417,7 @@ local function cluster_new(g, cfg)
             -- VShard specific details to use in various helper functions.
             server.vtest = {
                 name = name,
-                replicaset = replicaset_uuid,
+                replicaset = replicaset_id,
                 is_storage = true,
                 master = replica.master,
             }
@@ -392,7 +445,15 @@ local function cluster_new(g, cfg)
             box.session.su('admin')
 
             cfg.engine = nil
-            require('vshard.storage').cfg(cfg, box.info.uuid)
+
+            local id
+            if cfg.identification_mode == 'name_as_key' then
+                id = box.info.name
+            else
+                id = box.info.uuid
+            end
+            require('vshard.storage').cfg(cfg, id)
+
             box.schema.user.grant('storage', 'write,read', 'universe')
 
             box.session.su(user)
@@ -403,7 +464,14 @@ local function cluster_new(g, cfg)
         replica:wait_for_readiness()
         replica:exec(function(cfg)
             cfg.engine = nil
-            require('vshard.storage').cfg(cfg, box.info.uuid)
+
+            local id
+            if cfg.identification_mode == 'name_as_key' then
+                id = box.info.name
+            else
+                id = box.info.uuid
+            end
+            require('vshard.storage').cfg(cfg, id)
         end, {cfg})
     end
 
