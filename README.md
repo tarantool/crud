@@ -1100,9 +1100,33 @@ See more examples of pairs queries [here.](https://github.com/tarantool/crud/blo
 
 ### Min and max
 
+`CRUD` supports operations to get the minimum (maximum) object from the space index
+
+```lua
+local objects, err = crud.min(space_name, index_id, opts)
+local objects, err = crud.max(space_name, index_id, opts)
+```
+
+where:
+
+* `space_name` (`string`) - name of the space
+* `index_id` (`?string|number`) - index name or index id. Primary index by default
+* `opts`:
+  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `fields` (`?table`) - field names for getting only a subset of fields
+  * `mode` (`?string`, `read` or `write`) - if `write` is specified then `select` is
+    performed on master, default value is `read`
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
+  * `fetch_latest_metadata` (`?boolean`) - guarantees the
+    up-to-date metadata (space format) in first return value, otherwise
+    it may not take into account the latest migration of the data format.
+    Performance overhead is up to 15%. `false` by default
+
 ```lua
 -- Find the minimum value in the specified index
-local result, err = crud.min(space_name, 'age', opts)
+local result, err = crud.min('customers', 'age')
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
@@ -1113,7 +1137,7 @@ local result, err = crud.min(space_name, 'age', opts)
   - [1, 477, 'Elizabeth', 12]
 
 -- Find the maximum value in the specified index
-local result, err = crud.max(space_name, 'age', opts)
+local result, err = crud.max('customers', 'age')
 ---
 - metadata:
   - {'name': 'id', 'type': 'unsigned'}
