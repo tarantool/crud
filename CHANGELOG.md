@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
+### Added
+* `mode` option for `crud.min` and `crud.max` (#404).
+
 ### Fixed
 * Compatibility with vshard 0.1.25 `name_as_key` identification mode
   for Tarantool 3.0 (#403).

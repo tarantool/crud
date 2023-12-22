@@ -72,6 +72,7 @@ local function call_get_border_on_router(vshard_router, border_name, space_name,
     checks('table', 'string', 'string', '?string|number', {
         timeout = '?number',
         fields = '?table',
+        mode = '?string',
         vshard_router = '?string|table',
         fetch_latest_metadata = '?boolean',
     })
@@ -107,7 +108,7 @@ local function call_get_border_on_router(vshard_router, border_name, space_name,
         return nil, BorderError:new("Failed to get router replicasets: %s", err)
     end
     local call_opts = {
-        mode = 'read',
+        mode = opts.mode or 'read',
         replicasets = replicasets,
         timeout = opts.timeout,
     }
