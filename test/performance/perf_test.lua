@@ -693,13 +693,13 @@ local stats_cases = {
 }
 
 local integration_params = {
-    timeout = 2,
+    timeout = 0.1,
     fiber_count = 5,
     connection_count = 2,
 }
 
 local pairs_integration = {
-    timeout = 5,
+    timeout = 0.1,
     fiber_count = 1,
     connection_count = 1,
 }
