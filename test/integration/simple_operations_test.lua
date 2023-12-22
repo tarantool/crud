@@ -406,7 +406,7 @@ pgroup.test_intermediate_nullable_fields_update = function(g)
     end)
 
     local result, err = g.cluster.main_server.net_box:call('crud.update',
-        {'developers', 1, {{'=', 'extra_3', { a = { b = {} } } }}})
+        {'developers', 1, {{'=', 'extra_3', { a = { b = {} } } }}, {fetch_latest_metadata = true}})
     t.assert_equals(err, nil)
     objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {
