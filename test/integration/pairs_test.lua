@@ -59,7 +59,7 @@ pgroup.test_pairs_no_conditions = function(g)
         local crud = require('crud')
 
         local objects = {}
-        for _, object in crud.pairs('customers') do
+        for _, object in crud.pairs('customers', nil, {mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -72,7 +72,7 @@ pgroup.test_pairs_no_conditions = function(g)
         local crud = require('crud')
 
         local objects = {}
-        for _, object in crud.pairs('customers', nil, {use_tomap = false}) do
+        for _, object in crud.pairs('customers', nil, {use_tomap = false, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -85,7 +85,7 @@ pgroup.test_pairs_no_conditions = function(g)
         local crud = require('crud')
 
         local objects = {}
-        for _, object in crud.pairs('customers', nil, {use_tomap = true}) do
+        for _, object in crud.pairs('customers', nil, {use_tomap = true, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -102,7 +102,7 @@ pgroup.test_pairs_no_conditions = function(g)
         local after = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', nil, {after = after, use_tomap = true}) do
+        for _, object in crud.pairs('customers', nil, {after = after, use_tomap = true, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -120,7 +120,7 @@ pgroup.test_pairs_no_conditions = function(g)
         local after = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', nil, {after = after, use_tomap = true}) do
+        for _, object in crud.pairs('customers', nil, {after = after, use_tomap = true, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -161,7 +161,7 @@ pgroup.test_ge_condition_with_index = function(g)
         local conditions = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {use_tomap = true}) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -179,7 +179,7 @@ pgroup.test_ge_condition_with_index = function(g)
         local conditions, after = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {after = after, use_tomap = true}) do
+        for _, object in crud.pairs('customers', conditions, {after = after, use_tomap = true, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -220,7 +220,7 @@ pgroup.test_le_condition_with_index = function(g)
         local conditions = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {use_tomap = true}) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -238,7 +238,7 @@ pgroup.test_le_condition_with_index = function(g)
         local conditions, after = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {after = after, use_tomap = true}) do
+        for _, object in crud.pairs('customers', conditions, {after = after, use_tomap = true, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -269,7 +269,7 @@ pgroup.test_first = function(g)
     local objects, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         local objects = {}
-        for _, object in crud.pairs('customers', nil, {first = 2, use_tomap = true}) do
+        for _, object in crud.pairs('customers', nil, {first = 2, use_tomap = true, mode = 'write'}) do
             table.insert(objects, object)
         end
         return objects
@@ -321,7 +321,7 @@ pgroup.test_empty_space = function(g)
     local count = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
         local count = 0
-        for _, object in crud.pairs('customers') do
+        for _, object in crud.pairs('customers', nil, {mode = 'write'}) do
             count = count + 1
         end
         return count
@@ -344,15 +344,18 @@ pgroup.test_luafun_compatibility = function(g)
     })
     local count = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
-        local count = crud.pairs('customers'):map(function() return 1 end):sum()
+        local count = crud.pairs('customers', nil, {mode = 'write'}):map(function() return 1 end):sum()
         return count
     ]])
     t.assert_equals(count, 3)
 
     count = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
-        local count = crud.pairs('customers',
-            {use_tomap = true}):map(function() return 1 end):sum()
+        local count = crud.pairs(
+            'customers',
+            nil,
+            {use_tomap = true, mode = 'write'}
+        ):map(function() return 1 end):sum()
         return count
     ]])
     t.assert_equals(count, 3)
@@ -395,7 +398,7 @@ pgroup.test_pairs_partial_result = function(g)
         local conditions, fields = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -420,7 +423,11 @@ pgroup.test_pairs_partial_result = function(g)
         end
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {after = tuples[1], use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs(
+            'customers',
+            conditions,
+            {after = tuples[1], use_tomap = true, fields = fields, mode = 'write'}
+        ) do
             table.insert(objects, object)
         end
 
@@ -445,7 +452,7 @@ pgroup.test_pairs_partial_result = function(g)
         local conditions, fields = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -465,12 +472,16 @@ pgroup.test_pairs_partial_result = function(g)
         local conditions, fields = ...
 
         local tuples = {}
-        for _, tuple in crud.pairs('customers', conditions, {fields = fields}) do
+        for _, tuple in crud.pairs('customers', conditions, {fields = fields, mode = 'write'}) do
             table.insert(tuples, tuple)
         end
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {after = tuples[1], use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs(
+            'customers',
+            conditions,
+            {after = tuples[1], use_tomap = true, fields = fields, mode = 'write'}
+        ) do
             table.insert(objects, object)
         end
 
@@ -498,7 +509,7 @@ pgroup.test_pairs_partial_result = function(g)
         local conditions, fields = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -518,12 +529,16 @@ pgroup.test_pairs_partial_result = function(g)
         local conditions, fields = ...
 
         local tuples = {}
-        for _, tuple in crud.pairs('customers', conditions, {fields = fields}) do
+        for _, tuple in crud.pairs('customers', conditions, {fields = fields, mode = 'write'}) do
             table.insert(tuples, tuple)
         end
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {after = tuples[1], use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs(
+            'customers',
+            conditions,
+            {after = tuples[1], use_tomap = true, fields = fields, mode = 'write'}
+        ) do
             table.insert(objects, object)
         end
 
@@ -548,7 +563,7 @@ pgroup.test_pairs_partial_result = function(g)
         local conditions, fields = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -568,12 +583,16 @@ pgroup.test_pairs_partial_result = function(g)
         local conditions, fields = ...
 
         local tuples = {}
-        for _, tuple in crud.pairs('customers', conditions, {fields = fields}) do
+        for _, tuple in crud.pairs('customers', conditions, {fields = fields, mode = 'write'}) do
             table.insert(tuples, tuple)
         end
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {after = tuples[1], use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs(
+            'customers',
+            conditions,
+            {after = tuples[1], use_tomap = true, fields = fields, mode = 'write'}
+        ) do
             table.insert(objects, object)
         end
 
@@ -619,7 +638,7 @@ pgroup.test_pairs_cut_result = function(g)
         local conditions, fields = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields}) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, fields = fields, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -640,7 +659,7 @@ pgroup.test_pairs_cut_result = function(g)
         local conditions, fields = ...
 
         local tuples = {}
-        for _, tuple in crud.pairs('customers', conditions, {fields = fields}) do
+        for _, tuple in crud.pairs('customers', conditions, {fields = fields, mode = 'write'}) do
             table.insert(tuples, tuple)
         end
 
@@ -684,7 +703,7 @@ pgroup.test_pairs_force_map_call = function(g)
         local conditions = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {use_tomap = true}) do
+        for _, object in crud.pairs('customers', conditions, {use_tomap = true, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -700,7 +719,11 @@ pgroup.test_pairs_force_map_call = function(g)
         local conditions = ...
 
         local objects = {}
-        for _, object in crud.pairs('customers', conditions, {use_tomap = true, force_map_call = true}) do
+        for _, object in crud.pairs(
+            'customers',
+            conditions,
+            {use_tomap = true, force_map_call = true, mode = 'write'}
+        ) do
             table.insert(objects, object)
         end
 
@@ -740,7 +763,7 @@ pgroup.test_pairs_timeout = function(g)
         local crud = require('crud')
 
         local objects = {}
-        for _, object in crud.pairs('customers', nil, {timeout = 1}) do
+        for _, object in crud.pairs('customers', nil, {timeout = 1, mode = 'write'}) do
             table.insert(objects, object)
         end
 
@@ -783,7 +806,7 @@ pgroup.test_opts_not_damaged = function(g)
     local pairs_opts = {
         timeout = 1, bucket_id = 1161,
         batch_size = 105, first = 2, after = after,
-        fields = fields, mode = 'read', prefer_replica = false,
+        fields = fields, mode = 'write', prefer_replica = false,
         balance = false, force_map_call = false, use_tomap = true,
     }
     local new_pairs_opts, objects = g.cluster.main_server:eval([[
@@ -839,7 +862,7 @@ pgroup.test_pairs_no_map_reduce = function(g)
     ]], {
         'customers',
         nil,
-        {bucket_id = 2804, timeout = 1},
+        {bucket_id = 2804, timeout = 1, mode = 'write'},
     })
     t.assert_equals(rows, {
         {3, 2804, 'David', 'Smith', 33, 'Los Angeles'},
@@ -858,7 +881,7 @@ pgroup.test_pairs_no_map_reduce = function(g)
     ]], {
         'customers',
         {{'==', 'age', 81}},
-        {bucket_id = 1161, timeout = 1},
+        {bucket_id = 1161, timeout = 1, mode = 'write'},
     })
     t.assert_equals(rows, {
         {4, 1161, 'William', 'White', 81, 'Chicago'},

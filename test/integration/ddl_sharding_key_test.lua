@@ -463,7 +463,7 @@ pgroup.test_select = function(g)
 
     local conditions = {{'==', 'name', 'Ptolemy'}}
     local result, err = g.cluster.main_server.net_box:call('crud.select', {
-        'customers_name_key', conditions,
+        'customers_name_key', conditions, {mode = 'write'},
     })
 
     t.assert_equals(err, nil)
@@ -482,7 +482,7 @@ pgroup.test_count = function(g)
 
     local conditions = {{'==', 'name', 'Ptolemy'}}
     local result, err = g.cluster.main_server.net_box:call('crud.count', {
-        'customers_name_key', conditions,
+        'customers_name_key', conditions, {mode = 'write'}
     })
 
     t.assert_equals(err, nil)
@@ -561,7 +561,7 @@ for name, case in pairs(cases) do
         local map_reduces_before = helpers.get_map_reduces_stat(router, case.space_name)
 
         local result, err = router:call('crud.select', {
-            case.space_name, case.conditions
+            case.space_name, case.conditions, {mode = 'write'},
         })
         t.assert_equals(err, nil)
         t.assert_not_equals(result, nil)
@@ -581,7 +581,7 @@ pgroup.test_select_for_part_of_sharding_key_will_lead_to_map_reduce = function(g
     local map_reduces_before = helpers.get_map_reduces_stat(router, space_name)
 
     local result, err = router:call('crud.select', {
-        space_name, {{'==', 'age', 58}},
+        space_name, {{'==', 'age', 58}}, {mode = 'write'},
     })
     t.assert_equals(err, nil)
     t.assert_not_equals(result, nil)
@@ -607,7 +607,7 @@ pgroup.test_select_secondary_idx = function(g)
     local conditions = {{'==', 'name', 'Ivan'}}
 
     local result, err = g.cluster.main_server.net_box:call('crud.select', {
-        'customers_secondary_idx_name_key', conditions,
+        'customers_secondary_idx_name_key', conditions, {mode = 'write'},
     })
 
     t.assert_equals(err, nil)
@@ -634,7 +634,7 @@ pgroup.test_select_non_unique_index = function(g)
     t.assert_equals(#customers, 10)
 
     local result, err = g.cluster.main_server.net_box:call('crud.select', {
-        space_name, {{'==', 'name', 'Ivan Bunin'}}
+        space_name, {{'==', 'name', 'Ivan Bunin'}}, {mode = 'write'},
     })
     t.assert_equals(err, nil)
     t.assert_not_equals(result, nil)
@@ -687,7 +687,7 @@ pgroup.test_get = function(g)
 
     -- Get a tuple.
     local result, err = g.cluster.main_server.net_box:call('crud.get', {
-        'customers_name_key', {7, 'Dimitrion'},
+        'customers_name_key', {7, 'Dimitrion'}, {mode = 'write'},
     })
     t.assert_equals(err, nil)
     t.assert_equals(result.rows, {{7, 596, 'Dimitrion', 20}})
@@ -757,7 +757,7 @@ pgroup.test_get_incomplete_sharding_key = function(g)
     t.assert_equals(#result.rows, 1)
 
     local result, err = g.cluster.main_server.net_box:call('crud.get', {
-        'customers_age_key', {58, 'Viktor Pelevin'}
+        'customers_age_key', {58, 'Viktor Pelevin'}, {mode = 'write'},
     })
 
     t.assert_str_contains(err.err,
@@ -804,7 +804,8 @@ pgroup.test_get_secondary_idx = function(g)
 
     -- get
     local result, err = g.cluster.main_server.net_box:call('crud.get',
-        {'customers_secondary_idx_name_key', {4, 'Leo'}})
+        {'customers_secondary_idx_name_key', {4, 'Leo'}, {mode = 'write'},
+    })
 
     t.assert_str_contains(err.err,
         "Sharding key for space \"customers_secondary_idx_name_key\" is missed in primary index, specify bucket_id")
@@ -1107,7 +1108,7 @@ local known_bucket_id_read_cases = {
         input = {
             known_bucket_id_space,
             known_bucket_id_key,
-            {bucket_id = known_bucket_id}
+            {bucket_id = known_bucket_id, mode = 'write'},
         },
     },
     select = {
@@ -1115,7 +1116,7 @@ local known_bucket_id_read_cases = {
         input = {
             known_bucket_id_space,
             {{ '==', 'id', known_bucket_id_key}},
-            {bucket_id = known_bucket_id}
+            {bucket_id = known_bucket_id, mode = 'write'},
         },
     },
 }
@@ -1148,7 +1149,7 @@ pgroup.test_gh_278_pairs_with_explicit_bucket_id_and_ddl = function(g)
     ]], {
         known_bucket_id_space,
         {{ '==', 'id', known_bucket_id_key}},
-        {bucket_id = known_bucket_id}
+        {bucket_id = known_bucket_id, mode = 'write'},
     })
 
     t.assert_equals(err, nil)
@@ -1166,7 +1167,7 @@ pgroup.test_gh_278_count_with_explicit_bucket_id_and_ddl = function(g)
         {
             known_bucket_id_space,
             {{ '==', 'id', known_bucket_id_key}},
-            {bucket_id = known_bucket_id}
+            {bucket_id = known_bucket_id, mode = 'write'},
         })
 
     t.assert_equals(err, nil)

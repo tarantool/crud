@@ -695,8 +695,11 @@ for case_name, case in pairs(gh_236_cases) do
         else
             local object = g.cluster.main_server.net_box:eval([[
                 local objects = {}
-                for _, object in crud.pairs('countries', nil,
-                        {fetch_latest_metadata = true, use_tomap = true}) do
+                for _, object in crud.pairs(
+                    'countries',
+                    nil,
+                    {fetch_latest_metadata = true, use_tomap = true, mode = 'write'}
+                ) do
                     table.insert(objects, object)
                 end
                 return objects[1]

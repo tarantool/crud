@@ -99,7 +99,9 @@ function g.test_router()
 
     g.highload_fiber:cancel()
 
-    local result, err = g.router.net_box:call('crud.select', {'customers', nil, {fullscan = true}})
+    local result, err = g.router.net_box:call('crud.select', {
+        'customers', nil, {fullscan = true, mode = 'write'},
+    })
     t.assert_equals(err, nil)
     t.assert_items_include(result.rows, g.insertions_passed)
 end
@@ -132,7 +134,9 @@ function g.test_storage()
 
     g.highload_fiber:cancel()
 
-    local result, err = g.router.net_box:call('crud.select', {'customers', nil, {fullscan = true}})
+    local result, err = g.router.net_box:call('crud.select', {
+        'customers', nil, {fullscan = true, mode = 'write'},
+    })
     t.assert_equals(err, nil)
     t.assert_items_include(result.rows, g.insertions_passed)
 end

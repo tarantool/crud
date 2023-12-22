@@ -51,7 +51,8 @@ pgroup.test_gh_308_select_after_improper_ddl_space_drop = function(g)
     end)
 
     -- Ensure that crud request for existing space is ok.
-    local _, err = g.cluster.main_server.net_box:call('crud.select',
-                                                      {'customers', nil, { first = 1 }})
+    local _, err = g.cluster.main_server.net_box:call('crud.select', {
+        'customers', nil, {first = 1, mode = 'write'},
+    })
     t.assert_equals(err, nil)
 end
