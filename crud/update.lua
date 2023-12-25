@@ -59,6 +59,7 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
         return res, nil
     end
 
+    -- Relevant for Tarantool older than 2.8.1.
     -- We can only add fields to end of the tuple.
     -- If schema is updated and nullable fields are added, then we will get error.
     -- Therefore, we need to add filling of intermediate nullable fields.
@@ -68,6 +69,8 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
         res, err = schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
             add_space_schema_hash = false,
             field_names = field_names,
+            noreturn = opts.noreturn,
+            fetch_latest_metadata = opts.fetch_latest_metadata,
         })
     end
 
