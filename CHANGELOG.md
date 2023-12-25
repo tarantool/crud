@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 * Compatibility with vshard 0.1.25 `name_as_key` identification mode
   for Tarantool 3.0 (#403).
+* Propagating `noreturn` and `fetch_latest_metadata` options in case
+  of intermediate nullable fields update for Tarantool 2.7 and older (#404).
 
 ## [1.4.1] - 23-10-23
 
