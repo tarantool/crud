@@ -101,7 +101,9 @@ pgroup.test_insert_object_get = function(g)
     t.assert_equals(objects, {{id = 1, name = 'Fedor', age = 59, bucket_id = 477}})
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 1})
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers', 1, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_not_equals(result, nil)
@@ -138,7 +140,9 @@ pgroup.test_insert_get = function(g)
     t.assert_equals(result.rows, {{2, 401, 'Ivan', 20}})
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 2})
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers', 2, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_not_equals(result, nil)
@@ -153,7 +157,7 @@ pgroup.test_insert_get = function(g)
     -- get non-existent
     local result, err = g.cluster.main_server.net_box:eval([[
         local crud = require('crud')
-        return crud.get('customers', 100)
+        return crud.get('customers', 100, {mode = 'write'})
     ]])
 
     t.assert_equals(err, nil)
@@ -186,7 +190,9 @@ pgroup.test_update = function(g)
     t.assert_equals(objects, {{id = 22, name = 'Leo Tolstoy', age = 82, bucket_id = 655}})
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 22})
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers', 22, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -210,7 +216,9 @@ pgroup.test_update = function(g)
     t.assert_equals(objects, {{id = 22, name = 'Leo', age = 72, bucket_id = 655}})
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 22})
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers', 22, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -244,7 +252,9 @@ pgroup.test_delete = function(g)
     end
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 33})
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers', 33, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
@@ -258,7 +268,9 @@ end
 
 pgroup.test_replace_object = function(g)
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 44})
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers', 44, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -325,7 +337,9 @@ pgroup.test_upsert_object = function(g)
     t.assert_equals(err, nil)
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 66})
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers', 66, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -342,7 +356,9 @@ pgroup.test_upsert_object = function(g)
     t.assert_equals(err, nil)
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 66})
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers', 66, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -366,7 +382,9 @@ pgroup.test_upsert = function(g)
     t.assert_equals(err, nil)
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 67})
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers', 67, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result.rows, {{67, 1143, 'Saltykov-Shchedrin', 63}})
@@ -380,7 +398,9 @@ pgroup.test_upsert = function(g)
     t.assert_equals(err, nil)
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 67})
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers', 67, {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result.rows, {{67, 1143, 'Mikhail Saltykov-Shchedrin', 63}})
@@ -564,7 +584,7 @@ local gh_236_cases = {
     },
     crud_get = {
         operation_name = 'crud.get',
-        input = {'countries', 3, {fetch_latest_metadata = true}},
+        input = {'countries', 3, {fetch_latest_metadata = true, mode = 'write'}},
         need_pre_insert_data = true,
     },
     crud_delete = {
@@ -611,17 +631,17 @@ local gh_236_cases = {
     },
     crud_max = {
         operation_name = 'crud.max',
-        input = {'countries', 'id', {fetch_latest_metadata = true}},
+        input = {'countries', 'id', {fetch_latest_metadata = true, mode = 'write'}},
         need_pre_insert_data = true,
     },
     crud_min = {
         operation_name = 'crud.min',
-        input = {'countries', 'id', {fetch_latest_metadata = true}},
+        input = {'countries', 'id', {fetch_latest_metadata = true, mode = 'write'}},
         need_pre_insert_data = true,
     },
     crud_select = {
         operation_name = 'crud.select',
-        input = {'countries', {}, {fetch_latest_metadata = true}},
+        input = {'countries', {}, {fetch_latest_metadata = true, mode = 'write'}},
         need_pre_insert_data = true,
     },
     crud_pairs = {
@@ -807,7 +827,9 @@ pgroup.test_object_with_nullable_fields = function(g)
     t.assert_equals(err, nil)
 
     -- Get
-    result, err = g.cluster.main_server.net_box:call('crud.get', {'tags', 3})
+    result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'tags', 3, {mode = 'write'},
+    })
     t.assert_equals(err, nil)
     objects = crud.unflatten_rows(result.rows, result.metadata)
     t.assert_equals(objects, {
@@ -848,9 +870,9 @@ pgroup.test_get_partial_result = function(g)
     t.assert_equals(objects, {{id = 1, name = 'Elizabeth', age = 24, bucket_id = 477}})
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call(
-            'crud.get', {'customers', 1, {fields = {'id', 'name'}}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'customers', 1, {fields = {'id', 'name'}, mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -1000,7 +1022,7 @@ end
 pgroup.test_replace_object_partial_result = function(g)
     -- get
     local result, err = g.cluster.main_server.net_box:call('crud.get', {
-        'customers', 1
+        'customers', 1, {mode = 'write'},
     })
 
     t.assert_equals(err, nil)
@@ -1136,9 +1158,9 @@ pgroup.test_partial_result_with_nullable_fields = function(g)
         }
     })
 
-    local result, err = g.cluster.main_server.net_box:call(
-            'crud.get', {'tags', 1, {fields = {'id', 'is_sweet', 'is_green'}}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+        'tags', 1, {fields = {'id', 'is_sweet', 'is_green'}, mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -1165,7 +1187,7 @@ pgroup.test_partial_result_bad_input = function(g)
 
     -- get
     result, err = g.cluster.main_server.net_box:call('crud.get', {
-        'customers', 1, {fields = {'id', 'lastname', 'name'}}
+        'customers', 1, {fields = {'id', 'lastname', 'name'}, mode = 'write'},
     })
 
     t.assert_equals(result, nil)
