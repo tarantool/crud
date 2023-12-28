@@ -24,7 +24,7 @@ local count = {}
 
 local function count_on_storage(space_name, index_id, conditions, opts)
     dev_checks('string', 'number', '?table', {
-        scan_value = 'table',
+        scan_value = 'table|cdata',
         tarantool_iter = 'number',
         yield_every = '?number',
         scan_condition_num = '?number',
