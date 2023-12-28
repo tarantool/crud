@@ -173,12 +173,13 @@ function crud.init_storage()
 
     local user = nil
     if not box.info.ro then
-        local replicaset_uuid, replicaset = utils.get_self_vshard_replicaset()
+        local replicaset_key, replicaset = utils.get_self_vshard_replicaset()
 
         if replicaset == nil or replicaset.master == nil then
-            error(string.format('Failed to find a vshard configuration for ' ..
-                ' replicaset with replicaset_uuid %s.',
-                replicaset_uuid))
+            error(string.format(
+                'Failed to find a vshard configuration ' ..
+                'for storage replicaset with key %q.',
+                replicaset_key))
         end
         user = luri.parse(replicaset.master.uri).login or 'guest'
     end

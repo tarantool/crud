@@ -150,7 +150,7 @@ local function config_new(templ, additional_cfg)
             end
 
             if res.identification_mode == 'name_as_key' then
-                replica.uuid = replica_uuid
+                replica.uuid = replica_uuid -- Optional, will clean up from 'sharding' later.
                 replicas[replica_name] = replica
             else
                 replica.name = replica_name
@@ -159,7 +159,7 @@ local function config_new(templ, additional_cfg)
         end
 
         if res.identification_mode == 'name_as_key' then
-            replicaset.uuid = replicaset_uuid
+            replicaset.uuid = replicaset_uuid -- Optional, will clean up from 'sharding' later.
             sharding[replicaset_name] = replicaset
         else
             replicaset.name = replicaset_name
@@ -245,7 +245,7 @@ local function cluster_bootstrap(g, cfg)
 
         local rs_uuid
         if cfg.identification_mode == 'name_as_key' then
-            rs_uuid = rs.uuid
+            rs_uuid = replicaset_name_to_uuid(rs_id)
         else
             rs_uuid = rs_id
         end
@@ -353,6 +353,22 @@ local function cluster_wait_vclock_all(g)
     end
 end
 
+local function strip_uuid_from_sharding_if_name_is_key(cfg)
+    if cfg.identification_mode ~= 'name_as_key' then
+        return cfg
+    end
+
+    for _, replicaset in pairs(cfg.sharding) do
+        replicaset.uuid = nil
+
+        for _, replica in pairs(replicaset.replicas) do
+            replica.uuid = nil
+        end
+    end
+
+    return cfg
+end
+
 --
 -- Build new cluster by a given config.
 --
@@ -434,6 +450,11 @@ local function cluster_new(g, cfg)
     for _, replica in pairs(all_servers) do
         replica:start({wait_for_readiness = false})
     end
+
+    -- UUIDs are optional in vshard configuration in
+    -- Tarantool >= 3.0 + vshard >= 0.1.25 + identification_mode == 'name_as_key'.
+    -- With tests, we want to ensure that we don't rely on it.
+    cfg = strip_uuid_from_sharding_if_name_is_key(cfg)
 
     for _, master in pairs(masters) do
         master:wait_for_readiness()

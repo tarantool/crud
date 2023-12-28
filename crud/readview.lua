@@ -51,24 +51,35 @@ local function readview_open_on_storage(readview_name)
         ReadviewError:assert(false, ("Error creating readview"))
     end
 
-    local replica_info = {}
-    replica_info.uuid = box.info().uuid
-    replica_info.id = read_view.id
+    return {
+        id = read_view.id,
 
-    return replica_info, nil
+        uuid = box.info().uuid, -- Backward compatibility.
+        replica_id = utils.get_self_vshard_replica_id(), -- Replacement for uuid.
+    }
 end
 
-local function readview_close_on_storage(readview_uuid)
+local function readview_close_on_storage(info)
     dev_checks('table')
 
-    local list = box.read_view.list()
+    local replica_id = utils.get_self_vshard_replica_id()
+
     local readview_id
-    for _, replica_info in pairs(readview_uuid) do
-        if replica_info.uuid == box.info().uuid then
+    for _, replica_info in pairs(info) do
+        local found = false
+
+        if replica_info.replica_id == replica_id then
+            found = true
+        elseif replica_info.uuid == box.info().uuid then -- Backward compatibility.
+            found = true
+        end
+
+        if found then
             readview_id = replica_info.id
         end
     end
 
+    local list = box.read_view.list()
     for k,v in pairs(list) do
         if v.id == readview_id then
             list[k]:close()
@@ -106,7 +117,8 @@ local function select_readview_on_storage(space_name, index_id, conditions, opts
             replica_schema_version = box.internal.schema_version()
         end
         cursor.storage_info = {
-            replica_uuid = box.info().uuid,
+            replica_uuid = box.info().uuid, -- Backward compatibility.
+            replica_id = utils.get_self_vshard_replica_id(), -- Replacement for replica_uuid.
             replica_schema_version = replica_schema_version,
         }
     end
@@ -206,7 +218,7 @@ local select_call = stats.wrap(select.call, stats.op.SELECT)
 function Readview_obj:select(space_name, user_conditions, opts)
     opts = opts or {}
     opts.readview = true
-    opts.readview_uuid = self._uuid
+    opts.readview_info = self._info
 
     if self.opened == false then
         return nil, ReadviewError:new("Read view is closed")
@@ -220,7 +232,7 @@ local pairs_call = stats.wrap(select.pairs, stats.op.SELECT, {pairs = true})
 function Readview_obj:pairs(space_name, user_conditions, opts)
     opts = opts or {}
     opts.readview = true
-    opts.readview_uuid = self._uuid
+    opts.readview_info = self._info
 
     if self.opened == false then
         return nil, ReadviewError:new("Read view is closed")
@@ -259,21 +271,39 @@ function Readview_obj:close(opts)
     end
 
     local errors = {}
-    for _, replicaset in pairs(replicasets) do
-        for _, replica in pairs(replicaset.replicas) do
-            for _, value in pairs(self._uuid) do
-                if replica.uuid == value.uuid then
-                    local replica_result, replica_err = replica.conn:call(CRUD_CLOSE_FUNC_NAME,
-                    {self._uuid}, {timeout = opts.timeout})
-                    if replica_err ~= nil then
-                        table.insert(errors, ReadviewError:new("Failed to close Readview on storage: %s", replica_err))
-                    end
-                    if replica_err == nil and (not replica_result) then
-                        table.insert(errors, ReadviewError:new("Readview was not found on storage: %s", replica.uuid))
-                    end
-                end
-            end
+    for replicaset_id, replicaset in pairs(replicasets) do
+        local replicaset_info = self._info[replicaset_id]
+
+        if replicaset_info == nil then
+            goto next_replicaset
         end
+
+        for replica_id, replica in pairs(replicaset.replicas) do
+            local found = false
+
+            if replicaset_info.replica_id == replica_id then
+                found = true
+            elseif replicaset_info.uuid == replica.uuid then -- Backward compatibility.
+                found = true
+            end
+
+            if not found then
+                goto next_replica
+            end
+
+            local replica_result, replica_err = replica.conn:call(CRUD_CLOSE_FUNC_NAME,
+                {self._info}, {timeout = opts.timeout})
+            if replica_err ~= nil then
+                table.insert(errors, ReadviewError:new("Failed to close Readview on storage: %s", replica_err))
+            end
+            if replica_err == nil and (not replica_result) then
+                table.insert(errors, ReadviewError:new("Readview was not found on storage: %s", replica_id))
+            end
+
+            ::next_replica::
+        end
+
+        ::next_replicaset::
     end
 
     if next(errors) ~= nil then
@@ -303,28 +333,26 @@ function Readview_obj.create(vshard_router, opts)
     setmetatable(readview, Readview_obj)
 
     readview._name = opts.name
-    local results, err, err_uuid = vshard_router:map_callrw(CRUD_OPEN_FUNC_NAME,
+    local results, err, err_id = vshard_router:map_callrw(CRUD_OPEN_FUNC_NAME,
         {readview._name}, {timeout = opts.timeout})
     if err ~= nil then
-        return nil,
-        ReadviewError:new("Failed to call readview_open_on_storage on storage-side: storage uuid: %s err: %s",
-        err_uuid, err)
+        return nil, ReadviewError:new(
+            "Failed to call readview_open_on_storage on storage-side: storage id: %s err: %s",
+            err_id, err
+        )
     end
 
-    local uuid = {}
-    local errors = {}
-    for _, replicaset_results in pairs(results) do
-        for _, replica_result in pairs(replicaset_results) do
-            table.insert(uuid, replica_result)
-        end
+    -- map_callrw response format:
+    -- {replicaset_id1 = {res1}, replicaset_id2 = {res2}, ...}
+    local info = {}
+    for replicaset_id, replicaset_results in pairs(results) do
+        local _, replica_info = next(replicaset_results)
+        info[replicaset_id] = replica_info
     end
 
-    readview._uuid = uuid
+    readview._info = info
     readview.opened = true
 
-    if next(errors) ~= nil then
-        return nil, errors
-    end
     return readview, nil
  end
 

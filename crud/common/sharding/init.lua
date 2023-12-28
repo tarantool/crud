@@ -18,8 +18,13 @@ function sharding.get_replicasets_by_bucket_id(vshard_router, bucket_id)
         return nil, GetReplicasetsError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
     end
 
+    local replicaset_id = utils.get_replicaset_id(vshard_router, replicaset)
+    if replicaset_id == nil then
+        return nil, GetReplicasetsError:new("Failed to get replicaset id for bucket_id %s replicaset", bucket_id)
+    end
+
     return {
-        [replicaset.uuid] = replicaset,
+        [replicaset_id] = replicaset,
     }
 end
 
@@ -206,8 +211,8 @@ end
 --  Specified space
 --
 -- @return[1] batches
---  Map where key is a replicaset and value
---  is table of tuples related to this replicaset
+--  Map where key is a replicaset id and value
+--  is replicaset and table of tuples related to this replicaset
 function sharding.split_tuples_by_replicaset(vshard_router, tuples, space, opts)
     dev_checks('table', 'table', 'table', {
         operations = '?table',
@@ -247,7 +252,17 @@ function sharding.split_tuples_by_replicaset(vshard_router, tuples, space, opts)
                     sharding_data.bucket_id, err.err)
         end
 
-        local record_by_replicaset = batches[replicaset] or {tuples = {}}
+        local replicaset_id = utils.get_replicaset_id(vshard_router, replicaset)
+        if replicaset_id == nil then
+            return nil, GetReplicasetsError:new(
+                    "Failed to get replicaset id for bucket_id %s replicaset",
+                    sharding_data.bucket_id)
+        end
+
+        local record_by_replicaset = batches[replicaset_id] or {
+            replicaset = replicaset,
+            tuples = {},
+        }
         table.insert(record_by_replicaset.tuples, tuple)
 
         if opts.operations ~= nil then
@@ -255,7 +270,7 @@ function sharding.split_tuples_by_replicaset(vshard_router, tuples, space, opts)
             table.insert(record_by_replicaset.operations, opts.operations[i])
         end
 
-        batches[replicaset] = record_by_replicaset
+        batches[replicaset_id] = record_by_replicaset
     end
 
     return {

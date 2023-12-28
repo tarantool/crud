@@ -49,30 +49,63 @@ pgroup.after_all(function(g)
     helpers.stop_cluster(g.cluster, g.params.backend)
 end)
 
+local function build_storage_info(g, array_info)
+    local is_vshard = g.params.backend == 'vshard'
+    local name_as_key = is_vshard and (
+        type(g.params.backend_cfg) == 'table'
+        and g.params.backend_cfg.identification_mode == 'name_as_key'
+    )
+
+    local keys
+    if name_as_key then
+        keys = {
+            's1-master',
+            's1-replica',
+            's2-master',
+            's2-replica',
+        }
+    else
+        keys = {
+            helpers.uuid('b', 1),
+            helpers.uuid('b', 10),
+            helpers.uuid('c', 1),
+            helpers.uuid('c', 10),
+        }
+    end
+
+    local res = {}
+    for i, v in ipairs(array_info) do
+        res[keys[i]] = v
+    end
+
+    return res
+end
+
 pgroup.test_crud_storage_status_of_stopped_servers = function(g)
     g.cluster:server("s2-replica"):stop()
 
     local results, err = g.cluster.main_server.net_box:call("crud.storage_info", {})
     t.assert_equals(err, nil, "Error getting storages info")
-    t.assert_equals(results, {
-        [helpers.uuid('b', 1)] = {
+
+    t.assert_equals(results, build_storage_info(g, {
+        {
             status = "running",
             is_master = true
         },
-        [helpers.uuid('b', 10)] = {
+        {
             status = "running",
             is_master = false
         },
-        [helpers.uuid('c', 1)] = {
+        {
             status = "running",
             is_master = true
         },
-        [helpers.uuid('c', 10)] = {
+        {
             status = "error",
             is_master = false,
             message = "Peer closed"
-        }
-    })
+        },
+    }))
 end
 
 pgroup.after_test('test_crud_storage_status_of_stopped_servers', function(g)
@@ -97,24 +130,24 @@ pgroup.test_disabled_storage_role = function(g)
     local results, err = g.cluster.main_server.net_box:call("crud.storage_info", {})
     t.assert_equals(err, nil, "Error getting storages info")
 
-    t.assert_equals(results, {
-        [helpers.uuid('b', 1)] = {
+    t.assert_equals(results, build_storage_info(g, {
+        {
             status = "running",
             is_master = true
         },
-        [helpers.uuid('b', 10)] = {
+        {
             status = "uninitialized",
             is_master = false
         },
-        [helpers.uuid('c', 1)] = {
+        {
             status = "running",
             is_master = true
         },
-        [helpers.uuid('c', 10)] = {
+        {
             status = "running",
-            is_master = false
-        }
-    })
+            is_master = false,
+        },
+    }))
 end
 
 pgroup.after_test('test_disabled_storage_role', function(g)
@@ -138,26 +171,25 @@ pgroup.test_storage_call_failure = function(g)
 
     local results, err = g.cluster.main_server.net_box:call("crud.storage_info", {})
     t.assert_equals(err, nil, "Error getting storages info")
-
-    t.assert_equals(results, {
-        [helpers.uuid('b', 1)] = {
+    t.assert_equals(results, build_storage_info(g, {
+        {
             status = "running",
             is_master = true
         },
-        [helpers.uuid('b', 10)] = {
+        {
             status = "running",
             is_master = false
         },
-        [helpers.uuid('c', 1)] = {
+        {
             status = "running",
             is_master = true
         },
-        [helpers.uuid('c', 10)] = {
+        {
             status = "error",
             is_master = false,
             message = "attempt to call a table value"
-        }
-    })
+        },
+    }))
 end
 
 pgroup.after_test('test_storage_call_failure', function(g)

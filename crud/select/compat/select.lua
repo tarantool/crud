@@ -31,7 +31,7 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
         yield_every = '?number',
         call_opts = 'table',
         readview = '?boolean',
-        readview_uuid = '?table',
+        readview_info = '?table',
     })
 
     opts = opts or {}
@@ -178,7 +178,7 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
     local merger
 
     if opts.readview then
-        merger = Merger.new_readview(vshard_router, replicasets_to_select, opts.readview_uuid,
+        merger = Merger.new_readview(vshard_router, replicasets_to_select, opts.readview_info,
         space, plan.index_id, common.READVIEW_SELECT_FUNC_NAME,
         {space_name, plan.index_id, plan.conditions, select_opts},
         {tarantool_iter = plan.tarantool_iter, field_names = plan.field_names, call_opts = opts.call_opts}
@@ -215,7 +215,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         balance = '?boolean',
         timeout = '?number',
         readview = '?boolean',
-        readview_uuid = '?table',
+        readview_info = '?table',
 
         vshard_router = '?string|table',
 
@@ -267,7 +267,7 @@ function select_module.pairs(space_name, user_conditions, opts)
             fetch_latest_metadata = opts.fetch_latest_metadata,
         },
         readview = opts.readview,
-        readview_uuid = opts.readview_uuid,
+        readview_info = opts.readview_info,
     }
 
     local iter, err = schema.wrap_func_reload(
@@ -332,7 +332,7 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
         balance = '?boolean',
         timeout = '?number',
         readview = '?boolean',
-        readview_uuid = '?table',
+        readview_info = '?table',
 
         vshard_router = '?string|table',
 
@@ -379,7 +379,7 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
             fetch_latest_metadata = opts.fetch_latest_metadata,
         },
         readview = opts.readview,
-        readview_uuid = opts.readview_uuid,
+        readview_info = opts.readview_info,
     }
 
     local iter, err = schema.wrap_func_reload(

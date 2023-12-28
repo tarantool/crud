@@ -60,7 +60,7 @@ pgroup.test_insert = function(g)
     ]])
 
     t.assert_equals(results, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-00000000000%d", true)
+    helpers.assert_str_contains_pattern_with_replicaset_id(err.err, "Failed for [replicaset_id]")
     t.assert_str_contains(err.err, "crud isn't initialized on replicaset")
 end
 

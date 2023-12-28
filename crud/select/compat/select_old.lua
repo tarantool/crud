@@ -67,6 +67,7 @@ local function select_iteration(space_name, plan, opts)
     end
 
     local tuples = {}
+    -- Old select works with vshard without `name_as_key` support.
     for replicaset_uuid, replicaset_results in pairs(results) do
         -- Stats extracted with callback here and not passed
         -- outside to wrapper because fetch for pairs can be

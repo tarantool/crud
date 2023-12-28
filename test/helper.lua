@@ -832,4 +832,41 @@ function helpers.schema_compatibility(schema)
     return schema
 end
 
+function helpers.string_replace(base, old_fragment, new_fragment)
+    local i, j = base:find(old_fragment)
+
+    if i == nil then
+        return base
+    end
+
+    local prefix = ''
+    if i > 1 then
+        prefix = base:sub(1, i - 1)
+    end
+
+    local suffix = ''
+    if j < base:len() then
+        suffix = base:sub(j + 1, base:len())
+    end
+
+    return prefix .. new_fragment .. suffix
+end
+
+function helpers.assert_str_contains_pattern_with_replicaset_id(str, pattern)
+    local uuid_pattern = "%w+%-0000%-0000%-0000%-00000000000%d"
+    local name_pattern = "s%-%d" -- All existing test clusters use this pattern, but it may change in the future.
+
+    local found = false
+    for _, id_pattern in pairs({uuid_pattern, name_pattern}) do
+        -- pattern is expected to be like "Failed for [replicaset_id]".
+        local full_pattern = helpers.string_replace('[replicaset_id]', id_pattern)
+        if str:find(full_pattern) ~= nil then
+            found = true
+            break
+        end
+    end
+
+    t.assert(found, ("string %q does not contain pattern %q"):format(str, pattern))
+end
+
 return helpers
