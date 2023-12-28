@@ -2308,10 +2308,18 @@ pgroup.test_stop_select = function(g)
     g.cluster:server('s2-master'):start()
 
     if g.params.backend == helpers.backend.VSHARD then
-        g.cluster:server('s2-master'):exec(function(cfg)
-            require('vshard.storage').cfg(cfg, box.info.uuid)
+        local bootstrap_key
+        if type(g.params.backend_cfg) == 'table'
+        and g.params.backend_cfg.identification_mode == 'name_as_key' then
+            bootstrap_key = 'name'
+        else
+            bootstrap_key = 'uuid'
+        end
+
+        g.cluster:server('s2-master'):exec(function(cfg, bootstrap_key)
+            require('vshard.storage').cfg(cfg, box.info[bootstrap_key])
             require('crud').init_storage()
-        end, {g.cfg})
+        end, {g.cfg, bootstrap_key})
     end
 
     local _, err = g.cluster.main_server.net_box:eval([[

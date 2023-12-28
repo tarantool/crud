@@ -53,7 +53,8 @@ local function select_on_storage(space_name, index_id, conditions, opts)
             replica_schema_version = box.internal.schema_version()
         end
         cursor.storage_info = {
-            replica_uuid = box.info().uuid,
+            replica_uuid = box.info().uuid, -- Backward compatibility.
+            replica_id = utils.get_self_vshard_replica_id(), -- Replacement for replica_uuid.
             replica_schema_version = replica_schema_version,
         }
     end

@@ -93,7 +93,7 @@ pgroup.test_map_non_existent_func = function(g)
     ]])
 
     t.assert_equals(results, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-00000000000%d", true)
+    helpers.assert_str_contains_pattern_with_replicaset_id(err.err, "Failed for [replicaset_id]")
     t.assert_str_contains(err.err, "Function non_existent_func is not registered")
 end
 
@@ -106,7 +106,7 @@ pgroup.test_single_non_existent_func = function(g)
     ]])
 
     t.assert_equals(results, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-00000000000%d", true)
+    helpers.assert_str_contains_pattern_with_replicaset_id(err.err, "Failed for [replicaset_id]")
     t.assert_str_contains(err.err, "Function non_existent_func is not registered")
 end
 
@@ -178,7 +178,7 @@ pgroup.test_timeout = function(g)
     ]], {timeout + 0.1, timeout})
 
     t.assert_equals(results, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-00000000000%d", true)
+    helpers.assert_str_contains_pattern_with_replicaset_id(err.err, "Failed for [replicaset_id]")
     helpers.assert_timeout_error(err.err)
 end
 
@@ -316,6 +316,6 @@ pgroup.test_any_vshard_call_timeout = function(g)
     ]], {timeout + 0.1, timeout})
 
     t.assert_equals(results, nil)
-    t.assert_str_contains(err.err, "Failed for %w+%-0000%-0000%-0000%-00000000000%d", true)
+    helpers.assert_str_contains_pattern_with_replicaset_id(err.err, "Failed for [replicaset_id]")
     helpers.assert_timeout_error(err.err)
 end

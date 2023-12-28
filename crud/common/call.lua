@@ -40,13 +40,13 @@ function call.get_vshard_call_name(mode, prefer_replica, balance)
     return 'callbre'
 end
 
-local function wrap_vshard_err(vshard_router, err, func_name, replicaset_uuid, bucket_id)
+local function wrap_vshard_err(vshard_router, err, func_name, replicaset_id, bucket_id)
     -- Do not rewrite ShardingHashMismatchError class.
     if err.class_name == sharding_utils.ShardingHashMismatchError.name then
         return errors.wrap(err)
     end
 
-    if replicaset_uuid == nil then
+    if replicaset_id == nil then
         local replicaset, _ = vshard_router:route(bucket_id)
         if replicaset == nil then
             return CallError:new(
@@ -54,14 +54,20 @@ local function wrap_vshard_err(vshard_router, err, func_name, replicaset_uuid, b
             )
         end
 
-        replicaset_uuid = replicaset.uuid
+        replicaset_id = utils.get_replicaset_id(vshard_router, replicaset)
+
+        if replicaset_id == nil then
+            return CallError:new(
+                "Function returned an error, but we couldn't figure out the replicaset id: %s", err
+            )
+        end
     end
 
-    err = utils.update_storage_call_error_description(err, func_name, replicaset_uuid)
+    err = utils.update_storage_call_error_description(err, func_name, replicaset_id)
     err = errors.wrap(err)
 
     return CallError:new(utils.format_replicaset_error(
-        replicaset_uuid, "Function returned an error: %s", err
+        replicaset_id, "Function returned an error: %s", err
     ))
 end
 
@@ -104,13 +110,13 @@ function call.map(vshard_router, func_name, func_args, opts)
     local futures_by_replicasets = {}
     local call_opts = {is_async = true}
     while iter:has_next() do
-        local args, replicaset = iter:get()
+        local args, replicaset, replicaset_id = iter:get()
         local future = replicaset[vshard_call_name](replicaset, func_name, args, call_opts)
-        futures_by_replicasets[replicaset.uuid] = future
+        futures_by_replicasets[replicaset_id] = future
     end
 
     local deadline = fiber_clock() + timeout
-    for replicaset_uuid, future in pairs(futures_by_replicasets) do
+    for replicaset_id, future in pairs(futures_by_replicasets) do
         local wait_timeout = deadline - fiber_clock()
         if wait_timeout < 0 then
             wait_timeout = 0
@@ -119,14 +125,14 @@ function call.map(vshard_router, func_name, func_args, opts)
         local result, err = future:wait_result(wait_timeout)
 
         local result_info = {
-            key = replicaset_uuid,
+            key = replicaset_id,
             value = result,
         }
 
         local err_info = {
             err_wrapper = wrap_vshard_err,
             err = err,
-            wrapper_args = {func_name, replicaset_uuid},
+            wrapper_args = {func_name, replicaset_id},
         }
 
         local early_exit = postprocessor:collect(result_info, err_info)
@@ -179,13 +185,13 @@ function call.any(vshard_router, func_name, func_args, opts)
     if replicasets == nil then
         return nil, CallError:new("Failed to get router replicasets: %s", err.err)
     end
-    local replicaset = select(2, next(replicasets))
+    local replicaset_id, replicaset = next(replicasets)
 
     local res, err = replicaset:call(func_name, func_args, {
         timeout = timeout,
     })
     if err ~= nil then
-        return nil, wrap_vshard_err(vshard_router, err, func_name, replicaset.uuid)
+        return nil, wrap_vshard_err(vshard_router, err, func_name, replicaset_id)
     end
 
     if res == box.NULL then

@@ -66,11 +66,13 @@ end
 --
 -- @return[1] table func_args
 -- @return[2] table replicaset
+-- @return[3] string replicaset_id
 function BaseIterator:get()
+    local replicaset_id = self.next_index
     local replicaset = self.next_replicaset
     self.next_index, self.next_replicaset = next(self.replicasets, self.next_index)
 
-    return self.func_args, replicaset
+    return self.func_args, replicaset, replicaset_id
 end
 
 return BaseIterator

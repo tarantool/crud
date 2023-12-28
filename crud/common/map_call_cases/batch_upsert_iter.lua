@@ -48,7 +48,7 @@ function BatchUpsertIterator:new(opts)
         return nil, SplitTuplesError:new("Failed to split tuples by replicaset: %s", err.err)
     end
 
-    local next_replicaset, next_batch = next(sharding_data.batches)
+    local next_index, next_batch = next(sharding_data.batches)
 
     local execute_on_storage_opts = opts.execute_on_storage_opts
     execute_on_storage_opts.sharding_func_hash = sharding_data.sharding_func_hash
@@ -59,7 +59,7 @@ function BatchUpsertIterator:new(opts)
         space_name = opts.space.name,
         opts = execute_on_storage_opts,
         batches_by_replicasets = sharding_data.batches,
-        next_index = next_replicaset,
+        next_index = next_index,
         next_batch = next_batch,
     }
 
@@ -75,8 +75,10 @@ end
 --
 -- @return[1] table func_args
 -- @return[2] table replicaset
+-- @return[3] string replicaset_id
 function BatchUpsertIterator:get()
-    local replicaset = self.next_index
+    local replicaset_id = self.next_index
+    local replicaset = self.next_batch.replicaset
     local func_args = {
         self.space_name,
         self.next_batch.tuples,
@@ -86,7 +88,7 @@ function BatchUpsertIterator:get()
 
     self.next_index, self.next_batch = next(self.batches_by_replicasets, self.next_index)
 
-    return func_args, replicaset
+    return func_args, replicaset, replicaset_id
 end
 
 return BatchUpsertIterator

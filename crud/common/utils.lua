@@ -101,30 +101,31 @@ function utils.table_count(table)
     return cnt
 end
 
-function utils.format_replicaset_error(replicaset_uuid, msg, ...)
+function utils.format_replicaset_error(replicaset_id, msg, ...)
     dev_checks("string", "string")
 
     return string.format(
         "Failed for %s: %s",
-        replicaset_uuid,
+        replicaset_id,
         string.format(msg, ...)
     )
 end
 
-local function get_replicaset_by_replica_uuid(replicasets, uuid)
-    for _, replicaset in pairs(replicasets) do
-        for _, replica in pairs(replicaset.replicas) do
-            if replica.uuid == uuid then
-                return replicaset
+local function get_replicaset_by_replica_id(replicasets, id)
+    for replicaset_id, replicaset in pairs(replicasets) do
+        for replica_id, _ in pairs(replicaset.replicas) do
+            if replica_id == id then
+                return replicaset_id, replicaset
             end
         end
     end
 
-    return nil
+    return nil, nil
 end
 
-function utils.get_spaces(vshard_router, timeout, replica_uuid)
-    local replicasets, replicaset
+function utils.get_spaces(vshard_router, timeout, replica_id)
+    local replicasets, replicaset, replicaset_id
+
     timeout = timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
     local deadline = fiber.clock() + timeout
     while (
@@ -135,15 +136,15 @@ function utils.get_spaces(vshard_router, timeout, replica_uuid)
         -- Try to get master with timeout.
         fiber.yield()
         replicasets = vshard_router:routeall()
-        if replica_uuid ~= nil then
+        if replica_id ~= nil then
             -- Get the same replica on which the last DML operation was performed.
             -- This approach is temporary and is related to [1], [2].
             -- [1] https://github.com/tarantool/crud/issues/236
             -- [2] https://github.com/tarantool/crud/issues/361
-            replicaset = get_replicaset_by_replica_uuid(replicasets, replica_uuid)
+            replicaset_id, replicaset = get_replicaset_by_replica_id(replicasets, replica_id)
             break
         else
-            replicaset = select(2, next(replicasets))
+            replicaset_id, replicaset = next(replicasets)
         end
         if replicaset ~= nil and
            replicaset.master ~= nil and
@@ -162,22 +163,22 @@ function utils.get_spaces(vshard_router, timeout, replica_uuid)
         local error_msg = string.format(
             'The master was not found in replicaset %s, ' ..
             'check status of the master and repeat the operation later',
-             replicaset.uuid)
+             replicaset_id)
         return nil, GetSpaceError:new(error_msg)
     end
 
     if replicaset.master.conn.error ~= nil then
         local error_msg = string.format(
             'The connection to the master of replicaset %s is not valid: %s',
-             replicaset.uuid, replicaset.master.conn.error)
+             replicaset_id, replicaset.master.conn.error)
         return nil, GetSpaceError:new(error_msg)
     end
 
     return replicaset.master.conn.space, nil, replicaset.master.conn.schema_version
 end
 
-function utils.get_space(space_name, vshard_router, timeout, replica_uuid)
-    local spaces, err, schema_version = utils.get_spaces(vshard_router, timeout, replica_uuid)
+function utils.get_space(space_name, vshard_router, timeout, replica_id)
+    local spaces, err, schema_version = utils.get_spaces(vshard_router, timeout, replica_id)
 
     if spaces == nil then
         return nil, err
@@ -208,20 +209,30 @@ function utils.fetch_latest_metadata_when_single_storage(space, space_name, netb
     -- [1] https://github.com/tarantool/crud/issues/236
     -- [2] https://github.com/tarantool/crud/issues/361
     local latest_space, err
+
     assert(storage_info.replica_schema_version ~= nil,
            'check the replica_schema_version value from storage ' ..
            'for correct use of the fetch_latest_metadata opt')
-    assert(storage_info.replica_uuid ~= nil,
-           'check the replica_uuid value from storage ' ..
-           'for correct use of the fetch_latest_metadata opt')
+
+    local replica_id
+    if storage_info.replica_id == nil then -- Backward compatibility.
+        assert(storage_info.replica_uuid ~= nil,
+               'check the replica_uuid value from storage ' ..
+               'for correct use of the fetch_latest_metadata opt')
+        replica_id = storage_info.replica_uuid
+    else
+        replica_id = storage_info.replica_id
+    end
+
     assert(netbox_schema_version ~= nil,
            'check the netbox_schema_version value from net_box conn on router ' ..
            'for correct use of the fetch_latest_metadata opt')
+
     if storage_info.replica_schema_version ~= netbox_schema_version then
         local ok, reload_schema_err = schema.reload_schema(vshard_router)
         if ok then
             latest_space, err = utils.get_space(space_name, vshard_router,
-                                                opts.timeout, storage_info.replica_uuid)
+                                                opts.timeout, replica_id)
             if err ~= nil then
                 local warn_msg = "Failed to fetch space for latest schema actualization, metadata may be outdated: %s"
                 log.warn(warn_msg, err)
@@ -1053,7 +1064,7 @@ function utils.check_name_isident(name)
     return true
 end
 
-function utils.update_storage_call_error_description(err, func_name, replicaset_uuid)
+function utils.update_storage_call_error_description(err, func_name, replicaset_id)
     if err == nil then
         return nil
     end
@@ -1067,7 +1078,7 @@ function utils.update_storage_call_error_description(err, func_name, replicaset_
                 err = NotInitializedError:new("Function %s is not registered: " ..
                     "crud isn't initialized on replicaset %q or crud module versions mismatch " ..
                     "between router and storage",
-                    func_name, replicaset_uuid or "Unknown")
+                    func_name, replicaset_id or "Unknown")
             else
                 err = NotInitializedError:new("Function %s is not registered", func_name)
             end
@@ -1123,7 +1134,7 @@ end
 -- @tparam ?string|table opts.vshard_router
 --  Cartridge vshard group name or vshard router instance.
 --
--- @return a table of storage states by replica uuid.
+-- @return a table of storage states by replica id.
 function utils.storage_info(opts)
     opts = opts or {}
 
@@ -1138,35 +1149,35 @@ function utils.storage_info(opts)
     end
 
     local futures_by_replicas = {}
-    local replica_state_by_uuid = {}
+    local replica_state_by_id = {}
     local async_opts = {is_async = true}
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
 
     for _, replicaset in pairs(replicasets) do
-        for _, replica in pairs(replicaset.replicas) do
-            replica_state_by_uuid[replica.uuid] = {
+        for replica_id, replica in pairs(replicaset.replicas) do
+            replica_state_by_id[replica_id] = {
                 status = "error",
                 is_master = replicaset.master == replica
             }
             local ok, res = pcall(replica.conn.call, replica.conn, CRUD_STORAGE_INFO_FUNC_NAME,
                                   {}, async_opts)
             if ok then
-                futures_by_replicas[replica.uuid] = res
+                futures_by_replicas[replica_id] = res
             else
-                local err_msg = string.format("Error getting storage info for %s", replica.uuid)
+                local err_msg = string.format("Error getting storage info for %s", replica_id)
                 if res ~= nil then
                     log.error("%s: %s", err_msg, res)
-                    replica_state_by_uuid[replica.uuid].message = tostring(res)
+                    replica_state_by_id[replica_id].message = tostring(res)
                 else
                     log.error(err_msg)
-                    replica_state_by_uuid[replica.uuid].message = err_msg
+                    replica_state_by_id[replica_id].message = err_msg
                 end
             end
         end
     end
 
     local deadline = fiber.clock() + timeout
-    for replica_uuid, future in pairs(futures_by_replicas) do
+    for replica_id, future in pairs(futures_by_replicas) do
         local wait_timeout = deadline - fiber.clock()
         if wait_timeout < 0 then
             wait_timeout = 0
@@ -1175,24 +1186,24 @@ function utils.storage_info(opts)
         local result, err = future:wait_result(wait_timeout)
         if result == nil then
             future:discard()
-            local err_msg = string.format("Error getting storage info for %s", replica_uuid)
+            local err_msg = string.format("Error getting storage info for %s", replica_id)
             if err ~= nil then
                 if err.type == 'ClientError' and err.code == box.error.NO_SUCH_PROC then
-                    replica_state_by_uuid[replica_uuid].status = "uninitialized"
+                    replica_state_by_id[replica_id].status = "uninitialized"
                 else
                     log.error("%s: %s", err_msg, err)
-                    replica_state_by_uuid[replica_uuid].message = tostring(err)
+                    replica_state_by_id[replica_id].message = tostring(err)
                 end
             else
                 log.error(err_msg)
-                replica_state_by_uuid[replica_uuid].message = err_msg
+                replica_state_by_id[replica_id].message = err_msg
             end
         else
-            replica_state_by_uuid[replica_uuid].status = result[1].status or "uninitialized"
+            replica_state_by_id[replica_id].status = result[1].status or "uninitialized"
         end
     end
 
-    return replica_state_by_uuid
+    return replica_state_by_id
 end
 
 --- Storage status information.
@@ -1314,29 +1325,8 @@ function utils.is_cartridge_hotreload_supported()
     return true, cartridge_hotreload
 end
 
-function utils.get_self_vshard_replicaset()
-    local box_info = box.info()
-
-    local ok, storage_info = pcall(vshard.storage.info)
-    assert(ok, 'vshard.storage.cfg() must be called first')
-
-    local replicaset_uuid
-    if box_info.replicaset ~= nil then
-        replicaset_uuid = box_info.replicaset.uuid
-    else
-        replicaset_uuid = box_info.cluster.uuid
-    end
-
-    local replicaset
-    -- Identification key may be name since vshard 0.1.25.
-    -- See also https://github.com/tarantool/vshard/issues/460.
-    for _, v in pairs(storage_info.replicasets) do
-        if v.uuid == replicaset_uuid then
-            replicaset = v
-        end
-    end
-
-    return replicaset_uuid, replicaset
+for k, v in pairs(require('crud.common.vshard_utils')) do
+    utils[k] = v
 end
 
 return utils

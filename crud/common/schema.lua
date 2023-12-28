@@ -8,6 +8,7 @@ local ReloadSchemaError = errors.new_class('ReloadSchemaError', {capture_stack =
 
 local const = require('crud.common.const')
 local dev_checks = require('crud.common.dev_checks')
+local utils = require('crud.common.vshard_utils')
 
 local schema = {}
 
@@ -234,7 +235,8 @@ function schema.wrap_func_result(space, func, args, opts)
             replica_schema_version = box.internal.schema_version()
         end
         result.storage_info = {
-            replica_uuid = box.info().uuid,
+            replica_uuid = box.info().uuid, -- Backward compatibility.
+            replica_id = utils.get_self_vshard_replica_id(), -- Replacement for replica_uuid.
             replica_schema_version = replica_schema_version,
         }
     end

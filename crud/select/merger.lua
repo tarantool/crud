@@ -244,44 +244,62 @@ local function new(vshard_router, replicasets, space, index_id, func_name, func_
 end
 
 
-local function new_readview(vshard_router, replicasets, readview_uuid, space, index_id, func_name, func_args, opts)
+local function new_readview(vshard_router, replicasets, readview_info, space, index_id, func_name, func_args, opts)
     opts = opts or {}
     local call_opts = opts.call_opts
 
     -- Request a first data chunk and create merger sources.
     local merger_sources = {}
-    for _, replicaset in pairs(replicasets) do
-        for replica_uuid, replica in pairs(replicaset.replicas) do
-            for _, value in pairs(readview_uuid) do
-                if replica_uuid == value.uuid then
-                    -- Perform a request.
-                    local buf = buffer.ibuf()
-                    local net_box_opts = {is_async = true, buffer = buf,
-                                          skip_header = utils.tarantool_supports_netbox_skip_header_option() or nil}
-                    func_args[4].readview_id = value.id
-                    local future = replica.conn:call(func_name, func_args, net_box_opts)
+    for replicaset_id, replicaset in pairs(replicasets) do
+        local replicaset_info = readview_info[replicaset_id]
 
-                    -- Create a source.
-                    local context = {
-                        net_box_opts = net_box_opts,
-                        buffer = buf,
-                        func_name = func_name,
-                        func_args = func_args,
-                        replicaset = replicaset,
-                        vshard_call_name = nil,
-                        timeout = call_opts.timeout,
-                        fetch_latest_metadata = call_opts.fetch_latest_metadata,
-                        space_name = space.name,
-                        vshard_router = vshard_router,
-                        readview = true,
-                        future_replica = replica
-                    }
-                    local state = {future = future}
-                    local source = merger_lib.new_buffer_source(fetch_chunk, context, state)
-                    table.insert(merger_sources, source)
-                end
-            end
+        if replicaset_info == nil then
+            goto next_replicaset
         end
+
+        for replica_id, replica in pairs(replicaset.replicas) do
+            local found = false
+
+            if replicaset_info.replica_id == replica_id then
+                found = true
+            elseif replicaset_info.uuid == replica.uuid then -- Backward compatibility.
+                found = true
+            end
+
+            if not found then
+                goto next_replica
+            end
+
+            -- Perform a request.
+            local buf = buffer.ibuf()
+            local net_box_opts = {is_async = true, buffer = buf,
+                                  skip_header = utils.tarantool_supports_netbox_skip_header_option() or nil}
+            func_args[4].readview_id = replicaset_info.id
+            local future = replica.conn:call(func_name, func_args, net_box_opts)
+
+            -- Create a source.
+            local context = {
+                net_box_opts = net_box_opts,
+                buffer = buf,
+                func_name = func_name,
+                func_args = func_args,
+                replicaset = replicaset,
+                vshard_call_name = nil,
+                timeout = call_opts.timeout,
+                fetch_latest_metadata = call_opts.fetch_latest_metadata,
+                space_name = space.name,
+                vshard_router = vshard_router,
+                readview = true,
+                future_replica = replica
+            }
+            local state = {future = future}
+            local source = merger_lib.new_buffer_source(fetch_chunk, context, state)
+            table.insert(merger_sources, source)
+
+            ::next_replica::
+        end
+
+        ::next_replicaset::
     end
 
     -- Trick for performance.
