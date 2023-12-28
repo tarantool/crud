@@ -41,8 +41,7 @@ jobs:
           - tarantool-version: "2.11"
             external-merger-version: "0.0.5"
             external-keydef-version: "0.0.4"
-          - tarantool-version: "master"
-            metrics-version: "1.0.0"
+          - tarantool-version: "3.0.0"
             vshard-version: "0.1.25"
       fail-fast: false
     # Can't install older versions on 22.04,
@@ -51,8 +50,8 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
-      - name: Setup Tarantool CE
-        if: matrix.tarantool-version != 'master'
+      - name: Setup Tarantool CE (1.x, 2.x)
+        if: ${{ startsWith( matrix.tarantool-version, '1.' ) || startsWith( matrix.tarantool-version, '2.' ) }}
         uses: tarantool/setup-tarantool@v2
         with:
           tarantool-version: ${{ matrix.tarantool-version }}
@@ -62,6 +61,20 @@ jobs:
           curl -L https://tarantool.io/release/2/installer.sh | sudo bash
           sudo apt install -y tt
           tt version
+
+      - name: Cache Tarantool 3.x
+        if: ${{ startsWith( matrix.tarantool-version, '3.' ) }}
+        id: cache-v3
+        uses: actions/cache@v3
+        with:
+          path: "${GITHUB_WORKSPACE}/bin"
+          key: cache-${{ matrix.tarantool-version }}
+
+      - name: Setup Tarantool CE (3.x)
+        if: ${{ startsWith( matrix.tarantool-version, '3.' ) && steps.cache-latest.outputs.cache-hit != 'true' }}
+        run: |
+          tt init
+          tt install tarantool ${{ matrix.tarantool-version }}
 
       - name: Get Tarantool master latest commit
         if: matrix.tarantool-version == 'master'
@@ -78,14 +91,14 @@ jobs:
           path: "${GITHUB_WORKSPACE}/bin"
           key: cache-latest-${{ env.LATEST_COMMIT }}
 
-      - name: Setup Tarantool master
+      - name: Setup Tarantool CE (master)
         if: matrix.tarantool-version == 'master' && steps.cache-latest.outputs.cache-hit != 'true'
         run: |
           tt init
           tt install tarantool master
 
-      - name: Add Tarantool master to PATH
-        if: matrix.tarantool-version == 'master'
+      - name: Add tt Tarantool to PATH
+        if: ${{ startsWith( matrix.tarantool-version, '3.' ) || matrix.tarantool-version == 'master' }}
         run: echo "${GITHUB_WORKSPACE}/bin" >> $GITHUB_PATH
 
       - name: Fix luarocks in Tarantool CE 1.10.6
@@ -139,16 +152,15 @@ jobs:
         metrics-version: ["1.0.0"]
         cartridge-version: ["2.8.0"]
         include:
-          - tarantool-version: "master"
-            metrics-version: "1.0.0"
+          - tarantool-version: "3.0.0"
             vshard-version: "0.1.25"
       fail-fast: false
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@master
 
-      - name: Setup Tarantool CE
-        if: matrix.tarantool-version != 'master'
+      - name: Setup Tarantool CE (1.x, 2.x)
+        if: ${{ startsWith( matrix.tarantool-version, '1.' ) || startsWith( matrix.tarantool-version, '2.' ) }}
         uses: tarantool/setup-tarantool@v2
         with:
           tarantool-version: ${{ matrix.tarantool-version }}
@@ -158,6 +170,20 @@ jobs:
           curl -L https://tarantool.io/release/2/installer.sh | sudo bash
           sudo apt install -y tt
           tt version
+
+      - name: Cache Tarantool 3.x
+        if: ${{ startsWith( matrix.tarantool-version, '3.' ) }}
+        id: cache-v3
+        uses: actions/cache@v3
+        with:
+          path: "${GITHUB_WORKSPACE}/bin"
+          key: cache-${{ matrix.tarantool-version }}
+
+      - name: Setup Tarantool CE (3.x)
+        if: ${{ startsWith( matrix.tarantool-version, '3.' ) && steps.cache-latest.outputs.cache-hit != 'true' }}
+        run: |
+          tt init
+          tt install tarantool ${{ matrix.tarantool-version }}
 
       - name: Get Tarantool master latest commit
         if: matrix.tarantool-version == 'master'
@@ -174,14 +200,14 @@ jobs:
           path: "${GITHUB_WORKSPACE}/bin"
           key: cache-latest-${{ env.LATEST_COMMIT }}
 
-      - name: Setup Tarantool master
+      - name: Setup Tarantool CE (master)
         if: matrix.tarantool-version == 'master' && steps.cache-latest.outputs.cache-hit != 'true'
         run: |
           tt init
           tt install tarantool master
 
-      - name: Add Tarantool master to PATH
-        if: matrix.tarantool-version == 'master'
+      - name: Add tt Tarantool to PATH
+        if: ${{ startsWith( matrix.tarantool-version, '3.' ) || matrix.tarantool-version == 'master' }}
         run: echo "${GITHUB_WORKSPACE}/bin" >> $GITHUB_PATH
 
       - name: Install requirements for community
@@ -216,6 +242,12 @@ jobs:
             bundle: "tarantool-enterprise-sdk-nogc64-2.11.0-0-r563.linux.x86_64"
         metrics-version: ["", "1.0.0"]
         cartridge-version: ["2.8.0"]
+        include:
+          - tarantool-version:
+              folder: "3.0"
+              bundle: "tarantool-enterprise-sdk-gc64-3.0.0-0-gf58f7d82a-r23.linux.x86_64"
+            vshard-version: "0.1.25"
+
       fail-fast: false
     runs-on: ubuntu-20.04
     steps:
