@@ -662,7 +662,8 @@ pgroup_key_change.test_pairs = function(g)
         pairs_eval,
         {
             'customers',
-            {{'==', 'id', 1}, {'==', 'name', 'Emma'}, {'==', 'age', 22}}
+            {{'==', 'id', 1}, {'==', 'name', 'Emma'}, {'==', 'age', 22}},
+            {mode = 'write'},
         })
 
     -- Assert operation bucket_id is computed based on updated ddl info.
@@ -671,6 +672,7 @@ pgroup_key_change.test_pairs = function(g)
         {
             'customers',
             {{'==', 'id', 1}, {'==', 'name', 'Emma'}, {'==', 'age', 22}},
+            {mode = 'write'},
         })
     t.assert_equals(err, nil)
     t.assert_equals(obj, {test_customers_age_tuple})
@@ -881,12 +883,12 @@ pgroup_func_change.test_pairs = function(g)
         g.cluster.main_server.net_box.eval,
         g.cluster.main_server.net_box,
         pairs_eval,
-        {'customers_pk', {{'==', 'id', 1}}})
+        {'customers_pk', {{'==', 'id', 1}}, {mode = 'write'}})
 
     -- Assert operation bucket_id is computed based on updated ddl info.
     local obj, err = g.cluster.main_server.net_box:eval(
         pairs_eval,
-        {'customers_pk', {{'==', 'id', 1}}})
+        {'customers_pk', {{'==', 'id', 1}}, {mode = 'write'}})
     t.assert_equals(err, nil)
     t.assert_equals(obj, {test_customers_pk_func_tuple})
 end
