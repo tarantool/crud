@@ -94,8 +94,8 @@ end
 
 local function select_readview_on_storage(space_name, index_id, conditions, opts)
     dev_checks('string', 'number', '?table', {
-        scan_value = 'table',
-        after_tuple = '?table',
+        scan_value = 'table|cdata',
+        after_tuple = '?table|cdata',
         tarantool_iter = 'number',
         limit = 'number',
         scan_condition_num = '?number',
