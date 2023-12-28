@@ -217,7 +217,7 @@ function Server:replicaset_name()
         return nil
     end)
 
-    self.replicaset_uuid_value = name
+    self.replicaset_name_value = name
     return name
 end
 
