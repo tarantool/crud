@@ -25,6 +25,10 @@ pgroup.before_each(function(g)
     g.cluster.main_server.net_box:eval([[
         local vshard = require('vshard')
         for _, replicaset in pairs(vshard.router.routeall()) do
+            if replicaset.locate_master ~= nil then
+                replicaset:locate_master()
+            end
+
             local master = replicaset.master
 
             if not master.conn:ping({timeout = 3}) then

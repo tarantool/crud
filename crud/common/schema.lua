@@ -21,7 +21,8 @@ local function table_len(t)
 end
 
 local function call_reload_schema_on_replicaset(replicaset, channel)
-    replicaset.master.conn:reload_schema()
+    local master = utils.get_replicaset_master(replicaset, {cached = false})
+    master.conn:reload_schema()
     channel:put(true)
 end
 

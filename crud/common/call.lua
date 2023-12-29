@@ -71,6 +71,25 @@ local function wrap_vshard_err(vshard_router, err, func_name, replicaset_id, buc
     ))
 end
 
+local function retry_call_with_master_discovery(replicaset, method, ...)
+    -- In case cluster was just bootstrapped with auto master discovery,
+    -- replicaset may miss master.
+
+    local resp, err = replicaset[method](replicaset, ...)
+
+    if err == nil then
+        return resp, err
+    end
+
+    if err.name == 'MISSING_MASTER' and replicaset.locate_master ~= nil then
+        replicaset:locate_master()
+    end
+
+    -- Retry only once: should be enough for initial discovery,
+    -- otherwise force user fix up cluster bootstrap.
+    return replicaset[method](replicaset, ...)
+end
+
 function call.map(vshard_router, func_name, func_args, opts)
     dev_checks('table', 'string', '?table', {
         mode = 'string',
@@ -111,7 +130,27 @@ function call.map(vshard_router, func_name, func_args, opts)
     local call_opts = {is_async = true}
     while iter:has_next() do
         local args, replicaset, replicaset_id = iter:get()
-        local future = replicaset[vshard_call_name](replicaset, func_name, args, call_opts)
+
+        local future, err = retry_call_with_master_discovery(replicaset, vshard_call_name,
+            func_name, args, call_opts)
+
+        if err ~= nil then
+            local result_info = {
+                key = replicaset_id,
+                value = nil,
+            }
+
+            local err_info = {
+                err_wrapper = wrap_vshard_err,
+                err = err,
+                wrapper_args = {func_name, replicaset_id},
+            }
+
+            -- Enforce early exit on futures build fail.
+            postprocessor:collect(result_info, err_info)
+            return postprocessor:get()
+        end
+
         futures_by_replicasets[replicaset_id] = future
     end
 
@@ -157,12 +196,15 @@ function call.single(vshard_router, bucket_id, func_name, func_args, opts)
         return nil, err
     end
 
+    local replicaset, err = vshard_router:route(bucket_id)
+    if err ~= nil then
+        return nil, CallError:new("Failed to get router replicaset: %s", err.err)
+    end
+
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
 
-    local res, err = vshard_router[vshard_call_name](vshard_router, bucket_id, func_name, func_args, {
-        timeout = timeout,
-    })
-
+    local res, err = retry_call_with_master_discovery(replicaset, vshard_call_name,
+        func_name, func_args, {timeout = timeout})
     if err ~= nil then
         return nil, wrap_vshard_err(vshard_router, err, func_name, nil, bucket_id)
     end
@@ -187,9 +229,8 @@ function call.any(vshard_router, func_name, func_args, opts)
     end
     local replicaset_id, replicaset = next(replicasets)
 
-    local res, err = replicaset:call(func_name, func_args, {
-        timeout = timeout,
-    })
+    local res, err = retry_call_with_master_discovery(replicaset, 'call',
+        func_name, func_args, {timeout = timeout})
     if err ~= nil then
         return nil, wrap_vshard_err(vshard_router, err, func_name, replicaset_id)
     end

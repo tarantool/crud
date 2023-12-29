@@ -771,6 +771,61 @@ function helpers.is_name_supported_as_vshard_id()
     return is_vshard_supports and is_tarantool_supports
 end
 
+function helpers.is_master_discovery_supported_in_vshard()
+    local vshard_version = helpers.parse_module_version(require('vshard')._VERSION)
+    local is_vshard_supports = luatest_utils.version_ge(vshard_version,
+        luatest_utils.version(0, 1, 25))
+
+    local tarantool_version = luatest_utils.get_tarantool_version()
+    local is_tarantool_supports = luatest_utils.version_ge(tarantool_version,
+        luatest_utils.version(3, 0, 0))
+    return is_vshard_supports and is_tarantool_supports
+end
+
+function helpers.remove_array_keys(arr, keys)
+    local ascending_keys = table.deepcopy(keys)
+    table.sort(ascending_keys)
+
+    for i = #ascending_keys, 1, -1 do
+        local key = ascending_keys[i]
+        table.remove(arr, key)
+    end
+
+    return arr
+end
+
+function helpers.extend_vshard_matrix(backend_params, backend_cfg_key, backend_cfg_vals, opts)
+    assert(type(opts) == 'table')
+    assert(opts.mode == 'replace' or opts.mode == 'extend')
+
+    local old_vshard_backend_keys = {}
+    local old_vshard_backends = {}
+
+    for k, v in ipairs(backend_params) do
+        if v.backend == helpers.backend.VSHARD then
+            table.insert(old_vshard_backend_keys, k)
+            table.insert(old_vshard_backends, v)
+        end
+    end
+
+    if opts.mode == 'replace' then
+        helpers.remove_array_keys(backend_params, old_vshard_backend_keys)
+    end
+
+    for _, v in ipairs(old_vshard_backends) do
+        for _, cfg_v in ipairs(backend_cfg_vals) do
+            local new_v = table.deepcopy(v)
+
+            new_v.backend_cfg = new_v.backend_cfg or {}
+            new_v.backend_cfg[backend_cfg_key] = cfg_v
+
+            table.insert(backend_params, new_v)
+        end
+    end
+
+    return backend_params
+end
+
 function helpers.backend_matrix(base_matrix)
     base_matrix = base_matrix or {{}}
     local backend_params = {
@@ -778,22 +833,28 @@ function helpers.backend_matrix(base_matrix)
             backend = helpers.backend.CARTRIDGE,
             backend_cfg = nil,
         },
+        {
+            backend = helpers.backend.VSHARD,
+            backend_cfg = nil,
+        },
     }
 
     if helpers.is_name_supported_as_vshard_id() then
-        table.insert(backend_params, {
-            backend = helpers.backend.VSHARD,
-            backend_cfg = {identification_mode = 'uuid_as_key'},
-        })
-        table.insert(backend_params, {
-            backend = helpers.backend.VSHARD,
-            backend_cfg = {identification_mode = 'name_as_key'},
-        })
-    else
-        table.insert(backend_params, {
-            backend = helpers.backend.VSHARD,
-            backend_cfg = nil,
-        })
+        backend_params = helpers.extend_vshard_matrix(
+            backend_params,
+            'identification_mode',
+            {'uuid_as_key', 'name_as_key'},
+            {mode = 'replace'}
+        )
+    end
+
+    if helpers.is_master_discovery_supported_in_vshard() then
+        backend_params = helpers.extend_vshard_matrix(
+            backend_params,
+            'master',
+            {'auto'},
+            {mode = 'extend'}
+        )
     end
 
     local matrix = {}

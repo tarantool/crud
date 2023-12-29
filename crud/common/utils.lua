@@ -124,17 +124,17 @@ local function get_replicaset_by_replica_id(replicasets, id)
 end
 
 function utils.get_spaces(vshard_router, timeout, replica_id)
-    local replicasets, replicaset, replicaset_id
+    local replicasets, replicaset, replicaset_id, master
 
     timeout = timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
     local deadline = fiber.clock() + timeout
+    local iter_sleep = math.min(timeout / 100, 0.1)
     while (
         -- Break if the deadline condition is exceeded.
         -- Handling for deadline errors are below in the code.
         fiber.clock() < deadline
     ) do
         -- Try to get master with timeout.
-        fiber.yield()
         replicasets = vshard_router:routeall()
         if replica_id ~= nil then
             -- Get the same replica on which the last DML operation was performed.
@@ -146,11 +146,16 @@ function utils.get_spaces(vshard_router, timeout, replica_id)
         else
             replicaset_id, replicaset = next(replicasets)
         end
-        if replicaset ~= nil and
-           replicaset.master ~= nil and
-           replicaset.master.conn.error == nil then
-            break
+
+        if replicaset ~= nil then
+            -- Get cached, reload (if required) will be processed in other place.
+            master = utils.get_replicaset_master(replicaset, {cached = true})
+            if master ~= nil and master.conn.error == nil then
+                break
+            end
         end
+
+        fiber.sleep(iter_sleep)
     end
 
     if replicaset == nil then
@@ -159,7 +164,9 @@ function utils.get_spaces(vshard_router, timeout, replica_id)
             'perhaps other instances are unavailable or you have configured only the router')
     end
 
-    if replicaset.master == nil then
+    master = utils.get_replicaset_master(replicaset, {cached = true})
+
+    if master == nil then
         local error_msg = string.format(
             'The master was not found in replicaset %s, ' ..
             'check status of the master and repeat the operation later',
@@ -167,14 +174,14 @@ function utils.get_spaces(vshard_router, timeout, replica_id)
         return nil, GetSpaceError:new(error_msg)
     end
 
-    if replicaset.master.conn.error ~= nil then
+    if master.conn.error ~= nil then
         local error_msg = string.format(
             'The connection to the master of replicaset %s is not valid: %s',
-             replicaset_id, replicaset.master.conn.error)
+             replicaset_id, master.conn.error)
         return nil, GetSpaceError:new(error_msg)
     end
 
-    return replicaset.master.conn.space, nil, replicaset.master.conn.schema_version
+    return master.conn.space, nil, master.conn.schema_version
 end
 
 function utils.get_space(space_name, vshard_router, timeout, replica_id)
@@ -1155,10 +1162,13 @@ function utils.storage_info(opts)
 
     for _, replicaset in pairs(replicasets) do
         for replica_id, replica in pairs(replicaset.replicas) do
+            local master = utils.get_replicaset_master(replicaset, {cached = false})
+
             replica_state_by_id[replica_id] = {
                 status = "error",
-                is_master = replicaset.master == replica
+                is_master = master == replica
             }
+
             local ok, res = pcall(replica.conn.call, replica.conn, CRUD_STORAGE_INFO_FUNC_NAME,
                                   {}, async_opts)
             if ok then
