@@ -97,13 +97,20 @@ local function config_new(templ, additional_cfg)
     -- change.
     res.replication_timeout = 0.1
     res.identification_mode = additional_cfg.identification_mode
+
     for replicaset_name, replicaset_templ in pairs(templ.sharding) do
         local replicaset_uuid = replicaset_name_to_uuid(replicaset_name)
+
         local replicas = {}
+
         local replicaset = table.deepcopy(replicaset_templ)
+
         replicaset.replicas = replicas
         replicaset.is_ssl = nil
+        replicaset.master = additional_cfg.master
+
         local is_ssl = replicaset_templ.is_ssl
+
         for replica_name, replica_templ in pairs(replicaset_templ.replicas) do
             local replica_uuid = replica_name_to_uuid(replica_name)
             if replica_templ.instance_uuid ~= nil then
@@ -147,6 +154,11 @@ local function config_new(templ, additional_cfg)
                         ssl_ca_file = ssl_ca_file,
                     }
                 }
+            end
+
+            if additional_cfg.master == 'auto' then
+                replica.read_only = not replica.master
+                replica.master = nil
             end
 
             if res.identification_mode == 'name_as_key' then
@@ -251,7 +263,14 @@ local function cluster_bootstrap(g, cfg)
         end
 
         for rep_id, rep in pairs(rs.replicas) do
-            if rep.master then
+            local is_master
+            if rep.read_only ~= nil then
+                is_master = not rep.read_only
+            else
+                is_master = rep.master
+            end
+
+            if is_master then
                 t.assert(not is_master_found, 'only one master')
 
                 local rep_name
@@ -379,6 +398,7 @@ local function cluster_new(g, cfg)
     local all_servers = {}
     local masters = {}
     local replicas = {}
+    local master_map = {}
 
     local storage_init = cfg.storage_init
     local router_init = cfg.router_init
@@ -420,8 +440,25 @@ local function cluster_new(g, cfg)
             end
 
             box_cfg.listen = instance_uri(name)
+
             -- Need to specify read-only explicitly to know how is master.
-            box_cfg.read_only = not replica.master
+            local is_master
+            if replica.read_only ~= nil then
+                is_master = not replica.read_only
+            else
+                is_master = replica.master
+            end
+
+            if is_master then
+                local prev_uuid = master_map[replicaset_id]
+                if prev_uuid then
+                    error('On bootstrap each replicaset has to have exactly '..
+                          'one master')
+                end
+                master_map[replicaset_id] = replica_id
+            end
+            box_cfg.read_only = not is_master
+
             box_cfg.memtx_use_mvcc_engine = cfg.memtx_use_mvcc_engine
             local server = g.cluster:build_server({
                 alias = name,
@@ -435,12 +472,12 @@ local function cluster_new(g, cfg)
                 name = name,
                 replicaset = replicaset_id,
                 is_storage = true,
-                master = replica.master,
+                master = is_master,
             }
             g.cluster:add_server(server)
 
             table.insert(all_servers, server)
-            if replica.master then
+            if is_master then
                 table.insert(masters, server)
             else
                 table.insert(replicas, server)

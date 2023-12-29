@@ -59,7 +59,11 @@ function truncate.call(space_name, opts)
         return nil, TruncateError:new(err)
     end
 
-    local replicasets = vshard_router:routeall()
+    local replicasets, err = vshard_router:routeall()
+    if err ~= nil then
+        return nil, TruncateError:new("Failed to get router replicasets: %s", err)
+    end
+
     local _, err = call.map(vshard_router, CRUD_TRUNCATE_FUNC_NAME, {space_name}, {
         mode = 'write',
         replicasets = replicasets,

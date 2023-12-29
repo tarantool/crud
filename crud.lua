@@ -23,8 +23,6 @@ local stats = require('crud.stats')
 local readview = require('crud.readview')
 local schema = require('crud.schema')
 
-local luri = require('uri')
-
 local crud = {}
 
 -- @refer crud.version
@@ -173,15 +171,7 @@ function crud.init_storage()
 
     local user = nil
     if not box.info.ro then
-        local replicaset_key, replicaset = utils.get_self_vshard_replicaset()
-
-        if replicaset == nil or replicaset.master == nil then
-            error(string.format(
-                'Failed to find a vshard configuration ' ..
-                'for storage replicaset with key %q.',
-                replicaset_key))
-        end
-        user = luri.parse(replicaset.master.uri).login or 'guest'
+        user = utils.get_this_replica_user() or 'guest'
     end
 
     if rawget(_G, '_crud') == nil then
