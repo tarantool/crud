@@ -445,7 +445,7 @@ errs[4].operation_data -- {92, 2040, "Artur", 29}
 ### Get
 
 ```lua
-local object, err = crud.get(space_name, key, opts)
+local result, err = crud.get(space_name, key, opts)
 ```
 
 where:
@@ -490,7 +490,7 @@ crud.get('customers', 1)
 ### Update
 
 ```lua
-local object, err = crud.update(space_name, key, operations, opts)
+local result, err = crud.update(space_name, key, operations, opts)
 ```
 
 where:
@@ -533,7 +533,7 @@ crud.update('customers', 1, {{'+', 'age', 1}})
 ### Delete
 
 ```lua
-local object, err = crud.delete(space_name, key, opts)
+local result, err = crud.delete(space_name, key, opts)
 ```
 
 where:
@@ -998,7 +998,7 @@ The recommended first condition is a TREE index; this helps reducing the number
 of tuples to scan. Otherwise a full scan is performed.
 
 ```lua
-local objects, err = crud.select(space_name, conditions, opts)
+local result, err = crud.select(space_name, conditions, opts)
 ```
 
 where:
@@ -1103,8 +1103,8 @@ See more examples of pairs queries [here.](https://github.com/tarantool/crud/blo
 `CRUD` supports operations to get the minimum (maximum) object from the space index
 
 ```lua
-local objects, err = crud.min(space_name, index_id, opts)
-local objects, err = crud.max(space_name, index_id, opts)
+local result, err = crud.min(space_name, index_id, opts)
+local result, err = crud.max(space_name, index_id, opts)
 ```
 
 where:
@@ -1642,7 +1642,7 @@ rv:close({timeout = 3})
 
 ```lua
 local rv = crud.readview()
-local objects, err = rv:select(space_name, conditions, opts)
+local result, err = rv:select(space_name, conditions, opts)
 rv:close()
 ```
 
