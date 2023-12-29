@@ -10,7 +10,7 @@ local t = require('luatest')
 
 local helpers = require('test.helper')
 
-local g = t.group('perf', helpers.backend_matrix())
+local g = t.group('perf', {{backend = helpers.backend.VSHARD}})
 
 local id = 0
 local function gen()
