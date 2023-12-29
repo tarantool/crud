@@ -1,3 +1,6 @@
+---- Module
+-- @module crud.truncate
+--
 local checks = require('checks')
 local errors = require('errors')
 
@@ -29,12 +32,12 @@ end
 
 --- Truncates specified space
 --
--- @function call
+-- @function truncate
 --
--- @param string space_name
+-- @string space_name
 --  A space name
 --
--- @tparam ?number opts.timeout
+-- @number[opt] opts.timeout
 --  Function call timeout
 --
 -- @tparam ?string|table opts.vshard_router

@@ -1,3 +1,6 @@
+---- Module
+-- @module crud.replace
+--
 local checks = require('checks')
 local errors = require('errors')
 
@@ -144,7 +147,7 @@ local function call_replace_on_router(vshard_router, space_name, original_tuple,
     return utils.format_result({tuple}, space, opts.fields)
 end
 
---- Insert or replace a tuple in the specified space
+-- Insert or replace a tuple in the specified space
 --
 -- @function tuple
 --
@@ -195,17 +198,17 @@ function replace.tuple(space_name, tuple, opts)
                                    space_name, tuple, opts)
 end
 
---- Insert or replace an object in the specified space
+-- Insert or replace an object in the specified space
 --
 -- @function object
 --
--- @param string space_name
+-- @string space_name
 --  A space name
 --
--- @param table obj
+-- @table obj
 --  Object
 --
--- @tparam ?table opts
+-- @table[opt] opts
 --  Options of replace.tuple
 --
 -- @return[1] object
