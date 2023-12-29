@@ -826,18 +826,32 @@ function helpers.extend_vshard_matrix(backend_params, backend_cfg_key, backend_c
     return backend_params
 end
 
+function helpers.is_cartridge_suite_supported()
+    local is_module_provided = pcall(require, 'cartridge')
+
+    local tarantool_version = luatest_utils.get_tarantool_version()
+    local is_tarantool_supports = not luatest_utils.version_ge(tarantool_version,
+        luatest_utils.version(3, 0, 0))
+    return is_module_provided and is_tarantool_supports
+end
+
 function helpers.backend_matrix(base_matrix)
     base_matrix = base_matrix or {{}}
     local backend_params = {
-        {
-            backend = helpers.backend.CARTRIDGE,
-            backend_cfg = nil,
-        },
         {
             backend = helpers.backend.VSHARD,
             backend_cfg = nil,
         },
     }
+
+    if helpers.is_cartridge_suite_supported() then
+        table.insert(backend_params,
+            {
+                backend = helpers.backend.CARTRIDGE,
+                backend_cfg = nil,
+            }
+        )
+    end
 
     if helpers.is_name_supported_as_vshard_id() then
         backend_params = helpers.extend_vshard_matrix(
