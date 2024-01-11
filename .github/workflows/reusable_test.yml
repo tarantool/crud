@@ -31,11 +31,19 @@ jobs:
           sudo dpkg -i tarantool_*.deb tarantool-common_*.deb tarantool-dev_*.deb
           tarantool --version
 
+      - name: Setup tt
+        run: |
+          curl -L https://tarantool.io/release/2/installer.sh | sudo bash
+          sudo apt install -y tt
+          tt version
+
       - name: Install requirements
         run: ./deps.sh
 
       - name: Install metrics
-        run: tarantoolctl rocks install metrics 1.0.0
+        run: |
+          tt init
+          tt rocks install metrics 1.0.0
 
       # This server starts and listen on 8084 port that is used for tests
       - name: Stop Mono server
