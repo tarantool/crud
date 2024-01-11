@@ -6,12 +6,8 @@ set -e
 TTCTL=tt
 if ! [ -x "$(command -v tt)" ];
 then
-	if ! [ -x "$(command -v tarantoolctl)" ];
-	then
-		echo "tt or tarantoolctl not found"
-		exit 1
-	fi
-	TTCTL=tarantoolctl
+    echo "tt not found"
+    exit 1
 fi
 
 # Test dependencies:

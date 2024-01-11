@@ -237,9 +237,9 @@ jobs:
       matrix:
         tarantool-version:
           - folder: "1.10"
-            bundle: "tarantool-enterprise-sdk-1.10.15-0-r563"
+            bundle: "tarantool-enterprise-sdk-1.10.15-0-r609"
           - folder: "2.11"
-            bundle: "tarantool-enterprise-sdk-nogc64-2.11.0-0-r563.linux.x86_64"
+            bundle: "tarantool-enterprise-sdk-nogc64-2.11.2-0-r609.linux.x86_64"
         metrics-version: ["", "1.0.0"]
         cartridge-version: ["2.8.0"]
         include:
@@ -259,7 +259,6 @@ jobs:
           tar -xzf ${{ matrix.tarantool-version.bundle }}.tar.gz
           rm -f ${{ matrix.tarantool-version.bundle }}.tar.gz
           sudo cp tarantool-enterprise/tarantool /usr/bin/tarantool
-          sudo rm tarantool-enterprise/tt
           source tarantool-enterprise/env.sh
           tarantool --version
           ./deps.sh
@@ -271,7 +270,8 @@ jobs:
         if: matrix.metrics-version != ''
         run: |
           source tarantool-enterprise/env.sh
-          tarantoolctl rocks install metrics ${{ matrix.metrics-version }}
+          tt init
+          tt rocks install metrics ${{ matrix.metrics-version }}
 
       # This server starts and listen on 8084 port that is used for tests
       - name: Stop Mono server
