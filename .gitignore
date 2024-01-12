@@ -14,3 +14,12 @@ build/Makefile
 
 # Vim Swap files.
 .*.s[a-w][a-z]
+
+# tt files.
+tt.yaml
+bin/
+distfiles/
+include/
+instances.enabled/
+modules/
+templates/
