@@ -26,17 +26,21 @@ end)
 
 pgroup.test_non_existent_space = function(g)
     -- min
-    local result, err = g.cluster.main_server.net_box:call(
-       'crud.min', {'non_existent_space'}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+        'non_existent_space',
+        nil,
+        {mode = 'write'},
+    })
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Space \"non_existent_space\" doesn't exist")
 
     -- max
-    local result, err = g.cluster.main_server.net_box:call(
-       'crud.max', {'non_existent_space'}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+        'non_existent_space',
+        nil,
+        {mode = 'write'},
+    })
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Space \"non_existent_space\" doesn't exist")
@@ -44,31 +48,39 @@ end
 
 pgroup.test_non_existent_index = function(g)
     -- min
-    local result, err = g.cluster.main_server.net_box:call(
-       'crud.min', {'customers', 'non_existent_index'}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+        'customers',
+        'non_existent_index',
+        {mode = 'write'},
+    })
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Index \"non_existent_index\" of space \"customers\" doesn't exist")
 
-    local result, err = g.cluster.main_server.net_box:call(
-       'crud.min', {'customers', 13}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+        'customers',
+        13,
+        {mode = 'write'},
+    })
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Index \"13\" of space \"customers\" doesn't exist")
 
     -- max
-    local result, err = g.cluster.main_server.net_box:call(
-       'crud.max', {'customers', 'non_existent_index'}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+        'customers',
+        'non_existent_index',
+        {mode = 'write'},
+    })
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Index \"non_existent_index\" of space \"customers\" doesn't exist")
 
-    local result, err = g.cluster.main_server.net_box:call(
-       'crud.max', {'customers', 13}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+        'customers',
+        13,
+        {mode = 'write'},
+    })
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Index \"13\" of space \"customers\" doesn't exist")
@@ -76,33 +88,41 @@ end
 
 pgroup.test_empty_space = function(g)
     -- min
-    local result, err = g.cluster.main_server.net_box:call(
-       'crud.min', {'customers'}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+        'customers',
+        nil,
+        {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
 
     -- min by age index with fields
-    local result, err = g.cluster.main_server.net_box:call(
-       'crud.min', {'customers', 'age_index', {fields = {'name'}}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+        'customers',
+        'age_index',
+        {fields = {'name'}, mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
 
     -- max
-    local result, err = g.cluster.main_server.net_box:call(
-       'crud.max', {'customers'}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+        'customers',
+        nil,
+        {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
 
     -- max by age index with fields
-    local result, err = g.cluster.main_server.net_box:call(
-       'crud.max', {'customers', 'age_index', {fields = {'name'}}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+        'customers',
+        'age_index',
+        {fields = {'name'}, mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)

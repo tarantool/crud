@@ -33,14 +33,22 @@ pgroup.before_each(function(g)
 end)
 
 pgroup.test_count_non_existent_space = function(g)
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {'non_existent_space', nil, {fullscan = true}})
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'non_existent_space',
+        nil,
+        {fullscan = true, mode = 'write'},
+    })
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Space \"non_existent_space\" doesn't exist")
 end
 
 pgroup.test_count_empty_space = function(g)
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {'customers', nil, {fullscan = true}})
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers',
+        nil,
+        {fullscan = true, mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 0)
@@ -51,9 +59,11 @@ pgroup.test_not_valid_value_type = function(g)
         {'==', 'id', 'not_number'}
     }
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers',
+        conditions,
+        {mode = 'write'},
+    })
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type: expected unsigned")
@@ -64,9 +74,11 @@ pgroup.test_not_valid_operation = function(g)
         {{}, 'id', 5}
     }
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions, {fullscan = true}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers',
+        conditions,
+        {fullscan = true, mode = 'write'},
+    })
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Failed to parse conditions")
@@ -77,9 +89,11 @@ pgroup.test_conditions_with_non_existed_field = function(g)
         {'==', 'non_existed_field', 'value'}
     }
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count',
-            {'customers', conditions}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+        'customers',
+        conditions,
+        {mode = 'write'},
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 0)

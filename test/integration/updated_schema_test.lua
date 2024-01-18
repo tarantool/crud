@@ -715,9 +715,11 @@ pgroup.test_borders_value_index_added = function(g)
 
     for _, border_func_name in ipairs({'crud.max', 'crud.min'}) do
         -- non-existent space err
-        local obj, err = g.cluster.main_server.net_box:call(
-            border_func_name, {'customers', 'value_index'}
-        )
+        local obj, err = g.cluster.main_server.net_box:call(border_func_name, {
+            'customers',
+            'value_index',
+            {mode = 'write'},
+        })
 
         t.assert_equals(obj, nil)
         t.assert_is_not(err, nil)
@@ -731,9 +733,11 @@ pgroup.test_borders_value_index_added = function(g)
 
     for _, border_func_name in ipairs({'crud.max', 'crud.min'}) do
         -- check that schema changes were applied
-        local obj, err = g.cluster.main_server.net_box:call(
-            border_func_name, {'customers', 'value_index'}
-        )
+        local obj, err = g.cluster.main_server.net_box:call(border_func_name, {
+            'customers',
+            'value_index',
+            {mode = 'write'},
+        })
 
         t.assert_is_not(obj, nil)
         t.assert_equals(err, nil)
@@ -756,9 +760,11 @@ pgroup.test_alter_index_parts = function(g)
     end
 
     -- Check sort order before alter
-    local result, err = g.cluster.main_server.net_box:call(
-        'crud.select', {'customers', {{'>=', 'number_value_index', {0, "0"}}}, {fullscan = true}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+        'customers',
+        {{'>=', 'number_value_index', {0, "0"}}},
+        {fullscan = true, mode = 'write'},
+    })
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 10)
 
@@ -777,9 +783,11 @@ pgroup.test_alter_index_parts = function(g)
     fiber.sleep(1)
 
     -- Sort order should be new
-    local result, err = g.cluster.main_server.net_box:call(
-        'crud.select', {'customers', {{'>=', 'number_value_index', {"0", 0}}}, {fullscan = true}}
-    )
+    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+        'customers',
+        {{'>=', 'number_value_index', {"0", 0}}},
+        {fullscan = true, mode = 'write'},
+    })
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 10)
 

@@ -419,7 +419,7 @@ pgroup.test_pairs_partial_result = function(g)
         local conditions, fields = ...
 
         local tuples = {}
-        for _, tuple in crud.pairs('customers', conditions, {fields = fields}) do
+        for _, tuple in crud.pairs('customers', conditions, {fields = fields, mode = 'write'}) do
             table.insert(tuples, tuple)
         end
 

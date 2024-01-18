@@ -157,9 +157,10 @@ local eval = {
     pairs = [[
         local space_name = select(1, ...)
         local conditions = select(2, ...)
+        local opts = select(3, ...)
 
         local result = {}
-        for _, v in crud.pairs(space_name, conditions, { batch_size = 1 }) do
+        for _, v in crud.pairs(space_name, conditions, opts) do
             table.insert(result, v)
         end
 
@@ -169,8 +170,9 @@ local eval = {
     pairs_pcall = [[
         local space_name = select(1, ...)
         local conditions = select(2, ...)
+        local opts = select(3, ...)
 
-        local _, err = pcall(crud.pairs, space_name, conditions, { batch_size = 1 })
+        local _, err = pcall(crud.pairs, space_name, conditions, opts)
 
         return nil, tostring(err)
     ]],
@@ -217,17 +219,17 @@ local simple_operation_cases = {
     },
     get = {
         func = 'crud.get',
-        args = { space_name, { 12 } },
+        args = { space_name, { 12 }, {mode = 'write'}, },
         op = 'get',
     },
     select = {
         func = 'crud.select',
-        args = { space_name, {{ '==', 'id_index', 3 }} },
+        args = { space_name, {{ '==', 'id_index', 3 }}, {mode = 'write'}, },
         op = 'select',
     },
     pairs = {
         eval = eval.pairs,
-        args = { space_name, {{ '==', 'id_index', 3 }} },
+        args = { space_name, {{ '==', 'id_index', 3 }}, {batch_size = 1, mode = 'write'}, },
         op = 'select',
     },
     replace = {
@@ -336,17 +338,17 @@ local simple_operation_cases = {
     },
     count = {
         func = 'crud.count',
-        args = { space_name, {{ '==', 'id_index', 3 }} },
+        args = { space_name, {{ '==', 'id_index', 3 }}, {mode = 'write'}, },
         op = 'count',
     },
     min = {
         func = 'crud.min',
-        args = { space_name },
+        args = { space_name, nil, {mode = 'write'}, },
         op = 'borders',
     },
     max = {
         func = 'crud.max',
-        args = { space_name },
+        args = { space_name, nil, {mode = 'write'}, },
         op = 'borders',
     },
     insert_error = {
@@ -375,19 +377,19 @@ local simple_operation_cases = {
     },
     get_error = {
         func = 'crud.get',
-        args = { space_name, { 'id' } },
+        args = { space_name, { 'id' }, {mode = 'write'}, },
         op = 'get',
         expect_error = true,
     },
     select_error = {
         func = 'crud.select',
-        args = { space_name, {{ '==', 'id_index', 'sdf' }} },
+        args = { space_name, {{ '==', 'id_index', 'sdf' }}, {mode = 'write'}, },
         op = 'select',
         expect_error = true,
     },
     pairs_error = {
         eval = eval.pairs,
-        args = { space_name, {{ '%=', 'id_index', 'sdf' }} },
+        args = { space_name, {{ '%=', 'id_index', 'sdf' }}, {batch_size = 1, mode = 'write'}, },
         op = 'select',
         expect_error = true,
         pcall = true,
@@ -454,19 +456,19 @@ local simple_operation_cases = {
     },
     count_error = {
         func = 'crud.count',
-        args = { space_name, {{ '==', 'id_index', 'sdf' }} },
+        args = { space_name, {{ '==', 'id_index', 'sdf' }}, {mode = 'write'}, },
         op = 'count',
         expect_error = true,
     },
     min_error = {
         func = 'crud.min',
-        args = { space_name, 'badindex' },
+        args = { space_name, 'badindex', {mode = 'write'}, },
         op = 'borders',
         expect_error = true,
     },
     max_error = {
         func = 'crud.max',
-        args = { space_name, 'badindex' },
+        args = { space_name, 'badindex', {mode = 'write'}, },
         op = 'borders',
         expect_error = true,
     },
@@ -508,6 +510,7 @@ local select_cases = {
     select_by_primary_index = {
         func = 'crud.select',
         conditions = {{ '==', 'id_index', 3 }},
+        opts = {mode = 'write'},
         map_reduces = 0,
         tuples_fetched = 1,
         tuples_lookup = 1,
@@ -515,6 +518,7 @@ local select_cases = {
     select_by_secondary_index = {
         func = 'crud.select',
         conditions = {{ '==', 'age_index', 46 }},
+        opts = {mode = 'write'},
         map_reduces = 1,
         tuples_fetched = 1,
         tuples_lookup = 1,
@@ -522,14 +526,15 @@ local select_cases = {
     select_full_scan = {
         func = 'crud.select',
         conditions = {{ '>', 'id_index', 0 }, { '==', 'city', 'Kyoto' }},
+        opts = {fullscan = true, mode = 'write'},
         map_reduces = 1,
         tuples_fetched = 0,
         tuples_lookup = 4,
-        opts = {fullscan = true},
     },
     pairs_by_primary_index = {
         eval = eval.pairs,
         conditions = {{ '==', 'id_index', 3 }},
+        opts = {batch_size = 1, mode = 'write'},
         map_reduces = 0,
         tuples_fetched = 1,
         -- Since batch_size == 1, extra lookup is generated with
@@ -539,6 +544,7 @@ local select_cases = {
     pairs_by_secondary_index = {
         eval = eval.pairs,
         conditions = {{ '==', 'age_index', 46 }},
+        opts = {batch_size = 1, mode = 'write'},
         map_reduces = 1,
         tuples_fetched = 1,
         -- Since batch_size == 1, extra lookup is generated with
@@ -548,6 +554,7 @@ local select_cases = {
     pairs_full_scan = {
         eval = eval.pairs,
         conditions = {{ '>', 'id_index', 0 }, { '==', 'city', 'Kyoto' }},
+        opts = {batch_size = 1, mode = 'write'},
         map_reduces = 1,
         tuples_fetched = 0,
         tuples_lookup = 4,
@@ -746,9 +753,9 @@ for name, case in pairs(select_cases) do
         -- Call operation.
         local _, err
         if case.eval ~= nil then
-            _, err = g.router:eval(case.eval, { space_name, case.conditions })
+            _, err = g.router:eval(case.eval, { space_name, case.conditions, case.opts })
         else
-            _, err = g.router:call(case.func, { space_name, case.conditions })
+            _, err = g.router:call(case.func, { space_name, case.conditions, case.opts })
         end
 
         t.assert_equals(err, nil)
@@ -1091,7 +1098,7 @@ local function check_updated_per_call(g)
     local map_reduces_before = find_obs('tnt_crud_map_reduces', details_labels, metrics_before)
 
     local case = select_cases['select_by_secondary_index']
-    local _, err = g.router:call(case.func, { space_name, case.conditions })
+    local _, err = g.router:call(case.func, { space_name, case.conditions, case.opts })
     t.assert_equals(err, nil)
 
     local metrics_after = get_metrics(g)
