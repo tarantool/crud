@@ -61,7 +61,7 @@ end
 
 local cases = {
     test_select_customers = {
-        request = "crud.select('customers', {{'<=', 'age', 35}}, {first = 10})",
+        request = "crud.select('customers', {{'<=', 'age', 35}}, {first = 10, mode = 'write'})",
         retval_1 = {
             metadata = {
                 {name = 'id', type = 'unsigned'},
@@ -79,7 +79,7 @@ local cases = {
         }
     },
     test_select_developers = {
-        request = "crud.select('developers', nil, {first = 6})",
+        request = "crud.select('developers', nil, {first = 6, mode = 'write'})",
         retval_1 = {
             metadata = {
                 {name = 'id', type = 'unsigned'},
@@ -117,7 +117,7 @@ local cases = {
     test_error = {
         request = [[
             do
-                local res, err = crud.select('non_existent', nil, {first = 10})
+                local res, err = crud.select('non_existent', nil, {first = 10, mode = 'write'})
                 return res, err and err.err or nil
             end
         ]],

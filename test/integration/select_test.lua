@@ -40,7 +40,9 @@ end)
 pgroup.test_non_existent_space = function(g)
     -- insert
     local obj, err = g.cluster.main_server.net_box:call('crud.select', {
-       'non_existent_space', nil, {fullscan = true},
+        'non_existent_space',
+        nil,
+        {fullscan = true, mode = 'write'},
     })
 
     t.assert_equals(obj, nil)
@@ -49,7 +51,9 @@ end
 
 pgroup.test_select_no_index = function(g)
     local obj, err = g.cluster.main_server.net_box:call('crud.select', {
-        'no_index_space', nil, {fullscan = true},
+        'no_index_space',
+        nil,
+        {fullscan = true, mode = 'write'},
     })
 
     t.assert_equals(obj, nil)
