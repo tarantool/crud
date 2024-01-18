@@ -13,7 +13,6 @@ local pgroup = t.group('count', helpers.backend_matrix({
 pgroup.before_all(function(g)
     helpers.start_default_cluster(g, 'srv_select')
 
-    g.router = helpers.get_router(g.cluster, g.params.backend)
     g.router.net_box:eval([[
         require('crud').cfg{ stats = true }
     ]])
@@ -33,7 +32,7 @@ pgroup.before_each(function(g)
 end)
 
 pgroup.test_count_non_existent_space = function(g)
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'non_existent_space',
         nil,
         {fullscan = true, mode = 'write'},
@@ -44,7 +43,7 @@ pgroup.test_count_non_existent_space = function(g)
 end
 
 pgroup.test_count_empty_space = function(g)
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers',
         nil,
         {fullscan = true, mode = 'write'},
@@ -59,7 +58,7 @@ pgroup.test_not_valid_value_type = function(g)
         {'==', 'id', 'not_number'}
     }
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers',
         conditions,
         {mode = 'write'},
@@ -74,7 +73,7 @@ pgroup.test_not_valid_operation = function(g)
         {{}, 'id', 5}
     }
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers',
         conditions,
         {fullscan = true, mode = 'write'},
@@ -89,7 +88,7 @@ pgroup.test_conditions_with_non_existed_field = function(g)
         {'==', 'non_existed_field', 'value'}
     }
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers',
         conditions,
         {mode = 'write'},
@@ -194,7 +193,7 @@ pgroup.test_count_all = function(g)
         },
     })
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', nil, {fullscan = true, mode = 'write'},
     })
 
@@ -230,7 +229,7 @@ pgroup.test_count_all_with_yield_every = function(g)
         },
     })
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', nil, {yield_every = 1, fullscan = true, mode = 'write'},
     })
 
@@ -266,7 +265,7 @@ pgroup.test_count_all_with_yield_every_0 = function(g)
         },
     })
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', nil, {yield_every = 0, fullscan = true, mode = 'write'}
     })
 
@@ -304,7 +303,7 @@ pgroup.test_count_by_primary_index = function(g)
 
     local conditions = {{'==', 'id_index', 3}}
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', conditions, {mode = 'write'},
     })
 
@@ -346,7 +345,7 @@ pgroup.test_eq_condition_with_index = function(g)
 
     local expected_len = 2
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', conditions, {mode = 'write'},
     })
 
@@ -388,7 +387,7 @@ pgroup.test_ge_condition_with_index = function(g)
 
     local expected_len = 3
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', conditions, {fullscan = true, mode = 'write'},
     })
 
@@ -430,7 +429,7 @@ pgroup.test_gt_condition_with_index = function(g)
 
     local expected_len = 1
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', conditions, {fullscan = true, mode = 'write'},
     })
 
@@ -472,7 +471,7 @@ pgroup.test_le_condition_with_index = function(g)
 
     local expected_len = 4
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', conditions, {fullscan = true, mode = 'write'},
     })
 
@@ -514,7 +513,7 @@ pgroup.test_lt_condition_with_index = function(g)
 
     local expected_len = 2
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', conditions, {fullscan = true, mode = 'write'},
     })
 
@@ -558,7 +557,7 @@ pgroup.test_multiple_conditions = function(g)
 
     local expected_len = 2
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', conditions, {mode = 'write'},
     })
 
@@ -580,7 +579,7 @@ pgroup.test_multipart_primary_index = function(g)
     })
 
     local conditions = {{'=', 'primary', 0}}
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'coord', conditions, {mode = 'write'},
     })
 
@@ -588,7 +587,7 @@ pgroup.test_multipart_primary_index = function(g)
     t.assert_equals(result, 3)
 
     local conditions = {{'=', 'primary', {0, 2}}}
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'coord', conditions, {mode = 'write'},
     })
 
@@ -622,7 +621,7 @@ pgroup.test_opts_not_damaged = function(g)
         balance = false,
         fullscan = true
     }
-    local new_count_opts, err = g.cluster.main_server:eval([[
+    local new_count_opts, err = g.router:eval([[
          local crud = require('crud')
 
          local count_opts = ...
@@ -661,7 +660,7 @@ pgroup.test_count_no_map_reduce = function(g)
     local map_reduces_before = helpers.get_map_reduces_stat(router, 'customers')
 
     -- Case: no conditions, just bucket id.
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers',
         nil,
         {bucket_id = 2804, timeout = 1, fullscan = true, mode = 'write'},
@@ -675,7 +674,7 @@ pgroup.test_count_no_map_reduce = function(g)
 
     -- Case: EQ on secondary index, which is not in the sharding
     -- index (primary index in the case).
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers',
         {{'==', 'age', 81}},
         {bucket_id = 1161, timeout = 1, mode = 'write'},
@@ -724,7 +723,7 @@ pgroup.test_count_timeout = function(g)
     local timeout = 4
     local begin = clock.proc()
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', conditions, {timeout = timeout, fullscan = true, mode = 'write'},
     })
 
@@ -766,7 +765,7 @@ pgroup.test_composite_index = function(g)
     }
 
     -- no after
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', conditions, {fullscan = true, mode = 'write'},
     })
 
@@ -778,7 +777,7 @@ pgroup.test_composite_index = function(g)
         {'==', 'full_name', "Elizabeth"},
     }
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', conditions, {mode = 'write'},
     })
 
@@ -800,7 +799,7 @@ pgroup.test_composite_primary_index = function(g)
 
     local conditions = {{'=', 'id', {5, 'Ukrainian', 55}}}
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'book_translation', conditions, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -836,7 +835,7 @@ pgroup.test_count_by_full_sharding_key = function(g)
     })
 
     local conditions = {{'==', 'id', 3}}
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', conditions, {mode = 'write'},
     })
 
@@ -847,7 +846,7 @@ end
 pgroup.test_count_force_map_call = function(g)
     local key = 1
 
-    local first_bucket_id = g.cluster.main_server.net_box:eval([[
+    local first_bucket_id = g.router:eval([[
         local vshard = require('vshard')
 
         local key = ...
@@ -868,14 +867,14 @@ pgroup.test_count_force_map_call = function(g)
         },
     })
 
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers', {{'==', 'id', key}}, {mode = 'write'},
     })
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 1)
 
-    result, err = g.cluster.main_server.net_box:call('crud.count', {
+    result, err = g.router:call('crud.count', {
         'customers', {{'==', 'id', key}}, {force_map_call = true, mode = 'write'},
     })
 
@@ -887,7 +886,7 @@ local read_impl = function(cg, space, conditions, opts)
     opts = table.deepcopy(opts) or {}
     opts.mode = 'write'
 
-    return cg.cluster.main_server:call('crud.count', {space, conditions, opts})
+    return cg.router:call('crud.count', {space, conditions, opts})
 end
 
 pgroup.test_gh_418_count_with_secondary_noneq_index_condition = function(g)

@@ -16,7 +16,7 @@ local function wait_storages_init(g)
     local attempts_left = 5
     local wait_for_init_timeout = 1
     while (attempts_left > 0 and not storages_initialized) do
-        local results, err = g.cluster.main_server.net_box:call("crud.storage_info", {})
+        local results, err = g.router:call("crud.storage_info", {})
         t.assert_equals(err, nil, "Error getting storage status")
         storages_initialized = true
         local count = 0
@@ -84,7 +84,7 @@ end
 pgroup.test_crud_storage_status_of_stopped_servers = function(g)
     g.cluster:server("s2-replica"):stop()
 
-    local results, err = g.cluster.main_server.net_box:call("crud.storage_info", {})
+    local results, err = g.router:call("crud.storage_info", {})
     t.assert_equals(err, nil, "Error getting storages info")
 
     t.assert_equals(results, build_storage_info(g, {
@@ -127,7 +127,7 @@ pgroup.test_disabled_storage_role = function(g)
 
     t.assert_not_equals(results, nil, "Failed to disable storage role")
 
-    local results, err = g.cluster.main_server.net_box:call("crud.storage_info", {})
+    local results, err = g.router:call("crud.storage_info", {})
     t.assert_equals(err, nil, "Error getting storages info")
 
     t.assert_equals(results, build_storage_info(g, {
@@ -169,7 +169,7 @@ pgroup.test_storage_call_failure = function(g)
 
     t.assert_not_equals(results, nil, "Eval failed")
 
-    local results, err = g.cluster.main_server.net_box:call("crud.storage_info", {})
+    local results, err = g.router:call("crud.storage_info", {})
     t.assert_equals(err, nil, "Error getting storages info")
     t.assert_equals(results, build_storage_info(g, {
         {

@@ -22,7 +22,7 @@ end)
 pgroup.before_each(function(g)
     helpers.drop_space_on_cluster(g.cluster, 'customers')
     -- force schema update on router
-    g.cluster.main_server.net_box:eval([[
+    g.router:eval([[
         local vshard = require('vshard')
         for _, replicaset in pairs(vshard.router.routeall()) do
             if replicaset.locate_master ~= nil then
@@ -44,7 +44,7 @@ end)
 
 pgroup.test_insert_non_existent_space = function(g)
     -- non-existent space err
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.insert', {'customers', {11, nil, 'XXX'}}
     )
 
@@ -59,7 +59,7 @@ pgroup.test_insert_non_existent_space = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.insert', {'customers', {11, nil, 'XXX'}}
     )
 
@@ -69,7 +69,7 @@ end
 
 pgroup.test_insert_object_non_existent_space = function(g)
     -- non-existent space err
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.insert_object', {'customers', {id = 11, value = 'XXX'}}
     )
 
@@ -84,7 +84,7 @@ pgroup.test_insert_object_non_existent_space = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.insert_object', {'customers', {id = 11, value = 'XXX'}}
     )
 
@@ -94,7 +94,7 @@ end
 
 pgroup.test_get_non_existent_space = function(g)
     -- non-existent space err
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.get', {'customers', 1}
     )
 
@@ -109,7 +109,7 @@ pgroup.test_get_non_existent_space = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.get', {'customers', 1}
     )
 
@@ -119,7 +119,7 @@ end
 
 pgroup.test_delete_non_existent_space = function(g)
     -- non-existent space err
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.delete', {'customers', 11}
     )
 
@@ -134,7 +134,7 @@ pgroup.test_delete_non_existent_space = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.delete', {'customers', 11}
     )
 
@@ -144,7 +144,7 @@ end
 
 pgroup.test_update_non_existent_space = function(g)
     -- non-existent space err
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.update', {'customers', 11, {{'=', 'value', 'YYY'}}}
     )
 
@@ -159,14 +159,14 @@ pgroup.test_update_non_existent_space = function(g)
     end)
 
     -- insert tuple
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.insert', {'customers', {11, nil, 'XXX'}}
     )
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.update', {'customers', 11, {{'=', 'value', 'YYY'}}}
     )
 
@@ -176,7 +176,7 @@ end
 
 pgroup.test_replace_non_existent_space = function(g)
     -- non-existent space err
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.replace', {'customers', {11, nil, 'XXX'}}
     )
 
@@ -191,7 +191,7 @@ pgroup.test_replace_non_existent_space = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.replace', {'customers', {11, nil, 'XXX'}}
     )
 
@@ -201,7 +201,7 @@ end
 
 pgroup.test_replace_object_non_existent_space = function(g)
     -- non-existent space err
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.replace_object', {'customers', {id = 11, value = 'XXX'}}
     )
 
@@ -216,7 +216,7 @@ pgroup.test_replace_object_non_existent_space = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.replace_object', {'customers', {id = 11, value = 'XXX'}}
     )
 
@@ -226,7 +226,7 @@ end
 
 pgroup.test_upsert_non_existent_space = function(g)
     -- non-existent space err
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.upsert', {'customers', {11, nil, 'XXX'}, {{'=', 'value', 'YYY'}}}
     )
 
@@ -241,7 +241,7 @@ pgroup.test_upsert_non_existent_space = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.upsert', {'customers', {11, nil, 'XXX'}, {{'=', 'value', 'YYY'}}}
     )
 
@@ -251,7 +251,7 @@ end
 
 pgroup.test_upsert_object_non_existent_space = function(g)
     -- non-existent space err
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.upsert_object', {'customers', {id = 11, value = 'XXX'}, {{'=', 'value', 'YYY'}}}
     )
 
@@ -266,7 +266,7 @@ pgroup.test_upsert_object_non_existent_space = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.upsert_object', {'customers', {id = 11, value = 'XXX'}, {{'=', 'value', 'YYY'}}}
     )
 
@@ -276,7 +276,7 @@ end
 
 pgroup.test_select_non_existent_space = function(g)
     -- non-existent space err
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.select', {'customers', nil, {fullscan = true}}
     )
 
@@ -291,7 +291,7 @@ pgroup.test_select_non_existent_space = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.select', {'customers', nil, {fullscan = true}}
     )
 
@@ -302,7 +302,7 @@ end
 pgroup.test_borders_non_existent_space = function(g)
     for _, border_func_name in ipairs({'crud.max', 'crud.min'}) do
         -- non-existent space err
-        local obj, err = g.cluster.main_server.net_box:call(
+        local obj, err = g.router:call(
             border_func_name, {'customers'}
         )
 
@@ -319,7 +319,7 @@ pgroup.test_borders_non_existent_space = function(g)
 
     for _, border_func_name in ipairs({'crud.max', 'crud.min'}) do
         -- check that schema changes were applied
-        local obj, err = g.cluster.main_server.net_box:call(
+        local obj, err = g.router:call(
             border_func_name, {'customers'}
         )
 
@@ -335,7 +335,7 @@ pgroup.test_insert_no_bucket_id_index = function(g)
     end)
 
     -- no bucket ID index error
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.insert', {'customers', {11, nil, 'XXX'}}
     )
 
@@ -349,7 +349,7 @@ pgroup.test_insert_no_bucket_id_index = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.insert', {'customers', {11, nil, 'XXX'}}
     )
 
@@ -364,7 +364,7 @@ pgroup.test_replace_no_bucket_id_index = function(g)
     end)
 
     -- no bucket ID index error
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.replace', {'customers', {11, nil, 'XXX'}}
     )
 
@@ -378,7 +378,7 @@ pgroup.test_replace_no_bucket_id_index = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.replace', {'customers', {11, nil, 'XXX'}}
     )
 
@@ -393,7 +393,7 @@ pgroup.test_upsert_no_bucket_id_index = function(g)
     end)
 
     -- no bucket ID index error
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.upsert', {'customers', {11, nil, 'XXX'}, {{'=', 'value', 'YYY'}}}
     )
 
@@ -407,7 +407,7 @@ pgroup.test_upsert_no_bucket_id_index = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.upsert', {'customers', {11, nil, 'XXX'}, {{'=', 'value', 'YYY'}}}
     )
 
@@ -423,7 +423,7 @@ pgroup.test_insert_field_type_changed = function(g)
     end)
 
     -- value should be string error
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.insert', {'customers', {11, nil, 123}}
     )
 
@@ -438,7 +438,7 @@ pgroup.test_insert_field_type_changed = function(g)
 
     -- check that schema changes were applied
     -- insert value unsigned - OK
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.insert', {'customers', {11, nil, 123}}
     )
 
@@ -454,7 +454,7 @@ pgroup.test_replace_field_type_changed = function(g)
     end)
 
     -- value should be string error
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.replace', {'customers', {11, nil, 123}}
     )
 
@@ -469,7 +469,7 @@ pgroup.test_replace_field_type_changed = function(g)
 
     -- check that schema changes were applied
     -- insert value unsigned - OK
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.replace', {'customers', {11, nil, 123}}
     )
 
@@ -485,7 +485,7 @@ pgroup.test_upsert_field_type_changed = function(g)
     end)
 
     -- value should be string error
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.upsert', {'customers', {11, nil, 123}, {{'=', 'value', 456}}}
     )
 
@@ -500,7 +500,7 @@ pgroup.test_upsert_field_type_changed = function(g)
 
     -- check that schema changes were applied
     -- insert value unsigned - OK
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.upsert', {'customers', {11, nil, 123}, {{'=', 'value', 456}}}
     )
 
@@ -515,14 +515,14 @@ pgroup.test_update_field_added = function(g)
         server.net_box:call('create_bucket_id_index')
     end)
 
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.insert', {'customers', {11, nil, 'XXX'}}
     )
     t.assert_is_not(obj, nil)
     t.assert_equals(err, nil)
 
     -- unknown field error
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.update', {'customers', 11, {{'=', 'extra', 'EXTRRRRA'}}}
     )
 
@@ -541,7 +541,7 @@ pgroup.test_update_field_added = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.update', {'customers', 11, {{'=', 'extra', 'EXTRRRRA'}}}
     )
 
@@ -557,7 +557,7 @@ pgroup.test_upsert_field_added = function(g)
     end)
 
     -- unknown field error
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.upsert', {'customers', {11, nil, 'XXX'}, {{'=', 'extra', 'EXTRRRRA'}}}
     )
 
@@ -576,7 +576,7 @@ pgroup.test_upsert_field_added = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.upsert', {'customers', {11, nil, 'XXX'}, {{'=', 'extra', 'EXTRRRRA'}}}
     )
 
@@ -592,7 +592,7 @@ pgroup.test_select_field_added = function(g)
     end)
 
     -- unknown field (no results)
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.select', {'customers', {{'==', 'extra', 'EXTRRRRA'}}, {fullscan = true}}
     )
 
@@ -605,7 +605,7 @@ pgroup.test_select_field_added = function(g)
     end)
 
     -- check that schema changes were applied
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.select', {'customers', {{'==', 'extra', 'EXTRRRRA'}}, {fullscan = true}}
     )
 
@@ -621,7 +621,7 @@ pgroup.test_insert_object_field_type_changed = function(g)
     end)
 
     -- value should be string error
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.insert_object', {'customers', {id = 11, value = 123}}
     )
 
@@ -636,7 +636,7 @@ pgroup.test_insert_object_field_type_changed = function(g)
 
     -- check that schema changes were applied
     -- insert value unsigned - OK
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.insert_object', {'customers', {id = 11, value = 123}}
     )
 
@@ -652,7 +652,7 @@ pgroup.test_replace_object_field_type_changed = function(g)
     end)
 
     -- value should be string error
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.replace_object', {'customers', {id = 11, value = 123}}
     )
 
@@ -667,7 +667,7 @@ pgroup.test_replace_object_field_type_changed = function(g)
 
     -- check that schema changes were applied
     -- insert value unsigned - OK
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.replace_object', {'customers', {id = 11, value = 123}}
     )
 
@@ -683,7 +683,7 @@ pgroup.test_upsert_object_field_type_changed = function(g)
     end)
 
     -- value should be string error
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.upsert_object', {'customers', {id = 11, value = 123}, {}}
     )
 
@@ -698,7 +698,7 @@ pgroup.test_upsert_object_field_type_changed = function(g)
 
     -- check that schema changes were applied
     -- insert value unsigned - OK
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.upsert_object', {'customers', {id = 11, value = 123}, {}}
     )
 
@@ -715,7 +715,7 @@ pgroup.test_borders_value_index_added = function(g)
 
     for _, border_func_name in ipairs({'crud.max', 'crud.min'}) do
         -- non-existent space err
-        local obj, err = g.cluster.main_server.net_box:call(border_func_name, {
+        local obj, err = g.router:call(border_func_name, {
             'customers',
             'value_index',
             {mode = 'write'},
@@ -733,7 +733,7 @@ pgroup.test_borders_value_index_added = function(g)
 
     for _, border_func_name in ipairs({'crud.max', 'crud.min'}) do
         -- check that schema changes were applied
-        local obj, err = g.cluster.main_server.net_box:call(border_func_name, {
+        local obj, err = g.router:call(border_func_name, {
             'customers',
             'value_index',
             {mode = 'write'},
@@ -754,13 +754,13 @@ pgroup.test_alter_index_parts = function(g)
 
     for i = 0, 9 do
         -- Insert {0, 9}, {1, 8}, ..., {9, 0} paris in index
-        local _, err = g.cluster.main_server.net_box:call(
+        local _, err = g.router:call(
                 'crud.replace', {'customers', {i, nil, tostring(i), 9 - i}})
         t.assert_equals(err, nil)
     end
 
     -- Check sort order before alter
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+    local result, err = g.router:call('crud.select', {
         'customers',
         {{'>=', 'number_value_index', {0, "0"}}},
         {fullscan = true, mode = 'write'},
@@ -783,7 +783,7 @@ pgroup.test_alter_index_parts = function(g)
     fiber.sleep(1)
 
     -- Sort order should be new
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+    local result, err = g.router:call('crud.select', {
         'customers',
         {{'>=', 'number_value_index', {"0", 0}}},
         {fullscan = true, mode = 'write'},

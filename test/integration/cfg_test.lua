@@ -7,8 +7,6 @@ local group = t.group('cfg', helpers.backend_matrix())
 
 group.before_all(function(g)
     helpers.start_default_cluster(g, 'srv_stats')
-
-    g.router = helpers.get_router(g.cluster, g.params.backend)
 end)
 
 group.after_all(function(g)
@@ -159,7 +157,7 @@ group.test_role_cfg = function(g)
         stats_quantile_max_age_time = 180,
     }
 
-    g.cluster.main_server:upload_config({crud = cfg})
+    g.router:upload_config({crud = cfg})
 
     local actual_cfg = g.router:eval("return require('crud').cfg")
     t.assert_equals(cfg, actual_cfg)
@@ -174,7 +172,7 @@ group.test_role_partial_cfg = function(g)
     local cfg_after = table.deepcopy(cfg_before)
     cfg_after.stats = not cfg_before.stats
 
-    g.cluster.main_server:upload_config({crud = {stats = cfg_after.stats}})
+    g.router:upload_config({crud = {stats = cfg_after.stats}})
 
     local actual_cfg = g.router:eval("return require('crud').cfg")
     t.assert_equals(cfg_after, actual_cfg, "Only requested field were updated")
@@ -204,7 +202,7 @@ for name, case in pairs(role_cfg_error_cases) do
     group['test_role_cfg_' .. name] = function(g)
         helpers.skip_not_cartridge_backend(g.params.backend)
         local success, error = pcall(function()
-            g.cluster.main_server:upload_config(case.args)
+            g.router:upload_config(case.args)
         end)
 
         t.assert_equals(success, false)

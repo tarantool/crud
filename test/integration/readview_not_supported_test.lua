@@ -23,7 +23,7 @@ pgroup.after_all(function(g)
 end)
 
 pgroup.test_open = function(g)
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local obj, err = g.router:eval([[
         local crud = require('crud')
         local foo, err = crud.readview({name = 'foo'})
         return foo, err

@@ -12,8 +12,6 @@ local pgroup = t.group('schema', helpers.backend_matrix({
 
 pgroup.before_all(function(g)
     helpers.start_default_cluster(g, 'srv_schema')
-
-    g.router = helpers.get_router(g.cluster, g.params.backend)
 end)
 
 pgroup.after_all(function(g)

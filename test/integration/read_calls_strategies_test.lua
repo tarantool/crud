@@ -29,16 +29,16 @@ local pgroup = t.group('read_calls_strategies', helpers.backend_matrix({
 pgroup.before_all(function(g)
     helpers.start_default_cluster(g, 'srv_read_calls_strategies')
 
-    g.space_format = g.cluster.servers[2].net_box.space.customers:format()
+    g.space_format = g.cluster:server('s1-master').net_box.space.customers:format()
 
     g.clear_vshard_calls = function()
-        g.cluster.main_server.net_box:call('clear_vshard_calls')
+        g.router:call('clear_vshard_calls')
     end
 
     g.get_vshard_call_strategies = function()
         -- Retries are possible, especially in CI, so we don't assert
         -- the quantity of calls, only strategies used.
-        local vshard_calls = g.cluster.main_server.net_box:eval('return _G.vshard_calls')
+        local vshard_calls = g.router:eval('return _G.vshard_calls')
 
         local vshard_call_strategies_map = {}
         for _, v in ipairs(vshard_calls) do
@@ -54,7 +54,7 @@ pgroup.before_all(function(g)
 
     -- patch vshard.router.call* functions
     local vshard_call_names = {'callro', 'callbro', 'callre', 'callbre', 'callrw'}
-    g.cluster.main_server.net_box:call('patch_vshard_calls', {vshard_call_names})
+    g.router:call('patch_vshard_calls', {vshard_call_names})
 end)
 
 pgroup.after_all(function(g)
@@ -67,7 +67,7 @@ end)
 
 pgroup.test_get = function(g)
     g.clear_vshard_calls()
-    local _, err = g.cluster.main_server.net_box:call('crud.get', {'customers', 1, {
+    local _, err = g.router:call('crud.get', {'customers', 1, {
         mode = g.params.mode,
         balance = g.params.balance,
         prefer_replica = g.params.prefer_replica
@@ -79,7 +79,7 @@ end
 
 pgroup.test_select = function(g)
     g.clear_vshard_calls()
-    local _, err = g.cluster.main_server.net_box:call('crud.select', {'customers', nil, {
+    local _, err = g.router:call('crud.select', {'customers', nil, {
         mode = g.params.mode,
         balance = g.params.balance,
         prefer_replica = g.params.prefer_replica,
@@ -99,7 +99,7 @@ pgroup.test_pairs = function(g)
         prefer_replica = g.params.prefer_replica
     }
 
-    local _, err = g.cluster.main_server.net_box:eval([[
+    local _, err = g.router:eval([[
         local crud = require('crud')
 
         local opts = ...
@@ -112,7 +112,7 @@ end
 
 pgroup.test_count = function(g)
     g.clear_vshard_calls()
-    local _, err = g.cluster.main_server.net_box:call('crud.count', {'customers', nil, {
+    local _, err = g.router:call('crud.count', {'customers', nil, {
         mode = g.params.mode,
         balance = g.params.balance,
         prefer_replica = g.params.prefer_replica,

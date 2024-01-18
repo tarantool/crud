@@ -35,7 +35,6 @@ local new_space_name = 'newspace'
 local function before_all(g)
     helpers.start_default_cluster(g, 'srv_stats')
 
-    g.router = helpers.get_router(g.cluster, g.params.backend).net_box
     if g.params.args.driver == 'metrics' then
         local is_metrics_supported = g.router:eval([[
             return require('crud.stats.metrics_registry').is_supported()
@@ -58,7 +57,7 @@ local call_cfg = function(g, way, cfg)
             require('crud').cfg(...)
         ]], { cfg })
     elseif way == 'role' then
-        g.cluster.main_server:upload_config{crud = cfg}
+        g.router:upload_config{crud = cfg}
     end
 end
 
@@ -876,7 +875,7 @@ pgroup.test_role_reload_do_not_reset_observations = function(g)
 
     local stats_before = get_stats(g)
 
-    helpers.reload_roles(g.cluster:server('router'))
+    helpers.reload_roles(g.router)
 
     local stats_after = get_stats(g)
     t.assert_equals(stats_after, stats_before)
@@ -892,7 +891,7 @@ pgroup.test_module_reload_do_not_reset_observations = function(g)
 
     local stats_before = get_stats(g)
 
-    helpers.reload_package(g.cluster:server('router'))
+    helpers.reload_package(g.router)
 
     local stats_after = get_stats(g)
     t.assert_equals(stats_after, stats_before)
@@ -1192,7 +1191,7 @@ group_metrics.test_role_reload_do_not_reset_metrics_observations = function(g)
         "See https://github.com/tarantool/metrics/issues/334")
     helpers.skip_old_tarantool_cartridge_hotreload()
 
-    helpers.reload_roles(g.cluster:server('router'))
+    helpers.reload_roles(g.router)
     g.router:eval("crud = require('crud')")
     local metrics = get_metrics(g)
     validate_metrics(g, metrics)
@@ -1233,7 +1232,7 @@ group_metrics.test_stats_changed_in_metrics_registry_after_role_reload = functio
         "Cartridge roles reload is not supported")
     helpers.skip_old_tarantool_cartridge_hotreload()
 
-    helpers.reload_roles(g.cluster:server('router'))
+    helpers.reload_roles(g.router)
     g.router:eval("crud = require('crud')")
     check_updated_per_call(g)
 end

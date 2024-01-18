@@ -25,7 +25,7 @@ end)
 
 pgroup.test_non_existent_space = function(g)
     -- replace_many
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'non_existent_space',
         {
             {1, box.NULL, 'Alex', 'alexpushkin'},
@@ -41,7 +41,7 @@ pgroup.test_non_existent_space = function(g)
 
     -- replace_object_many
     -- default: stop_on_error == false
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'non_existent_space',
         {
             {id = 1, name = 'Fedor', login = 'FDost'},
@@ -61,7 +61,7 @@ pgroup.test_non_existent_space = function(g)
 
     -- replace_object_many
     -- stop_on_error == true
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'non_existent_space',
         {
             {id = 1, name = 'Fedor', login = 'FDost'},
@@ -83,7 +83,7 @@ end
 
 pgroup.test_object_bad_format = function(g)
     -- bad format
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 1, name = 'Fedor', login = 'FDost'},
@@ -115,7 +115,7 @@ pgroup.test_object_bad_format = function(g)
     t.assert_equals(result, {1, 477, 'Fedor', 'FDost'})
 
     -- bad format
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 4, name = 'Fedor', login = 'FDost'},
@@ -141,7 +141,7 @@ pgroup.test_object_bad_format = function(g)
 
     -- bad format
     -- two errors, default: stop_on_error == false
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 1, name = 'Fedor'},
@@ -165,7 +165,7 @@ end
 pgroup.test_all_success = function(g)
     -- replace_many
     -- all success
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'developers',
         {
             {1, box.NULL, 'Fedor', 'FDost'},
@@ -215,7 +215,7 @@ pgroup.test_object_all_success = function(g)
 
     -- replace_object_many
     -- all success
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 1, name = 'Fedor', login = 'FDost'},
@@ -265,7 +265,7 @@ pgroup.test_one_error = function(g)
 
     -- replace_many
     -- failed for s1-master
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'developers',
         {
             {4, box.NULL, 'Fedor', 'alexpushkin'},
@@ -318,7 +318,7 @@ pgroup.test_object_one_error = function(g)
 
     -- replace_object_many
     -- failed for s1-master
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 4, name = 'Fedor', login = 'alexpushkin'},
@@ -377,7 +377,7 @@ pgroup.test_object_many_errors = function(g)
     -- replace_object_many
     -- fails for both: s1-master s2-master
     -- one error on each storage, one success on each storage
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 4, name = 'Sergey', login = 's.ivanov'},
@@ -447,7 +447,7 @@ pgroup.test_many_errors = function(g)
     -- replace_many
     -- fails for both: s1-master s2-master
     -- one error on each storage, one success on each storage
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'developers',
         {
             {4, box.NULL, 'Sergey', 's.ivanov'},
@@ -527,7 +527,7 @@ pgroup.test_no_success = function(g)
     -- replace_many
     -- fails for both: s1-master s2-master
     -- no success
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'developers',
         {
             {4, box.NULL, 'Alex', 'a.smith'},
@@ -601,7 +601,7 @@ pgroup.test_object_no_success = function(g)
     -- replace_object_many
     -- fails for both: s1-master s2-master
     -- no success
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 4, name = 'Alex', login = 'a.smith'},
@@ -653,7 +653,7 @@ end
 pgroup.test_object_bad_format_stop_on_error = function(g)
     -- bad format
     -- two errors, stop_on_error == true
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 1, name = 'Fedor'},
@@ -675,7 +675,7 @@ end
 pgroup.test_all_success_stop_on_error = function(g)
     -- replace_many
     -- all success
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'developers',
         {
             {1, box.NULL, 'Fedor', 'FDost'},
@@ -728,7 +728,7 @@ pgroup.test_object_all_success_stop_on_error = function(g)
 
     -- replace_object_many
     -- all success
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 1, name = 'Fedor', login = 'FDost'},
@@ -788,7 +788,7 @@ pgroup.test_partial_success_stop_on_error = function(g)
     -- stop_on_error = true, rollback_on_error = false
     -- one error on one storage without rollback, inserts stop by error on this storage
     -- inserts before error are successful
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'developers',
         {
             {22, box.NULL, 'Alex', 'alexpushkin'},
@@ -870,7 +870,7 @@ pgroup.test_object_partial_success_stop_on_error = function(g)
     -- stop_on_error = true, rollback_on_error = false
     -- one error on one storage without rollback, inserts stop by error on this storage
     -- inserts before error are successful
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 22, name = 'Alex', login = 'alexpushkin'},
@@ -956,7 +956,7 @@ pgroup.test_no_success_stop_on_error = function(g)
     -- replace_many
     -- fails for both: s1-master s2-master
     -- one error on each storage, all inserts stop by error
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'developers',
         {
             {71, box.NULL, 'Alex', 'AGolden'},
@@ -1037,7 +1037,7 @@ pgroup.test_object_no_success_stop_on_error = function(g)
     -- replace_object_many
     -- fails for both: s1-master s2-master
     -- one error on each storage, all inserts stop by error
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 71, name = 'Alex', login = 'AGolden'},
@@ -1101,7 +1101,7 @@ end
 pgroup.test_all_success_rollback_on_error = function(g)
     -- replace_many
     -- all success
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'developers',
         {
             {1, box.NULL, 'Fedor', 'FDost'},
@@ -1154,7 +1154,7 @@ pgroup.test_object_all_success_rollback_on_error = function(g)
 
     -- replace_object_many
     -- all success
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 1, name = 'Fedor', login = 'FDost'},
@@ -1213,7 +1213,7 @@ pgroup.test_partial_success_rollback_on_error = function(g)
     -- replace_many
     -- stop_on_error = false, rollback_on_error = true
     -- two error on one storage with rollback
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'developers',
         {
             {22, box.NULL, 'Alex', 'alexpushkin'},
@@ -1296,7 +1296,7 @@ pgroup.test_object_partial_success_rollback_on_error = function(g)
     -- replace_object_many
     -- stop_on_error = false, rollback_on_error = true
     -- two error on one storage with rollback
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 22, name = 'Alex', login = 'alexpushkin'},
@@ -1389,7 +1389,7 @@ pgroup.test_no_success_rollback_on_error = function(g)
     -- replace_many
     -- fails for both: s1-master s2-master
     -- two errors on each storage with rollback
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'developers',
         {
             {1, box.NULL, 'Eren', 'e.eger'},
@@ -1484,7 +1484,7 @@ pgroup.test_object_no_success_rollback_on_error = function(g)
     -- replace_object_many
     -- fails for both: s1-master s2-master
     -- two errors on each storage with rollback
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 1, name = 'Eren', login = 'e.eger'},
@@ -1557,7 +1557,7 @@ end
 pgroup.test_all_success_rollback_and_stop_on_error = function(g)
     -- replace_many
     -- all success
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'developers',
         {
             {1, box.NULL, 'Fedor', 'FDost'},
@@ -1611,7 +1611,7 @@ pgroup.test_object_all_success_rollback_and_stop_on_error = function(g)
 
     -- replace_object_many
     -- all success
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 1, name = 'Fedor', login = 'FDost'},
@@ -1672,7 +1672,7 @@ pgroup.test_partial_success_rollback_and_stop_on_error = function(g)
     -- stop_on_error = true, rollback_on_error = true
     -- two error on one storage with rollback, inserts stop by error on this storage
     -- inserts before error are rollbacked
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'developers',
         {
             {22, box.NULL, 'Alex', 'alexpushkin'},
@@ -1766,7 +1766,7 @@ pgroup.test_object_partial_success_rollback_and_stop_on_error = function(g)
     -- stop_on_error = true, rollback_on_error = true
     -- two error on one storage with rollback, inserts stop by error on this storage
     -- inserts before error are rollbacked
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 22, name = 'Alex', login = 'alexpushkin'},
@@ -1846,7 +1846,7 @@ end
 
 pgroup.test_partial_result = function(g)
     -- bad fields format
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'developers',
         {
             {1, box.NULL, 'Fedor', 'FDost'},
@@ -1861,7 +1861,7 @@ pgroup.test_partial_result = function(g)
     t.assert_str_contains(errs[1].err, 'Space format doesn\'t contain field named "invalid"')
 
     -- replace_many
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'developers',
         {
             {1, box.NULL, 'Fedor', 'FDost'},
@@ -1883,7 +1883,7 @@ end
 
 pgroup.test_object_partial_result = function(g)
     -- bad fields format
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 1, name = 'Fedor', login = 'FDost'},
@@ -1898,7 +1898,7 @@ pgroup.test_object_partial_result = function(g)
     t.assert_str_contains(errs[1].err, 'Space format doesn\'t contain field named "invalid"')
 
     -- replace_object_many
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'developers',
         {
             {id = 1, name = 'Fedor', login = 'FDost'},
@@ -1921,7 +1921,7 @@ end
 pgroup.test_opts_not_damaged = function(g)
     -- replace_many
     local batch_replace_opts = {timeout = 1, fields = {'name', 'login'}}
-    local new_batch_replace_opts, err = g.cluster.main_server:eval([[
+    local new_batch_replace_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local batch_replace_opts = ...
@@ -1938,7 +1938,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- replace_object_many
     local batch_replace_opts = {timeout = 1, fields = {'name', 'login'}}
-    local new_batch_replace_opts, err = g.cluster.main_server:eval([[
+    local new_batch_replace_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local batch_replace_opts = ...
@@ -1956,7 +1956,7 @@ end
 
 pgroup.test_noreturn_opt = function(g)
     -- replace_many with noreturn, all tuples are correct
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'customers',
         {
             {1, box.NULL, 'Fedor', 59},
@@ -1970,7 +1970,7 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(result, nil)
 
     -- replace_many with noreturn, some tuples are correct
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'customers',
         {
             {1, box.NULL, 'Fedor', 59},
@@ -1985,7 +1985,7 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(result, nil)
 
     -- replace_many with noreturn, all tuples are not correct
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, errs = g.router:call('crud.replace_many', {
         'customers',
         {
             {box.NULL, box.NULL, 'Fedor', 59},
@@ -2000,7 +2000,7 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(result, nil)
 
     -- replace_object_many with noreturn, all tuples are correct
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'customers',
         {
             {id = 1, name = 'Fedor', age = 100},
@@ -2014,7 +2014,7 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(result, nil)
 
     -- replace_object_many with noreturn, some tuples are correct
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'customers',
         {
             {id = 1, name = 'Fedor', age = 100},
@@ -2029,7 +2029,7 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(result, nil)
 
     -- replace_object_many with noreturn, all tuples are not correct
-    local result, errs = g.cluster.main_server.net_box:call('crud.replace_object_many', {
+    local result, errs = g.router:call('crud.replace_object_many', {
         'customers',
         {
             {id = box.NULL, name = 'Fedor', age = 100},
@@ -2045,7 +2045,7 @@ pgroup.test_noreturn_opt = function(g)
 end
 
 pgroup.test_zero_tuples = function(g)
-    local result, errs = g.cluster.main_server.net_box:call(
+    local result, errs = g.router:call(
         'crud.replace_many', {'customers', {}})
 
     t.assert_not_equals(errs, nil)
@@ -2055,7 +2055,7 @@ pgroup.test_zero_tuples = function(g)
 end
 
 pgroup.test_zero_objects = function(g)
-    local result, errs = g.cluster.main_server.net_box:call(
+    local result, errs = g.router:call(
         'crud.replace_object_many', {'customers', {}})
 
     t.assert_not_equals(errs, nil)

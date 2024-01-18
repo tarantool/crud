@@ -26,7 +26,7 @@ end)
 
 pgroup.test_non_existent_space = function(g)
     -- min
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'non_existent_space',
         nil,
         {mode = 'write'},
@@ -36,7 +36,7 @@ pgroup.test_non_existent_space = function(g)
     t.assert_str_contains(err.err, "Space \"non_existent_space\" doesn't exist")
 
     -- max
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'non_existent_space',
         nil,
         {mode = 'write'},
@@ -48,7 +48,7 @@ end
 
 pgroup.test_non_existent_index = function(g)
     -- min
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'customers',
         'non_existent_index',
         {mode = 'write'},
@@ -57,7 +57,7 @@ pgroup.test_non_existent_index = function(g)
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Index \"non_existent_index\" of space \"customers\" doesn't exist")
 
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'customers',
         13,
         {mode = 'write'},
@@ -67,7 +67,7 @@ pgroup.test_non_existent_index = function(g)
     t.assert_str_contains(err.err, "Index \"13\" of space \"customers\" doesn't exist")
 
     -- max
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'customers',
         'non_existent_index',
         {mode = 'write'},
@@ -76,7 +76,7 @@ pgroup.test_non_existent_index = function(g)
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Index \"non_existent_index\" of space \"customers\" doesn't exist")
 
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'customers',
         13,
         {mode = 'write'},
@@ -88,7 +88,7 @@ end
 
 pgroup.test_empty_space = function(g)
     -- min
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'customers',
         nil,
         {mode = 'write'},
@@ -98,7 +98,7 @@ pgroup.test_empty_space = function(g)
     t.assert_equals(#result.rows, 0)
 
     -- min by age index with fields
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'customers',
         'age_index',
         {fields = {'name'}, mode = 'write'},
@@ -108,7 +108,7 @@ pgroup.test_empty_space = function(g)
     t.assert_equals(#result.rows, 0)
 
     -- max
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'customers',
         nil,
         {mode = 'write'},
@@ -118,7 +118,7 @@ pgroup.test_empty_space = function(g)
     t.assert_equals(#result.rows, 0)
 
     -- max by age index with fields
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'customers',
         'age_index',
         {fields = {'name'}, mode = 'write'},
@@ -148,7 +148,7 @@ pgroup.test_min = function(g)
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
     -- by primary
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'customers', nil, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -156,7 +156,7 @@ pgroup.test_min = function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1}))
 
     -- by primary, index ID is specified
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'customers', 0, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -164,7 +164,7 @@ pgroup.test_min = function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1}))
 
     -- by primary with fields
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'customers', nil, {fields = {'name', 'last_name'}, mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -172,7 +172,7 @@ pgroup.test_min = function(g)
     t.assert_equals(objects, {{name = "Elizabeth", last_name = "Jackson"}})
 
     -- by age index
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'customers', 'age_index', {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -180,7 +180,7 @@ pgroup.test_min = function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {4}))
 
     -- by age index, index ID is specified
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'customers', 2, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -188,7 +188,7 @@ pgroup.test_min = function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {4}))
 
     -- by age index with fields
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'customers', 'age_index', {fields = {'name', 'last_name'}, mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -196,7 +196,7 @@ pgroup.test_min = function(g)
     t.assert_equals(objects, {{name = "William", last_name = "White"}})
 
     -- by composite index full_name
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'customers', 'full_name', {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -204,7 +204,7 @@ pgroup.test_min = function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3}))
 
     -- by composite index full_name, index ID is specified
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'customers', 5, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -212,7 +212,7 @@ pgroup.test_min = function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {3}))
 
     -- by composite index full_name with fields
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'customers', 'full_name', {fields = {'name', 'last_name'}, mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -240,7 +240,7 @@ pgroup.test_max = function(g)
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
     -- by primary
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'customers', nil, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -248,7 +248,7 @@ pgroup.test_max = function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {4}))
 
     -- by primary, index ID is specified
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'customers', 0, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -256,7 +256,7 @@ pgroup.test_max = function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {4}))
 
     -- by primary with fields
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'customers', nil, {fields = {'name', 'last_name'}, mode = 'write'}
     })
     t.assert_equals(err, nil)
@@ -264,7 +264,7 @@ pgroup.test_max = function(g)
     t.assert_equals(objects, {{name = "William", last_name = "White"}})
 
     -- by age index
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'customers', 'age_index', {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -272,7 +272,7 @@ pgroup.test_max = function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2}))
 
     -- by age index, index ID is specified
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'customers', 2, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -280,7 +280,7 @@ pgroup.test_max = function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {2}))
 
     -- by age index with fields
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'customers', 'age_index', {fields = {'name', 'last_name'}, mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -288,7 +288,7 @@ pgroup.test_max = function(g)
     t.assert_equals(objects, {{name = "Mary", last_name = "Brown"}})
 
     -- by composite index full_name
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'customers', 'full_name', {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -296,7 +296,7 @@ pgroup.test_max = function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {4}))
 
     -- by composite index full_name, index ID is specified
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'customers', 5, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -304,7 +304,7 @@ pgroup.test_max = function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {4}))
 
     -- by composite index full_name with fields
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'customers', 'full_name', {fields = {'name', 'last_name'}, mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -334,7 +334,7 @@ pgroup.test_equal_secondary_keys = function(g)
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
     -- min
-    local result, err = g.cluster.main_server.net_box:call('crud.min', {
+    local result, err = g.router:call('crud.min', {
         'customers', 'age_index', {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -342,7 +342,7 @@ pgroup.test_equal_secondary_keys = function(g)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1}))
 
     -- max
-    local result, err = g.cluster.main_server.net_box:call('crud.max', {
+    local result, err = g.router:call('crud.max', {
         'customers', 'age_index', {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -369,7 +369,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- min
     local min_opts = {timeout = 1, fields = {'name', 'age'}, mode = 'write'}
-    local new_min_opts, err = g.cluster.main_server:eval([[
+    local new_min_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local min_opts = ...
@@ -384,7 +384,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- max
     local max_opts = {timeout = 1, fields = {'name', 'age'}, mode = 'write'}
-    local new_max_opts, err = g.cluster.main_server:eval([[
+    local new_max_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local max_opts = ...
