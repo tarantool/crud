@@ -24,61 +24,61 @@ pgroup.before_each(function(g)
 end)
 
 pgroup.test_non_existent_space = function(g)
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.insert', {'non_existent_space', {0, box.NULL, 'Fedor', 59}})
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 
     -- insert_object
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.insert_object', {'non_existent_space', {id = 0, name = 'Fedor', age = 59}})
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {'non_existent_space', 0})
+    local result, err = g.router:call('crud.get', {'non_existent_space', 0})
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 
     -- update
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.update', {'non_existent_space', 0, {{'+', 'age', 1}}})
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 
     -- delete
-    local result, err = g.cluster.main_server.net_box:call('crud.delete', {'non_existent_space', 0})
+    local result, err = g.router:call('crud.delete', {'non_existent_space', 0})
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 
     -- replace
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.replace', {'non_existent_space', {0, box.NULL, 'Fedor', 59}})
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 
     -- replace_object
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.replace', {'non_existent_space', {id = 0, name = 'Fedor', age = 59}})
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 
     -- upsert
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
        'crud.upsert', {'non_existent_space', {0, box.NULL, 'Fedor', 59}, {{'+', 'age', 1}}})
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Space "non_existent_space" doesn\'t exist')
 
     -- upsert_object
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.upsert', {'non_existent_space', {id = 0, name = 'Fedor', age = 59}, {{'+', 'age', 1}}})
 
     t.assert_equals(result, nil)
@@ -87,7 +87,7 @@ end
 
 pgroup.test_insert_object_get = function(g)
     -- insert_object
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.insert_object', {'customers', {id = 1, name = 'Fedor', age = 59}})
 
     t.assert_equals(err, nil)
@@ -101,7 +101,7 @@ pgroup.test_insert_object_get = function(g)
     t.assert_equals(objects, {{id = 1, name = 'Fedor', age = 59, bucket_id = 477}})
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers', 1, {mode = 'write'},
     })
 
@@ -111,14 +111,14 @@ pgroup.test_insert_object_get = function(g)
     t.assert_equals(objects, {{id = 1, name = 'Fedor', age = 59, bucket_id = 477}})
 
     -- insert_object again
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.insert_object', {'customers', {id = 1, name = 'Alexander', age = 37}})
 
     t.assert_equals(obj, nil)
     t.assert_str_contains(err.err, "Duplicate key exists")
 
     -- bad format
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.insert_object', {'customers', {id = 2, name = 'Alexander'}})
 
     t.assert_equals(obj, nil)
@@ -127,7 +127,7 @@ end
 
 pgroup.test_insert_get = function(g)
     -- insert
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.insert', {'customers', {2, box.NULL, 'Ivan', 20}})
 
     t.assert_equals(err, nil)
@@ -140,7 +140,7 @@ pgroup.test_insert_get = function(g)
     t.assert_equals(result.rows, {{2, 401, 'Ivan', 20}})
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers', 2, {mode = 'write'},
     })
 
@@ -149,13 +149,13 @@ pgroup.test_insert_get = function(g)
     t.assert_equals(result.rows, {{2, 401, 'Ivan', 20}})
 
     -- insert again
-    local obj, err = g.cluster.main_server.net_box:call('crud.insert', {'customers', {2, box.NULL, 'Ivan', 20}})
+    local obj, err = g.router:call('crud.insert', {'customers', {2, box.NULL, 'Ivan', 20}})
 
     t.assert_equals(obj, nil)
     t.assert_str_contains(err.err, "Duplicate key exists")
 
     -- get non-existent
-    local result, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.router:eval([[
         local crud = require('crud')
         return crud.get('customers', 100, {mode = 'write'})
     ]])
@@ -166,7 +166,7 @@ end
 
 pgroup.test_update = function(g)
     -- insert tuple
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.insert_object', {'customers', {id = 22, name = 'Leo', age = 72}})
 
     t.assert_equals(err, nil)
@@ -180,7 +180,7 @@ pgroup.test_update = function(g)
     t.assert_equals(objects, {{id = 22, name = 'Leo', age = 72, bucket_id = 655}})
 
     -- update age and name fields
-    local result, err = g.cluster.main_server.net_box:call('crud.update', {'customers', 22, {
+    local result, err = g.router:call('crud.update', {'customers', 22, {
             {'+', 'age', 10},
             {'=', 'name', 'Leo Tolstoy'},
     }})
@@ -190,7 +190,7 @@ pgroup.test_update = function(g)
     t.assert_equals(objects, {{id = 22, name = 'Leo Tolstoy', age = 82, bucket_id = 655}})
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers', 22, {mode = 'write'},
     })
 
@@ -199,14 +199,14 @@ pgroup.test_update = function(g)
     t.assert_equals(objects, {{id = 22, name = 'Leo Tolstoy', age = 82, bucket_id = 655}})
 
     -- bad key
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.update', {'customers', 'bad-key', {{'+', 'age', 10},}})
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type:")
 
     -- update by field numbers
-    local result, err = g.cluster.main_server.net_box:call('crud.update', {'customers', 22, {
+    local result, err = g.router:call('crud.update', {'customers', 22, {
             {'-', 4, 10},
             {'=', 3, 'Leo'}
     }})
@@ -216,7 +216,7 @@ pgroup.test_update = function(g)
     t.assert_equals(objects, {{id = 22, name = 'Leo', age = 72, bucket_id = 655}})
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers', 22, {mode = 'write'},
     })
 
@@ -227,7 +227,7 @@ end
 
 pgroup.test_delete = function(g)
     -- insert tuple
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.insert_object', {'customers', {id = 33, name = 'Mayakovsky', age = 36}})
 
     t.assert_equals(err, nil)
@@ -241,7 +241,7 @@ pgroup.test_delete = function(g)
     t.assert_equals(objects, {{id = 33, name = 'Mayakovsky', age = 36, bucket_id = 907}})
 
     -- delete
-    local result, err = g.cluster.main_server.net_box:call('crud.delete', {'customers', 33})
+    local result, err = g.router:call('crud.delete', {'customers', 33})
 
     t.assert_equals(err, nil)
     if g.params.engine == 'memtx' then
@@ -252,7 +252,7 @@ pgroup.test_delete = function(g)
     end
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers', 33, {mode = 'write'},
     })
 
@@ -260,7 +260,7 @@ pgroup.test_delete = function(g)
     t.assert_equals(#result.rows, 0)
 
     -- bad key
-    local result, err = g.cluster.main_server.net_box:call('crud.delete', {'customers', 'bad-key'})
+    local result, err = g.router:call('crud.delete', {'customers', 'bad-key'})
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type:")
@@ -268,7 +268,7 @@ end
 
 pgroup.test_replace_object = function(g)
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers', 44, {mode = 'write'},
     })
 
@@ -282,7 +282,7 @@ pgroup.test_replace_object = function(g)
     t.assert_equals(#result.rows, 0)
 
     -- replace_object
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.replace_object', {'customers', {id = 44, name = 'John Doe', age = 25}})
 
     t.assert_equals(err, nil)
@@ -290,7 +290,7 @@ pgroup.test_replace_object = function(g)
     t.assert_equals(objects, {{id = 44, name = 'John Doe', age = 25, bucket_id = 2805}})
 
     -- replace_object
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.replace_object', {'customers', {id = 44, name = 'Jane Doe', age = 18}})
 
     t.assert_equals(err, nil)
@@ -299,7 +299,7 @@ pgroup.test_replace_object = function(g)
 end
 
 pgroup.test_replace = function(g)
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.replace', {'customers', {45, box.NULL, 'John Fedor', 99}})
 
     t.assert_equals(err, nil)
@@ -312,7 +312,7 @@ pgroup.test_replace = function(g)
     t.assert_equals(result.rows, {{45, 392, 'John Fedor', 99}})
 
     -- replace again
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.replace', {'customers', {45, box.NULL, 'John Fedor', 100}})
 
     t.assert_equals(err, nil)
@@ -321,7 +321,7 @@ end
 
 pgroup.test_upsert_object = function(g)
     -- upsert_object first time
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.upsert_object', {'customers', {id = 66, name = 'Jack Sparrow', age = 25}, {
              {'+', 'age', 25},
              {'=', 'name', 'Leo Tolstoy'},
@@ -337,7 +337,7 @@ pgroup.test_upsert_object = function(g)
     t.assert_equals(err, nil)
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers', 66, {mode = 'write'},
     })
 
@@ -346,7 +346,7 @@ pgroup.test_upsert_object = function(g)
     t.assert_equals(objects, {{id = 66, name = 'Jack Sparrow', age = 25, bucket_id = 486}})
 
     -- upsert_object the same query second time when tuple exists
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
        'crud.upsert_object', {'customers', {id = 66, name = 'Jack Sparrow', age = 25}, {
             {'+', 'age', 25},
             {'=', 'name', 'Leo Tolstoy'},
@@ -356,7 +356,7 @@ pgroup.test_upsert_object = function(g)
     t.assert_equals(err, nil)
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers', 66, {mode = 'write'},
     })
 
@@ -367,7 +367,7 @@ end
 
 pgroup.test_upsert = function(g)
     -- upsert tuple first time
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
        'crud.upsert', {'customers', {67, box.NULL, 'Saltykov-Shchedrin', 63}, {
                           {'=', 'name', 'Mikhail Saltykov-Shchedrin'},
     }})
@@ -382,7 +382,7 @@ pgroup.test_upsert = function(g)
     t.assert_equals(err, nil)
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers', 67, {mode = 'write'},
     })
 
@@ -390,7 +390,7 @@ pgroup.test_upsert = function(g)
     t.assert_equals(result.rows, {{67, 1143, 'Saltykov-Shchedrin', 63}})
 
     -- upsert the same query second time when tuple exists
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
        'crud.upsert', {'customers', {67, box.NULL, 'Saltykov-Shchedrin', 63}, {
                           {'=', 'name', 'Mikhail Saltykov-Shchedrin'}}})
 
@@ -398,7 +398,7 @@ pgroup.test_upsert = function(g)
     t.assert_equals(err, nil)
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers', 67, {mode = 'write'},
     })
 
@@ -407,7 +407,7 @@ pgroup.test_upsert = function(g)
 end
 
 pgroup.test_intermediate_nullable_fields_update = function(g)
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.insert', {'developers', {1, box.NULL}})
     t.assert_equals(err, nil)
 
@@ -425,7 +425,7 @@ pgroup.test_intermediate_nullable_fields_update = function(g)
         end
     end)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.update',
+    local result, err = g.router:call('crud.update',
         {'developers', 1, {{'=', 'extra_3', { a = { b = {} } } }}, {fetch_latest_metadata = true}})
     t.assert_equals(err, nil)
     objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -445,16 +445,16 @@ pgroup.test_intermediate_nullable_fields_update = function(g)
     -- (https://github.com/tarantool/tarantool/issues/3378).
     -- So before 2.8 update returns an error but after it update is correct.
     if helpers.tarantool_version_at_least(2, 8) then
-        local _, err = g.cluster.main_server.net_box:call('crud.update',
+        local _, err = g.router:call('crud.update',
             {'developers', 1, {{'=', '[5].a.b[1]', 3}, {'=', 'extra_5', 'extra_value_5'}}})
         t.assert_equals(err, nil)
     elseif helpers.tarantool_version_at_least(2, 3) then
-        local _, err = g.cluster.main_server.net_box:call('crud.update',
+        local _, err = g.router:call('crud.update',
             {'developers', 1, {{'=', '[5].a.b[1]', 3}, {'=', 'extra_5', 'extra_value_5'}}})
         t.assert_equals(err.err, "Failed to update: Field ''extra_5'' was not found in the tuple")
     end
 
-    result, err = g.cluster.main_server.net_box:call('crud.update',
+    result, err = g.router:call('crud.update',
         {'developers', 1, {{'=', 5, 'extra_value_3'}, {'=', 7, 'extra_value_5'}}})
     t.assert_equals(err, nil)
     objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -470,7 +470,7 @@ pgroup.test_intermediate_nullable_fields_update = function(g)
         }
     })
 
-    result, err = g.cluster.main_server.net_box:call('crud.update',
+    result, err = g.router:call('crud.update',
         {'developers', 1, {
             {'=', 14, 'extra_value_12'},
             {'=', 'extra_9', 'extra_value_9'},
@@ -681,13 +681,13 @@ for case_name, case in pairs(gh_236_cases) do
         local result, err
 
         -- Perform request to fetch initial space format.
-        result, err = g.cluster.main_server.net_box:call(
+        result, err = g.router:call(
             'crud.delete', {'countries', 3})
         t.assert_not_equals(result, nil)
         t.assert_equals(err, nil)
 
         if case.need_pre_insert_data then
-            result, err = g.cluster.main_server.net_box:call(
+            result, err = g.router:call(
                 'crud.insert', {'countries', {3, box.NULL, 'vatican', 825, 'extra_test_data'}})
             t.assert_equals(err, nil)
             t.assert_not_equals(result, nil)
@@ -701,7 +701,7 @@ for case_name, case in pairs(gh_236_cases) do
         end)
 
         if case.operation_name ~= 'crud.pairs' then
-            result, err = g.cluster.main_server.net_box:call(case.operation_name, case.input)
+            result, err = g.router:call(case.operation_name, case.input)
             t.assert_equals(err, nil)
             local found_extra_field = false
             for _, v in pairs(result.metadata) do
@@ -713,7 +713,7 @@ for case_name, case in pairs(gh_236_cases) do
                 string.format('cannot find the expected metadata for case: %s',
                             case.operation_name))
         else
-            local object = g.cluster.main_server.net_box:eval([[
+            local object = g.router:eval([[
                 local objects = {}
                 for _, object in crud.pairs(
                     'countries',
@@ -740,7 +740,7 @@ end
 
 pgroup.test_object_with_nullable_fields = function(g)
     -- Insert
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.insert_object', {'tags', {id = 1, is_green = true}})
     t.assert_equals(err, nil)
 
@@ -766,7 +766,7 @@ pgroup.test_object_with_nullable_fields = function(g)
     -- Update
     -- {1, 477, NULL, true, NULL, NULL, true, NULL, NULL, NULL, NULL, NULL}
     -- Shouldn't failed because of https://github.com/tarantool/tarantool/issues/3378
-    result, err = g.cluster.main_server.net_box:call(
+    result, err = g.router:call(
         'crud.update', {'tags', 1, {{'=', 'is_sweet', true}}})
     t.assert_equals(err, nil)
     objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -789,7 +789,7 @@ pgroup.test_object_with_nullable_fields = function(g)
 
     -- Replace
     -- {2, 401, NULL, true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
-    result, err = g.cluster.main_server.net_box:call(
+    result, err = g.router:call(
         'crud.replace_object', {'tags', {id = 2, is_green = true}})
     t.assert_equals(err, nil)
     objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -812,7 +812,7 @@ pgroup.test_object_with_nullable_fields = function(g)
 
     -- Upsert: first is insert then update
     -- {3, 2804, NULL, NULL, NULL, NULL, NULL, true, NULL, NULL, NULL, NULL}
-    local _, err = g.cluster.main_server.net_box:call(
+    local _, err = g.router:call(
         'crud.upsert_object', {'tags', {id = 3, is_dirty = true}, {
              {'=', 'is_dirty', true},
     }})
@@ -820,14 +820,14 @@ pgroup.test_object_with_nullable_fields = function(g)
 
     -- {3, 2804, NULL, NULL, NULL, NULL, NULL, true, NULL, true, true, NULL}
     -- Shouldn't failed because of https://github.com/tarantool/tarantool/issues/3378
-    _, err = g.cluster.main_server.net_box:call(
+    _, err = g.router:call(
         'crud.upsert_object', {'tags', {id = 3, is_dirty = true}, {
              {'=', 'is_useful', true},
     }})
     t.assert_equals(err, nil)
 
     -- Get
-    result, err = g.cluster.main_server.net_box:call('crud.get', {
+    result, err = g.router:call('crud.get', {
         'tags', 3, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -852,7 +852,7 @@ end
 
 pgroup.test_get_partial_result = function(g)
     -- insert_object
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.insert_object', {
                 'customers',
                 {id = 1, name = 'Elizabeth', age = 24}
@@ -870,7 +870,7 @@ pgroup.test_get_partial_result = function(g)
     t.assert_equals(objects, {{id = 1, name = 'Elizabeth', age = 24, bucket_id = 477}})
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers', 1, {fields = {'id', 'name'}, mode = 'write'},
     })
 
@@ -884,7 +884,7 @@ end
 
 pgroup.test_insert_tuple_partial_result = function(g)
     -- insert
-    local result, err = g.cluster.main_server.net_box:call( 'crud.insert', {
+    local result, err = g.router:call( 'crud.insert', {
         'customers', {1, box.NULL, 'Elizabeth', 24}, {fields = {'id', 'name'}}
     })
 
@@ -898,7 +898,7 @@ end
 
 pgroup.test_insert_object_partial_result = function(g)
     -- insert_object
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.insert_object', {
                 'customers',
                 {id = 1, name = 'Elizabeth', age = 24},
@@ -916,7 +916,7 @@ end
 
 pgroup.test_delete_partial_result = function(g)
     -- insert_object
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.insert_object', {
                 'customers',
                 {id = 1, name = 'Elizabeth', age = 24}
@@ -934,7 +934,7 @@ pgroup.test_delete_partial_result = function(g)
     t.assert_equals(objects, {{id = 1, name = 'Elizabeth', age = 24, bucket_id = 477}})
 
     -- delete
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.delete', {
                 'customers', 1, {fields = {'id', 'name'}}
             }
@@ -956,7 +956,7 @@ end
 
 pgroup.test_update_partial_result = function(g)
     -- insert_object
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.insert_object', {
                 'customers',
                 {id = 1, name = 'Elizabeth', age = 23}
@@ -974,7 +974,7 @@ pgroup.test_update_partial_result = function(g)
     t.assert_equals(objects, {{id = 1, name = 'Elizabeth', age = 23, bucket_id = 477}})
 
     -- update
-    local result, err = g.cluster.main_server.net_box:call('crud.update', {
+    local result, err = g.router:call('crud.update', {
         'customers', 1, {{'+', 'age', 1},},  {fields = {'id', 'age'}}
     })
 
@@ -987,7 +987,7 @@ pgroup.test_update_partial_result = function(g)
 end
 
 pgroup.test_replace_tuple_partial_result = function(g)
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.replace', {
                 'customers',
                 {1, box.NULL, 'Elizabeth', 23},
@@ -1003,7 +1003,7 @@ pgroup.test_replace_tuple_partial_result = function(g)
     t.assert_equals(result.rows, {{1, 23}})
 
     -- replace again
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.replace', {
                 'customers',
                 {1, box.NULL, 'Elizabeth', 24},
@@ -1021,7 +1021,7 @@ end
 
 pgroup.test_replace_object_partial_result = function(g)
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers', 1, {mode = 'write'},
     })
 
@@ -1035,7 +1035,7 @@ pgroup.test_replace_object_partial_result = function(g)
     })
 
     -- replace_object
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.replace_object', {
                 'customers',
                 {id = 1, name = 'Elizabeth', age = 23},
@@ -1052,7 +1052,7 @@ pgroup.test_replace_object_partial_result = function(g)
     t.assert_equals(objects, {{id = 1, age = 23}})
 
     -- replace_object
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.replace_object', {
                 'customers',
                 {id = 1, name = 'Elizabeth', age = 24},
@@ -1071,7 +1071,7 @@ end
 
 pgroup.test_upsert_tuple_partial_result = function(g)
     -- upsert tuple first time
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+    local result, err = g.router:call('crud.upsert', {
         'customers',
         {1, box.NULL, 'Elizabeth', 23},
         {{'+', 'age', 1},},
@@ -1086,7 +1086,7 @@ pgroup.test_upsert_tuple_partial_result = function(g)
     })
 
     -- upsert second time
-    result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+    result, err = g.router:call('crud.upsert', {
         'customers',
         {1, box.NULL, 'Elizabeth', 23},
         {{'+', 'age', 1},},
@@ -1103,7 +1103,7 @@ end
 
 pgroup.test_upsert_object_partial_result = function(g)
     -- upsert_object first time
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
+    local result, err = g.router:call('crud.upsert_object', {
             'customers',
             {id = 1, name = 'Elizabeth', age = 23},
             {{'+', 'age', 1},},
@@ -1118,7 +1118,7 @@ pgroup.test_upsert_object_partial_result = function(g)
     })
 
     -- upsert_object second time
-    result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
+    result, err = g.router:call('crud.upsert_object', {
         'customers',
         {id = 1, name = 'Elizabeth', age = 23},
         {{'+', 'age', 1},},
@@ -1135,7 +1135,7 @@ end
 
 pgroup.test_partial_result_with_nullable_fields = function(g)
     -- Insert
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.insert_object', {'tags', {id = 1, is_green = true}})
     t.assert_equals(err, nil)
 
@@ -1158,7 +1158,7 @@ pgroup.test_partial_result_with_nullable_fields = function(g)
         }
     })
 
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'tags', 1, {fields = {'id', 'is_sweet', 'is_green'}, mode = 'write'},
     })
 
@@ -1174,7 +1174,7 @@ end
 
 pgroup.test_partial_result_bad_input = function(g)
     -- insert_object
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.insert_object', {
                 'customers',
                 {id = 1, name = 'Elizabeth', age = 24},
@@ -1186,7 +1186,7 @@ pgroup.test_partial_result_bad_input = function(g)
     t.assert_str_contains(err.err, 'Space format doesn\'t contain field named "lastname"')
 
     -- get
-    result, err = g.cluster.main_server.net_box:call('crud.get', {
+    result, err = g.router:call('crud.get', {
         'customers', 1, {fields = {'id', 'lastname', 'name'}, mode = 'write'},
     })
 
@@ -1194,7 +1194,7 @@ pgroup.test_partial_result_bad_input = function(g)
     t.assert_str_contains(err.err, 'Space format doesn\'t contain field named "lastname"')
 
     -- update
-    result, err = g.cluster.main_server.net_box:call('crud.update', {
+    result, err = g.router:call('crud.update', {
         'customers', 1, {{'+', 'age', 1},},
         {fields = {'id', 'lastname', 'age'}}
     })
@@ -1203,7 +1203,7 @@ pgroup.test_partial_result_bad_input = function(g)
     t.assert_str_contains(err.err, 'Space format doesn\'t contain field named "lastname"')
 
     -- delete
-    result, err = g.cluster.main_server.net_box:call(
+    result, err = g.router:call(
             'crud.delete', {
                 'customers', 1,
                 {fields = {'id', 'lastname', 'name'}}
@@ -1214,7 +1214,7 @@ pgroup.test_partial_result_bad_input = function(g)
     t.assert_str_contains(err.err, 'Space format doesn\'t contain field named "lastname"')
 
     -- replace
-    result, err = g.cluster.main_server.net_box:call(
+    result, err = g.router:call(
             'crud.replace', {
                 'customers',
                 {1, box.NULL, 'Elizabeth', 23},
@@ -1226,7 +1226,7 @@ pgroup.test_partial_result_bad_input = function(g)
     t.assert_str_contains(err.err, 'Space format doesn\'t contain field named "lastname"')
 
     -- replace_object
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.replace_object', {
                 'customers',
                 {id = 1, name = 'Elizabeth', age = 24},
@@ -1238,7 +1238,7 @@ pgroup.test_partial_result_bad_input = function(g)
     t.assert_str_contains(err.err, 'Space format doesn\'t contain field named "lastname"')
 
     -- upsert
-    result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+    result, err = g.router:call('crud.upsert', {
         'customers',
         {1, box.NULL, 'Elizabeth', 24},
         {{'+', 'age', 1},},
@@ -1249,7 +1249,7 @@ pgroup.test_partial_result_bad_input = function(g)
     t.assert_str_contains(err.err, 'Space format doesn\'t contain field named "lastname"')
 
     -- upsert_object
-    result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
+    result, err = g.router:call('crud.upsert_object', {
         'customers',
         {id = 1, name = 'Elizabeth', age = 24},
         {{'+', 'age', 1},},
@@ -1263,7 +1263,7 @@ end
 pgroup.test_tuple_not_damaged = function(g)
     -- insert
     local insert_tuple = {22, box.NULL, 'Elizabeth', 24}
-    local new_insert_tuple, err = g.cluster.main_server:eval([[
+    local new_insert_tuple, err = g.router:eval([[
         local crud = require('crud')
 
         local insert_tuple = ...
@@ -1278,7 +1278,7 @@ pgroup.test_tuple_not_damaged = function(g)
 
     -- upsert
     local upsert_tuple = {33, box.NULL, 'Peter', 35}
-    local new_upsert_tuple, err = g.cluster.main_server:eval([[
+    local new_upsert_tuple, err = g.router:eval([[
         local crud = require('crud')
 
         local upsert_tuple = ...
@@ -1293,7 +1293,7 @@ pgroup.test_tuple_not_damaged = function(g)
 
     -- replace
     local replace_tuple = {22, box.NULL, 'Elizabeth', 24}
-    local new_replace_tuple, err = g.cluster.main_server:eval([[
+    local new_replace_tuple, err = g.router:eval([[
         local crud = require('crud')
 
         local replace_tuple = ...
@@ -1310,7 +1310,7 @@ end
 pgroup.test_opts_not_damaged = function(g)
     -- insert
     local insert_opts = {timeout = 1, bucket_id = 655, fields = {'name', 'age'}}
-    local new_insert_opts, err = g.cluster.main_server:eval([[
+    local new_insert_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local insert_opts = ...
@@ -1325,7 +1325,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- insert_object
     local insert_opts = {timeout = 1, bucket_id = 477, fields = {'name', 'age'}}
-    local new_insert_opts, err = g.cluster.main_server:eval([[
+    local new_insert_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local insert_opts = ...
@@ -1340,7 +1340,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- upsert
     local upsert_opts = {timeout = 1, bucket_id = 907, fields = {'name', 'age'}}
-    local new_upsert_opts, err = g.cluster.main_server:eval([[
+    local new_upsert_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local upsert_opts = ...
@@ -1355,7 +1355,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- upsert_object
     local upsert_opts = {timeout = 1, bucket_id = 401, fields = {'name', 'age'}}
-    local new_upsert_opts, err = g.cluster.main_server:eval([[
+    local new_upsert_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local upsert_opts = ...
@@ -1372,7 +1372,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- get
     local get_opts = {timeout = 1, bucket_id = 401, fields = {'name', 'age'}}
-    local new_get_opts, err = g.cluster.main_server:eval([[
+    local new_get_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local get_opts = ...
@@ -1387,7 +1387,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- update
     local update_opts = {timeout = 1, bucket_id = 401, fields = {'name', 'age'}}
-    local new_update_opts, err = g.cluster.main_server:eval([[
+    local new_update_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local update_opts = ...
@@ -1402,7 +1402,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- replace
     local replace_opts = {timeout = 1, bucket_id = 655, fields = {'name', 'age'}}
-    local new_replace_opts, err = g.cluster.main_server:eval([[
+    local new_replace_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local replace_opts = ...
@@ -1417,7 +1417,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- replace_object
     local replace_opts = {timeout = 1, bucket_id = 477, fields = {'name', 'age'}}
-    local new_replace_opts, err = g.cluster.main_server:eval([[
+    local new_replace_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local replace_opts = ...
@@ -1432,7 +1432,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- delete
     local delete_opts = {timeout = 1, bucket_id = 401, fields = {'name', 'age'}}
-    local new_delete_opts, err = g.cluster.main_server:eval([[
+    local new_delete_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local delete_opts = ...
@@ -1521,7 +1521,7 @@ for op, case in pairs(gh_328_success_cases) do
     local test_name = ('test_gh_328_%s_with_sequence'):format(op)
 
     pgroup[test_name] = function(g)
-        local result, err = g.cluster.main_server.net_box:call('crud.' .. op, case.args)
+        local result, err = g.router:call('crud.' .. op, case.args)
         t.assert_equals(err, nil)
         t.assert_equals(#result.rows, 1)
 
@@ -1568,7 +1568,7 @@ for op, case in pairs(gh_328_error_cases) do
     local test_name = ('test_gh_328_%s_with_sequence_returns_error_without_option'):format(op)
 
     pgroup[test_name] = function(g)
-        local result, err = g.cluster.main_server.net_box:call('crud.' .. op, case.args)
+        local result, err = g.router:call('crud.' .. op, case.args)
         t.assert_equals(result, nil)
 
         if case.many then
@@ -1590,63 +1590,63 @@ end
 
 pgroup.test_noreturn_opt = function(g)
     -- insert with noreturn success
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers', {1, box.NULL, 'Elizabeth', 24}, {noreturn = true}
     })
     t.assert_equals(err, nil)
     t.assert_equals(result, nil)
 
     -- insert with noreturn fail
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers', {1, box.NULL, 'Elizabeth', 24}, {noreturn = true}
     })
     t.assert_not_equals(err, nil)
     t.assert_equals(result, nil)
 
     -- insert_object with noreturn success
-    local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {
+    local result, err = g.router:call('crud.insert_object', {
         'customers', {id = 0, name = 'Fedor', age = 59}, {noreturn = true}
     })
     t.assert_equals(err, nil)
     t.assert_equals(result, nil)
 
     -- insert_object with noreturn fail
-    local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {
+    local result, err = g.router:call('crud.insert_object', {
         'customers', {id = 0, name = 'Fedor', age = 59}, {noreturn = true}
     })
     t.assert_not_equals(err, nil)
     t.assert_equals(result, nil)
 
     -- replace with noreturn success
-    local result, err = g.cluster.main_server.net_box:call('crud.replace', {
+    local result, err = g.router:call('crud.replace', {
         'customers', {1, box.NULL, 'Elizabeth', 24}, {noreturn = true}
     })
     t.assert_equals(err, nil)
     t.assert_equals(result, nil)
 
     -- replace with noreturn fail
-    local result, err = g.cluster.main_server.net_box:call('crud.replace', {
+    local result, err = g.router:call('crud.replace', {
         'customers', {box.NULL, box.NULL, 'Elizabeth', 24}, {noreturn = true}
     })
     t.assert_not_equals(err, nil)
     t.assert_equals(result, nil)
 
     -- replace_object with noreturn success
-    local result, err = g.cluster.main_server.net_box:call('crud.replace_object', {
+    local result, err = g.router:call('crud.replace_object', {
         'customers', {id = 0, name = 'Fedor', age = 59}, {noreturn = true}
     })
     t.assert_equals(err, nil)
     t.assert_equals(result, nil)
 
     -- replace_object with noreturn fail
-    local result, err = g.cluster.main_server.net_box:call('crud.replace_object', {
+    local result, err = g.router:call('crud.replace_object', {
         'customers', {id = box.NULL, name = 'Fedor', age = 59}, {noreturn = true}
     })
     t.assert_not_equals(err, nil)
     t.assert_equals(result, nil)
 
     -- upsert with noreturn success
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+    local result, err = g.router:call('crud.upsert', {
         'customers', {1, box.NULL, 'Alice', 22},
         {{'+', 'age', 1}}, {noreturn = true}
     })
@@ -1654,7 +1654,7 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(result, nil)
 
     -- upsert with noreturn fail
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+    local result, err = g.router:call('crud.upsert', {
         'customers', {1, box.NULL, 'Alice', 22},
         {{'+', 'unknown', 1}}, {noreturn = true}
     })
@@ -1662,7 +1662,7 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(result, nil)
 
     -- upsert_object with noreturn success
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
+    local result, err = g.router:call('crud.upsert_object', {
         'customers', {id = 0, name = 'Fedor', age = 59},
         {{'+', 'age', 1}}, {noreturn = true}
     })
@@ -1670,7 +1670,7 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(result, nil)
 
     -- upsert_object with noreturn fail
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
+    local result, err = g.router:call('crud.upsert_object', {
         'customers', {id = 0, name = 'Fedor', age = 59},
         {{'+', 'unknown', 1}}, {noreturn = true}
     })
@@ -1678,28 +1678,28 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(result, nil)
 
     -- update with noreturn success
-    local result, err = g.cluster.main_server.net_box:call('crud.update', {
+    local result, err = g.router:call('crud.update', {
         'customers', 1, {{'+', 'age', 1},}, {noreturn = true}
     })
     t.assert_equals(err, nil)
     t.assert_equals(result, nil)
 
     -- update with noreturn fail
-    local result, err = g.cluster.main_server.net_box:call('crud.update', {
+    local result, err = g.router:call('crud.update', {
         'customers', {box.NULL, box.NULL, 'Elizabeth', 24}, {noreturn = true}
     })
     t.assert_not_equals(err, nil)
     t.assert_equals(result, nil)
 
     -- delete with noreturn success
-    local result, err = g.cluster.main_server.net_box:call('crud.delete', {
+    local result, err = g.router:call('crud.delete', {
         'customers', 1, {noreturn = true}
     })
     t.assert_equals(err, nil)
     t.assert_equals(result, nil)
 
     -- delete with noreturn fail
-    local result, err = g.cluster.main_server.net_box:call('crud.delete', {
+    local result, err = g.router:call('crud.delete', {
         'customers', {box.NULL, box.NULL, 'Elizabeth', 24}, {noreturn = true}
     })
     t.assert_not_equals(err, nil)

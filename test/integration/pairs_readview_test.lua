@@ -20,7 +20,7 @@ pgroup.before_all(function(g)
 
     g.space_format = g.cluster.servers[2].net_box.space.customers:format()
 
-    g.cluster.main_server.net_box:eval([[
+    g.router:eval([[
         require('crud').cfg{ stats = true }
     ]])
 end)
@@ -61,7 +61,7 @@ pgroup.test_pairs_no_conditions = function(g)
     }
 
     -- without conditions and options
-    local objects = g.cluster.main_server.net_box:eval([[
+    local objects = g.router:eval([[
         local crud = require('crud')
 
         local objects = {}
@@ -78,7 +78,7 @@ pgroup.test_pairs_no_conditions = function(g)
     t.assert_equals(objects, raw_rows)
 
     -- with use_tomap=false (the raw tuples returned)
-    local objects = g.cluster.main_server.net_box:eval([[
+    local objects = g.router:eval([[
         local crud = require('crud')
 
         local objects = {}
@@ -96,7 +96,7 @@ pgroup.test_pairs_no_conditions = function(g)
     t.assert_equals(objects, raw_rows)
 
     -- no after
-    local objects = g.cluster.main_server.net_box:eval([[
+    local objects = g.router:eval([[
         local crud = require('crud')
 
         local objects = {}
@@ -115,7 +115,7 @@ pgroup.test_pairs_no_conditions = function(g)
 
     -- after obj 2
     local after = crud_utils.flatten(customers[2], g.space_format)
-    local objects, err = g.cluster.main_server.net_box:eval([[
+    local objects, err = g.router:eval([[
         local crud = require('crud')
 
         local after = ...
@@ -137,7 +137,7 @@ pgroup.test_pairs_no_conditions = function(g)
 
     -- after obj 4 (last)
     local after = crud_utils.flatten(customers[4], g.space_format)
-    local objects, err = g.cluster.main_server.net_box:eval([[
+    local objects, err = g.router:eval([[
         local crud = require('crud')
 
         local after = ...
@@ -182,7 +182,7 @@ pgroup.test_ge_condition_with_index = function(g)
     }
 
     -- no after
-    local objects, err = g.cluster.main_server.net_box:eval([[
+    local objects, err = g.router:eval([[
         local crud = require('crud')
 
         local conditions = ...
@@ -205,7 +205,7 @@ pgroup.test_ge_condition_with_index = function(g)
 
     -- after obj 3
     local after = crud_utils.flatten(customers[3], g.space_format)
-    local objects, err = g.cluster.main_server.net_box:eval([[
+    local objects, err = g.router:eval([[
         local crud = require('crud')
 
         local conditions, after = ...
@@ -250,7 +250,7 @@ pgroup.test_le_condition_with_index = function(g)
     }
 
     -- no after
-    local objects, err = g.cluster.main_server.net_box:eval([[
+    local objects, err = g.router:eval([[
         local crud = require('crud')
 
         local conditions = ...
@@ -271,7 +271,7 @@ pgroup.test_le_condition_with_index = function(g)
 
     -- after obj 3
     local after = crud_utils.flatten(customers[3], g.space_format)
-    local objects, err = g.cluster.main_server.net_box:eval([[
+    local objects, err = g.router:eval([[
         local crud = require('crud')
 
         local conditions, after = ...
@@ -309,7 +309,7 @@ pgroup.test_first = function(g)
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
     -- w/ tomap
-    local objects, err = g.cluster.main_server.net_box:eval([[
+    local objects, err = g.router:eval([[
         local crud = require('crud')
         local objects = {}
         local foo, err = crud.readview({name = 'foo'})
@@ -325,7 +325,7 @@ pgroup.test_first = function(g)
     t.assert_equals(err, nil)
     t.assert_equals(objects, helpers.get_objects_by_idxs(customers, {1, 2}))
 
-    local tuples, err = g.cluster.main_server.net_box:eval([[
+    local tuples, err = g.router:eval([[
         local crud = require('crud')
         local tuples = {}
         local foo, err = crud.readview({name = 'foo'})
@@ -363,7 +363,7 @@ pgroup.test_negative_first = function(g)
 
     -- negative first
     t.assert_error_msg_contains("Negative first isn't allowed for pairs", function()
-        g.cluster.main_server.net_box:eval([[
+        g.router:eval([[
             local crud = require('crud')
             local foo, err = crud.readview({name = 'foo'})
             if err ~= nil then
@@ -376,7 +376,7 @@ pgroup.test_negative_first = function(g)
 end
 
 pgroup.test_empty_space = function(g)
-    local count = g.cluster.main_server.net_box:eval([[
+    local count = g.router:eval([[
         local crud = require('crud')
         local count = 0
         local foo, err = crud.readview({name = 'foo'})
@@ -405,7 +405,7 @@ pgroup.test_luafun_compatibility = function(g)
             age = 33, city = "Los Angeles",
         },
     })
-    local count = g.cluster.main_server.net_box:eval([[
+    local count = g.router:eval([[
         local crud = require('crud')
         local foo, err = crud.readview({name = 'foo'})
         if err ~= nil then
@@ -417,7 +417,7 @@ pgroup.test_luafun_compatibility = function(g)
     ]])
     t.assert_equals(count, 3)
 
-    count = g.cluster.main_server.net_box:eval([[
+    count = g.router:eval([[
         local crud = require('crud')
         local foo, err = crud.readview({name = 'foo'})
         if err ~= nil then
@@ -462,7 +462,7 @@ pgroup.test_pairs_partial_result = function(g)
         {id = 4, age = 46, name = "William", city = "Chicago"},
     }
 
-    local objects = g.cluster.main_server.net_box:eval([[
+    local objects = g.router:eval([[
         local crud = require('crud')
 
         local conditions, fields = ...
@@ -486,7 +486,7 @@ pgroup.test_pairs_partial_result = function(g)
         {id = 4, age = 46, name = "William", city = "Chicago"},
     }
 
-    objects = g.cluster.main_server.net_box:eval([[
+    objects = g.router:eval([[
         local crud = require('crud')
 
         local conditions, fields = ...
@@ -520,7 +520,7 @@ pgroup.test_pairs_partial_result = function(g)
         {id = 4, age = 46, name = "William"},
     }
 
-    objects = g.cluster.main_server.net_box:eval([[
+    objects = g.router:eval([[
         local crud = require('crud')
 
         local conditions, fields = ...
@@ -544,7 +544,7 @@ pgroup.test_pairs_partial_result = function(g)
         {id = 4, age = 46, name = "William"},
     }
 
-    objects = g.cluster.main_server.net_box:eval([[
+    objects = g.router:eval([[
         local crud = require('crud')
 
         local conditions, fields = ...
@@ -581,7 +581,7 @@ pgroup.test_pairs_partial_result = function(g)
         {id = 3, name = "David", age = 33},
     }
 
-    objects = g.cluster.main_server.net_box:eval([[
+    objects = g.router:eval([[
         local crud = require('crud')
 
         local conditions, fields = ...
@@ -605,7 +605,7 @@ pgroup.test_pairs_partial_result = function(g)
         {id = 3, name = "David", age = 33},
     }
 
-    objects = g.cluster.main_server.net_box:eval([[
+    objects = g.router:eval([[
         local crud = require('crud')
 
         local conditions, fields = ...
@@ -640,7 +640,7 @@ pgroup.test_pairs_partial_result = function(g)
         {id = 3, name = "David", city = "Los Angeles"},
     }
 
-    objects = g.cluster.main_server.net_box:eval([[
+    objects = g.router:eval([[
         local crud = require('crud')
 
         local conditions, fields = ...
@@ -666,7 +666,7 @@ pgroup.test_pairs_partial_result = function(g)
         {id = 3, name = "David", city = "Los Angeles"},
     }
 
-    objects = g.cluster.main_server.net_box:eval([[
+    objects = g.router:eval([[
         local crud = require('crud')
 
         local conditions, fields = ...
@@ -694,7 +694,7 @@ end
 pgroup.test_pairs_force_map_call = function(g)
     local key = 1
 
-    local first_bucket_id = g.cluster.main_server.net_box:eval([[
+    local first_bucket_id = g.router:eval([[
         local vshard = require('vshard')
 
         local key = ...
@@ -719,7 +719,7 @@ pgroup.test_pairs_force_map_call = function(g)
 
     local conditions = {{'==', 'id', key}}
 
-    local objects = g.cluster.main_server.net_box:eval([[
+    local objects = g.router:eval([[
         local crud = require('crud')
 
         local conditions = ...
@@ -740,7 +740,7 @@ pgroup.test_pairs_force_map_call = function(g)
     t.assert_equals(err, nil)
     t.assert_equals(#objects, 1)
 
-    objects = g.cluster.main_server.net_box:eval([[
+    objects = g.router:eval([[
         local crud = require('crud')
 
         local conditions = ...
@@ -787,7 +787,7 @@ pgroup.test_pairs_timeout = function(g)
         {4, 1161, 'William', 'White', 81, 'Chicago'},
     }
 
-    local objects = g.cluster.main_server.net_box:eval([[
+    local objects = g.router:eval([[
         local crud = require('crud')
 
         local objects = {}
@@ -830,7 +830,7 @@ pgroup.test_pairs_no_map_reduce = function(g)
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
-    local router = helpers.get_router(g.cluster, g.params.backend).net_box
+    local router = g.router
     local map_reduces_before = helpers.get_map_reduces_stat(router, 'customers')
 
     -- Case: no conditions, just bucket id.
@@ -859,7 +859,7 @@ pgroup.test_pairs_no_map_reduce = function(g)
 
     -- Case: EQ on secondary index, which is not in the sharding
     -- index (primary index in the case).
-    local rows = g.cluster.main_server.net_box:eval([[
+    local rows = g.router:eval([[
         local crud = require('crud')
         local foo, err = crud.readview({name = 'foo'})
         if err ~= nil then
@@ -886,7 +886,7 @@ local function read_impl(cg, space, conditions, opts)
     opts = table.deepcopy(opts) or {}
     opts.use_tomap = true
 
-    return cg.cluster.main_server:exec(function(space, conditions, opts)
+    return cg.router:exec(function(space, conditions, opts)
         local crud = require('crud')
 
         local rv, err = crud.readview()

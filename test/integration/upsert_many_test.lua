@@ -23,7 +23,7 @@ end)
 
 pgroup.test_non_existent_space = function(g)
     -- upsert_many
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'non_existent_space',
         {
             {{1, box.NULL, 'Alex', 59}, {{'+', 'age', 1}}},
@@ -38,7 +38,7 @@ pgroup.test_non_existent_space = function(g)
     t.assert_str_contains(errs[1].err, 'Space "non_existent_space" doesn\'t exist')
 
     -- upsert_object_many
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'non_existent_space',
         {
             {{id = 1, name = 'Fedor', age = 59}, {{'+', 'age', 1}}},
@@ -57,7 +57,7 @@ pgroup.test_non_existent_space = function(g)
     t.assert_str_contains(errs[3].err, 'Space "non_existent_space" doesn\'t exist')
 
     -- upsert_object_many
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'non_existent_space',
         {
             {{id = 1, name = 'Fedor', age = 59}, {{'+', 'age', 1}}},
@@ -79,7 +79,7 @@ end
 
 pgroup.test_object_bad_format = function(g)
     -- bad format
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 1, name = 'Fedor', age = 59}, {{'+', 'age', 12}}},
@@ -107,7 +107,7 @@ pgroup.test_object_bad_format = function(g)
     t.assert_equals(result, {1, 477, 'Fedor', 59})
 
     -- bad format
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 1, name = 'Fedor', age = 59}, {{'+', 'age', '1'}}},
@@ -133,7 +133,7 @@ pgroup.test_object_bad_format = function(g)
 
     -- bad format
     -- two errors, default: stop_on_error == false
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 2, name = 'Anna'}, {{'+', 'age', 25}, {'=', 'name', 'Leo Tolstoy'},}},
@@ -154,7 +154,7 @@ end
 
 pgroup.test_all_success = function(g)
     -- upsert_many
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{1, box.NULL, 'Fedor', 59}, {{'+', 'age', 25}, {'=', 'name', 'Leo Tolstoy'},}},
@@ -191,7 +191,7 @@ end
 
 pgroup.test_object_all_success = function(g)
     -- upsert_object_many
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 1, name = 'Fedor', age = 59}, {{'+', 'age', 25}, {'=', 'name', 'Leo Tolstoy'},}},
@@ -239,7 +239,7 @@ pgroup.test_one_error = function(g)
 
     -- upsert_many
     -- failed for s1-master
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{22, box.NULL, 'Alex', 34}, {{'=', 'name', 'Peter'},}},
@@ -294,7 +294,7 @@ pgroup.test_object_one_error = function(g)
 
     -- upsert_object_many
     -- failed for s1-master
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 22, name = 'Alex', age = 34}, {{'=', 'name', 'Peter'},}},
@@ -349,7 +349,7 @@ pgroup.test_many_errors = function(g)
 
     -- upsert_many
     -- failed for both: s1-master s2-master
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{22, box.NULL, 'Alex', 34}, {{'=', 'name', 'Peter'},}},
@@ -417,7 +417,7 @@ pgroup.test_object_many_errors = function(g)
 
     -- upsert_object_many
     -- failed for both: s1-master s2-master
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 22, name = 'Alex', age = 34}, {{'=', 'name', 'Peter'},}},
@@ -490,7 +490,7 @@ pgroup.test_no_success = function(g)
 
     -- upsert_many
     -- failed for both: s1-master s2-master
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{22, box.NULL, 'Alex', 34}, {{'=', 'name', 5},}},
@@ -563,7 +563,7 @@ pgroup.test_object_no_success = function(g)
 
     -- upsert_object_many
     -- failed for both: s1-master s2-master
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 22, name = 'Alex', age = 34}, {{'=', 'name', 5},}},
@@ -621,7 +621,7 @@ end
 pgroup.test_object_bad_format_stop_on_error = function(g)
     -- bad format
     -- two errors, stop_on_error == true
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 1, name = 'Fedor'}, {{'+', 'age', 12}}},
@@ -641,7 +641,7 @@ end
 
 pgroup.test_all_success_stop_on_error = function(g)
     -- upsert_many
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{1, box.NULL, 'Fedor', 59}, {{'+', 'age', 25}, {'=', 'name', 'Leo Tolstoy'},}},
@@ -681,7 +681,7 @@ end
 
 pgroup.test_object_all_success_stop_on_error = function(g)
     -- upsert_object_many
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 1, name = 'Fedor', age = 59}, {{'+', 'age', 25}, {'=', 'name', 'Leo Tolstoy'},}},
@@ -735,7 +735,7 @@ pgroup.test_object_partial_success_stop_on_error = function(g)
     -- stop_on_error = true, rollback_on_error = false
     -- one error on one storage without rollback, inserts stop by error on this storage
     -- inserts before error are successful
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 22, name = 'Alex', age = 34}, {{'+', 'age', 1}}},
@@ -816,7 +816,7 @@ pgroup.test_partial_success_stop_on_error = function(g)
     -- stop_on_error = true, rollback_on_error = false
     -- one error on one storage without rollback, inserts stop by error on this storage
     -- inserts before error are successful
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{22, box.NULL, 'Alex', 34}, {{'+', 'age', 1}}},
@@ -901,7 +901,7 @@ pgroup.test_no_success_stop_on_error = function(g)
     -- upsert_many
     -- fails for both: s1-master s2-master
     -- one error on each storage, all inserts stop by error
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{2, box.NULL, 'Alex', 34}, {{'+', 'age', '1'}}},
@@ -994,7 +994,7 @@ pgroup.test_object_no_success_stop_on_error = function(g)
     -- upsert_object_many
     -- fails for both: s1-master s2-master
     -- one error on each storage, all inserts stop by error
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 2, name = 'Alex', age = 34}, {{'+', 'age', '1'}}},
@@ -1069,7 +1069,7 @@ end
 
 pgroup.test_all_success_rollback_on_error = function(g)
     -- upsert_many
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{1, box.NULL, 'Fedor', 59}, {{'+', 'age', 25}, {'=', 'name', 'Leo Tolstoy'},}},
@@ -1109,7 +1109,7 @@ end
 
 pgroup.test_object_all_success_rollback_on_error = function(g)
     -- upsert_object_many
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 1, name = 'Fedor', age = 59}, {{'+', 'age', 25}, {'=', 'name', 'Leo Tolstoy'},}},
@@ -1167,7 +1167,7 @@ pgroup.test_object_partial_success_rollback_on_error = function(g)
     -- upsert_object_many
     -- stop_on_error = false, rollback_on_error = true
     -- two error on one storage with rollback
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 22, name = 'Alex', age = 34}, {{'+', 'age', 1}}},
@@ -1262,7 +1262,7 @@ pgroup.test_partial_success_rollback_on_error = function(g)
     -- upsert_many
     -- stop_on_error = false, rollback_on_error = true
     -- two error on one storage with rollback
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{22, box.NULL, 'Peter', 24}, {{'+', 'age', 1}}},
@@ -1362,7 +1362,7 @@ pgroup.test_no_success_rollback_on_error = function(g)
     -- upsert_many
     -- fails for both: s1-master s2-master
     -- two errors on each storage with rollback
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{1, box.NULL, 'Olga', 27}, {{'+', 'age', 1}}},
@@ -1481,7 +1481,7 @@ pgroup.test_object_no_success_rollback_on_error = function(g)
     -- upsert_object_many
     -- fails for both: s1-master s2-master
     -- two errors on each storage with rollback
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 1, name = 'Olga', age = 27}, {{'+', 'age', 1}}},
@@ -1578,7 +1578,7 @@ end
 pgroup.test_all_success_rollback_and_stop_on_error = function(g)
     -- upsert_many
     -- all success
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{2, box.NULL, 'Anna', 23}, {{'+', 'age', 1}}},
@@ -1620,7 +1620,7 @@ end
 pgroup.test_object_all_success_rollback_and_stop_on_error = function(g)
     -- upsert_object_many
     -- all success
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 2, name = 'Anna', age = 23}, {{'+', 'age', 1}}},
@@ -1675,7 +1675,7 @@ pgroup.test_partial_success_rollback_and_stop_on_error = function(g)
     -- stop_on_error = true, rollback_on_error = true
     -- two error on one storage with rollback, inserts stop by error on this storage
     -- inserts before error are rollbacked
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{22, box.NULL, 'Alex', 34}, {{'+', 'age', 1}}},
@@ -1770,7 +1770,7 @@ pgroup.test_object_partial_success_rollback_and_stop_on_error = function(g)
     -- stop_on_error = true, rollback_on_error = true
     -- two error on one storage with rollback, inserts stop by error on this storage
     -- inserts before error are rollbacked
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 22, name = 'Alex', age = 34}, {{'+', 'age', 1}}},
@@ -1851,7 +1851,7 @@ end
 
 pgroup.test_partial_result = function(g)
     -- bad fields format
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{15, box.NULL, 'Fedor', 59}, {{'+', 'age', 1}}},
@@ -1866,7 +1866,7 @@ pgroup.test_partial_result = function(g)
     t.assert_str_contains(errs[1].err, 'Space format doesn\'t contain field named "invalid"')
 
     -- upsert_many
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{1, box.NULL, 'Fedor', 59}, {{'+', 'age', 1}}},
@@ -1886,7 +1886,7 @@ end
 
 pgroup.test_object_partial_result = function(g)
     -- bad fields format
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 15, name = 'Fedor', age = 59}, {{'+', 'age', 1}}},
@@ -1901,7 +1901,7 @@ pgroup.test_object_partial_result = function(g)
     t.assert_str_contains(errs[1].err, 'Space format doesn\'t contain field named "invalid"')
 
     -- upsert_object_many
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 1, name = 'Fedor', age = 59}, {{'+', 'age', 1}}},
@@ -1922,7 +1922,7 @@ end
 pgroup.test_opts_not_damaged = function(g)
     -- upsert_many
     local batch_upsert_opts = {timeout = 1, fields = {'name', 'age'}}
-    local new_batch_upsert_opts, err = g.cluster.main_server:eval([[
+    local new_batch_upsert_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local batch_upsert_opts = ...
@@ -1939,7 +1939,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     -- upsert_object_many
     local batch_upsert_opts = {timeout = 1, fields = {'name', 'age'}}
-    local new_batch_upsert_opts, err = g.cluster.main_server:eval([[
+    local new_batch_upsert_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local batch_upsert_opts = ...
@@ -1957,7 +1957,7 @@ end
 
 pgroup.test_noreturn_opt = function(g)
     -- upsert_many with noreturn, all tuples are correct
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{1, box.NULL, 'Alex', 59}, {{'+', 'age', 1}}},
@@ -1971,7 +1971,7 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(result, nil)
 
     -- upsert_many with noreturn, some tuples are correct
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{1, box.NULL, 'Alex', 59}, {{'+', 'age', 1}}},
@@ -1986,7 +1986,7 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(result, nil)
 
     -- upsert_many with noreturn, all tuples are not correct
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, errs = g.router:call('crud.upsert_many', {
         'customers',
         {
             {{box.NULL, box.NULL, 'Alex', 59}, {{'+', 'age', 1}}},
@@ -2001,7 +2001,7 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(result, nil)
 
     -- upsert_object_many with noreturn, all tuples are correct
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 1, name = 'Fedor', age = 59}, {{'+', 'age', 1}}},
@@ -2015,7 +2015,7 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(result, nil)
 
     -- upsert_object_many with noreturn, some tuples are correct
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = 1, name = 'Fedor', age = 59}, {{'+', 'age', 1}}},
@@ -2030,7 +2030,7 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_equals(result, nil)
 
     -- upsert_object_many with noreturn, all tuples are not correct
-    local result, errs = g.cluster.main_server.net_box:call('crud.upsert_object_many', {
+    local result, errs = g.router:call('crud.upsert_object_many', {
         'customers',
         {
             {{id = box.NULL, name = 'Fedor', age = 59}, {{'+', 'age', 1}}},
@@ -2046,7 +2046,7 @@ pgroup.test_noreturn_opt = function(g)
 end
 
 pgroup.test_zero_tuples = function(g)
-    local result, errs = g.cluster.main_server.net_box:call(
+    local result, errs = g.router:call(
         'crud.upsert_many', {'customers', {}})
 
     t.assert_not_equals(errs, nil)
@@ -2056,7 +2056,7 @@ pgroup.test_zero_tuples = function(g)
 end
 
 pgroup.test_zero_objects = function(g)
-    local result, errs = g.cluster.main_server.net_box:call(
+    local result, errs = g.router:call(
         'crud.upsert_object_many', {'customers', {}})
 
     t.assert_not_equals(errs, nil)

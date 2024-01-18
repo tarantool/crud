@@ -85,7 +85,8 @@ pgroup.before_all(function(g)
     })
 
     g.cluster:start()
-    g.router = g.cluster:server('router').net_box
+
+    g.router = g.cluster:server('router')
 end)
 
 pgroup.after_all(function(g) helpers.stop_cartridge_cluster(g.cluster) end)

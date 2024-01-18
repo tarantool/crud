@@ -47,6 +47,8 @@ local cartridge_cfg_template = {
 
 pgroup.before_all(function(g)
     helpers.start_cluster(g, cartridge_cfg_template, vshard_cfg_template)
+
+    g.router = g.cluster:server('router')
 end)
 
 pgroup.after_all(function(g)
@@ -54,7 +56,7 @@ pgroup.after_all(function(g)
 end)
 
 pgroup.test_insert = function(g)
-    local results, err = g.cluster.main_server.net_box:eval([[
+    local results, err = g.router:eval([[
         local crud = require('crud')
         return crud.insert('customers', {id = 1, name = 'Fedor', age = 15})
     ]])

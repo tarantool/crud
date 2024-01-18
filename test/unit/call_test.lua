@@ -68,16 +68,16 @@ pgroup.before_all(function(g)
     helpers.start_cluster(g, cartridge_cfg_template, vshard_cfg_template)
 
     g.clear_vshard_calls = function()
-        g.cluster.main_server.net_box:call('clear_vshard_calls')
+        g.router:call('clear_vshard_calls')
     end
 
     g.get_vshard_calls = function()
-        return g.cluster.main_server.net_box:eval('return _G.vshard_calls')
+        return g.router:eval('return _G.vshard_calls')
     end
 
     -- patch vshard.router.call* functions
     local vshard_call_names = {'callro', 'callbro', 'callre', 'callbre', 'callrw'}
-    g.cluster.main_server.net_box:call('patch_vshard_calls', {vshard_call_names})
+    g.router:call('patch_vshard_calls', {vshard_call_names})
 end)
 
 pgroup.after_all(function(g)
@@ -85,7 +85,7 @@ pgroup.after_all(function(g)
 end)
 
 pgroup.test_map_non_existent_func = function(g)
-    local results, err = g.cluster.main_server.net_box:eval([[
+    local results, err = g.router:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
 
@@ -98,7 +98,7 @@ pgroup.test_map_non_existent_func = function(g)
 end
 
 pgroup.test_single_non_existent_func = function(g)
-    local results, err = g.cluster.main_server.net_box:eval([[
+    local results, err = g.router:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
 
@@ -111,7 +111,7 @@ pgroup.test_single_non_existent_func = function(g)
 end
 
 pgroup.test_map_invalid_mode = function(g)
-    local results, err = g.cluster.main_server.net_box:eval([[
+    local results, err = g.router:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
 
@@ -123,7 +123,7 @@ pgroup.test_map_invalid_mode = function(g)
 end
 
 pgroup.test_single_invalid_mode = function(g)
-    local results, err = g.cluster.main_server.net_box:eval([[
+    local results, err = g.router:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
 
@@ -135,7 +135,7 @@ pgroup.test_single_invalid_mode = function(g)
 end
 
 pgroup.test_map_no_args = function(g)
-    local results_map, err  = g.cluster.main_server.net_box:eval([[
+    local results_map, err  = g.router:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
 
@@ -149,7 +149,7 @@ pgroup.test_map_no_args = function(g)
 end
 
 pgroup.test_args = function(g)
-    local results_map, err = g.cluster.main_server.net_box:eval([[
+    local results_map, err = g.router:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
 
@@ -165,7 +165,7 @@ end
 pgroup.test_timeout = function(g)
     local timeout = 0.2
 
-    local results, err = g.cluster.main_server.net_box:eval([[
+    local results, err = g.router:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
 
@@ -184,7 +184,7 @@ end
 
 local function check_single_vshard_call(g, exp_vshard_call, opts)
     g.clear_vshard_calls()
-    local _, err = g.cluster.main_server.net_box:eval([[
+    local _, err = g.router:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
 
@@ -198,7 +198,7 @@ end
 
 local function check_map_vshard_call(g, exp_vshard_call, opts)
     g.clear_vshard_calls()
-    local _, err = g.cluster.main_server.net_box:eval([[
+    local _, err = g.router:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
 
@@ -290,7 +290,7 @@ end
 
 pgroup.test_any_vshard_call = function(g)
     g.clear_vshard_calls()
-    local results, err = g.cluster.main_server.net_box:eval([[
+    local results, err = g.router:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
 
@@ -304,7 +304,7 @@ end
 pgroup.test_any_vshard_call_timeout = function(g)
     local timeout = 0.2
 
-    local results, err = g.cluster.main_server.net_box:eval([[
+    local results, err = g.router:eval([[
         local vshard = require('vshard')
         local call = require('crud.common.call')
 

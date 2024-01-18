@@ -24,7 +24,7 @@ pgroup.before_each(function(g)
 end)
 
 local function get_other_storage_bucket_id(g, key)
-    local bucket_id = g.cluster.main_server.net_box:eval([[
+    local bucket_id = g.router:eval([[
         local vshard = require('vshard')
 
         local key = ...
@@ -38,7 +38,7 @@ local function get_other_storage_bucket_id(g, key)
 end
 
 local function check_get(g, space_name, id, bucket_id, tuple)
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         space_name, id, {mode = 'write'},
     })
 
@@ -47,7 +47,7 @@ local function check_get(g, space_name, id, bucket_id, tuple)
     t.assert_equals(#result.rows, 0)
 
     -- get w/ right bucket_id
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         space_name, id, {bucket_id = bucket_id, mode = 'write'},
     })
 
@@ -66,7 +66,7 @@ pgroup.test_update = function(g)
     }
 
     -- insert tuple
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers', tuple, {bucket_id = bucket_id}
     })
 
@@ -75,7 +75,7 @@ pgroup.test_update = function(g)
     t.assert_equals(#result.rows, 1)
 
     -- update w/ default bucket_id
-    local result, err = g.cluster.main_server.net_box:call('crud.update', {
+    local result, err = g.router:call('crud.update', {
         'customers', tuple[1], update_operations,
     })
 
@@ -85,7 +85,7 @@ pgroup.test_update = function(g)
     t.assert_equals(#result.rows, 0)
 
     -- update w/ right bucket_id
-    local result, err = g.cluster.main_server.net_box:call('crud.update', {
+    local result, err = g.router:call('crud.update', {
         'customers', tuple[1], update_operations, {bucket_id = bucket_id},
     })
 
@@ -99,7 +99,7 @@ pgroup.test_delete = function(g)
     local bucket_id = get_other_storage_bucket_id(g, tuple[1])
 
     -- insert tuple
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers', tuple, {bucket_id = bucket_id}
     })
 
@@ -108,7 +108,7 @@ pgroup.test_delete = function(g)
     t.assert_equals(#result.rows, 1)
 
     -- delete w/ default bucket_id
-    local result, err = g.cluster.main_server.net_box:call('crud.delete', {
+    local result, err = g.router:call('crud.delete', {
         'customers', tuple[1],
     })
 
@@ -118,7 +118,7 @@ pgroup.test_delete = function(g)
     -- just get tuple to check it wasn't deleted
 
     -- get w/ right bucket_id
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers', tuple[1], {bucket_id = bucket_id, mode = 'write'},
     })
 
@@ -128,7 +128,7 @@ pgroup.test_delete = function(g)
     t.assert_equals(#result.rows, 1)
 
     -- delete w/ right bucket_id
-    local result, err = g.cluster.main_server.net_box:call('crud.delete', {
+    local result, err = g.router:call('crud.delete', {
         'customers', tuple[1], {bucket_id = bucket_id},
     })
 
@@ -136,7 +136,7 @@ pgroup.test_delete = function(g)
     t.assert_not_equals(result, nil)
 
     -- get w/ right bucket_id
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers', tuple[1], {bucket_id = bucket_id, mode = 'write'},
     })
 
@@ -154,7 +154,7 @@ pgroup.test_insert_object = function(g)
     local tuple = crud_utils.flatten(object, g.space_format, bucket_id)
 
     -- insert_object
-    local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {
+    local result, err = g.router:call('crud.insert_object', {
         'customers', object, {bucket_id = bucket_id},
     })
 
@@ -172,7 +172,7 @@ pgroup.test_insert_object_bucket_id_opt = function(g)
     local tuple = crud_utils.flatten(object, g.space_format, bucket_id)
 
     -- insert_object
-    local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {
+    local result, err = g.router:call('crud.insert_object', {
         'customers', object, {bucket_id = bucket_id},
     })
 
@@ -191,7 +191,7 @@ pgroup.test_insert_object_bucket_id_specified_twice = function(g)
     local tuple = crud_utils.flatten(object, g.space_format, bucket_id)
 
     -- insert_object, opts.bucket_id is different
-    local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {
+    local result, err = g.router:call('crud.insert_object', {
         'customers', object, {bucket_id = bucket_id + 1},
     })
 
@@ -199,7 +199,7 @@ pgroup.test_insert_object_bucket_id_specified_twice = function(g)
     t.assert_str_contains(err.err, 'Tuple and opts.bucket_id contain different bucket_id values')
 
     -- insert_object, opts.bucket_id is the same
-    local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {
+    local result, err = g.router:call('crud.insert_object', {
         'customers', object, {bucket_id = bucket_id},
     })
 
@@ -216,7 +216,7 @@ pgroup.test_insert = function(g)
     tuple[2] = bucket_id
 
     -- insert
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers', tuple,
     })
 
@@ -235,7 +235,7 @@ pgroup.test_insert_bucket_id_opt = function(g)
     tuple_with_bucket_id[2] = bucket_id
 
     -- insert
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers', tuple, {bucket_id = bucket_id},
     })
 
@@ -252,7 +252,7 @@ pgroup.test_insert_bucket_id_specified_twice = function(g)
     tuple[2] = bucket_id
 
     -- insert, opts.bucket_id is different
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers', tuple, {bucket_id = bucket_id + 1}
     })
 
@@ -260,7 +260,7 @@ pgroup.test_insert_bucket_id_specified_twice = function(g)
     t.assert_str_contains(err.err, 'Tuple and opts.bucket_id contain different bucket_id values')
 
     -- insert, opts.bucket_id is the same
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers', tuple, {bucket_id = bucket_id}
     })
 
@@ -279,7 +279,7 @@ pgroup.test_replace_object = function(g)
     local tuple = crud_utils.flatten(object, g.space_format, bucket_id)
 
     -- replace_object
-    local result, err = g.cluster.main_server.net_box:call('crud.replace_object', {
+    local result, err = g.router:call('crud.replace_object', {
         'customers', object,
     })
 
@@ -297,7 +297,7 @@ pgroup.test_replace_object_bucket_id_opt = function(g)
     local tuple = crud_utils.flatten(object, g.space_format, bucket_id)
 
     -- replace_object
-    local result, err = g.cluster.main_server.net_box:call('crud.replace_object', {
+    local result, err = g.router:call('crud.replace_object', {
         'customers', object, {bucket_id = bucket_id}
     })
 
@@ -316,7 +316,7 @@ pgroup.test_replace_object_bucket_id_specified_twice = function(g)
     local tuple = crud_utils.flatten(object, g.space_format, bucket_id)
 
     -- replace_object, opts.bucket_id is different
-    local result, err = g.cluster.main_server.net_box:call('crud.replace_object', {
+    local result, err = g.router:call('crud.replace_object', {
         'customers', object, {bucket_id = bucket_id + 1}
     })
 
@@ -324,7 +324,7 @@ pgroup.test_replace_object_bucket_id_specified_twice = function(g)
     t.assert_str_contains(err.err, 'Tuple and opts.bucket_id contain different bucket_id values')
 
     -- replace_object, opts.bucket_id is the same
-    local result, err = g.cluster.main_server.net_box:call('crud.replace_object', {
+    local result, err = g.router:call('crud.replace_object', {
         'customers', object, {bucket_id = bucket_id}
     })
 
@@ -341,7 +341,7 @@ pgroup.test_replace = function(g)
     tuple[2] = bucket_id
 
     -- replace
-    local result, err = g.cluster.main_server.net_box:call('crud.replace', {
+    local result, err = g.router:call('crud.replace', {
         'customers', tuple, {bucket_id = bucket_id}
     })
 
@@ -360,7 +360,7 @@ pgroup.test_replace_bucket_id_opt = function(g)
     tuple_with_bucket_id[2] = bucket_id
 
     -- replace
-    local result, err = g.cluster.main_server.net_box:call('crud.replace', {
+    local result, err = g.router:call('crud.replace', {
         'customers', tuple, {bucket_id = bucket_id}
     })
 
@@ -377,7 +377,7 @@ pgroup.test_replace_bucket_id_specified_twice = function(g)
     tuple[2] = bucket_id
 
     -- replace, opts.bucket_id is different
-    local result, err = g.cluster.main_server.net_box:call('crud.replace', {
+    local result, err = g.router:call('crud.replace', {
         'customers', tuple, {bucket_id = bucket_id + 1}
     })
 
@@ -385,7 +385,7 @@ pgroup.test_replace_bucket_id_specified_twice = function(g)
     t.assert_str_contains(err.err, 'Tuple and opts.bucket_id contain different bucket_id values')
 
     -- replace, opts.bucket_id is the same
-    local result, err = g.cluster.main_server.net_box:call('crud.replace', {
+    local result, err = g.router:call('crud.replace', {
         'customers', tuple, {bucket_id = bucket_id}
     })
 
@@ -404,7 +404,7 @@ pgroup.test_upsert_object = function(g)
     local tuple = crud_utils.flatten(object, g.space_format, bucket_id)
 
     -- upsert_object
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
+    local result, err = g.router:call('crud.upsert_object', {
         'customers', object, {},
     })
 
@@ -422,7 +422,7 @@ pgroup.test_upsert_object_bucket_id_opt = function(g)
     local tuple = crud_utils.flatten(object, g.space_format, bucket_id)
 
     -- upsert_object
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
+    local result, err = g.router:call('crud.upsert_object', {
         'customers', object, {}, {bucket_id = bucket_id}
     })
 
@@ -441,7 +441,7 @@ pgroup.test_upsert_object_bucket_id_specified_twice = function(g)
     local tuple = crud_utils.flatten(object, g.space_format, bucket_id)
 
     -- upsert_object, opts.bucket_id is different
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
+    local result, err = g.router:call('crud.upsert_object', {
         'customers', object, {}, {bucket_id = bucket_id + 1}
     })
 
@@ -449,7 +449,7 @@ pgroup.test_upsert_object_bucket_id_specified_twice = function(g)
     t.assert_str_contains(err.err, 'Tuple and opts.bucket_id contain different bucket_id values')
 
     -- upsert_object, opts.bucket_id is the same
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert_object', {
+    local result, err = g.router:call('crud.upsert_object', {
         'customers', object, {}, {bucket_id = bucket_id}
     })
 
@@ -466,7 +466,7 @@ pgroup.test_upsert = function(g)
     tuple[2] = bucket_id
 
     -- upsert
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+    local result, err = g.router:call('crud.upsert', {
         'customers', tuple, {}, {bucket_id = bucket_id}
     })
 
@@ -485,7 +485,7 @@ pgroup.test_upsert_bucket_id_opt = function(g)
     tuple_with_bucket_id[2] = bucket_id
 
     -- upsert
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+    local result, err = g.router:call('crud.upsert', {
         'customers', tuple, {}, {bucket_id = bucket_id}
     })
 
@@ -502,7 +502,7 @@ pgroup.test_upsert_bucket_id_specified_twice = function(g)
     tuple[2] = bucket_id
 
     -- upsert, opts.bucket_id is different
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+    local result, err = g.router:call('crud.upsert', {
         'customers', tuple, {}, {bucket_id = bucket_id + 1}
     })
 
@@ -510,7 +510,7 @@ pgroup.test_upsert_bucket_id_specified_twice = function(g)
     t.assert_str_contains(err.err, 'Tuple and opts.bucket_id contain different bucket_id values')
 
     -- upsert, opts.bucket_id is the same
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+    local result, err = g.router:call('crud.upsert', {
         'customers', tuple, {}, {bucket_id = bucket_id}
     })
 
@@ -526,7 +526,7 @@ pgroup.test_select = function(g)
     local bucket_id = get_other_storage_bucket_id(g, tuple[1])
 
     -- insert tuple
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers', tuple, {bucket_id = bucket_id}
     })
 
@@ -537,7 +537,7 @@ pgroup.test_select = function(g)
     local conditions = {{'==', 'id', tuple[1]}}
 
     -- select w/ default bucket_id
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+    local result, err = g.router:call('crud.select', {
         'customers', conditions,
     })
 
@@ -547,7 +547,7 @@ pgroup.test_select = function(g)
     t.assert_equals(#result.rows, 0)
 
     -- select w/ right bucket_id
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+    local result, err = g.router:call('crud.select', {
         'customers', conditions, {bucket_id = bucket_id, mode = 'write'},
     })
 

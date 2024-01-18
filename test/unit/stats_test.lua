@@ -18,7 +18,6 @@ local space_name = 'customers'
 
 local function before_all(g)
     helpers.start_default_cluster(g, 'srv_stats')
-    g.router = helpers.get_router(g.cluster, g.params.backend).net_box
 
     helpers.prepare_simple_functions(g.router)
     g.router:eval("stats_module = require('crud.stats')")

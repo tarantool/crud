@@ -109,8 +109,6 @@ g.before_all(function(g)
 
     helpers.start_cluster(g, cartridge_cfg_template, vshard_cfg_template)
 
-    g.router = helpers.get_router(g.cluster, g.params.backend).net_box
-
     g.router:eval([[
         rawset(_G, 'crud', require('crud'))
     ]])
@@ -1152,7 +1150,7 @@ for name, case in pairs(cases) do
 
             local connections = {}
 
-            local router = helpers.get_router(g.cluster, g.params.backend)
+            local router = g.router
             for _ = 1, params.connection_count do
                 local c = net_box:connect(router.net_box_uri, router.net_box_credentials)
                 if c == nil then

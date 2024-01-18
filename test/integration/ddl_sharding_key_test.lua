@@ -17,7 +17,7 @@ local pgroup = t.group('ddl_sharding_key', helpers.backend_matrix({
 pgroup.before_all(function(g)
     helpers.start_default_cluster(g, 'srv_ddl')
 
-    local result, err = g.cluster.main_server.net_box:eval([[
+    local result, err = g.router:eval([[
         local ddl = require('ddl')
 
         local ok, err = ddl.get_schema()
@@ -26,7 +26,6 @@ pgroup.before_all(function(g)
     t.assert_equals(type(result), 'table')
     t.assert_equals(err, nil)
 
-    g.router = helpers.get_router(g.cluster, g.params.backend)
     g.router.net_box:eval([[
         require('crud').cfg{ stats = true }
     ]])
@@ -48,7 +47,7 @@ pgroup.before_each(function(g)
 end)
 
 pgroup.test_insert_object = function(g)
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.insert_object', {'customers_name_key', {id = 1, name = 'Augustus', age = 48}})
     t.assert_equals(err, nil)
 
@@ -75,7 +74,7 @@ end
 
 pgroup.test_insert = function(g)
     -- Insert a tuple.
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.insert', {'customers_name_key', {2, box.NULL, 'Ivan', 20}})
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -99,7 +98,7 @@ pgroup.test_insert = function(g)
 end
 
 pgroup.test_insert_object_many = function(g)
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.insert_object_many', {'customers_name_key', {{id = 1, name = 'Augustus', age = 48}}})
     t.assert_equals(err, nil)
 
@@ -126,7 +125,7 @@ end
 
 pgroup.test_insert_many = function(g)
     -- Insert a tuple.
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.insert_many', {'customers_name_key', {{2, box.NULL, 'Ivan', 20}}})
     t.assert_equals(err, nil)
     t.assert_equals(result.metadata, {
@@ -166,7 +165,7 @@ pgroup.test_replace = function(g)
     local tuple = {7, box.NULL, 'Augustus', 21}
 
     -- Replace a tuple.
-    local result, err = g.cluster.main_server.net_box:call('crud.replace', {
+    local result, err = g.router:call('crud.replace', {
         'customers_name_key', tuple
     })
     t.assert_equals(err, nil)
@@ -200,7 +199,7 @@ pgroup.test_replace_object = function(g)
     t.assert_not_equals(result, nil)
 
     -- Replace an object.
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.replace_object', {'customers_name_key', {id = 8, name = 'John Doe', age = 25}})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -234,7 +233,7 @@ pgroup.test_replace_many = function(g)
     local tuple = {7, box.NULL, 'Augustus', 21}
 
     -- Replace a tuple.
-    local result, err = g.cluster.main_server.net_box:call('crud.replace_many', {
+    local result, err = g.router:call('crud.replace_many', {
         'customers_name_key', {tuple}
     })
     t.assert_equals(err, nil)
@@ -268,7 +267,7 @@ pgroup.test_replace_object_many = function(g)
     t.assert_not_equals(result, nil)
 
     -- Replace an object.
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.replace_object_many', {'customers_name_key', {{id = 8, name = 'John Doe', age = 25}}})
     t.assert_equals(err, nil)
     local objects = crud.unflatten_rows(result.rows, result.metadata)
@@ -287,7 +286,7 @@ end
 
 pgroup.test_upsert_object = function(g)
     -- Upsert an object first time.
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
         'crud.upsert_object', {'customers_name_key', {id = 66, name = 'Jack Sparrow', age = 25}, {
              {'+', 'age', 25},
     }})
@@ -311,7 +310,7 @@ pgroup.test_upsert_object = function(g)
     t.assert_equals(result, nil)
 
     -- Upsert the same query second time when tuple exists.
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
        'crud.upsert_object', {'customers_name_key', {id = 66, name = 'Jack Sparrow', age = 25}, {
             {'+', 'age', 25},
     }})
@@ -331,7 +330,7 @@ pgroup.test_upsert = function(g)
     local tuple = {1, box.NULL, 'John', 25}
 
     -- Upsert an object first time.
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert', {
+    local result, err = g.router:call('crud.upsert', {
         'customers_name_key', tuple, {}
     })
     t.assert_equals(err, nil)
@@ -349,7 +348,7 @@ pgroup.test_upsert = function(g)
     t.assert_equals(result, nil)
 
     -- Upsert the same query second time when tuple exists.
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
        'crud.upsert_object', {'customers_name_key', {id = 1, name = 'John', age = 25}, {
             {'+', 'age', 25},
     }})
@@ -367,7 +366,7 @@ end
 
 pgroup.test_upsert_object_many = function(g)
     -- Upsert an object first time.
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.upsert_object_many', {'customers_name_key',
             { { {id = 66, name = 'Jack Sparrow', age = 25}, {{'+', 'age', 25}} } },
             })
@@ -392,7 +391,7 @@ pgroup.test_upsert_object_many = function(g)
     t.assert_equals(result, nil)
 
     -- Upsert the same query second time when tuple exists.
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.upsert_object_many', {'customers_name_key',
              { {{id = 66, name = 'Jack Sparrow', age = 25}, {{'+', 'age', 25}}} },
             })
@@ -412,7 +411,7 @@ pgroup.test_upsert_many = function(g)
     local tuple = {1, box.NULL, 'John', 25}
 
     -- Upsert an object first time.
-    local result, err = g.cluster.main_server.net_box:call('crud.upsert_many', {
+    local result, err = g.router:call('crud.upsert_many', {
         'customers_name_key', { {tuple, {}} },
     })
     t.assert_equals(err, nil)
@@ -430,7 +429,7 @@ pgroup.test_upsert_many = function(g)
     t.assert_equals(result, nil)
 
     -- Upsert the same query second time when tuple exists.
-    local result, err = g.cluster.main_server.net_box:call(
+    local result, err = g.router:call(
             'crud.upsert_many', {'customers_name_key', { {tuple, {{'+', 'age', 25}}} }, })
     t.assert_equals(result.rows, nil)
     t.assert_equals(err, nil)
@@ -462,7 +461,7 @@ pgroup.test_select = function(g)
     t.assert_not_equals(result, nil)
 
     local conditions = {{'==', 'name', 'Ptolemy'}}
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+    local result, err = g.router:call('crud.select', {
         'customers_name_key', conditions, {mode = 'write'},
     })
 
@@ -481,7 +480,7 @@ pgroup.test_count = function(g)
     t.assert_not_equals(result, nil)
 
     local conditions = {{'==', 'name', 'Ptolemy'}}
-    local result, err = g.cluster.main_server.net_box:call('crud.count', {
+    local result, err = g.router:call('crud.count', {
         'customers_name_key', conditions, {mode = 'write'}
     })
 
@@ -596,7 +595,7 @@ pgroup.test_select_secondary_idx = function(g)
     local tuple = {2, box.NULL, 'Ivan', 20}
 
     -- insert tuple
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers_secondary_idx_name_key', tuple
     })
 
@@ -606,7 +605,7 @@ pgroup.test_select_secondary_idx = function(g)
 
     local conditions = {{'==', 'name', 'Ivan'}}
 
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+    local result, err = g.router:call('crud.select', {
         'customers_secondary_idx_name_key', conditions, {mode = 'write'},
     })
 
@@ -633,7 +632,7 @@ pgroup.test_select_non_unique_index = function(g)
     })
     t.assert_equals(#customers, 10)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+    local result, err = g.router:call('crud.select', {
         space_name, {{'==', 'name', 'Ivan Bunin'}}, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -660,7 +659,7 @@ pgroup.test_update = function(g)
     local update_operations = {
         {'+', 'age', 10},
     }
-    local result, err = g.cluster.main_server.net_box:call('crud.update', {
+    local result, err = g.router:call('crud.update', {
         'customers_name_key', {2, 'Ivan'}, update_operations,
     })
     t.assert_equals(err, nil)
@@ -686,7 +685,7 @@ pgroup.test_get = function(g)
     t.assert_not_equals(result, nil)
 
     -- Get a tuple.
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers_name_key', {7, 'Dimitrion'}, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -709,7 +708,7 @@ pgroup.test_delete = function(g)
     t.assert_not_equals(result, nil)
 
     -- Delete tuple.
-    local _, err = g.cluster.main_server.net_box:call('crud.delete', {
+    local _, err = g.router:call('crud.delete', {
         'customers_name_key', {7, 'Dimitrion'},
     })
     t.assert_equals(err, nil)
@@ -727,7 +726,7 @@ pgroup.test_delete_incomplete_sharding_key = function(g)
     local tuple = {2, box.NULL, 'Viktor Pelevin', 58}
 
     -- insert tuple
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers_age_key', tuple
     })
 
@@ -735,7 +734,7 @@ pgroup.test_delete_incomplete_sharding_key = function(g)
     t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 1)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.delete', {
+    local result, err = g.router:call('crud.delete', {
         'customers_age_key', {58, 'Viktor Pelevin'}
     })
 
@@ -748,7 +747,7 @@ pgroup.test_get_incomplete_sharding_key = function(g)
     local tuple = {2, box.NULL, 'Viktor Pelevin', 58}
 
     -- insert tuple
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers_age_key', tuple
     })
 
@@ -756,7 +755,7 @@ pgroup.test_get_incomplete_sharding_key = function(g)
     t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 1)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.get', {
+    local result, err = g.router:call('crud.get', {
         'customers_age_key', {58, 'Viktor Pelevin'}, {mode = 'write'},
     })
 
@@ -769,7 +768,7 @@ pgroup.test_update_incomplete_sharding_key = function(g)
     local tuple = {2, box.NULL, 'Viktor Pelevin', 58}
 
     -- insert tuple
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers_age_key', tuple
     })
 
@@ -781,7 +780,7 @@ pgroup.test_update_incomplete_sharding_key = function(g)
         {'=', 'age', 60},
     }
 
-    local result, err = g.cluster.main_server.net_box:call('crud.update', {
+    local result, err = g.router:call('crud.update', {
         'customers_age_key', {2, 'Viktor Pelevin'}, update_operations,
     })
 
@@ -794,7 +793,7 @@ pgroup.test_get_secondary_idx = function(g)
     local tuple = {4, box.NULL, 'Leo', 44}
 
     -- insert tuple
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers_secondary_idx_name_key', tuple
     })
 
@@ -803,7 +802,7 @@ pgroup.test_get_secondary_idx = function(g)
     t.assert_equals(#result.rows, 1)
 
     -- get
-    local result, err = g.cluster.main_server.net_box:call('crud.get',
+    local result, err = g.router:call('crud.get',
         {'customers_secondary_idx_name_key', {4, 'Leo'}, {mode = 'write'},
     })
 
@@ -816,7 +815,7 @@ pgroup.test_update_secondary_idx = function(g)
     local tuple = {6, box.NULL, 'Victor', 58}
 
     -- insert tuple
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers_secondary_idx_name_key', tuple
     })
 
@@ -828,7 +827,7 @@ pgroup.test_update_secondary_idx = function(g)
         {'=', 'age', 58},
     }
 
-    local result, err = g.cluster.main_server.net_box:call('crud.update', {
+    local result, err = g.router:call('crud.update', {
         'customers_secondary_idx_name_key', {6, 'Victor'}, update_operations,
     })
 
@@ -841,7 +840,7 @@ pgroup.test_delete_secondary_idx = function(g)
     local tuple = {8, box.NULL, 'Alexander', 37}
 
     -- insert tuple
-    local result, err = g.cluster.main_server.net_box:call('crud.insert', {
+    local result, err = g.router:call('crud.insert', {
         'customers_secondary_idx_name_key', tuple
     })
 
@@ -849,7 +848,7 @@ pgroup.test_delete_secondary_idx = function(g)
     t.assert_not_equals(result, nil)
     t.assert_equals(#result.rows, 1)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.delete', {
+    local result, err = g.router:call('crud.delete', {
         'customers_secondary_idx_name_key', {8, 'Alexander'}
     })
 
@@ -1088,7 +1087,7 @@ for name, case in pairs(known_bucket_id_write_cases) do
     end
 
     pgroup[test_name] = function(g)
-        local obj, err = g.cluster.main_server.net_box:call(case.func, case.input)
+        local obj, err = g.router:call(case.func, case.input)
         t.assert_equals(err, nil)
         t.assert_is_not(obj, nil)
 
@@ -1127,7 +1126,7 @@ for name, case in pairs(known_bucket_id_read_cases) do
     pgroup.before_test(test_name, prepare_known_bucket_id_data)
 
     pgroup[test_name] = function(g)
-        local obj, err = g.cluster.main_server.net_box:call(case.func, case.input)
+        local obj, err = g.router:call(case.func, case.input)
         t.assert_equals(err, nil)
         t.assert_is_not(obj, nil)
         t.assert_equals(obj.rows, {known_bucket_id_result_tuple})
@@ -1139,7 +1138,7 @@ pgroup.before_test(
     prepare_known_bucket_id_data)
 
 pgroup.test_gh_278_pairs_with_explicit_bucket_id_and_ddl = function(g)
-    local obj, err = g.cluster.main_server.net_box:eval([[
+    local obj, err = g.router:eval([[
         local res = {}
         for _, row in crud.pairs(...) do
             table.insert(res, row)
@@ -1162,7 +1161,7 @@ pgroup.before_test(
     prepare_known_bucket_id_data)
 
 pgroup.test_gh_278_count_with_explicit_bucket_id_and_ddl = function(g)
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.count',
         {
             known_bucket_id_space,

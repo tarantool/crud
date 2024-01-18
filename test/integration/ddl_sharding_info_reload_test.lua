@@ -64,7 +64,7 @@ pgroup_new_space.before_each(function(g)
     end)
 
     -- Fetch metadata schema.
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.insert', {'customers', {0, box.NULL, 'Emma', 22}}
     )
 
@@ -72,7 +72,7 @@ pgroup_new_space.before_each(function(g)
     t.assert_equals(err, nil)
 
     -- Assert space doesn't exist.
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.insert', {'customers_new', {1, box.NULL, 'Emma', 22}}
     )
 
@@ -90,7 +90,7 @@ pgroup_key_change.before_each(function(g)
     end)
 
     -- Assert schema is default: insert is sharded with default ddl info.
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.insert', {'customers', {0, box.NULL, 'Emma', 22}}
     )
     t.assert_is_not(obj, nil)
@@ -116,7 +116,7 @@ pgroup_func_change.before_each(function(g)
     end)
 
     -- Assert schema is default: insert is sharded with default ddl info.
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.insert', {'customers_pk', {0, box.NULL, 'Emma', 22}}
     )
     t.assert_is_not(obj, nil)
@@ -470,7 +470,7 @@ for name, case in pairs(new_space_cases) do
         end)
 
         -- Assert it is now possible to call opertions for a new space.
-        local obj, err = g.cluster.main_server.net_box:call(case.func, case.input)
+        local obj, err = g.router:call(case.func, case.input)
         t.assert_is_not(obj, nil)
         t.assert_equals(err, nil)
 
@@ -584,7 +584,7 @@ for name, case in pairs(schema_change_sharding_key_cases) do
         end)
 
         -- Assert operation bucket_id is computed based on updated ddl info.
-        local obj, err = g.cluster.main_server.net_box:call(case.func, case.input)
+        local obj, err = g.router:call(case.func, case.input)
         t.assert_is_not(obj, nil)
         t.assert_equals(err, nil)
 
@@ -607,7 +607,7 @@ pgroup_key_change.test_select = function(g)
     end)
 
     -- Assert operation bucket_id is computed based on updated ddl info.
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.select',
         {
             'customers',
@@ -627,7 +627,7 @@ pgroup_key_change.test_count = function(g)
     end)
 
     -- Assert operation bucket_id is computed based on updated ddl info.
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
         'crud.count',
         {
             'customers',
@@ -657,8 +657,8 @@ pgroup_key_change.test_pairs = function(g)
     -- First pairs request fails and reloads sharding info.
     t.assert_error_msg_contains(
         "Please retry your request",
-        g.cluster.main_server.net_box.eval,
-        g.cluster.main_server.net_box,
+        g.router.eval,
+        g.router,
         pairs_eval,
         {
             'customers',
@@ -667,7 +667,7 @@ pgroup_key_change.test_pairs = function(g)
         })
 
     -- Assert operation bucket_id is computed based on updated ddl info.
-    local obj, err = g.cluster.main_server.net_box:eval(
+    local obj, err = g.router:eval(
         pairs_eval,
         {
             'customers',
@@ -804,7 +804,7 @@ for name, case in pairs(schema_change_sharding_func_cases) do
         end)
 
         -- Assert operation bucket_id is computed based on updated ddl info.
-        local obj, err = g.cluster.main_server.net_box:call(case.func, case.input)
+        local obj, err = g.router:call(case.func, case.input)
         t.assert_is_not(obj, nil)
         t.assert_equals(err, nil)
 
@@ -828,7 +828,7 @@ pgroup_func_change.test_select = function(g)
     end)
 
     -- Assert operation bucket_id is computed based on updated ddl info.
-    local obj, err = g.cluster.main_server.net_box:call('crud.select', {
+    local obj, err = g.router:call('crud.select', {
         'customers_pk', {{'==', 'id', 1}}, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -845,7 +845,7 @@ pgroup_func_change.test_get = function(g)
     end)
 
     -- Assert operation bucket_id is computed based on updated ddl info.
-    local obj, err = g.cluster.main_server.net_box:call('crud.get', {
+    local obj, err = g.router:call('crud.get', {
         'customers_pk', 1, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -862,7 +862,7 @@ pgroup_func_change.test_count = function(g)
     end)
 
     -- Assert operation bucket_id is computed based on updated ddl info.
-    local obj, err = g.cluster.main_server.net_box:call('crud.count', {
+    local obj, err = g.router:call('crud.count', {
         'customers_pk', {{'==', 'id', 1}}, {mode = 'write'},
     })
     t.assert_equals(err, nil)
@@ -880,13 +880,13 @@ pgroup_func_change.test_pairs = function(g)
 
     t.assert_error_msg_contains(
         "Please retry your request",
-        g.cluster.main_server.net_box.eval,
-        g.cluster.main_server.net_box,
+        g.router.eval,
+        g.router,
         pairs_eval,
         {'customers_pk', {{'==', 'id', 1}}, {mode = 'write'}})
 
     -- Assert operation bucket_id is computed based on updated ddl info.
-    local obj, err = g.cluster.main_server.net_box:eval(
+    local obj, err = g.router:eval(
         pairs_eval,
         {'customers_pk', {{'==', 'id', 1}}, {mode = 'write'}})
     t.assert_equals(err, nil)

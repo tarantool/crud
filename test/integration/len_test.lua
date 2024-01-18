@@ -19,7 +19,7 @@ pgroup.before_each(function(g)
 end)
 
 pgroup.test_len_non_existent_space = function(g)
-    local result, err = g.cluster.main_server.net_box:call('crud.len', {'non_existent_space'})
+    local result, err = g.router:call('crud.len', {'non_existent_space'})
 
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, "Space \"non_existent_space\" doesn't exist")
@@ -40,14 +40,14 @@ pgroup.test_len = function(g)
 
     helpers.insert_objects(g, 'customers', customers)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.len', {'customers'})
+    local result, err = g.router:call('crud.len', {'customers'})
 
     t.assert_equals(err, nil)
     t.assert_equals(result, expected_len)
 end
 
 pgroup.test_len_empty_space = function(g)
-    local result, err = g.cluster.main_server.net_box:call('crud.len', {'customers'})
+    local result, err = g.router:call('crud.len', {'customers'})
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 0)
@@ -55,7 +55,7 @@ end
 
 pgroup.test_opts_not_damaged = function(g)
     local len_opts = {timeout = 1}
-    local new_len_opts, err = g.cluster.main_server:eval([[
+    local new_len_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local len_opts = ...

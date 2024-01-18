@@ -133,7 +133,7 @@ function helpers.insert_objects(g, space_name, objects)
     local inserted_objects = {}
 
     for _, obj in ipairs(objects) do
-        local result, err = g.cluster.main_server.net_box:call('crud.insert_object', {space_name, obj})
+        local result, err = g.router:call('crud.insert_object', {space_name, obj})
 
         t.assert_equals(err, nil)
 
@@ -354,7 +354,7 @@ function helpers.assert_ge(actual, expected, message)
 end
 
 function helpers.get_other_storage_bucket_id(cluster, bucket_id)
-    return cluster.main_server.net_box:eval([[
+    return cluster:server('router'):eval([[
         local vshard = require('vshard')
 
         local bucket_id = ...
@@ -392,7 +392,7 @@ end
 helpers.tarantool_version_at_least = crud_utils.tarantool_version_at_least
 
 function helpers.update_sharding_key_cache(cluster, space_name)
-    return cluster.main_server.net_box:eval([[
+    return cluster:server('router'):eval([[
         local sharding_key = require('crud.common.sharding_key')
 
         local space_name = ...
@@ -401,7 +401,7 @@ function helpers.update_sharding_key_cache(cluster, space_name)
 end
 
 function helpers.get_sharding_key_cache(cluster)
-    return cluster.main_server.net_box:eval([[
+    return cluster:server('router'):eval([[
         local vshard = require('vshard')
         local sharding_metadata_cache = require('crud.common.sharding.router_metadata_cache')
 
@@ -416,7 +416,7 @@ end
 -- object through net.box that's why we get a sign of record
 -- existence of cache but not the cache itself
 function helpers.update_sharding_func_cache(cluster, space_name)
-    return cluster.main_server.net_box:eval([[
+    return cluster:server('router'):eval([[
         local sharding_func = require('crud.common.sharding_func')
 
         local space_name = ...
@@ -433,7 +433,7 @@ end
 -- object through net.box that's why we get size of cache
 -- but not the cache itself
 function helpers.get_sharding_func_cache_size(cluster)
-    return cluster.main_server.net_box:eval([[
+    return cluster:server('router'):eval([[
         local vshard = require('vshard')
         local sharding_metadata_cache = require('crud.common.sharding.router_metadata_cache')
 
@@ -733,6 +733,9 @@ function helpers.start_cluster(g, cartridge_cfg, vshard_cfg)
         vtest.cluster_new(g, g.cfg)
         g.cfg.engine = nil
     end
+
+    g.router = g.cluster:server('router')
+    assert(g.router ~= nil, 'router found')
 end
 
 function helpers.stop_cluster(cluster, backend)
@@ -740,14 +743,6 @@ function helpers.stop_cluster(cluster, backend)
         helpers.stop_cartridge_cluster(cluster)
     elseif backend == helpers.backend.VSHARD then
         cluster:drop()
-    end
-end
-
-function helpers.get_router(cluster, backend)
-    if backend == helpers.backend.CARTRIDGE then
-        return cluster:server('router')
-    elseif backend == helpers.backend.VSHARD then
-        return cluster.main_server
     end
 end
 
@@ -947,7 +942,7 @@ end
 function helpers.prepare_ordered_data(g, space, expected_objects, bucket_id, order_condition)
     helpers.insert_objects(g, space, expected_objects)
 
-    local resp, err = g.cluster.main_server:call('crud.select', {
+    local resp, err = g.router:call('crud.select', {
         space,
         {order_condition},
         {bucket_id = bucket_id, mode = 'write'},

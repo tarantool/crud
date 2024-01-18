@@ -214,13 +214,13 @@ local function router_new(g, name, cfg)
 end
 
 --
--- Start a main_server router.
+-- Start a router.
 --
-local function start_main_server(g, cfg, opts)
+local function start_router(g, cfg, opts)
     local cfg = table.deepcopy(cfg)
     cfg.engine = nil
 
-    local router = router_new(g, 'main_server', cfg)
+    local router = router_new(g, 'router', cfg)
     if opts.router_init ~= nil then
         router:exec(function(router_init)
             require(router_init)()
@@ -551,7 +551,7 @@ local function cluster_new(g, cfg)
         end
     end
 
-    start_main_server(g, cfg, {
+    start_router(g, cfg, {
         router_init = router_init,
         all_init = all_init,
         crud_init = crud_init,

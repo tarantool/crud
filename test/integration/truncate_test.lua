@@ -24,7 +24,7 @@ end)
 
 pgroup.test_non_existent_space = function(g)
     -- insert
-    local obj, err = g.cluster.main_server.net_box:call(
+    local obj, err = g.router:call(
        'crud.truncate', {'non_existent_space'}
     )
 
@@ -51,7 +51,7 @@ pgroup.test_truncate = function(g)
 
     table.sort(customers, function(obj1, obj2) return obj1.id < obj2.id end)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+    local result, err = g.router:call('crud.select', {
         'customers',
         nil,
         {fullscan = true, mode = 'write'},
@@ -59,11 +59,11 @@ pgroup.test_truncate = function(g)
     t.assert_equals(err, nil)
     t.assert_gt(#result.rows, 0)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.truncate', {'customers'})
+    local result, err = g.router:call('crud.truncate', {'customers'})
     t.assert_equals(err, nil)
     t.assert_equals(result, true)
 
-    local result, err = g.cluster.main_server.net_box:call('crud.select', {
+    local result, err = g.router:call('crud.select', {
         'customers',
         nil,
         {fullscan = true, mode = 'write'},
@@ -74,7 +74,7 @@ end
 
 pgroup.test_opts_not_damaged = function(g)
     local truncate_opts = {timeout = 1}
-    local new_truncate_opts, err = g.cluster.main_server:eval([[
+    local new_truncate_opts, err = g.router:eval([[
         local crud = require('crud')
 
         local truncate_opts = ...
