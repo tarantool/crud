@@ -13,7 +13,7 @@ local pgroup = t.group('pairs', helpers.backend_matrix({
 pgroup.before_all(function(g)
     helpers.start_default_cluster(g, 'srv_select')
 
-    g.space_format = g.cluster.servers[2].net_box.space.customers:format()
+    g.space_format = g.cluster:server('s1-master').net_box.space.customers:format()
 
     g.cluster.main_server.net_box:eval([[
         require('crud').cfg{ stats = true }
