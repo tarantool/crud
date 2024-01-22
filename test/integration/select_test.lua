@@ -14,7 +14,7 @@ local pgroup = t.group('select', helpers.backend_matrix({
 pgroup.before_all(function(g)
     helpers.start_default_cluster(g, 'srv_select')
 
-    g.space_format = g.cluster.servers[2].net_box.space.customers:format()
+    g.space_format = g.cluster:server('s1-master').net_box.space.customers:format()
 
     g.router = helpers.get_router(g.cluster, g.params.backend)
     g.router.net_box:eval([[
