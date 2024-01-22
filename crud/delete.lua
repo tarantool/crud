@@ -52,9 +52,7 @@ local function delete_on_storage(space_name, key, field_names, opts)
     })
 end
 
-function delete.init(user)
-    utils.init_storage_call(user, DELETE_FUNC_NAME, delete_on_storage)
-end
+delete.storage_api = {[DELETE_FUNC_NAME] = delete_on_storage}
 
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help

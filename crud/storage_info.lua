@@ -22,9 +22,7 @@ local function storage_info_on_storage()
     return {status = "running"}
 end
 
-function storage_info.init(user)
-    utils.init_storage_call(user, STORAGE_INFO_FUNC_NAME, storage_info_on_storage)
-end
+storage_info.storage_api = {[STORAGE_INFO_FUNC_NAME] = storage_info_on_storage}
 
 --- Polls replicas for storage state
 --

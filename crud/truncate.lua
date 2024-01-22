@@ -23,9 +23,7 @@ local function truncate_on_storage(space_name)
     return space:truncate()
 end
 
-function truncate.init(user)
-    utils.init_storage_call(user, TRUNCATE_FUNC_NAME, truncate_on_storage)
-end
+truncate.storage_api = {[TRUNCATE_FUNC_NAME] = truncate_on_storage}
 
 --- Truncates specified space
 --

@@ -126,9 +126,7 @@ local function replace_many_on_storage(space_name, tuples, opts)
     return inserted_tuples, nil, replica_schema_version
 end
 
-function replace_many.init(user)
-    utils.init_storage_call(user, REPLACE_MANY_FUNC_NAME, replace_many_on_storage)
-end
+replace_many.storage_api = {[REPLACE_MANY_FUNC_NAME] = replace_many_on_storage}
 
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help

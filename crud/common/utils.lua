@@ -1121,30 +1121,6 @@ function utils.list_slice(list, start_index, end_index)
     return slice
 end
 
---- Initializes a storage function by its name.
---
---  It adds the function into the global scope by its name and required
---  access to a vshard storage user.
---
---  @function init_storage_call
---
---  @param string name of a user or nil if there is no need to setup access.
---  @param string name a name of the function.
---  @param function func the function.
---
---  @return nil
-function utils.init_storage_call(user, name, func)
-    dev_checks('?string', 'string', 'function')
-
-    rawset(_G[utils.STORAGE_NAMESPACE], name, func)
-
-    if user ~= nil then
-        name = utils.get_storage_call(name)
-        box.schema.func.create(name, {setuid = true, if_not_exists = true})
-        box.schema.user.grant(user, 'execute', 'function', name, {if_not_exists=true})
-    end
-end
-
 local expected_vshard_api = {
     'routeall', 'route', 'bucket_id_strcrc32',
     'callrw', 'callro', 'callbro', 'callre',

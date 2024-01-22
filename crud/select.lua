@@ -126,8 +126,6 @@ local function select_on_storage(space_name, index_id, conditions, opts)
     return unpack(result)
 end
 
-function select_module.init(user)
-    utils.init_storage_call(user, SELECT_FUNC_NAME, select_on_storage)
-end
+select_module.storage_api = {[SELECT_FUNC_NAME] = select_on_storage}
 
 return select_module
