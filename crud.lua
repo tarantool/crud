@@ -22,6 +22,7 @@ local utils = require('crud.common.utils')
 local stats = require('crud.stats')
 local readview = require('crud.readview')
 local schema = require('crud.schema')
+local storage_info = require('crud.storage_info')
 
 local crud = {}
 
@@ -145,9 +146,9 @@ crud.stats = stats.get
 -- @function reset_stats
 crud.reset_stats = stats.reset
 
--- @refer utils.storage_info
+-- @refer storage_info.call
 -- @function storage_info
-crud.storage_info = utils.storage_info
+crud.storage_info = storage_info.call
 
 -- @refer readview.new
 -- @function readview
@@ -174,8 +175,8 @@ function crud.init_storage()
         user = utils.get_this_replica_user() or 'guest'
     end
 
-    if rawget(_G, '_crud') == nil then
-        rawset(_G, '_crud', {})
+    if rawget(_G, utils.STORAGE_NAMESPACE) == nil then
+        rawset(_G, utils.STORAGE_NAMESPACE, {})
     end
 
     insert.init(user)
@@ -195,9 +196,9 @@ function crud.init_storage()
     sharding_metadata.init(user)
     readview.init(user)
 
-    utils.init_storage_call(user, 'storage_info_on_storage',
-        utils.storage_info_on_storage
-    )
+    -- Must be initialized last: properly working storage info is the flag
+    -- of initialization success.
+    storage_info.init(user)
 end
 
 function crud.init_router()
@@ -209,7 +210,7 @@ function crud.stop_router()
 end
 
 function crud.stop_storage()
-    rawset(_G, '_crud', nil)
+    rawset(_G, utils.STORAGE_NAMESPACE, nil)
 end
 
 return crud
