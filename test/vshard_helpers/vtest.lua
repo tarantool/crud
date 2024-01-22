@@ -495,6 +495,7 @@ local function cluster_new(g, cfg)
 
     for _, master in pairs(masters) do
         master:wait_for_readiness()
+        master:wait_for_rw()
         master:exec(function(cfg)
             -- Logged in as guest with 'super' access rights. Yet 'super' is not
             -- enough to grant 'replication' privilege. The simplest way - login
