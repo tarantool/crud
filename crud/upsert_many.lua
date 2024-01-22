@@ -120,9 +120,7 @@ local function upsert_many_on_storage(space_name, tuples, operations, opts)
     return nil, nil, replica_schema_version
 end
 
-function upsert_many.init(user)
-    utils.init_storage_call(user, UPSERT_MANY_FUNC_NAME, upsert_many_on_storage)
-end
+upsert_many.storage_api = {[UPSERT_MANY_FUNC_NAME] = upsert_many_on_storage}
 
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help

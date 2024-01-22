@@ -17,12 +17,12 @@ local truncate = require('crud.truncate')
 local len = require('crud.len')
 local count = require('crud.count')
 local borders = require('crud.borders')
-local sharding_metadata = require('crud.common.sharding.sharding_metadata')
 local utils = require('crud.common.utils')
 local stats = require('crud.stats')
 local readview = require('crud.readview')
 local schema = require('crud.schema')
 local storage_info = require('crud.storage_info')
+local storage = require('crud.storage')
 
 local crud = {}
 
@@ -158,49 +158,6 @@ crud.readview = readview.new
 -- @function schema
 crud.schema = schema.call
 
---- Initializes crud on node
---
--- Exports all functions that are used for calls
--- and CRUD operations.
---
--- @function init
---
-function crud.init_storage()
-    if type(box.cfg) ~= 'table' then
-        error('box.cfg() must be called first')
-    end
-
-    local user = nil
-    if not box.info.ro then
-        user = utils.get_this_replica_user() or 'guest'
-    end
-
-    if rawget(_G, utils.STORAGE_NAMESPACE) == nil then
-        rawset(_G, utils.STORAGE_NAMESPACE, {})
-    end
-
-    insert.init(user)
-    insert_many.init(user)
-    get.init(user)
-    replace.init(user)
-    replace_many.init(user)
-    update.init(user)
-    upsert.init(user)
-    upsert_many.init(user)
-    delete.init(user)
-    select.init(user)
-    truncate.init(user)
-    len.init(user)
-    count.init(user)
-    borders.init(user)
-    sharding_metadata.init(user)
-    readview.init(user)
-
-    -- Must be initialized last: properly working storage info is the flag
-    -- of initialization success.
-    storage_info.init(user)
-end
-
 function crud.init_router()
    rawset(_G, 'crud', crud)
 end
@@ -209,8 +166,15 @@ function crud.stop_router()
     rawset(_G, 'crud', nil)
 end
 
-function crud.stop_storage()
-    rawset(_G, utils.STORAGE_NAMESPACE, nil)
-end
+--- Initializes crud on node
+--
+-- Exports all functions that are used for calls
+-- and CRUD operations.
+--
+-- @function init
+--
+crud.init_storage = storage.init
+
+crud.stop_storage = storage.stop
 
 return crud
