@@ -2308,6 +2308,8 @@ pgroup.test_stop_select = function(g)
     g.cluster:server('s2-master'):start()
 
     if g.params.backend == helpers.backend.VSHARD then
+        g.cluster:server('s2-master'):wait_for_rw()
+
         local bootstrap_key
         if type(g.params.backend_cfg) == 'table'
         and g.params.backend_cfg.identification_mode == 'name_as_key' then

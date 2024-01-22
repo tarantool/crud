@@ -114,6 +114,16 @@ function Server:wait_for_readiness()
     end)
 end
 
+function Server:wait_for_rw()
+    return wait_cond('rw', self, function()
+        local ok, is_ready = pcall(function()
+            self:connect_net_box()
+            return self.net_box:eval('return box.info.ro') == false
+        end)
+        return ok and is_ready
+    end)
+end
+
 function Server:wait_election_leader()
     -- Include read-only property too because if an instance is a leader, it
     -- does not mean it finished the synchro queue ownership transition. It is

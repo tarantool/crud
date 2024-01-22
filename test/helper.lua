@@ -116,7 +116,13 @@ function helpers.get_results_list(results_map)
     return results_list
 end
 
-function helpers.box_cfg()
+function helpers.box_cfg(opts)
+    opts = opts or {}
+
+    if opts.wait_rw == nil then
+        opts.wait_rw = true
+    end
+
     if type(box.cfg) ~= 'function' then
         return
     end
@@ -127,6 +133,13 @@ function helpers.box_cfg()
         wal_mode = 'none',
     })
     fio.rmtree(tempdir)
+
+    if opts.wait_rw then
+        t.helpers.retrying(
+            {timeout = 3, delay = 0.1},
+            t.assert_equals, box.info.ro, false
+        )
+    end
 end
 
 function helpers.insert_objects(g, space_name, objects)

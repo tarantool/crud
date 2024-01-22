@@ -24,25 +24,25 @@ g.before_each(function()
         {name = 'sharding_func_body', type = 'string', is_nullable = true},
     }
 
-    if type(box.cfg) ~= 'table' then
-        helpers.box_cfg()
-    end
+    helpers.box_cfg()
 
     -- Create a space _ddl_sharding_key with a tuple that
     -- contains a space name and it's sharding key.
     box.schema.space.create('_ddl_sharding_key', {
         format = sharding_key_format,
+        if_not_exists = true,
     })
-    box.space._ddl_sharding_key:create_index('pk')
+    box.space._ddl_sharding_key:create_index('pk', {if_not_exists = true})
 
     -- Create a space _ddl_sharding_func with a tuple that
     -- contains a space name and it's sharding func name/body.
     box.schema.space.create('_ddl_sharding_func', {
         format = sharding_func_format,
+        if_not_exists = true,
     })
-    box.space._ddl_sharding_func:create_index('pk')
+    box.space._ddl_sharding_func:create_index('pk', {if_not_exists = true})
 
-    box.schema.space.create('fetch_on_storage')
+    box.schema.space.create('fetch_on_storage', {if_not_exists = true})
 end)
 
 -- Since Tarantool 3.0 triggers still live after a space drop. To properly
