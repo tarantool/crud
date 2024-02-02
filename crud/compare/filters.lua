@@ -17,12 +17,8 @@ local filters = {}
     - opposite condition `'id' < 100` becomes false
     - in such case we can exit from iteration
 ]]
-local function is_early_exit_possible(index, tarantool_iter, condition)
-    if index == nil then
-        return false
-    end
-
-    if index.name ~= condition.operand then
+local function is_early_exit_possible(scan_index, tarantool_iter, condition)
+    if scan_index.name ~= condition.operand then
         return false
     end
 
@@ -77,8 +73,8 @@ local function get_values_opts(index)
     return index_field_opts
 end
 
-local function parse(space, conditions, opts)
-    dev_checks('table', '?table', {
+local function parse(space, scan_index, conditions, opts)
+    dev_checks('table', 'table', '?table', {
         scan_condition_num = '?number',
         tarantool_iter = 'number',
     })
@@ -137,7 +133,11 @@ local function parse(space, conditions, opts)
                 operator = condition.operator,
                 values = condition.values,
                 types = fields_types,
-                early_exit_is_possible = is_early_exit_possible(index, opts.tarantool_iter, condition),
+                early_exit_is_possible = is_early_exit_possible(
+                    scan_index,
+                    opts.tarantool_iter,
+                    condition
+                ),
                 values_opts = values_opts,
             })
         end
@@ -645,13 +645,13 @@ local function compile(filter_code)
     return func
 end
 
-function filters.gen_func(space, conditions, opts)
-    dev_checks('table', '?table', {
+function filters.gen_func(space, scan_index, conditions, opts)
+    dev_checks('table', 'table', '?table', {
         tarantool_iter = 'number',
         scan_condition_num = '?number',
     })
 
-    local filter_conditions, err = parse(space, conditions, {
+    local filter_conditions, err = parse(space, scan_index, conditions, {
         scan_condition_num = opts.scan_condition_num,
         tarantool_iter = opts.tarantool_iter,
     })

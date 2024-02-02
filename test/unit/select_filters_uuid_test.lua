@@ -63,8 +63,9 @@ g.test_parse = function()
     t.assert_equals(err, nil)
 
     local space = box.space.customers
+    local scan_index = space.index[plan.index_id]
 
-    local filter_conditions, err = select_filters.internal.parse(space, conditions, {
+    local filter_conditions, err = select_filters.internal.parse(space, scan_index, conditions, {
         scan_condition_num = plan.scan_condition_num,
         tarantool_iter = plan.tarantool_iter,
     })

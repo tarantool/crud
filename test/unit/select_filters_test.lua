@@ -112,8 +112,9 @@ g.test_parse = function()
     t.assert_equals(err, nil)
 
     local space = box.space.customers
+    local scan_index = space.index[plan.index_id]
 
-    local filter_conditions, err = select_filters.internal.parse(space, conditions, {
+    local filter_conditions, err = select_filters.internal.parse(space, scan_index, conditions, {
         scan_condition_num = plan.scan_condition_num,
         tarantool_iter = plan.tarantool_iter,
     })
@@ -164,6 +165,80 @@ g.test_parse = function()
     local has_a_car_opts = has_a_car_filter_condition.values_opts[1]
     t.assert_equals(has_a_car_opts.is_nullable, false)
     t.assert_equals(has_a_car_opts.collation, nil)
+end
+
+local gh_418_cases = {
+    scan_condition = {
+        eq = {
+            conditions = cond_funcs.eq('age', 20),
+        },
+        le = {
+            conditions = cond_funcs.le('age', 20),
+        },
+        lt = {
+            conditions = cond_funcs.lt('age', 20),
+        },
+        ge = {
+            conditions = cond_funcs.ge('age', 20),
+        },
+        gt = {
+            conditions = cond_funcs.gt('age', 20),
+        },
+        req = {
+            conditions = cond_funcs.eq('age', 20),
+            opts = {first = -1},
+        },
+    },
+    secondary_condition = {
+        eq = {
+            conditions = cond_funcs.eq('full_name', {'Ivan', 'Ivanov'}),
+        },
+        le = {
+            conditions = cond_funcs.le('full_name', {'Ivan', 'Ivanov'}),
+        },
+        lt = {
+            conditions = cond_funcs.lt('full_name', {'Ivan', 'Ivanov'}),
+        },
+        ge = {
+            conditions = cond_funcs.ge('full_name', {'Ivan', 'Ivanov'}),
+        },
+        gt = {
+            conditions = cond_funcs.gt('full_name', {'Ivan', 'Ivanov'}),
+        },
+    }
+}
+
+for scan_name, scan_case in pairs(gh_418_cases.scan_condition) do
+    for sec_name, sec_case in pairs(gh_418_cases.secondary_condition) do
+        local test_name = ('test_gh_418_scan_%s_secondary_%s_no_early_exit'):format(scan_name, sec_name)
+
+        g[test_name] = function()
+            local conditions = {
+                scan_case.conditions,
+                sec_case.conditions,
+            }
+
+            local plan, err = select_plan.new(box.space.customers, conditions, scan_case.opts)
+            t.assert_equals(err, nil)
+
+            local space = box.space.customers
+            local scan_index = space.index[plan.index_id]
+
+            local filter_conditions, err = select_filters.internal.parse(
+                space,
+                scan_index,
+                conditions,
+                {
+                    scan_condition_num = plan.scan_condition_num,
+                    tarantool_iter = plan.tarantool_iter,
+                }
+            )
+            t.assert_equals(err, nil)
+
+            local full_name_filter_condition = filter_conditions[1]
+            t.assert_equals(full_name_filter_condition.early_exit_is_possible, false)
+        end
+    end
 end
 
 g.test_one_condition_number = function()
@@ -868,7 +943,10 @@ g.test_jsonpath_indexes = function()
     local plan, err = select_plan.new(box.space.cars, conditions)
     t.assert_equals(err, nil)
 
-    local filter_conditions, err = select_filters.internal.parse(box.space.cars, conditions, {
+    local space = box.space.cars
+    local scan_index = space.index[plan.index_id]
+
+    local filter_conditions, err = select_filters.internal.parse(space, scan_index, conditions, {
         scan_condition_num = plan.scan_condition_num,
         tarantool_iter = plan.tarantool_iter,
     })

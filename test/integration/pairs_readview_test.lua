@@ -3,6 +3,7 @@ local t = require('luatest')
 local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
+local read_scenario = require('test.integration.read_scenario')
 
 local pgroup = t.group('pairs_readview', helpers.backend_matrix({
     {engine = 'memtx'},
@@ -879,4 +880,29 @@ pgroup.test_pairs_no_map_reduce = function(g)
     local map_reduces_after_2 = helpers.get_map_reduces_stat(router, 'customers')
     local diff_2 = map_reduces_after_2 - map_reduces_after_1
     t.assert_equals(diff_2, 0, 'Select request was not a map reduce')
+end
+
+pgroup.test_gh_418_pairs_with_secondary_noneq_index_condition = function(g)
+    local read = function(cg, space, conditions, opts)
+        opts = table.deepcopy(opts) or {}
+        opts.use_tomap = true
+
+        return cg.cluster.main_server:exec(function(space, conditions, opts)
+            local crud = require('crud')
+
+            local rv, err = crud.readview()
+            t.assert_equals(err, nil)
+
+            local status, resp = pcall(function()
+                return rv:pairs(space, conditions, opts):totable()
+            end)
+            t.assert(status, resp)
+
+            rv:close()
+
+            return resp, nil
+        end, {space, conditions, opts})
+    end
+
+    read_scenario.gh_418_read_with_secondary_noneq_index_condition(g, read)
 end

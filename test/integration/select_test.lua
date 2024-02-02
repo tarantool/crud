@@ -4,6 +4,7 @@ local crud = require('crud')
 local crud_utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
+local read_scenario = require('test.integration.read_scenario')
 
 local pgroup = t.group('select', helpers.backend_matrix({
     {engine = 'memtx'},
@@ -32,6 +33,7 @@ pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
     helpers.truncate_space_on_cluster(g.cluster, 'developers')
     helpers.truncate_space_on_cluster(g.cluster, 'cars')
+    helpers.truncate_space_on_cluster(g.cluster, 'logins')
 end)
 
 
@@ -2264,4 +2266,18 @@ pgroup.test_pairs_yield_every_0 = function(g)
             {'customers', nil, {yield_every = 0, mode = 'write'},
         })
     end)
+end
+
+pgroup.test_gh_418_select_with_secondary_noneq_index_condition = function(g)
+    local read = function(cg, space, conditions, opts)
+        opts = table.deepcopy(opts) or {}
+        opts.mode = 'write'
+
+        local resp, err = cg.cluster.main_server:call('crud.select', {space, conditions, opts})
+        t.assert_equals(err, nil)
+
+        return crud.unflatten_rows(resp.rows, resp.metadata)
+    end
+
+    read_scenario.gh_418_read_with_secondary_noneq_index_condition(g, read)
 end

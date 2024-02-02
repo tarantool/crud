@@ -944,4 +944,18 @@ function helpers.assert_str_contains_pattern_with_replicaset_id(str, pattern)
     t.assert(found, ("string %q does not contain pattern %q"):format(str, pattern))
 end
 
+function helpers.prepare_ordered_data(g, space, expected_objects, bucket_id, order_condition)
+    helpers.insert_objects(g, space, expected_objects)
+
+    local resp, err = g.cluster.main_server:call('crud.select', {
+        space,
+        {order_condition},
+        {bucket_id = bucket_id, mode = 'write'},
+    })
+    t.assert_equals(err, nil)
+
+    local objects = crud.unflatten_rows(resp.rows, resp.metadata)
+    t.assert_equals(objects, expected_objects)
+end
+
 return helpers

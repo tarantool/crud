@@ -192,4 +192,39 @@ return function()
             if_not_exists = true,
         })
     end
+
+    local logins_space = box.schema.space.create('logins', {
+        format = {
+            {name = 'id', type = 'unsigned'},
+            {name = 'bucket_id', type = 'unsigned'},
+            {name = 'city', type = 'string'},
+            {name = 'name', type = 'string'},
+            {name = 'last_login', type = 'number'},
+        },
+        if_not_exists = true,
+        engine = engine,
+    })
+
+    logins_space:create_index('id_index', {
+        parts = { 'id' },
+        if_not_exists = true,
+    })
+
+    logins_space:create_index('bucket_id', {
+        parts = { 'bucket_id' },
+        unique = false,
+        if_not_exists = true,
+    })
+
+    logins_space:create_index('city', {
+        parts = { 'city' },
+        unique = false,
+        if_not_exists = true,
+    })
+
+    logins_space:create_index('last_login', {
+        parts = { 'last_login' },
+        unique = false,
+        if_not_exists = true,
+    })
 end

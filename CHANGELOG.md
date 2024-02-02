@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 * Compatibility with vshard configuration if UUIDs are omitted (#407).
 * Compatibility with automatic master discovery in vshard (#409).
+* Secondary conditions for index operands with operations `>=`, `<=`, `>`, `<`
+  no longer cause missing part of the actual result for scan operations
+  (`crud.select`, `crud.pairs`, `crud.count`, `readview:select`,
+  `readview:pairs`) (#418).
 
 ## [1.4.2] - 25-12-23
 
