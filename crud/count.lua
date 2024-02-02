@@ -52,7 +52,7 @@ local function count_on_storage(space_name, index_id, conditions, opts)
 
     local value = opts.scan_value
 
-    local filter_func, err = filters.gen_func(space, conditions, {
+    local filter_func, err = filters.gen_func(space, index, conditions, {
         tarantool_iter = opts.tarantool_iter,
         scan_condition_num = opts.scan_condition_num,
     })

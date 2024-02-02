@@ -89,7 +89,7 @@ g.test_one_condition_no_index = function()
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
-    local filter_func, err = select_filters.gen_func(space, conditions, {
+    local filter_func, err = select_filters.gen_func(space, index, conditions, {
         tarantool_iter = plan.tarantool_iter,
         scan_condition_num = plan.scan_condition_num,
     })
@@ -149,7 +149,7 @@ g.test_one_condition_with_index = function()
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
-    local filter_func, err = select_filters.gen_func(space, conditions, {
+    local filter_func, err = select_filters.gen_func(space, index, conditions, {
         tarantool_iter = plan.tarantool_iter,
         scan_condition_num = plan.scan_condition_num,
     })
@@ -205,7 +205,7 @@ g.test_multiple_conditions = function()
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
-    local filter_func, err = select_filters.gen_func(space, conditions, {
+    local filter_func, err = select_filters.gen_func(space, index, conditions, {
         tarantool_iter = plan.tarantool_iter,
         scan_condition_num = plan.scan_condition_num,
     })
@@ -256,7 +256,7 @@ g.test_composite_index = function()
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
-    local filter_func, err = select_filters.gen_func(space, conditions, {
+    local filter_func, err = select_filters.gen_func(space, index, conditions, {
         tarantool_iter = plan.tarantool_iter,
         scan_condition_num = plan.scan_condition_num,
     })
@@ -304,7 +304,7 @@ g.test_get_by_id = function()
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
-    local filter_func, err = select_filters.gen_func(space, conditions, {
+    local filter_func, err = select_filters.gen_func(space, index, conditions, {
         tarantool_iter = plan.tarantool_iter,
         scan_condition_num = plan.scan_condition_num,
     })
@@ -345,7 +345,7 @@ g.test_early_exit = function()
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
-    local filter_func, err = select_filters.gen_func(space, conditions, {
+    local filter_func, err = select_filters.gen_func(space, index, conditions, {
         tarantool_iter = plan.tarantool_iter,
         scan_condition_num = plan.scan_condition_num,
     })
@@ -382,7 +382,7 @@ g.test_select_all = function()
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
-    local filter_func, err = select_filters.gen_func(space, nil, {
+    local filter_func, err = select_filters.gen_func(space, index, nil, {
         tarantool_iter = plan.tarantool_iter,
         scan_condition_num = plan.scan_condition_num,
     })
@@ -419,7 +419,7 @@ g.test_limit = function()
     t.assert_equals(err, nil)
     local index = space.index[plan.index_id]
 
-    local filter_func, err = select_filters.gen_func(space, nil, {
+    local filter_func, err = select_filters.gen_func(space, index, nil, {
         tarantool_iter = plan.tarantool_iter,
         scan_condition_num = plan.scan_condition_num,
     })

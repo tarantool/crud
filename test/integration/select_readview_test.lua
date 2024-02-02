@@ -7,6 +7,7 @@ local crud_utils = require('crud.common.utils')
 
 
 local helpers = require('test.helper')
+local read_scenario = require('test.integration.read_scenario')
 
 local pgroup = t.group('select_readview', helpers.backend_matrix({
     {engine = 'memtx'},
@@ -2483,4 +2484,23 @@ pgroup.test_select_closed_readview = function(g)
     ]])
 
     t.assert_str_contains(err.str, 'Read view is closed')
+end
+
+pgroup.test_gh_418_select_with_secondary_noneq_index_condition = function(g)
+    local read = function(cg, space, conditions, opts)
+        return cg.cluster.main_server:exec(function(space, conditions, opts)
+            local crud = require('crud')
+            local rv, err = crud.readview()
+            t.assert_equals(err, nil)
+
+            local resp, err = rv:select(space, conditions, opts)
+            t.assert_equals(err, nil)
+
+            rv:close()
+
+            return crud.unflatten_rows(resp.rows, resp.metadata)
+        end, {space, conditions, opts})
+    end
+
+    read_scenario.gh_418_read_with_secondary_noneq_index_condition(g, read)
 end

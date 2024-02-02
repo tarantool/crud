@@ -78,7 +78,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         return nil, err
     end
 
-    local filter_func, err = select_filters.gen_func(space, conditions, {
+    local filter_func, err = select_filters.gen_func(space, index, conditions, {
         tarantool_iter = opts.tarantool_iter,
         scan_condition_num = opts.scan_condition_num,
     })
