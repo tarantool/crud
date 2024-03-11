@@ -1,3 +1,5 @@
+local datetime_supported, datetime = pcall(require, 'datetime')
+
 local errors = require('errors')
 
 local utils = require('crud.common.utils')
@@ -159,6 +161,8 @@ local function format_value(value)
         return tostring(value)
     elseif utils.is_uuid(value) then
         return ("%q"):format(value)
+    elseif datetime_supported and datetime.is_datetime(value) then
+        return ("%q"):format(value:format())
     elseif type(value) == 'cdata' then
         return tostring(value)
     end
@@ -283,6 +287,8 @@ local function format_eq(cond)
             end
         elseif value_type == 'uuid' then
             func_name = 'eq_uuid'
+        elseif value_type == 'datetime' then
+            func_name = 'eq_datetime'
         end
 
         table.insert(cond_strings, format_comp_with_value(field, func_name, value))
@@ -309,6 +315,8 @@ local function format_lt(cond)
             func_name = add_collation_postfix('lt', value_opts)
         elseif value_type == 'uuid' then
             func_name = 'lt_uuid'
+        elseif value_type == 'datetime' then
+            func_name = 'lt_datetime'
         end
 
         func_name = add_strict_postfix(func_name, value_opts)
@@ -533,6 +541,30 @@ local function lt_uuid_strict(lhs, rhs)
     return tostring(lhs) < tostring(rhs)
 end
 
+local function opt_datetime_parse(v)
+    if type(v) == 'string' then
+        return datetime.parse(v)
+    end
+
+    return v
+end
+
+local function lt_datetime_nullable(lhs, rhs)
+    if lhs == nil and rhs ~= nil then
+        return true
+    elseif rhs == nil then
+        return false
+    end
+    return opt_datetime_parse(lhs) < opt_datetime_parse(rhs)
+end
+
+local function lt_datetime_strict(lhs, rhs)
+    if rhs == nil then
+        return false
+    end
+    return opt_datetime_parse(lhs) < opt_datetime_parse(rhs)
+end
+
 local function lt_unicode_ci_nullable(lhs, rhs)
     if lhs == nil and rhs ~= nil then
         return true
@@ -565,6 +597,20 @@ local function eq_uuid_strict(lhs, rhs)
         return false
     end
     return tostring(lhs) == tostring(rhs)
+end
+
+local function eq_datetime(lhs, rhs)
+    if lhs == nil then
+        return rhs == nil
+    end
+    return opt_datetime_parse(lhs) == opt_datetime_parse(rhs)
+end
+
+local function eq_datetime_strict(lhs, rhs)
+    if rhs == nil then
+        return false
+    end
+    return opt_datetime_parse(lhs) == opt_datetime_parse(rhs)
 end
 
 local function eq_unicode_nullable(lhs, rhs)
@@ -604,6 +650,8 @@ local library = {
     eq = eq,
     eq_uuid = eq_uuid,
     eq_uuid_strict = eq_uuid_strict,
+    eq_datetime = eq_datetime,
+    eq_datetime_strict = eq_datetime_strict,
     -- nullable
     eq_unicode = eq_unicode_nullable,
     eq_unicode_ci = eq_unicode_ci_nullable,
@@ -618,12 +666,14 @@ local library = {
     lt_unicode_ci = lt_unicode_ci_nullable,
     lt_boolean = lt_boolean_nullable,
     lt_uuid = lt_uuid_nullable,
+    lt_datetime = lt_datetime_nullable,
     -- strict
     lt_strict = lt_strict,
     lt_unicode_strict = lt_unicode_strict,
     lt_unicode_ci_strict = lt_unicode_ci_strict,
     lt_boolean_strict = lt_boolean_strict,
     lt_uuid_strict = lt_uuid_strict,
+    lt_datetime_strict = lt_datetime_strict,
 
     utf8 = utf8,
 

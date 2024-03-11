@@ -2486,21 +2486,29 @@ pgroup.test_select_closed_readview = function(g)
     t.assert_str_contains(err.str, 'Read view is closed')
 end
 
+local function read_impl(cg, space, conditions, opts)
+    return cg.cluster.main_server:exec(function(space, conditions, opts)
+        local crud = require('crud')
+        local rv, err = crud.readview()
+        t.assert_equals(err, nil)
+
+        local resp, err = rv:select(space, conditions, opts)
+        t.assert_equals(err, nil)
+
+        rv:close()
+
+        return crud.unflatten_rows(resp.rows, resp.metadata)
+    end, {space, conditions, opts})
+end
+
 pgroup.test_gh_418_select_with_secondary_noneq_index_condition = function(g)
-    local read = function(cg, space, conditions, opts)
-        return cg.cluster.main_server:exec(function(space, conditions, opts)
-            local crud = require('crud')
-            local rv, err = crud.readview()
-            t.assert_equals(err, nil)
+    read_scenario.gh_418_read_with_secondary_noneq_index_condition(g, read_impl)
+end
 
-            local resp, err = rv:select(space, conditions, opts)
-            t.assert_equals(err, nil)
+for case_name_template, case in pairs(read_scenario.gh_373_read_with_datetime_condition_cases) do
+    local case_name = 'test_' .. case_name_template:format('select')
 
-            rv:close()
-
-            return crud.unflatten_rows(resp.rows, resp.metadata)
-        end, {space, conditions, opts})
+    pgroup[case_name] = function(g)
+        case(g, read_impl)
     end
-
-    read_scenario.gh_418_read_with_secondary_noneq_index_condition(g, read)
 end

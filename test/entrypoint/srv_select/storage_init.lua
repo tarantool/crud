@@ -1,3 +1,5 @@
+local datetime_supported, _ = pcall(require, 'datetime')
+
 local crud_utils = require('crud.common.utils')
 
 return function()
@@ -227,4 +229,100 @@ return function()
         unique = false,
         if_not_exists = true,
     })
+
+    if datetime_supported then
+        local datetime_format = {
+            {name = 'id', type = 'unsigned'},
+            {name = 'bucket_id', type = 'unsigned'},
+            {name = 'datetime_field', type = 'datetime'},
+        }
+
+
+        local datetime_nonindexed_space = box.schema.space.create('datetime_nonindexed', {
+            if_not_exists = true,
+            engine = engine,
+        })
+
+        datetime_nonindexed_space:format(datetime_format)
+
+        datetime_nonindexed_space:create_index('id_index', {
+            parts = { 'id' },
+            if_not_exists = true,
+        })
+
+        datetime_nonindexed_space:create_index('bucket_id', {
+            parts = { 'bucket_id' },
+            unique = false,
+            if_not_exists = true,
+        })
+
+
+        local datetime_indexed_space = box.schema.space.create('datetime_indexed', {
+            if_not_exists = true,
+            engine = engine,
+        })
+
+        datetime_indexed_space:format(datetime_format)
+
+        datetime_indexed_space:create_index('id_index', {
+            parts = { 'id' },
+            if_not_exists = true,
+        })
+
+        datetime_indexed_space:create_index('bucket_id', {
+            parts = { 'bucket_id' },
+            unique = false,
+            if_not_exists = true,
+        })
+
+        datetime_indexed_space:create_index('datetime_index', {
+            parts = { 'datetime_field' },
+            unique = false,
+            if_not_exists = true,
+        })
+
+
+        local datetime_pk_space = box.schema.space.create('datetime_pk', {
+            if_not_exists = true,
+            engine = engine,
+        })
+
+        datetime_pk_space:format(datetime_format)
+
+        datetime_pk_space:create_index('datetime_index', {
+            parts = { 'datetime_field' },
+            if_not_exists = true,
+        })
+
+        datetime_pk_space:create_index('bucket_id', {
+            parts = { 'bucket_id' },
+            unique = false,
+            if_not_exists = true,
+        })
+
+
+        local datetime_multipart_index_space = box.schema.space.create('datetime_multipart_index', {
+            if_not_exists = true,
+            engine = engine,
+        })
+
+        datetime_multipart_index_space:format(datetime_format)
+
+        datetime_multipart_index_space:create_index('id_index', {
+            parts = { 'id' },
+            if_not_exists = true,
+        })
+
+        datetime_multipart_index_space:create_index('bucket_id', {
+            parts = { 'bucket_id' },
+            unique = false,
+            if_not_exists = true,
+        })
+
+        datetime_multipart_index_space:create_index('datetime_index', {
+            parts = { 'id', 'datetime_field' },
+            unique = false,
+            if_not_exists = true,
+        })
+    end
 end

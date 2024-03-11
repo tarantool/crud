@@ -2268,16 +2268,24 @@ pgroup.test_pairs_yield_every_0 = function(g)
     end)
 end
 
+local function read_impl(cg, space, conditions, opts)
+    opts = table.deepcopy(opts) or {}
+    opts.mode = 'write'
+
+    local resp, err = cg.cluster.main_server:call('crud.select', {space, conditions, opts})
+    t.assert_equals(err, nil)
+
+    return crud.unflatten_rows(resp.rows, resp.metadata)
+end
+
 pgroup.test_gh_418_select_with_secondary_noneq_index_condition = function(g)
-    local read = function(cg, space, conditions, opts)
-        opts = table.deepcopy(opts) or {}
-        opts.mode = 'write'
+    read_scenario.gh_418_read_with_secondary_noneq_index_condition(g, read_impl)
+end
 
-        local resp, err = cg.cluster.main_server:call('crud.select', {space, conditions, opts})
-        t.assert_equals(err, nil)
+for case_name_template, case in pairs(read_scenario.gh_373_read_with_datetime_condition_cases) do
+    local case_name = 'test_' .. case_name_template:format('select')
 
-        return crud.unflatten_rows(resp.rows, resp.metadata)
+    pgroup[case_name] = function(g)
+        case(g, read_impl)
     end
-
-    read_scenario.gh_418_read_with_secondary_noneq_index_condition(g, read)
 end
