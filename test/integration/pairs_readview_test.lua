@@ -882,27 +882,35 @@ pgroup.test_pairs_no_map_reduce = function(g)
     t.assert_equals(diff_2, 0, 'Select request was not a map reduce')
 end
 
+local function read_impl(cg, space, conditions, opts)
+    opts = table.deepcopy(opts) or {}
+    opts.use_tomap = true
+
+    return cg.cluster.main_server:exec(function(space, conditions, opts)
+        local crud = require('crud')
+
+        local rv, err = crud.readview()
+        t.assert_equals(err, nil)
+
+        local status, resp = pcall(function()
+            return rv:pairs(space, conditions, opts):totable()
+        end)
+        t.assert(status, resp)
+
+        rv:close()
+
+        return resp, nil
+    end, {space, conditions, opts})
+end
+
 pgroup.test_gh_418_pairs_with_secondary_noneq_index_condition = function(g)
-    local read = function(cg, space, conditions, opts)
-        opts = table.deepcopy(opts) or {}
-        opts.use_tomap = true
+    read_scenario.gh_418_read_with_secondary_noneq_index_condition(g, read_impl)
+end
 
-        return cg.cluster.main_server:exec(function(space, conditions, opts)
-            local crud = require('crud')
+for case_name_template, case in pairs(read_scenario.gh_373_read_with_datetime_condition_cases) do
+    local case_name = 'test_' .. case_name_template:format('pairs')
 
-            local rv, err = crud.readview()
-            t.assert_equals(err, nil)
-
-            local status, resp = pcall(function()
-                return rv:pairs(space, conditions, opts):totable()
-            end)
-            t.assert(status, resp)
-
-            rv:close()
-
-            return resp, nil
-        end, {space, conditions, opts})
+    pgroup[case_name] = function(g)
+        case(g, read_impl)
     end
-
-    read_scenario.gh_418_read_with_secondary_noneq_index_condition(g, read)
 end

@@ -958,4 +958,9 @@ function helpers.prepare_ordered_data(g, space, expected_objects, bucket_id, ord
     t.assert_equals(objects, expected_objects)
 end
 
+function helpers.skip_datetime_unsupported()
+    local module_available, _ = pcall(require, 'datetime')
+    t.skip_if(not module_available, 'datetime is not supported')
+end
+
 return helpers
