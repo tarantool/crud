@@ -6,6 +6,7 @@
 
 local t = require('luatest')
 local datetime_supported, datetime = pcall(require, 'datetime')
+local decimal_supported, decimal = pcall(require, 'decimal')
 
 local helpers = require('test.helper')
 
@@ -92,6 +93,227 @@ local function build_condition_case(
         end
     end
 end
+
+
+local decimal_vals = {}
+
+if decimal_supported then
+    decimal_vals = {
+        smallest_negative = decimal.new('-123456789012345678.987431234678392'),
+        bigger_negative = decimal.new('-123456789012345678.987431234678391'),
+        bigger_positive = decimal.new('123456789012345678.987431234678391'),
+    }
+
+    assert(decimal_vals.smallest_negative < decimal_vals.bigger_negative)
+    assert(decimal_vals.bigger_negative < decimal_vals.bigger_positive)
+end
+
+local decimal_data = {
+    {
+        id = 1,
+        decimal_field = decimal_vals.smallest_negative,
+    },
+    {
+        id = 2,
+        decimal_field = decimal_vals.bigger_negative,
+    },
+    {
+        id = 3,
+        decimal_field = decimal_vals.bigger_positive,
+    },
+}
+
+local function bigger_negative_condition(operator, operand, is_multipart)
+    if is_multipart then
+        return {operator, operand, {2, decimal_vals.bigger_negative}}
+    else
+        return {operator, operand, decimal_vals.bigger_negative}
+    end
+end
+
+local decimal_condition_operator_options = {
+    single_lt = function(operand, is_multipart)
+        return {
+            conditions = {bigger_negative_condition('<', operand, is_multipart)},
+            expected_objects_without_bucket_id = {
+                {
+                    id = 1,
+                    decimal_field = decimal_vals.smallest_negative,
+                },
+            },
+        }
+    end,
+    single_le = function(operand, is_multipart)
+        return {
+            conditions = {bigger_negative_condition('<=', operand, is_multipart)},
+            expected_objects_without_bucket_id = {
+                {
+                    id = 1,
+                    decimal_field = decimal_vals.smallest_negative,
+                },
+                {
+                    id = 2,
+                    decimal_field = decimal_vals.bigger_negative,
+                },
+            },
+        }
+    end,
+    single_eq = function(operand, is_multipart)
+        return {
+            conditions = {bigger_negative_condition('==', operand, is_multipart)},
+            expected_objects_without_bucket_id = {
+                {
+                    id = 2,
+                    decimal_field = decimal_vals.bigger_negative,
+                },
+            },
+        }
+    end,
+    single_ge = function(operand, is_multipart)
+        return {
+            conditions = {bigger_negative_condition('>=', operand, is_multipart)},
+            expected_objects_without_bucket_id = {
+                {
+                    id = 2,
+                    decimal_field = decimal_vals.bigger_negative,
+                },
+                {
+                    id = 3,
+                    decimal_field = decimal_vals.bigger_positive,
+                },
+            },
+        }
+    end,
+    single_gt = function(operand, is_multipart)
+        return {
+            conditions = {bigger_negative_condition('>', operand, is_multipart)},
+            expected_objects_without_bucket_id = {
+                {
+                    id = 3,
+                    decimal_field = decimal_vals.bigger_positive,
+                },
+            },
+        }
+    end,
+    second_lt = function(operand, is_multipart)
+        return {
+            conditions = {{'>=', 'id', 1}, bigger_negative_condition('<', operand, is_multipart)},
+            expected_objects_without_bucket_id = {
+                {
+                    id = 1,
+                    decimal_field = decimal_vals.smallest_negative,
+                },
+            },
+        }
+    end,
+    second_le = function(operand, is_multipart)
+        return {
+            conditions = {{'>=', 'id', 1}, bigger_negative_condition('<=', operand, is_multipart)},
+            expected_objects_without_bucket_id = {
+                {
+                    id = 1,
+                    decimal_field = decimal_vals.smallest_negative,
+                },
+                {
+                    id = 2,
+                    decimal_field = decimal_vals.bigger_negative,
+                },
+            },
+        }
+    end,
+    second_eq = function(operand, is_multipart)
+        return {
+            conditions = {{'>=', 'id', 1}, bigger_negative_condition('==', operand, is_multipart)},
+            expected_objects_without_bucket_id = {
+                {
+                    id = 2,
+                    decimal_field = decimal_vals.bigger_negative,
+                },
+            },
+        }
+    end,
+    second_ge = function(operand, is_multipart)
+        return {
+            conditions = {{'>=', 'id', 1}, bigger_negative_condition('>=', operand, is_multipart)},
+            expected_objects_without_bucket_id = {
+                {
+                    id = 2,
+                    decimal_field = decimal_vals.bigger_negative,
+                },
+                {
+                    id = 3,
+                    decimal_field = decimal_vals.bigger_positive,
+                },
+            },
+        }
+    end,
+    second_gt = function(operand, is_multipart)
+        return {
+            conditions = {{'>=', 'id', 1}, bigger_negative_condition('>', operand, is_multipart)},
+            expected_objects_without_bucket_id = {
+                {
+                    id = 3,
+                    decimal_field = decimal_vals.bigger_positive,
+                },
+            },
+        }
+    end,
+}
+
+local decimal_condition_space_options = {
+    nonindexed = {
+        space_name = 'decimal_nonindexed',
+        index_kind = nil,
+    },
+    indexed = {
+        space_name = 'decimal_indexed',
+        index_kind = 'secondary',
+    },
+    pk = {
+        space_name = 'decimal_pk',
+        index_kind = 'primary',
+    },
+    multipart_indexed = {
+        space_name = 'decimal_multipart_index',
+        index_kind = 'multipart',
+        is_multipart = true,
+    },
+}
+
+local gh_373_read_with_decimal_condition_cases = {}
+
+for space_kind, space_option in pairs(decimal_condition_space_options) do
+    for operator_kind, operator_options_builder in pairs(decimal_condition_operator_options) do
+        local field_case_name_template = ('gh_373_%%s_with_decimal_%s_field_%s_condition'):format(
+                                          space_kind, operator_kind)
+
+        local field_operator_options = operator_options_builder('decimal_field', false)
+
+        gh_373_read_with_decimal_condition_cases[field_case_name_template] = build_condition_case(
+            helpers.skip_decimal_unsupported,
+            space_option.space_name,
+            decimal_data,
+            field_operator_options.conditions,
+            field_operator_options.expected_objects_without_bucket_id
+        )
+
+        if space_option.index_kind ~= nil then
+            local index_case_name_template = ('gh_373_%%s_with_decimal_%s_index_%s_condition'):format(
+                                              space_option.index_kind, operator_kind)
+
+            local index_operator_options = operator_options_builder('decimal_index', space_option.is_multipart)
+
+            gh_373_read_with_decimal_condition_cases[index_case_name_template] = build_condition_case(
+                helpers.skip_decimal_unsupported,
+                space_option.space_name,
+                decimal_data,
+                index_operator_options.conditions,
+                index_operator_options.expected_objects_without_bucket_id
+            )
+        end
+    end
+end
+
 
 local datetime_vals = {}
 
@@ -326,5 +548,6 @@ end
 
 return {
     gh_418_read_with_secondary_noneq_index_condition = gh_418_read_with_secondary_noneq_index_condition,
+    gh_373_read_with_decimal_condition_cases = gh_373_read_with_decimal_condition_cases,
     gh_373_read_with_datetime_condition_cases = gh_373_read_with_datetime_condition_cases,
 }

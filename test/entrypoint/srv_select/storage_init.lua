@@ -1,4 +1,5 @@
 local datetime_supported, _ = pcall(require, 'datetime')
+local decimal_supported, _ = pcall(require, 'decimal')
 
 local crud_utils = require('crud.common.utils')
 
@@ -229,6 +230,102 @@ return function()
         unique = false,
         if_not_exists = true,
     })
+
+    if decimal_supported then
+        local decimal_format = {
+            {name = 'id', type = 'unsigned'},
+            {name = 'bucket_id', type = 'unsigned'},
+            {name = 'decimal_field', type = 'decimal'},
+        }
+
+
+        local decimal_nonindexed_space = box.schema.space.create('decimal_nonindexed', {
+            if_not_exists = true,
+            engine = engine,
+        })
+
+        decimal_nonindexed_space:format(decimal_format)
+
+        decimal_nonindexed_space:create_index('id_index', {
+            parts = { 'id' },
+            if_not_exists = true,
+        })
+
+        decimal_nonindexed_space:create_index('bucket_id', {
+            parts = { 'bucket_id' },
+            unique = false,
+            if_not_exists = true,
+        })
+
+
+        local decimal_indexed_space = box.schema.space.create('decimal_indexed', {
+            if_not_exists = true,
+            engine = engine,
+        })
+
+        decimal_indexed_space:format(decimal_format)
+
+        decimal_indexed_space:create_index('id_index', {
+            parts = { 'id' },
+            if_not_exists = true,
+        })
+
+        decimal_indexed_space:create_index('bucket_id', {
+            parts = { 'bucket_id' },
+            unique = false,
+            if_not_exists = true,
+        })
+
+        decimal_indexed_space:create_index('decimal_index', {
+            parts = { 'decimal_field' },
+            unique = false,
+            if_not_exists = true,
+        })
+
+
+        local decimal_pk_space = box.schema.space.create('decimal_pk', {
+            if_not_exists = true,
+            engine = engine,
+        })
+
+        decimal_pk_space:format(decimal_format)
+
+        decimal_pk_space:create_index('decimal_index', {
+            parts = { 'decimal_field' },
+            if_not_exists = true,
+        })
+
+        decimal_pk_space:create_index('bucket_id', {
+            parts = { 'bucket_id' },
+            unique = false,
+            if_not_exists = true,
+        })
+
+
+        local decimal_multipart_index_space = box.schema.space.create('decimal_multipart_index', {
+            if_not_exists = true,
+            engine = engine,
+        })
+
+        decimal_multipart_index_space:format(decimal_format)
+
+        decimal_multipart_index_space:create_index('id_index', {
+            parts = { 'id' },
+            if_not_exists = true,
+        })
+
+        decimal_multipart_index_space:create_index('bucket_id', {
+            parts = { 'bucket_id' },
+            unique = false,
+            if_not_exists = true,
+        })
+
+        decimal_multipart_index_space:create_index('decimal_index', {
+            parts = { 'id', 'decimal_field' },
+            unique = false,
+            if_not_exists = true,
+        })
+    end
 
     if datetime_supported then
         local datetime_format = {
