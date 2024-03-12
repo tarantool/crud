@@ -3,6 +3,7 @@ local clock = require('clock')
 local t = require('luatest')
 
 local helpers = require('test.helper')
+local read_scenario = require('test.integration.read_scenario')
 
 local pgroup = t.group('count', helpers.backend_matrix({
     {engine = 'memtx'},
@@ -866,4 +867,18 @@ pgroup.test_count_force_map_call = function(g)
 
     t.assert_equals(err, nil)
     t.assert_equals(result, 2)
+end
+
+pgroup.test_gh_418_count_with_secondary_noneq_index_condition = function(g)
+    local read = function(cg, space, conditions, opts)
+        opts = table.deepcopy(opts) or {}
+        opts.mode = 'write'
+
+        local resp, err = cg.cluster.main_server:call('crud.count', {space, conditions, opts})
+        t.assert_equals(err, nil)
+
+        return resp
+    end
+
+    read_scenario.gh_418_read_with_secondary_noneq_index_condition(g, read)
 end

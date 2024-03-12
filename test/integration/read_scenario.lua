@@ -1,4 +1,4 @@
--- crud.select/crud.pairs/readview:select/readview:pairs
+-- crud.select/crud.pairs/crud.count/readview:select/readview:pairs
 -- have a lot of common scenarios, which are mostly tested with
 -- four nearly identical copypasted test functions now.
 -- This approach is expected to improve it at least for new test cases.
@@ -48,13 +48,17 @@ local function gh_418_read_with_secondary_noneq_index_condition(cg, read)
     -- iterator had erroneously expected tuples to be sorted by `last_login`
     -- index while iterating on `city` index. Before the issue had beed fixed,
     -- user had received only one record instead of two.
-    local objects = read(cg,
+    local result = read(cg,
         'logins',
         {{'=', 'city', 'Tatsumi Port Island'}, {'<=', 'last_login', 42}},
         {bucket_id = PINNED_BUCKET_NO}
     )
 
-    t.assert_equals(objects, {expected_objects[1], expected_objects[3]})
+    if type(result) == 'number' then -- crud.count
+        t.assert_equals(result, 2)
+    else
+        t.assert_equals(result, {expected_objects[1], expected_objects[3]})
+    end
 end
 
 return {
