@@ -548,6 +548,34 @@ for space_kind, space_option in pairs(datetime_condition_space_options) do
 end
 
 
+local gh_373_read_with_interval_condition_cases = {
+    ['gh_373_%s_with_interval_single_condition_is_forbidden'] = function(cg, read)
+        helpers.skip_interval_unsupported()
+
+        local _, err = read(cg,
+            'interval',
+            {{'>=', 'interval_field', datetime.interval.new{}}}
+        )
+        t.assert_not_equals(err, nil)
+
+        local err_msg = err.err or tostring(err)
+        t.assert_str_contains(err_msg, "datetime interval conditions are not supported")
+    end,
+    ['gh_373_%s_with_interval_second_condition_is_forbidden'] = function(cg, read)
+        helpers.skip_interval_unsupported()
+
+        local _, err = read(cg,
+            'interval',
+            {{'>=', 'id', 1}, {'>=', 'interval_field', datetime.interval.new{}}}
+        )
+        t.assert_not_equals(err, nil)
+
+        local err_msg = err.err or tostring(err)
+        t.assert_str_contains(err_msg, "datetime interval conditions are not supported")
+    end,
+}
+
+
 local function before_merger_process_storage_error(cg)
     helpers.call_on_storages(cg.cluster, function(server)
         server:exec(function()
@@ -631,6 +659,7 @@ return {
     gh_418_read_with_secondary_noneq_index_condition = gh_418_read_with_secondary_noneq_index_condition,
     gh_373_read_with_decimal_condition_cases = gh_373_read_with_decimal_condition_cases,
     gh_373_read_with_datetime_condition_cases = gh_373_read_with_datetime_condition_cases,
+    gh_373_read_with_interval_condition_cases = gh_373_read_with_interval_condition_cases,
     before_merger_process_storage_error = before_merger_process_storage_error,
     merger_process_storage_error = merger_process_storage_error,
     after_merger_process_storage_error = after_merger_process_storage_error,

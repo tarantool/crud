@@ -873,10 +873,7 @@ local read_impl = function(cg, space, conditions, opts)
     opts = table.deepcopy(opts) or {}
     opts.mode = 'write'
 
-    local resp, err = cg.cluster.main_server:call('crud.count', {space, conditions, opts})
-    t.assert_equals(err, nil)
-
-    return resp
+    return cg.cluster.main_server:call('crud.count', {space, conditions, opts})
 end
 
 pgroup.test_gh_418_count_with_secondary_noneq_index_condition = function(g)
@@ -885,7 +882,8 @@ end
 
 local gh_373_types_cases = helpers.merge_tables(
     read_scenario.gh_373_read_with_decimal_condition_cases,
-    read_scenario.gh_373_read_with_datetime_condition_cases
+    read_scenario.gh_373_read_with_datetime_condition_cases,
+    read_scenario.gh_373_read_with_interval_condition_cases
 )
 
 for case_name_template, case in pairs(gh_373_types_cases) do

@@ -1,4 +1,4 @@
-local datetime_supported, _ = pcall(require, 'datetime')
+local datetime_supported, datetime = pcall(require, 'datetime')
 local decimal_supported, _ = pcall(require, 'decimal')
 
 local crud_utils = require('crud.common.utils')
@@ -418,6 +418,32 @@ return function()
 
         datetime_multipart_index_space:create_index('datetime_index', {
             parts = { 'id', 'datetime_field' },
+            unique = false,
+            if_not_exists = true,
+        })
+    end
+
+    local interval_supported = datetime_supported and (datetime.interval ~= nil)
+    if interval_supported then
+        -- Interval is non-indexable.
+        local interval_space = box.schema.space.create('interval', {
+            if_not_exists = true,
+            engine = engine,
+        })
+
+        interval_space:format({
+            {name = 'id', type = 'unsigned'},
+            {name = 'bucket_id', type = 'unsigned'},
+            {name = 'interval_field', type = 'interval'},
+        })
+
+        interval_space:create_index('id_index', {
+            parts = { 'id' },
+            if_not_exists = true,
+        })
+
+        interval_space:create_index('bucket_id', {
+            parts = { 'bucket_id' },
             unique = false,
             if_not_exists = true,
         })

@@ -911,7 +911,8 @@ end
 
 local gh_373_types_cases = helpers.merge_tables(
     read_scenario.gh_373_read_with_decimal_condition_cases,
-    read_scenario.gh_373_read_with_datetime_condition_cases
+    read_scenario.gh_373_read_with_datetime_condition_cases,
+    read_scenario.gh_373_read_with_interval_condition_cases
 )
 
 for case_name_template, case in pairs(gh_373_types_cases) do

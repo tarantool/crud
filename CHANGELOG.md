@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
+### Changed
+* Explicitly forbid datetime interval conditions (#373).
+
 ### Fixed
 * Working with datetime conditions in case of non-indexed fields or
   non-iterating indexes (#373).
