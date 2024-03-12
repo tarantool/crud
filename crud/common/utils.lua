@@ -1,9 +1,12 @@
-local errors = require('errors')
-local ffi = require('ffi')
-local vshard = require('vshard')
-local fun = require('fun')
 local bit = require('bit')
+local errors = require('errors')
+local fiber = require('fiber')
+local ffi = require('ffi')
+local fun = require('fun')
+local vshard = require('vshard')
 local log = require('log')
+
+local datetime_supported, datetime = pcall(require, 'datetime')
 
 local is_cartridge, cartridge = pcall(require, 'cartridge')
 local is_cartridge_hotreload, cartridge_hotreload = pcall(require, 'cartridge.hotreload')
@@ -23,7 +26,6 @@ local NotInitializedError = errors.new_class('NotInitialized')
 local StorageInfoError = errors.new_class('StorageInfoError')
 local VshardRouterError = errors.new_class('VshardRouterError', {capture_stack = false})
 local UtilsInternalError = errors.new_class('UtilsInternalError', {capture_stack = false})
-local fiber = require('fiber')
 
 local utils = {}
 
@@ -1333,6 +1335,21 @@ function utils.is_cartridge_hotreload_supported()
     end
 
     return true, cartridge_hotreload
+end
+
+local interval_supported = datetime_supported and (datetime.interval ~= nil)
+
+if interval_supported then
+    -- https://github.com/tarantool/tarantool/blob/0510ffa07afd84a70c9c6f1a4c28aacd73a393d6/src/lua/datetime.lua#L175-179
+    local interval_t = ffi.typeof('struct interval')
+
+    utils.is_interval = function(o)
+        return ffi.istype(interval_t, o)
+    end
+else
+    utils.is_interval = function()
+        return false
+    end
 end
 
 for k, v in pairs(require('crud.common.vshard_utils')) do

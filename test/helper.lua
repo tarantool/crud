@@ -968,6 +968,12 @@ function helpers.skip_datetime_unsupported()
     t.skip_if(not module_available, 'datetime is not supported')
 end
 
+function helpers.skip_interval_unsupported()
+    local datetime_supported, datetime = pcall(require, 'datetime')
+    local interval_supported = datetime_supported and (datetime.interval ~= nil)
+    t.skip_if(not interval_supported, 'interval is not supported')
+end
+
 function helpers.merge_tables(t1, t2, ...)
     if t2 == nil then
         return t1

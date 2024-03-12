@@ -167,10 +167,16 @@ local function format_value(value)
         return ("%q"):format(value)
     elseif datetime_supported and datetime.is_datetime(value) then
         return ("%q"):format(value:format())
+    elseif utils.is_interval(value) then
+        -- As for Tarantool 3.0 and older, datetime intervals
+        -- are not comparable. It's better to explicitly forbid them
+        -- for now.
+        -- https://github.com/tarantool/tarantool/issues/7659
+        GenFiltersError:assert(false, ('datetime interval conditions are not supported'))
     elseif type(value) == 'cdata' then
         return tostring(value)
     end
-    assert(false, ('Unexpected value %s (type %s)'):format(value, type(value)))
+    GenFiltersError:assert(false, ('Unexpected value %s (type %s)'):format(value, type(value)))
 end
 
 local PARSE_ARGS_TEMPLATE = 'local tuple = ...'
