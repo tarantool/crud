@@ -895,11 +895,13 @@ local function read_impl(cg, space, conditions, opts)
         local status, resp = pcall(function()
             return rv:pairs(space, conditions, opts):totable()
         end)
-        t.assert(status, resp)
-
         rv:close()
 
-        return resp, nil
+        if status then
+            return resp, nil
+        else
+            return nil, resp
+        end
     end, {space, conditions, opts})
 end
 
@@ -919,3 +921,17 @@ for case_name_template, case in pairs(gh_373_types_cases) do
         case(g, read_impl)
     end
 end
+
+pgroup.before_test(
+    'test_pairs_merger_process_storage_error',
+    read_scenario.before_merger_process_storage_error
+)
+
+pgroup.test_pairs_merger_process_storage_error = function(g)
+    read_scenario.merger_process_storage_error(g, read_impl)
+end
+
+pgroup.after_test(
+    'test_pairs_merger_process_storage_error',
+    read_scenario.after_merger_process_storage_error
+)

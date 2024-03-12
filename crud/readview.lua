@@ -133,22 +133,22 @@ local function select_readview_on_storage(space_name, index_id, conditions, opts
     end
 
     if space_readview == nil then
-        return cursor, ReadviewError:new("Space %q doesn't exist", space_name)
+        return ReadviewError:assert(false, "Space %q doesn't exist", space_name)
     end
 
     local space = box.space[space_name]
     if space == nil then
-        return cursor, ReadviewError:new("Space %q doesn't exist", space_name)
+        return ReadviewError:assert(false, "Space %q doesn't exist", space_name)
     end
     space_readview.format = space:format()
 
     local index_readview = space_readview.index[index_id]
     if index_readview == nil then
-        return cursor, ReadviewError:new("Index with ID %s doesn't exist", index_id)
+        return ReadviewError:assert(false, "Index with ID %s doesn't exist", index_id)
     end
     local index = space.index[index_id]
     if index == nil then
-        return cursor, ReadviewError:new("Index with ID %s doesn't exist", index_id)
+        return ReadviewError:assert(false, "Index with ID %s doesn't exist", index_id)
     end
 
     local _, err = sharding.check_sharding_hash(space_name,
@@ -179,7 +179,7 @@ local function select_readview_on_storage(space_name, index_id, conditions, opts
         readview_index = index_readview,
     })
     if err ~= nil then
-        return cursor, ReadviewError:new("Failed to execute select: %s", err)
+        return ReadviewError:assert(false, "Failed to execute select: %s", err)
     end
 
     if resp.tuples_fetched < opts.limit or opts.limit == 0 then

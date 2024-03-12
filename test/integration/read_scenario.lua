@@ -50,11 +50,12 @@ local function gh_418_read_with_secondary_noneq_index_condition(cg, read)
     -- iterator had erroneously expected tuples to be sorted by `last_login`
     -- index while iterating on `city` index. Before the issue had beed fixed,
     -- user had received only one record instead of two.
-    local result = read(cg,
+    local result, err = read(cg,
         'logins',
         {{'=', 'city', 'Tatsumi Port Island'}, {'<=', 'last_login', 42}},
         {bucket_id = PINNED_BUCKET_NO}
     )
+    t.assert_equals(err, nil)
 
     if type(result) == 'number' then -- crud.count
         t.assert_equals(result, 2)
@@ -546,8 +547,91 @@ for space_kind, space_option in pairs(datetime_condition_space_options) do
     end
 end
 
+
+local function before_merger_process_storage_error(cg)
+    helpers.call_on_storages(cg.cluster, function(server)
+        server:exec(function()
+            local space
+            if box.info.ro == false then
+                space = box.schema.space.create('speedy_gonzales', {if_not_exists = true})
+
+                space:format({
+                    {name = 'id', type = 'unsigned'},
+                    {name = 'bucket_id', type = 'unsigned'},
+                })
+
+                space:create_index('pk', {
+                    parts = {'id'},
+                    if_not_exists = true,
+                })
+
+                space:create_index('bucket_id', {
+                    parts = {'bucket_id'},
+                    unique = false,
+                    if_not_exists = true,
+                })
+            end
+
+            local real_select_impl = rawget(_G, '_crud').select_on_storage
+            rawset(_G, '_real_select_impl', real_select_impl)
+
+            local real_select_readview_impl = rawget(_G, '_crud').select_readview_on_storage
+            rawset(_G, '_real_select_readview_impl', real_select_readview_impl)
+
+            -- Drop right before select to cause storage-side error.
+            -- Work guaranteed only with mode = 'write'.
+            local function erroneous_select_impl(...)
+                if box.info.ro == false then
+                    space:drop()
+                end
+
+                return real_select_impl(...)
+            end
+            rawget(_G, '_crud').select_on_storage = erroneous_select_impl
+
+            -- Close right before select to cause storage-side error.
+            -- Work guaranteed only with mode = 'write'.
+            local function erroneous_select_readview_impl(space_name, index_id, conditions, opts)
+                local list = box.read_view.list()
+
+                for k,v in pairs(list) do
+                    if v.id == opts.readview_id then
+                        list[k]:close()
+                    end
+                end
+
+                return real_select_readview_impl(space_name, index_id, conditions, opts)
+            end
+            rawget(_G, '_crud').select_readview_on_storage = erroneous_select_readview_impl
+        end)
+    end)
+end
+
+local function merger_process_storage_error(cg, read)
+    local _, err = read(cg, 'speedy_gonzales', {{'==', 'id', 1}})
+    t.assert_not_equals(err, nil)
+
+    local err_msg = err.err or tostring(err)
+    t.assert_str_contains(err_msg, "Space \"speedy_gonzales\" doesn't exist")
+end
+
+local function after_merger_process_storage_error(cg)
+    helpers.call_on_storages(cg.cluster, function(server)
+        server:exec(function()
+            local real_select_impl = rawget(_G, '_real_select_impl')
+            rawget(_G, '_crud').select_on_storage = real_select_impl
+
+            local real_select_readview_impl = rawget(_G, '_real_select_readview_impl')
+            rawget(_G, '_crud').select_readview_on_storage = real_select_readview_impl
+        end)
+    end)
+end
+
 return {
     gh_418_read_with_secondary_noneq_index_condition = gh_418_read_with_secondary_noneq_index_condition,
     gh_373_read_with_decimal_condition_cases = gh_373_read_with_decimal_condition_cases,
     gh_373_read_with_datetime_condition_cases = gh_373_read_with_datetime_condition_cases,
+    before_merger_process_storage_error = before_merger_process_storage_error,
+    merger_process_storage_error = merger_process_storage_error,
+    after_merger_process_storage_error = after_merger_process_storage_error,
 }

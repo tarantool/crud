@@ -2273,9 +2273,12 @@ local function read_impl(cg, space, conditions, opts)
     opts.mode = 'write'
 
     local resp, err = cg.cluster.main_server:call('crud.select', {space, conditions, opts})
-    t.assert_equals(err, nil)
 
-    return crud.unflatten_rows(resp.rows, resp.metadata)
+    if err ~= nil then
+        return nil, err
+    end
+
+    return crud.unflatten_rows(resp.rows, resp.metadata), nil
 end
 
 pgroup.test_gh_418_select_with_secondary_noneq_index_condition = function(g)
@@ -2294,3 +2297,17 @@ for case_name_template, case in pairs(gh_373_types_cases) do
         case(g, read_impl)
     end
 end
+
+pgroup.before_test(
+    'test_select_merger_process_storage_error',
+    read_scenario.before_merger_process_storage_error
+)
+
+pgroup.test_select_merger_process_storage_error = function(g)
+    read_scenario.merger_process_storage_error(g, read_impl)
+end
+
+pgroup.after_test(
+    'test_select_merger_process_storage_error',
+    read_scenario.after_merger_process_storage_error
+)
