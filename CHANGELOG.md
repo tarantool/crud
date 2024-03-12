@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 * Working with datetime conditions in case of non-indexed fields or
   non-iterating indexes (#373).
+* Precision loss for decimal conditions in case of non-indexed fields or
+  non-iterating indexes (#373).
 
 ## [1.4.3] - 05-02-24
 

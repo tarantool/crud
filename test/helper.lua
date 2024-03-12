@@ -958,9 +958,32 @@ function helpers.prepare_ordered_data(g, space, expected_objects, bucket_id, ord
     t.assert_equals(objects, expected_objects)
 end
 
+function helpers.skip_decimal_unsupported()
+    local module_available, _ = pcall(require, 'decimal')
+    t.skip_if(not module_available, 'decimal is not supported')
+end
+
 function helpers.skip_datetime_unsupported()
     local module_available, _ = pcall(require, 'datetime')
     t.skip_if(not module_available, 'datetime is not supported')
+end
+
+function helpers.merge_tables(t1, t2, ...)
+    if t2 == nil then
+        return t1
+    end
+
+    local res = {}
+
+    for k, v in pairs(t1) do
+        res[k] = v
+    end
+
+    for k, v in pairs(t2) do
+        res[k] = v
+    end
+
+    return helpers.merge_tables(res, ...)
 end
 
 return helpers

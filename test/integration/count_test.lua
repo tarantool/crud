@@ -883,7 +883,12 @@ pgroup.test_gh_418_count_with_secondary_noneq_index_condition = function(g)
     read_scenario.gh_418_read_with_secondary_noneq_index_condition(g, read_impl)
 end
 
-for case_name_template, case in pairs(read_scenario.gh_373_read_with_datetime_condition_cases) do
+local gh_373_types_cases = helpers.merge_tables(
+    read_scenario.gh_373_read_with_decimal_condition_cases,
+    read_scenario.gh_373_read_with_datetime_condition_cases
+)
+
+for case_name_template, case in pairs(gh_373_types_cases) do
     local case_name = 'test_' .. case_name_template:format('count')
 
     pgroup[case_name] = function(g)

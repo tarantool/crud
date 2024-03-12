@@ -1,4 +1,5 @@
 local datetime_supported, datetime = pcall(require, 'datetime')
+local decimal_supported, decimal = pcall(require, 'decimal')
 
 local errors = require('errors')
 
@@ -159,6 +160,9 @@ local function format_value(value)
         return tostring(value)
     elseif type(value) == 'boolean' then
         return tostring(value)
+    elseif decimal_supported and decimal.is_decimal(value) then
+        -- decimal supports comparison with string.
+        return ("%q"):format(tostring(value))
     elseif utils.is_uuid(value) then
         return ("%q"):format(value)
     elseif datetime_supported and datetime.is_datetime(value) then
