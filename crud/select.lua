@@ -61,12 +61,12 @@ local function select_on_storage(space_name, index_id, conditions, opts)
 
     local space = box.space[space_name]
     if space == nil then
-        return cursor, SelectError:new("Space %q doesn't exist", space_name)
+        SelectError:assert(false, "Space %q doesn't exist", space_name)
     end
 
     local index = space.index[index_id]
     if index == nil then
-        return cursor, SelectError:new("Index with ID %s doesn't exist", index_id)
+        SelectError:assert(false, "Index with ID %s doesn't exist", index_id)
     end
 
     local _, err = sharding.check_sharding_hash(space_name,
@@ -83,7 +83,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         scan_condition_num = opts.scan_condition_num,
     })
     if err ~= nil then
-        return cursor, SelectError:new("Failed to generate tuples filter: %s", err)
+        return SelectError:assert(false, "Failed to generate tuples filter: %s", err)
     end
 
     -- execute select
@@ -95,7 +95,7 @@ local function select_on_storage(space_name, index_id, conditions, opts)
         yield_every = opts.yield_every,
     })
     if err ~= nil then
-        return cursor, SelectError:new("Failed to execute select: %s", err)
+        return SelectError:assert(false, "Failed to execute select: %s", err)
     end
 
     if resp.tuples_fetched < opts.limit or opts.limit == 0 then
