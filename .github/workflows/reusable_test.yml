@@ -15,12 +15,12 @@ jobs:
 
     steps:
       - name: Clone the crud module
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/crud
 
       - name: Download the Tarantool build artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.artifact_name }}
 
