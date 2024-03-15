@@ -1,6 +1,3 @@
-local datetime_supported, datetime = pcall(require, 'datetime')
-local decimal_supported, _ = pcall(require, 'decimal')
-
 local crud_utils = require('crud.common.utils')
 
 return function()
@@ -231,7 +228,7 @@ return function()
         if_not_exists = true,
     })
 
-    if decimal_supported then
+    if crud_utils.tarantool_supports_decimals() then
         local decimal_format = {
             {name = 'id', type = 'unsigned'},
             {name = 'bucket_id', type = 'unsigned'},
@@ -327,7 +324,7 @@ return function()
         })
     end
 
-    if datetime_supported then
+    if crud_utils.tarantool_supports_datetimes() then
         local datetime_format = {
             {name = 'id', type = 'unsigned'},
             {name = 'bucket_id', type = 'unsigned'},
@@ -423,8 +420,7 @@ return function()
         })
     end
 
-    local interval_supported = datetime_supported and (datetime.interval ~= nil)
-    if interval_supported then
+    if crud_utils.tarantool_supports_intervals() then
         -- Interval is non-indexable.
         local interval_space = box.schema.space.create('interval', {
             if_not_exists = true,
