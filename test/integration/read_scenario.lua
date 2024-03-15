@@ -5,8 +5,9 @@
 -- Scenarios here are for `srv_select` entrypoint.
 
 local t = require('luatest')
-local datetime_supported, datetime = pcall(require, 'datetime')
-local decimal_supported, decimal = pcall(require, 'decimal')
+
+local _, datetime = pcall(require, 'datetime')
+local _, decimal = pcall(require, 'decimal')
 
 local helpers = require('test.helper')
 
@@ -98,7 +99,7 @@ end
 
 local decimal_vals = {}
 
-if decimal_supported then
+if helpers.is_decimal_supported() then
     decimal_vals = {
         smallest_negative = decimal.new('-123456789012345678.987431234678392'),
         bigger_negative = decimal.new('-123456789012345678.987431234678391'),
@@ -318,7 +319,7 @@ end
 
 local datetime_vals = {}
 
-if datetime_supported then
+if helpers.is_datetime_supported() then
     datetime_vals = {
         yesterday = datetime.new{
             year = 2024,

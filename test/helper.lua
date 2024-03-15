@@ -958,20 +958,28 @@ function helpers.prepare_ordered_data(g, space, expected_objects, bucket_id, ord
     t.assert_equals(objects, expected_objects)
 end
 
+function helpers.is_decimal_supported()
+    return crud_utils.tarantool_supports_decimals()
+end
+
+function helpers.is_datetime_supported()
+    return crud_utils.tarantool_supports_datetimes()
+end
+
+function helpers.is_interval_supported()
+    return crud_utils.tarantool_supports_intervals()
+end
+
 function helpers.skip_decimal_unsupported()
-    local module_available, _ = pcall(require, 'decimal')
-    t.skip_if(not module_available, 'decimal is not supported')
+    t.skip_if(not helpers.is_decimal_supported(), 'decimal is not supported')
 end
 
 function helpers.skip_datetime_unsupported()
-    local module_available, _ = pcall(require, 'datetime')
-    t.skip_if(not module_available, 'datetime is not supported')
+    t.skip_if(not helpers.is_datetime_supported(), 'datetime is not supported')
 end
 
 function helpers.skip_interval_unsupported()
-    local datetime_supported, datetime = pcall(require, 'datetime')
-    local interval_supported = datetime_supported and (datetime.interval ~= nil)
-    t.skip_if(not interval_supported, 'interval is not supported')
+    t.skip_if(not helpers.is_interval_supported(), 'interval is not supported')
 end
 
 function helpers.merge_tables(t1, t2, ...)
