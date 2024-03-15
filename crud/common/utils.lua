@@ -666,28 +666,17 @@ end
 
 determine_enabled_features()
 
-function utils.tarantool_supports_fieldpaths()
-    return enabled_tarantool_features.fieldpaths
-end
+for feature_name, feature_enabled in pairs(enabled_tarantool_features) do
+    local util_name
+    if feature_name == 'builtin_merger' then
+        util_name = ('tarantool_has_%s'):format(feature_name)
+    else
+        util_name = ('tarantool_supports_%s'):format(feature_name)
+    end
 
-function utils.tarantool_supports_uuids()
-    return enabled_tarantool_features.uuids
-end
+    local util_func = function() return feature_enabled end
 
-function utils.tarantool_supports_jsonpath_indexes()
-    return enabled_tarantool_features.jsonpath_indexes
-end
-
-function utils.tarantool_has_builtin_merger()
-    return enabled_tarantool_features.builtin_merger
-end
-
-function utils.tarantool_supports_external_merger()
-    return enabled_tarantool_features.external_merger
-end
-
-function utils.tarantool_supports_netbox_skip_header_option()
-    return enabled_tarantool_features.netbox_skip_header_option
+    utils[util_name] = util_func
 end
 
 local function add_nullable_fields_recursive(operations, operations_map, space_format, tuple, id)
