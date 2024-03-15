@@ -664,51 +664,29 @@ local function determine_enabled_features()
                                                                          2, 2, 0, nil)
 end
 
-function utils.tarantool_supports_fieldpaths()
-    if enabled_tarantool_features.fieldpaths == nil then
-        determine_enabled_features()
-    end
+determine_enabled_features()
 
+function utils.tarantool_supports_fieldpaths()
     return enabled_tarantool_features.fieldpaths
 end
 
 function utils.tarantool_supports_uuids()
-    if enabled_tarantool_features.uuids == nil then
-        determine_enabled_features()
-    end
-
     return enabled_tarantool_features.uuids
 end
 
 function utils.tarantool_supports_jsonpath_indexes()
-    if enabled_tarantool_features.jsonpath_indexes == nil then
-        determine_enabled_features()
-    end
-
     return enabled_tarantool_features.jsonpath_indexes
 end
 
 function utils.tarantool_has_builtin_merger()
-    if enabled_tarantool_features.builtin_merger == nil then
-        determine_enabled_features()
-    end
-
     return enabled_tarantool_features.builtin_merger
 end
 
 function utils.tarantool_supports_external_merger()
-    if enabled_tarantool_features.external_merger == nil then
-        determine_enabled_features()
-    end
-
     return enabled_tarantool_features.external_merger
 end
 
 function utils.tarantool_supports_netbox_skip_header_option()
-    if enabled_tarantool_features.netbox_skip_header_option == nil then
-        determine_enabled_features()
-    end
-
     return enabled_tarantool_features.netbox_skip_header_option
 end
 
