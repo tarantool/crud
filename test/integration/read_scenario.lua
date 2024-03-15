@@ -5,9 +5,11 @@
 -- Scenarios here are for `srv_select` entrypoint.
 
 local t = require('luatest')
+local checks = require('checks')
 
 local _, datetime = pcall(require, 'datetime')
 local _, decimal = pcall(require, 'decimal')
+local _, uuid = pcall(require, 'uuid')
 
 local helpers = require('test.helper')
 
@@ -656,6 +658,330 @@ local function after_merger_process_storage_error(cg)
     end)
 end
 
+
+local sample = {
+    number = 1,
+}
+
+if helpers.is_decimal_supported() then
+    sample.decimal = decimal.new('1.234')
+end
+
+if helpers.is_uuid_supported() then
+    sample.uuid = uuid.fromstr('b5ed8123-8685-479b-93c0-021cccd2608e')
+end
+
+if helpers.is_datetime_supported() then
+    sample.datetime = datetime.new{year = 2024, month = 3, day = 15}
+end
+
+if helpers.is_interval_supported() then
+    sample.interval = datetime.interval.new{hour = -3}
+end
+
+local function inherit(self, object)
+    setmetatable(object, self)
+    self.__index = self
+    return object
+end
+
+local SimpleStorage = {inherit = inherit}
+
+local function space_string_repr(field_type, field_indexed, field_nullable)
+    -- Example: nonindexed_nullable_number_space
+
+    local indexing_repr = field_indexed and 'indexed' or 'nonindexed'
+    local nullability_repr = field_nullable and 'nullable' or 'nonnullable'
+
+    return ('%s_%s_%s_space'):format(
+        indexing_repr,
+        nullability_repr,
+        field_type
+    )
+end
+
+function SimpleStorage:new(opts)
+    checks('table', {
+        field_type = 'string',
+        field_nullable = 'boolean',
+        field_indexed = 'boolean',
+    })
+
+    local object = table.deepcopy(opts)
+
+    -- Example: simple_number_nonindexed_nullable_nil
+    local space_name = space_string_repr(opts.field_type, opts.field_indexed, opts.field_indexed)
+
+    local space_cfg = {space_name, opts.field_type, opts.field_indexed, opts.field_nullable}
+
+    local data = {{id = 1, field = sample[opts.field_type]}}
+    if opts.field_nullable then
+         -- For Tarantool, box.NULL and nil fields are indistinguishable in comparison.
+        table.insert(data, {id = 2, field = box.NULL})
+    end
+
+    object.space_name = space_name
+    object._space_cfg = space_cfg
+    object._data = data
+    object._space_on_storage_prepared = {}
+
+    self:inherit(object)
+    return object
+end
+
+function SimpleStorage:prepare_space_on_storages(cg)
+    if self._space_on_storage_prepared[cg] then
+        return
+    end
+
+    local function init_space_on_storage(space_name, field_type, field_indexed, field_nullable)
+        if box.info.ro == true then
+            return
+        end
+
+        local engine = os.getenv('ENGINE') or 'memtx'
+
+        local space = box.schema.space.create(space_name, {
+            if_not_exists = true,
+            engine = engine,
+        })
+
+        space:format({
+            {name = 'id', type = 'unsigned'},
+            {name = 'bucket_id', type = 'unsigned'},
+            {name = 'field', type = field_type, is_nullable = field_nullable},
+        })
+
+        space:create_index('pk', {
+            parts = { 'id' },
+            if_not_exists = true,
+        })
+
+        space:create_index('bucket_id', {
+            parts = { 'bucket_id' },
+            unique = false,
+            if_not_exists = true,
+        })
+
+        if field_indexed then
+            space:create_index('field_index', {
+                parts = { 'field' },
+                unique = false,
+                if_not_exists = true,
+            })
+        end
+    end
+
+    helpers.call_on_storages(cg.cluster, function(server)
+        server:exec(init_space_on_storage, self._space_cfg)
+    end)
+
+    helpers.insert_objects(cg, self.space_name, self:get_all_records())
+
+    self._space_on_storage_prepared[cg] = true
+end
+
+function SimpleStorage:get_all_records()
+    return self._data
+end
+
+function SimpleStorage:get_none_records() -- luacheck: ignore
+    return {}
+end
+
+function SimpleStorage:get_all_null_records()
+    local resp = {}
+    for _, v in ipairs(self._data) do
+        if v['field'] == nil then
+            table.insert(resp, v)
+        end
+    end
+
+    return resp
+end
+
+function SimpleStorage:get_all_nonnull_records()
+    local resp = {}
+    for _, v in ipairs(self._data) do
+        if v['field'] ~= nil then
+            table.insert(resp, v)
+        end
+    end
+
+    return resp
+end
+
+local gh_422_nullability_space_cases = {}
+
+local types_for_simple_spaces = {'number'}
+
+if helpers.is_decimal_supported() then
+    table.insert(types_for_simple_spaces, 'decimal')
+end
+
+if helpers.is_uuid_supported() then
+    table.insert(types_for_simple_spaces, 'uuid')
+end
+
+if helpers.is_datetime_supported() then
+    table.insert(types_for_simple_spaces, 'datetime')
+end
+
+if helpers.is_interval_supported() then
+    table.insert(types_for_simple_spaces, 'interval')
+end
+
+for _, field_type in ipairs(types_for_simple_spaces) do
+    local indexing_cases = {false, true}
+    if field_type == 'interval' then
+        indexing_cases = {false}
+    end
+
+    for _, field_indexed in ipairs(indexing_cases) do
+        local nullability_cases = {false, true}
+
+        for _, field_nullable in ipairs(nullability_cases) do
+            local storage = SimpleStorage:new{
+                field_type = field_type,
+                field_indexed = field_indexed,
+                field_nullable = field_nullable,
+            }
+            gh_422_nullability_space_cases[storage.space_name] = storage
+        end
+    end
+end
+
+local gh_422_nullability_condition_cases = {}
+
+local function get_conditions(operator, operand, opts)
+    checks('string', '?', {secondary_condition = 'boolean'})
+
+    local null_condition = {operator, 'field', operand}
+
+    local conditions
+    if opts.secondary_condition then
+        conditions = {{'>=', 'id', 1}, null_condition}
+    else
+        conditions = {null_condition}
+    end
+
+    return conditions
+end
+
+local operator_cases = {
+    -- The logic in core Tarantool select is as follows.
+    -- nil condition is an absence of condition, thus all data is returned
+    -- disregarding the condition (condition may affect the order).
+    -- box.NULL condition is a condition for the null value -- in case of EQ ('=='),
+    -- only records with null index value are returned, in case of GT ('>')
+    -- all non-null values are returned since nulls are in the beginning of an index
+    -- and so on. Nils and box.NULLs in tuple are both satisfy box.NULL condition.
+    lt_condition_with_nil_operand = {
+        operator = '<',
+        operand = nil,
+        expected_objects_getter = 'get_all_records',
+    },
+    le_condition_with_nil_operand = {
+        operator = '<=',
+        operand = nil,
+        expected_objects_getter = 'get_all_records',
+    },
+    eq_condition_with_nil_operand = {
+        operator = '==',
+        operand = nil,
+        expected_objects_getter = 'get_all_records',
+    },
+    ge_condition_with_nil_operand = {
+        operator = '>=',
+        operand = nil,
+        expected_objects_getter = 'get_all_records',
+    },
+    gt_condition_with_nil_operand = {
+        operator = '>',
+        operand = nil,
+        expected_objects_getter = 'get_all_records',
+    },
+    lt_condition_with_boxNULL_operand = {
+        operator = '<',
+        operand = box.NULL,
+        expected_objects_getter = 'get_none_records',
+    },
+    le_condition_with_boxNULL_operand = {
+        operator = '<=',
+        operand = box.NULL,
+        expected_objects_getter = 'get_all_null_records',
+    },
+    eq_condition_with_boxNULL_operand = {
+        operator = '==',
+        operand = box.NULL,
+        expected_objects_getter = 'get_all_null_records',
+    },
+    ge_condition_with_boxNULL_operand = {
+        operator = '>=',
+        operand = box.NULL,
+        expected_objects_getter = 'get_all_records',
+    },
+    gt_condition_with_boxNULL_operand = {
+        operator = '>',
+        operand = box.NULL,
+        expected_objects_getter = 'get_all_nonnull_records',
+    },
+}
+
+local secondarity_cases = {false, true}
+for _, secondary_condition in ipairs(secondarity_cases) do
+    local secondarity_string_repr = secondary_condition and 'second' or 'single'
+
+    for op_case_name, op_case in pairs(operator_cases) do
+        local case_name = ('%s_%s'):format(secondarity_string_repr, op_case_name)
+
+        local conditions = get_conditions(
+            op_case.operator,
+            op_case.operand,
+            {secondary_condition = secondary_condition}
+        )
+
+        gh_422_nullability_condition_cases[case_name] = {
+            conditions = conditions,
+            expected_objects_getter = op_case.expected_objects_getter,
+        }
+    end
+end
+
+local gh_422_nullability_cases = {}
+
+for space_case_name, space_case in pairs(gh_422_nullability_space_cases) do
+    for condition_case_name, condition_case in pairs(gh_422_nullability_condition_cases) do
+        local case_name_template = ('gh_422_%%s_%s_with_%s'):format(space_case_name, condition_case_name)
+
+        local function case(cg, read)
+            -- Skip not needed since unsupported cases are not generated.
+            space_case:prepare_space_on_storages(cg)
+
+            local result, err = read(cg, space_case.space_name, condition_case.conditions)
+            t.assert_equals(err, nil)
+
+            -- Order may vary depending on indexes and conditions.
+            local getter = condition_case.expected_objects_getter
+            local expected_objects_without_bucket_id = space_case[getter](space_case)
+
+            if type(result) == 'number' then -- crud.count
+                t.assert_equals(result, #expected_objects_without_bucket_id)
+            else
+                local actual_objects_without_bucket_id = {}
+                for k, v in pairs(result) do
+                    v['bucket_id'] = nil
+                    actual_objects_without_bucket_id[k] = v
+                end
+
+                t.assert_items_equals(actual_objects_without_bucket_id, expected_objects_without_bucket_id)
+            end
+        end
+
+        gh_422_nullability_cases[case_name_template] = case
+    end
+end
+
 return {
     gh_418_read_with_secondary_noneq_index_condition = gh_418_read_with_secondary_noneq_index_condition,
     gh_373_read_with_decimal_condition_cases = gh_373_read_with_decimal_condition_cases,
@@ -664,4 +990,5 @@ return {
     before_merger_process_storage_error = before_merger_process_storage_error,
     merger_process_storage_error = merger_process_storage_error,
     after_merger_process_storage_error = after_merger_process_storage_error,
+    gh_422_nullability_cases = gh_422_nullability_cases,
 }

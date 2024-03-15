@@ -345,9 +345,14 @@ local function gen_eq_func_code(func_name, cond, func_args_code)
     local header = LIB_FUNC_HEADER_TEMPLATE:format(func_name, func_args_code)
     table.insert(func_code_lines, header)
 
-    local return_line = string.format(
-        '    return %s', concat_conditions(eq_conds, 'and')
-    )
+    local return_line
+    if #eq_conds > 0 then
+        return_line = string.format(
+            '    return %s', concat_conditions(eq_conds, 'and')
+        )
+    else  -- nil condition is treated as no condition
+        return_line = '    return true'
+    end
     table.insert(func_code_lines, return_line)
 
     table.insert(func_code_lines, 'end')
@@ -398,18 +403,23 @@ local function gen_cmp_array_func_code(operator, func_name, cond, func_args_code
     local results = results_by_operators[operator]
     assert(results ~= nil)
 
-    for i = 1, #eq_conds do
-        local comp_value_code = table.concat({
-            string.format('    if %s then return %s end', lt_conds[i], results.le),
-            string.format('    if not %s then return %s end', eq_conds[i], results.not_eq),
-            '',
-        }, '\n')
+    if #eq_conds > 0 then
+        for i = 1, #eq_conds do
+            local comp_value_code = table.concat({
+                string.format('    if %s then return %s end', lt_conds[i], results.le),
+                string.format('    if not %s then return %s end', eq_conds[i], results.not_eq),
+                '',
+            }, '\n')
 
-        table.insert(func_code_lines, comp_value_code)
+            table.insert(func_code_lines, comp_value_code)
+        end
+
+        local return_code = ('    return %s'):format(results.default)
+        table.insert(func_code_lines, return_code)
+    else  -- nil condition is treated as no condition
+        local return_line = '    return true'
+        table.insert(func_code_lines, return_line)
     end
-
-    local return_code = ('    return %s'):format(results.default)
-    table.insert(func_code_lines, return_code)
 
     table.insert(func_code_lines, 'end')
 

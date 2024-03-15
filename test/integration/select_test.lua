@@ -2313,3 +2313,11 @@ pgroup.after_test(
     'test_select_merger_process_storage_error',
     read_scenario.after_merger_process_storage_error
 )
+
+for case_name_template, case in pairs(read_scenario.gh_422_nullability_cases) do
+    local case_name = 'test_' .. case_name_template:format('select')
+
+    pgroup[case_name] = function(g)
+        case(g, read_impl)
+    end
+end
