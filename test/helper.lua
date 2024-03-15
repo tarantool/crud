@@ -962,6 +962,10 @@ function helpers.is_decimal_supported()
     return crud_utils.tarantool_supports_decimals()
 end
 
+function helpers.is_uuid_supported()
+    return crud_utils.tarantool_supports_uuids()
+end
+
 function helpers.is_datetime_supported()
     return crud_utils.tarantool_supports_datetimes()
 end

@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   non-iterating indexes (#373).
 * Passing errors from storages for merger operations (`crud.select`,
   `crud.pairs`, `readview:select`, `readview:pairs`) (#423).
+* Working with `nil` operand conditions in case of non-indexed fields or
+  non-iterating indexes (#422).
 
 ## [1.4.3] - 05-02-24
 

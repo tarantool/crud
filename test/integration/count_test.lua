@@ -893,3 +893,11 @@ for case_name_template, case in pairs(gh_373_types_cases) do
         case(g, read_impl)
     end
 end
+
+for case_name_template, case in pairs(read_scenario.gh_422_nullability_cases) do
+    local case_name = 'test_' .. case_name_template:format('count')
+
+    pgroup[case_name] = function(g)
+        case(g, read_impl)
+    end
+end
