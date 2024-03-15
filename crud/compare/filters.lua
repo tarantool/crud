@@ -1,7 +1,7 @@
-local datetime_supported, datetime = pcall(require, 'datetime')
-local decimal_supported, decimal = pcall(require, 'decimal')
-
 local errors = require('errors')
+
+local _, datetime = pcall(require, 'datetime')
+local _, decimal = pcall(require, 'decimal')
 
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
@@ -160,12 +160,12 @@ local function format_value(value)
         return tostring(value)
     elseif type(value) == 'boolean' then
         return tostring(value)
-    elseif decimal_supported and decimal.is_decimal(value) then
+    elseif utils.tarantool_supports_decimals() and decimal.is_decimal(value) then
         -- decimal supports comparison with string.
         return ("%q"):format(tostring(value))
     elseif utils.is_uuid(value) then
         return ("%q"):format(value)
-    elseif datetime_supported and datetime.is_datetime(value) then
+    elseif utils.tarantool_supports_datetimes() and datetime.is_datetime(value) then
         return ("%q"):format(value:format())
     elseif utils.is_interval(value) then
         -- As for Tarantool 3.0 and older, datetime intervals
