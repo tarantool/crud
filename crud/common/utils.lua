@@ -6,8 +6,6 @@ local fun = require('fun')
 local vshard = require('vshard')
 local log = require('log')
 
-local datetime_supported, datetime = pcall(require, 'datetime')
-
 local is_cartridge, cartridge = pcall(require, 'cartridge')
 local is_cartridge_hotreload, cartridge_hotreload = pcall(require, 'cartridge.hotreload')
 
@@ -605,9 +603,33 @@ local function determine_enabled_features()
     enabled_tarantool_features.fieldpaths = is_version_ge(major, minor, patch, suffix,
                                                           2, 3, 1, nil)
 
-    -- since Tarantool 2.4.1
+    -- Full support (Lua type, space format type and indexes) for decimal type
+    -- is since Tarantool 2.3.1 [1]
+    --
+    -- [1] https://github.com/tarantool/tarantool/commit/485439e33196e26d120e622175f88b4edc7a5aa1
+    enabled_tarantool_features.decimals = is_version_ge(major, minor, patch, suffix,
+                                                        2, 3, 1, nil)
+
+    -- Full support (Lua type, space format type and indexes) for uuid type
+    -- is since Tarantool 2.4.1 [1]
+    --
+    -- [1] https://github.com/tarantool/tarantool/commit/b238def8065d20070dcdc50b54c2536f1de4c7c7
     enabled_tarantool_features.uuids = is_version_ge(major, minor, patch, suffix,
                                                      2, 4, 1, nil)
+
+    -- Full support (Lua type, space format type and indexes) for datetime type
+    -- is since Tarantool 2.10.0-beta2 [1]
+    --
+    -- [1] https://github.com/tarantool/tarantool/commit/3bd870261c462416c29226414fe0a2d79aba0c74
+    enabled_tarantool_features.datetimes = is_version_ge(major, minor, patch, suffix,
+                                                         2, 10, 0, 'beta2')
+
+    -- Full support (Lua type, space format type and indexes) for datetime type
+    -- is since Tarantool 2.10.0-rc1 [1]
+    --
+    -- [1] https://github.com/tarantool/tarantool/commit/38f0c904af4882756c6dc802f1895117d3deae6a
+    enabled_tarantool_features.intervals = is_version_ge(major, minor, patch, suffix,
+                                                         2, 10, 0, 'rc1')
 
     -- since Tarantool 2.6.3 / 2.7.2 / 2.8.1
     enabled_tarantool_features.jsonpath_indexes = is_version_ge(major, minor, patch, suffix,
@@ -1304,9 +1326,7 @@ function utils.is_cartridge_hotreload_supported()
     return true, cartridge_hotreload
 end
 
-local interval_supported = datetime_supported and (datetime.interval ~= nil)
-
-if interval_supported then
+if utils.tarantool_supports_intervals() then
     -- https://github.com/tarantool/tarantool/blob/0510ffa07afd84a70c9c6f1a4c28aacd73a393d6/src/lua/datetime.lua#L175-179
     local interval_t = ffi.typeof('struct interval')
 
