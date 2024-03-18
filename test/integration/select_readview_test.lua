@@ -2392,6 +2392,11 @@ pgroup.test_select_switch_master = function(g)
 
 end
 
+pgroup.after_test('test_select_switch_master', function(g)
+    local replicasets = helpers.get_test_cartridge_replicasets()
+    set_master(g.cluster, replicasets[2].uuid, replicasets[2].servers[1].instance_uuid)
+end)
+
 -- TODO: https://github.com/tarantool/crud/issues/383
 pgroup.test_select_switch_master_first = function(g)
     helpers.skip_not_cartridge_backend(g.params.backend)
@@ -2447,6 +2452,11 @@ pgroup.test_select_switch_master_first = function(g)
     })
 
 end
+
+pgroup.after_test('test_select_switch_master', function(g)
+    local replicasets = helpers.get_test_cartridge_replicasets()
+    set_master(g.cluster, replicasets[2].uuid, replicasets[2].servers[1].instance_uuid)
+end)
 
 -- TODO: https://github.com/tarantool/crud/issues/383
 pgroup.test_select_closed_readview = function(g)
