@@ -2335,11 +2335,9 @@ end
 pgroup.after_test('test_stop_select', function(g)
     -- It seems more easy to restart the cluster rather then restore it
     -- original state.
-    if g.params.backend == helpers.backend.VSHARD then
-        helpers.stop_cluster(g.cluster, g.params.backend)
-        g.cluster = nil
-        init_cluster(g)
-    end
+    helpers.stop_cluster(g.cluster, g.params.backend)
+    g.cluster = nil
+    init_cluster(g)
 end)
 
 pgroup.test_select_switch_master = function(g)
