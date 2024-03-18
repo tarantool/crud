@@ -2496,6 +2496,9 @@ end
 
 local function read_impl(cg, space, conditions, opts)
     return cg.cluster.main_server:exec(function(space, conditions, opts)
+        opts = table.deepcopy(opts) or {}
+        opts.fullscan = true
+
         local crud = require('crud')
         local rv, err = crud.readview()
         t.assert_equals(err, nil)

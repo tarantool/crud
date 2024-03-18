@@ -2271,6 +2271,7 @@ end
 local function read_impl(cg, space, conditions, opts)
     opts = table.deepcopy(opts) or {}
     opts.mode = 'write'
+    opts.fullscan = true
 
     local resp, err = cg.cluster.main_server:call('crud.select', {space, conditions, opts})
 
