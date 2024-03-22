@@ -9,6 +9,7 @@ local luatest_utils = require('luatest.utils')
 
 local checks = require('checks')
 local digest = require('digest')
+local json = require('json')
 local fio = require('fio')
 
 local crud = require('crud')
@@ -726,7 +727,14 @@ function helpers.start_default_cluster(g, srv_name)
     helpers.start_cluster(g, cartridge_cfg, vshard_cfg)
 end
 
-function helpers.start_cluster(g, cartridge_cfg, vshard_cfg)
+function helpers.start_cluster(g, cartridge_cfg, vshard_cfg, opts)
+    checks('table', '?table', '?table', {wait_crud_is_ready = '?boolean'})
+
+    opts = opts or {}
+    if opts.wait_crud_is_ready == nil then
+        opts.wait_crud_is_ready = true
+    end
+
     if g.params.backend == helpers.backend.CARTRIDGE then
         helpers.skip_cartridge_unsupported()
 
@@ -749,6 +757,96 @@ function helpers.start_cluster(g, cartridge_cfg, vshard_cfg)
 
     g.router = g.cluster:server('router')
     assert(g.router ~= nil, 'router found')
+
+    if opts.wait_crud_is_ready then
+        helpers.wait_crud_is_ready_on_cluster(g)
+    end
+end
+
+local function count_storages_in_topology(g, backend, vshard_group, storage_roles)
+    local storages_in_topology = 0
+    if backend == helpers.backend.CARTRIDGE then
+        for _, replicaset in ipairs(g.cfg.replicasets) do
+            local is_storage = helpers.does_replicaset_have_one_of_cartridge_roles(replicaset, storage_roles)
+            local is_part_of_vshard_group = replicaset.vshard_group == vshard_group
+
+            if is_storage and is_part_of_vshard_group then
+                storages_in_topology = storages_in_topology + #replicaset.servers
+            end
+        end
+    elseif backend == helpers.backend.VSHARD then
+        for _, storage_replicaset in pairs(g.cfg.sharding) do
+            for _, _ in pairs(storage_replicaset.replicas) do
+                storages_in_topology = storages_in_topology + 1
+            end
+        end
+    end
+
+    return storages_in_topology
+end
+
+function helpers.does_replicaset_have_one_of_cartridge_roles(replicaset, expected_roles)
+    for _, actual_role in ipairs(replicaset.roles) do
+        for _, expected_role in ipairs(expected_roles) do
+            if expected_role == actual_role then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+local function assert_expected_number_of_storages_is_running(g, vshard_group, expected_number)
+    local res, err = g.router:call('crud.storage_info', {{vshard_router = vshard_group}})
+    assert(
+        err == nil,
+        ('crud is not bootstrapped: error on getting storage info: %s'):format(err)
+    )
+
+    local running_storages = 0
+    for _, storage in pairs(res) do
+        if storage.status == 'running' then
+            running_storages = running_storages + 1
+        end
+    end
+
+    assert(
+        running_storages == expected_number,
+        ('crud is not bootstrapped: expected %d running storages, got the following storage info: %s'):format(
+            expected_number, json.encode(res))
+    )
+
+    return true
+end
+
+function helpers.wait_crud_is_ready_on_cluster(g, opts)
+    checks('table', {
+        backend = '?string',
+        vshard_group = '?string',
+        storage_roles = '?table',
+    })
+
+    opts = opts or {}
+
+    if opts.backend == nil then
+        opts.backend = g.params.backend
+    end
+    assert(opts.backend ~= nil)
+
+    if opts.storage_roles == nil then
+        opts.storage_roles = {'crud-storage'}
+    end
+
+    local storages_in_topology = count_storages_in_topology(g, opts.backend, opts.vshard_group, opts.storage_roles)
+
+    local WAIT_TIMEOUT = 5
+    local DELAY = 0.1
+    t.helpers.retrying(
+        {timeout = WAIT_TIMEOUT, delay = DELAY},
+        assert_expected_number_of_storages_is_running,
+        g, opts.vshard_group, storages_in_topology
+    )
 end
 
 function helpers.stop_cluster(cluster, backend)

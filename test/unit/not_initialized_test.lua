@@ -46,7 +46,9 @@ local cartridge_cfg_template = {
 }
 
 pgroup.before_all(function(g)
-    helpers.start_cluster(g, cartridge_cfg_template, vshard_cfg_template)
+    helpers.start_cluster(g, cartridge_cfg_template, vshard_cfg_template, {
+        wait_crud_is_ready = false,
+    })
 
     g.router = g.cluster:server('router')
 end)
