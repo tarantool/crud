@@ -11,18 +11,21 @@ local helpers = require('test.helper')
 g.before_all(function()
     helpers.skip_cartridge_unsupported()
 
-    g.cluster = helpers.Cluster:new({
+    g.cfg = {
         datadir = fio.tempdir(),
         use_vshard = true,
         server_command = helpers.entrypoint_cartridge('srv_reload'),
         replicasets = helpers.get_test_cartridge_replicasets(),
-    })
+    }
 
+    g.cluster = helpers.Cluster:new(g.cfg)
     g.cluster:start()
 
     g.router = assert(g.cluster:server('router'))
     g.s1_master = assert(g.cluster:server('s1-master'))
     g.s1_replica = assert(g.cluster:server('s1-replica'))
+
+    helpers.wait_crud_is_ready_on_cluster(g, {backend = helpers.backend.CARTRIDGE})
 
     g.insertions_passed = {}
     g.insertions_failed = {}

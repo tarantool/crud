@@ -14,7 +14,7 @@ local pgroup = t.group('vshard_custom', {
 pgroup.before_all(function(g)
     helpers.skip_cartridge_unsupported()
 
-    g.cluster = helpers.Cluster:new({
+    g.cfg = {
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint_cartridge('srv_vshard_custom'),
         use_vshard = true,
@@ -82,11 +82,31 @@ pgroup.before_all(function(g)
         env = {
             ['ENGINE'] = g.params.engine,
         },
-    })
+    }
+
+    g.cluster = helpers.Cluster:new(g.cfg)
 
     g.cluster:start()
 
     g.router = g.cluster:server('router')
+
+    helpers.wait_crud_is_ready_on_cluster(g, {
+        backend = helpers.backend.CARTRIDGE,
+        vshard_group = 'customers',
+        storage_roles = {
+            'customers-storage',
+            'customers-storage-ddl',
+        },
+    })
+
+    helpers.wait_crud_is_ready_on_cluster(g, {
+        backend = helpers.backend.CARTRIDGE,
+        vshard_group = 'locations',
+        storage_roles = {
+            'locations-storage',
+            'locations-storage-ddl',
+        },
+    })
 end)
 
 pgroup.after_all(function(g) helpers.stop_cartridge_cluster(g.cluster) end)

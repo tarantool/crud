@@ -2324,6 +2324,8 @@ pgroup.test_stop_select = function(g)
         end, {g.cfg, bootstrap_key})
     end
 
+    helpers.wait_crud_is_ready_on_cluster(g)
+
     local _, err = g.router:eval([[
         local crud = require('crud')
         local foo = rawget(_G, 'foo', foo)
