@@ -17,15 +17,20 @@ end
 local root = fio.dirname(fio.dirname(fio.dirname(debug.sourcedir())))
 package.path = package.path .. root .. "/?.lua;"
 
-local ok, err
+package.preload['customers-storage'] = function()
+    return {
+        role_name = 'customers-storage',
+    }
+end
 
-ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
+local ok, err = errors.pcall('CartridgeCfgError', cartridge.cfg, {
     advertise_uri = 'localhost:3301',
     http_port = 8081,
     bucket_count = 3000,
     roles = {
         'cartridge.roles.crud-storage',
         'cartridge.roles.crud-router',
+        'customers-storage',
     },
 })
 
