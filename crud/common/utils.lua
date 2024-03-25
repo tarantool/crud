@@ -683,6 +683,10 @@ local function determine_enabled_features()
 
     enabled_tarantool_features.netbox_skip_header_option = is_version_ge(major, minor, patch, suffix,
                                                                          2, 2, 0, nil)
+
+    -- https://github.com/tarantool/tarantool/commit/11f2d999a92e45ee41b8c8d0014d8a09290fef7b
+    enabled_tarantool_features.box_watch = is_version_ge(major, minor, patch, suffix,
+                                                         2, 10, 0, 'beta2')
 end
 
 determine_enabled_features()

@@ -90,6 +90,11 @@ across the cluster. The storage-side functions have the same access
 as a user calling `crud.init_storage()`. Therefore, if `crud` do not have
 enough access to modify some space, then you need to give access to the user.
 
+You can call `crud.init_storage{async = true}` to bootstrap procedures grants
+asynchronously. It is useful in case your application master instances may
+start in ro mode (for example, if you use Tarantool 3.x). By default,
+synchronous bootstrap is used.
+
 All VShard routers should call `crud.init_router()` after `vshard.router.cfg()`
 (or enable the `crud-router` role for Cartridge) to make `crud` functions
 callable via `net.box`. If a user is allowed to execute `crud` functions on

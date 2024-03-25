@@ -23,6 +23,9 @@ local stash = {}
 -- @tfield string select_module_compat_info
 --  Stash for select compatability version registry.
 --
+-- @tfield string storage_init
+--  Stash for storage initializing tools.
+--
 stash.name = {
     cfg = '__crud_cfg',
     stats_internal = '__crud_stats_internal',
@@ -31,6 +34,7 @@ stash.name = {
     ddl_triggers = '__crud_ddl_spaces_triggers',
     select_module_compat_info = '__select_module_compat_info',
     storage_readview = '__crud_storage_readview',
+    storage_init = '__crud_storage_init',
 }
 
 --- Setup Tarantool Cartridge reload.
