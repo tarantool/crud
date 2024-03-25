@@ -252,6 +252,44 @@ local function storage_boot_one_f(first, count)
     return require('vshard.storage').bucket_force_create(first, count)
 end
 
+local function distribute_etalon_buckets(etalon_balance, masters, replicaset_count, bucket_count)
+    vrepset.calculate_etalon_balance(etalon_balance, bucket_count)
+    local fibers = table.new(0, replicaset_count)
+    local bid = 1
+    for rs_uuid, rs in pairs(etalon_balance) do
+        local master = masters[rs_uuid]
+        local count = rs.etalon_bucket_count
+        local f = fiber.new(master.exec, master, storage_boot_one_f,
+                            {bid, count})
+        f:set_joinable(true)
+
+        local name
+        if master.alias ~= nil then
+            name = master.alias
+        elseif master.vtest ~= nil then
+            name = master.vtest.name
+        else
+            name = rs_uuid
+        end
+
+        fibers[name] = f
+        bid = bid + count
+    end
+    local errors = {}
+    for name, f in pairs(fibers) do
+        local ok, res1, res2 = f:join()
+        if not ok then
+            errors[name] = res1
+        elseif res1 == nil then
+            errors[name] = res2
+        else
+            t.assert_equals(res2, nil, 'boot_one no error')
+            t.assert(res1, 'boot_one success')
+        end
+    end
+    t.assert_equals(errors, {}, 'storage bootstrap')
+end
+
 --
 -- Bootstrap the cluster without a router by a given config. In theory the
 -- config could be fetched from the storages, but it would force to check its
@@ -315,31 +353,8 @@ local function cluster_bootstrap(g, cfg)
         replicaset_count = replicaset_count + 1
     end
     t.assert_not_equals(masters, {}, 'have masters')
-    vrepset.calculate_etalon_balance(etalon_balance, cfg.bucket_count)
-    local fibers = table.new(0, replicaset_count)
-    local bid = 1
-    for rs_uuid, rs in pairs(etalon_balance) do
-        local master = masters[rs_uuid]
-        local count = rs.etalon_bucket_count
-        local f = fiber.new(master.exec, master, storage_boot_one_f,
-                            {bid, count})
-        f:set_joinable(true)
-        fibers[master.vtest.name] = f
-        bid = bid + count
-    end
-    local errors = {}
-    for name, f in pairs(fibers) do
-        local ok, res1, res2 = f:join()
-        if not ok then
-            errors[name] = res1
-        elseif res1 == nil then
-            errors[name] = res2
-        else
-            t.assert_equals(res2, nil, 'boot_one no error')
-            t.assert(res1, 'boot_one success')
-        end
-    end
-    t.assert_equals(errors, {}, 'storage bootstrap')
+
+    distribute_etalon_buckets(etalon_balance, masters, replicaset_count, cfg.bucket_count)
 end
 
 
@@ -1038,4 +1053,6 @@ return {
     wait_for_nil = wait_for_nil,
     sourcedir = sourcedir,
     --vardir = vardir,
+    replicaset_name_to_uuid = replicaset_name_to_uuid,
+    distribute_etalon_buckets = distribute_etalon_buckets,
 }
