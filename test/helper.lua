@@ -2,6 +2,7 @@ require('strict').on()
 
 local t = require('luatest')
 local vtest = require('test.vshard_helpers.vtest')
+local vclock_utils = require('test.vshard_helpers.vclock')
 
 local luatest_capture = require('luatest.capture')
 local luatest_helpers = require('luatest.helpers')
@@ -745,6 +746,17 @@ function helpers.start_cluster(g, cartridge_cfg, vshard_cfg, opts)
 
         g.cfg = cfg
         g.cluster = helpers.Cluster:new(cfg)
+
+        for k, server in ipairs(g.cluster.servers) do
+            local mt = getmetatable(server)
+
+            local extended_mt = table.deepcopy(mt)
+            extended_mt.__index = vclock_utils.extend_with_vclock_methods(extended_mt.__index)
+
+            g.cluster.servers[k] = setmetatable(server, extended_mt)
+        end
+        g.cluster.main_server = g.cluster.servers[1]
+
         g.cluster:start()
     elseif g.params.backend == helpers.backend.VSHARD then
         local cfg = table.deepcopy(vshard_cfg)
@@ -1108,6 +1120,42 @@ function helpers.merge_tables(t1, t2, ...)
     end
 
     return helpers.merge_tables(res, ...)
+end
+
+function helpers.wait_cluster_replication_finished(g)
+    if g.params.backend == helpers.backend.CARTRIDGE then
+        for _, replicaset in ipairs(g.cfg.replicasets) do
+            local server_names = {}
+            for _, server in ipairs(replicaset.servers) do
+                table.insert(server_names, server.alias)
+            end
+
+            helpers.wait_replicaset_replication_finished(g, server_names)
+        end
+    elseif g.params.backend == helpers.backend.VSHARD then
+        for _, storage_replicaset in pairs(g.cfg.sharding) do
+            local server_names = {}
+            for name, _ in pairs(storage_replicaset.replicas) do
+                table.insert(server_names, name)
+            end
+
+            helpers.wait_replicaset_replication_finished(g, server_names)
+        end
+    end
+end
+
+function helpers.wait_replicaset_replication_finished(g, server_names)
+    for _, etalon_server_name in ipairs(server_names) do
+        local etalon_server = g.cluster:server(etalon_server_name)
+
+        for _, current_server_name in ipairs(server_names) do
+            local current_server = g.cluster:server(current_server_name)
+
+            if current_server ~= etalon_server then
+                current_server:wait_vclock_of(etalon_server)
+            end
+        end
+    end
 end
 
 return helpers

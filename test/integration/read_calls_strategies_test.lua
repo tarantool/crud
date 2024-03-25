@@ -55,14 +55,12 @@ pgroup.before_all(function(g)
     -- patch vshard.router.call* functions
     local vshard_call_names = {'callro', 'callbro', 'callre', 'callbre', 'callrw'}
     g.router:call('patch_vshard_calls', {vshard_call_names})
+
+    helpers.wait_cluster_replication_finished(g)
 end)
 
 pgroup.after_all(function(g)
     helpers.stop_cluster(g.cluster, g.params.backend)
-end)
-
-pgroup.before_each(function(g)
-    helpers.truncate_space_on_cluster(g.cluster, 'customers')
 end)
 
 pgroup.test_get = function(g)
