@@ -93,7 +93,8 @@ enough access to modify some space, then you need to give access to the user.
 You can call `crud.init_storage{async = true}` to bootstrap procedures grants
 asynchronously. It is useful in case your application master instances may
 start in ro mode (for example, if you use Tarantool 3.x). By default,
-synchronous bootstrap is used.
+asynchronous bootstrap is used for Tarantool 3.x and
+synchronous bootstrap is used for Tarantool 1.10 and 2.x.
 
 All VShard routers should call `crud.init_router()` after `vshard.router.cfg()`
 (or enable the `crud-router` role for Cartridge) to make `crud` functions

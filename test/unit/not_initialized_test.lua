@@ -98,7 +98,7 @@ end)
 pgroup.test_no_vshard_storage_cfg = function(g)
     t.assert_error_msg_contains('vshard.storage.cfg() must be called first', function()
         g.test_server:exec(function()
-            require('crud').init_storage()
+            require('crud').init_storage{async = false}
         end)
     end)
 end
