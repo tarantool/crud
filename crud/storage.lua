@@ -82,6 +82,13 @@ local modules_with_storage_api = {
     storage_info,
 }
 
+local DEFAULT_ASYNC
+if utils.is_tarantool_3() then
+    DEFAULT_ASYNC = true
+else
+    DEFAULT_ASYNC = false
+end
+
 local function init_impl()
     rawset(_G, utils.STORAGE_NAMESPACE, {})
 
@@ -105,7 +112,7 @@ function storage.init(opts)
     opts = opts or {}
 
     if opts.async == nil then
-        opts.async = false
+        opts.async = DEFAULT_ASYNC
     end
 
     if type(box.cfg) ~= 'table' then
