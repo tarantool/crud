@@ -51,10 +51,12 @@ end)
 
 local function build_storage_info(g, array_info)
     local is_vshard = g.params.backend == 'vshard'
+    local is_config = g.params.backend == 'config'
+
     local name_as_key = is_vshard and (
         type(g.params.backend_cfg) == 'table'
         and g.params.backend_cfg.identification_mode == 'name_as_key'
-    )
+    ) or is_config
 
     local keys
     if name_as_key then

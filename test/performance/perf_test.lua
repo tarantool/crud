@@ -10,7 +10,17 @@ local t = require('luatest')
 
 local helpers = require('test.helper')
 
-local g = t.group('perf', {{backend = helpers.backend.VSHARD}})
+local PERF_MODE_ON = os.getenv('PERF_MODE_ON')
+
+local g
+if PERF_MODE_ON then
+    -- With full matrix perf tests length is 1-2 hours
+    -- at the moment of writing this comment.
+    g = t.group('perf', {{backend = helpers.backend.VSHARD}})
+else
+    -- Check that available options are not broken with quick run.
+    g = t.group('perf', helpers.backend_matrix())
+end
 
 local id = 0
 local function gen()
@@ -98,6 +108,56 @@ local cartridge_cfg_template = {
     },
 }
 
+local tarantool3_cluster_cfg_template = {
+    groups = {
+        routers = {
+            sharding = {
+                roles = {'router'},
+            },
+            replicasets = {
+                ['router'] = {
+                    leader = 'router',
+                    instances = {
+                        ['router'] = {},
+                    },
+                },
+            },
+        },
+        storages = {
+            sharding = {
+                roles = {'storage'},
+            },
+            replicasets = {
+                ['s-1'] = {
+                    leader = 's1-master',
+                    instances = {
+                        ['s1-master'] = {},
+                        ['s1-replica'] = {},
+                    },
+                },
+                ['s-2'] = {
+                    leader = 's2-master',
+                    instances = {
+                        ['s2-master'] = {},
+                        ['s2-replica'] = {},
+                    },
+                },
+                ['s-3'] = {
+                    leader = 's3-master',
+                    instances = {
+                        ['s3-master'] = {},
+                        ['s3-replica'] = {},
+                    },
+                },
+            },
+        },
+    },
+    bucket_count = 3000,
+    router_entrypoint = helpers.entrypoint_vshard_storage('srv_ddl'),
+    storage_entrypoint = helpers.entrypoint_vshard_storage('srv_ddl'),
+    crud_init = true,
+}
+
 g.before_all(function(g)
     -- Run real perf tests only with flag, otherwise run short version
     -- to test compatibility as part of unit/integration test run.
@@ -108,7 +168,11 @@ g.before_all(function(g)
         helpers.disable_dev_checks()
     end
 
-    helpers.start_cluster(g, cartridge_cfg_template, vshard_cfg_template)
+    helpers.start_cluster(g,
+        cartridge_cfg_template,
+        vshard_cfg_template,
+        tarantool3_cluster_cfg_template
+    )
 
     g.router:eval([[
         rawset(_G, 'crud', require('crud'))
