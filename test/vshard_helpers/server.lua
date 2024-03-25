@@ -6,11 +6,11 @@ local fio = require('fio')
 local fun = require('fun')
 local json = require('json')
 local errno = require('errno')
-local log = require('log')
-local yaml = require('yaml')
 
 local checks = require('checks')
 local luatest = require('luatest')
+
+local vclock_utils = require('test.vshard_helpers.vclock')
 
 ffi.cdef([[
     int kill(pid_t pid, int sig);
@@ -341,38 +341,6 @@ function Server:grep_log(what, bytes, opts)
     return found
 end
 
-function Server:get_vclock()
-    return self:exec(function() return box.info.vclock end)
-end
-
-function Server:wait_vclock(to_vclock)
-    while true do
-        local vclock = self:get_vclock()
-        local ok = true
-
-        for server_id, to_lsn in pairs(to_vclock) do
-            local lsn = vclock[server_id]
-            if lsn == nil or lsn < to_lsn then
-                ok = false
-                break
-            end
-        end
-
-        if ok then
-            return
-        end
-
-        log.info("wait vclock: %s to %s",
-            yaml.encode(vclock), yaml.encode(to_vclock))
-        fiber.sleep(0.001)
-    end
-end
-
-function Server:wait_vclock_of(other_server)
-    local vclock = other_server:get_vclock()
-    -- First component is for local changes.
-    vclock[0] = nil
-    return self:wait_vclock(vclock)
-end
+vclock_utils.extend_with_vclock_methods(Server)
 
 return Server
