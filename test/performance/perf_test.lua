@@ -50,7 +50,8 @@ local vshard_cfg_template = {
         },
     },
     bucket_count = 3000,
-    storage_init = helpers.entrypoint_vshard_storage('srv_ddl'),
+    router_entrypoint = helpers.entrypoint_vshard_storage('srv_ddl'),
+    storage_entrypoint = helpers.entrypoint_vshard_storage('srv_ddl'),
     crud_init = true,
 }
 

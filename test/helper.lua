@@ -9,7 +9,9 @@ local luatest_helpers = require('luatest.helpers')
 local luatest_utils = require('luatest.utils')
 
 local checks = require('checks')
+local clock = require('clock')
 local digest = require('digest')
+local fiber = require('fiber')
 local json = require('json')
 local fio = require('fio')
 
@@ -89,15 +91,15 @@ local function entrypoint_vshard(name, entrypoint, err)
 end
 
 function helpers.entrypoint_vshard_storage(name)
-    return entrypoint_vshard(name, 'storage_init', true)
+    return entrypoint_vshard(name, 'storage', true)
 end
 
 function helpers.entrypoint_vshard_router(name)
-    return entrypoint_vshard(name, 'router_init', true)
+    return entrypoint_vshard(name, 'router', true)
 end
 
 function helpers.entrypoint_vshard_all(name)
-    return entrypoint_vshard(name, 'all_init', true)
+    return entrypoint_vshard(name, 'all', true)
 end
 
 function helpers.table_keys(t)
@@ -719,9 +721,9 @@ function helpers.start_default_cluster(g, srv_name)
     local vshard_cfg = {
         sharding = helpers.get_test_vshard_sharding(),
         bucket_count = 3000,
-        storage_init = entrypoint_vshard(srv_name, 'storage_init', false),
-        router_init = entrypoint_vshard(srv_name, 'router_init', false),
-        all_init = entrypoint_vshard(srv_name, 'all_init', false),
+        storage_entrypoint = entrypoint_vshard(srv_name, 'storage', false),
+        router_entrypoint = entrypoint_vshard(srv_name, 'router', false),
+        all_entrypoint = entrypoint_vshard(srv_name, 'all', false),
         crud_init = true,
     }
 
@@ -1156,6 +1158,100 @@ function helpers.wait_replicaset_replication_finished(g, server_names)
             end
         end
     end
+end
+
+function helpers.is_lua_persistent_func_supported()
+    -- https://github.com/tarantool/tarantool/commit/200a492aa771e50af86a4754b41a5e373fa7a354
+    local tarantool_version = luatest_utils.get_tarantool_version()
+    return luatest_utils.version_ge(tarantool_version, luatest_utils.version(2, 2, 1))
+end
+
+helpers.SCHEMA_INIT_STARTED_FLAG = '_schema_init_started'
+helpers.SCHEMA_READY_FLAG = '_is_schema_ready'
+
+function helpers.set_func_flag(flag)
+    box.schema.func.create(flag, {
+        language = 'LUA',
+        body = 'function() return true end',
+        if_not_exists = true,
+    })
+end
+
+function helpers.is_func_flag(flag)
+    local status, ready = pcall(box.schema.func.call, flag)
+    return status and ready
+end
+
+function helpers.wait_func_flag(flag)
+    local TIMEOUT = 5
+    local start = clock.monotonic()
+
+    while clock.monotonic() - start < TIMEOUT do
+        if helpers.is_func_flag(flag) then
+            return true
+        end
+
+        fiber.sleep(0.05)
+    end
+
+    error('timeout while waiting for a flag')
+end
+
+function helpers.wrap_schema_init(init_func)
+    -- Do not implement waiting for Tarantool 1.10.
+    if not helpers.is_lua_persistent_func_supported() then
+        return function()
+            if box.info.ro then
+                return
+            end
+
+            init_func()
+        end
+    end
+
+    local function wrapped_init_func()
+        if box.info.ro then
+            return
+        end
+
+        -- Do not call init several times: it may break the tests which alter schema.
+        if helpers.is_func_flag(helpers.SCHEMA_INIT_STARTED_FLAG) then
+            return
+        end
+
+        helpers.set_func_flag(helpers.SCHEMA_INIT_STARTED_FLAG)
+
+        init_func()
+
+        helpers.set_func_flag(helpers.SCHEMA_READY_FLAG)
+    end
+
+    if rawget(box, 'watch') ~= nil then
+        return function()
+            box.watch('box.status', wrapped_init_func)
+        end
+    else
+        return function()
+            fiber.create(function()
+                fiber.self():name('schema_init')
+
+                while true do
+                    wrapped_init_func()
+
+                    fiber.sleep(0.05)
+                end
+            end)
+        end
+    end
+end
+
+function helpers.wait_schema_init()
+    -- Do not implement waiting for Tarantool 1.10.
+    if not helpers.is_lua_persistent_func_supported() then
+        return true
+    end
+
+    return helpers.wait_func_flag(helpers.SCHEMA_READY_FLAG)
 end
 
 return helpers

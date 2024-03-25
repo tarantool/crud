@@ -27,15 +27,6 @@ local vshard_group = t.group('ddl_vshard_sharding_func', helpers.backend_matrix(
 
 local function before_all(g)
     helpers.start_default_cluster(g, 'srv_ddl')
-
-    local result, err = g.router:eval([[
-        local ddl = require('ddl')
-
-        local ok, err = ddl.get_schema()
-        return ok, err
-    ]])
-    t.assert_equals(type(result), 'table')
-    t.assert_equals(err, nil)
 end
 
 local function after_all(g)

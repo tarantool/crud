@@ -3,6 +3,7 @@
 require('strict').on()
 _G.is_initialized = function() return false end
 
+local fio = require('fio')
 local log = require('log')
 local errors = require('errors')
 local cartridge = require('cartridge')
@@ -12,6 +13,9 @@ if package.setsearchroot ~= nil then
 else
     package.path = package.path .. debug.sourcedir() .. "/?.lua;"
 end
+
+local root = fio.dirname(fio.dirname(fio.dirname(debug.sourcedir())))
+package.path = package.path .. root .. "/?.lua;"
 
 local ok, err
 
@@ -30,6 +34,6 @@ if not ok then
     os.exit(1)
 end
 
-require('all_init')()
+require('all').init()
 
 _G.is_initialized = cartridge.is_healthy
