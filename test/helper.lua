@@ -1,8 +1,11 @@
 require('strict').on()
 
 local t = require('luatest')
+
 local vtest = require('test.vshard_helpers.vtest')
 local vclock_utils = require('test.vshard_helpers.vclock')
+local tarantool3_config = require('test.tarantool3_helpers.config')
+local tarantool3_cluster = require('test.tarantool3_helpers.cluster')
 
 local luatest_capture = require('luatest.capture')
 local luatest_helpers = require('luatest.helpers')
@@ -27,6 +30,7 @@ local helpers = {
     backend = {
         VSHARD = 'vshard',
         CARTRIDGE = 'cartridge',
+        CONFIG = 'config',
     },
 }
 
@@ -77,7 +81,7 @@ function helpers.entrypoint_cartridge(name)
     return path
 end
 
-local function entrypoint_vshard(name, entrypoint, err)
+function helpers.entrypoint_vshard(name, entrypoint, err)
     local path = fio.pathjoin(
         'test', 'entrypoint', name, entrypoint
     )
@@ -91,15 +95,15 @@ local function entrypoint_vshard(name, entrypoint, err)
 end
 
 function helpers.entrypoint_vshard_storage(name)
-    return entrypoint_vshard(name, 'storage', true)
+    return helpers.entrypoint_vshard(name, 'storage', true)
 end
 
 function helpers.entrypoint_vshard_router(name)
-    return entrypoint_vshard(name, 'router', true)
+    return helpers.entrypoint_vshard(name, 'router', true)
 end
 
 function helpers.entrypoint_vshard_all(name)
-    return entrypoint_vshard(name, 'all', true)
+    return helpers.entrypoint_vshard(name, 'all', true)
 end
 
 function helpers.table_keys(t)
@@ -275,6 +279,46 @@ function helpers.get_test_vshard_sharding()
     return sharding
 end
 
+function helpers.get_test_config_groups()
+    local groups = {
+        routers = {
+            sharding = {
+                roles = {'router'},
+            },
+            replicasets = {
+                ['router'] = {
+                    leader = 'router',
+                    instances = {
+                        ['router'] = {},
+                    },
+                },
+            },
+        },
+        storages = {
+            sharding = {
+                roles = {'storage'},
+            },
+            replicasets = {
+                ['s-1'] = {
+                    leader = 's1-master',
+                    instances = {
+                        ['s1-master'] = {},
+                        ['s1-replica'] = {},
+                    },
+                },
+                ['s-2'] = {
+                    leader = 's2-master',
+                    instances = {
+                        ['s2-master'] = {},
+                        ['s2-replica'] = {},
+                    },
+                },
+            },
+        },
+    }
+    return groups
+end
+
 function helpers.call_on_servers(cluster, aliases, func)
     for _, alias in ipairs(aliases) do
         local server = cluster:server(alias)
@@ -324,7 +368,7 @@ function helpers.call_on_storages(cluster, func, ...)
     -- NB: The 'servers' field contains server configs. They are
     -- not the same as server objects: say, there is no 'net_box'
     -- field here.
-    if cluster.replicasets ~= nil then
+    if cluster.replicasets ~= nil then -- CARTRIDGE backend
         local alias_map = {}
         for _, replicaset in ipairs(cluster.replicasets) do
             -- Whether it is a storage replicaset?
@@ -351,7 +395,19 @@ function helpers.call_on_storages(cluster, func, ...)
                 func(server, replicaset_alias, ...)
             end
         end
-    else
+    elseif cluster.config ~= nil then -- CONFIG backend
+        for _, group in pairs(cluster.config.groups) do
+            for rs_id, rs in pairs(group.replicasets) do
+                for alias, _ in pairs(rs.instances) do
+                    local server = cluster:server(alias)
+
+                    if server:is_storage() then
+                        func(server, rs_id, ...)
+                    end
+                end
+            end
+        end
+    else -- VSHARD backend
         for _, server in ipairs(cluster.servers) do
             if server.vtest and server.vtest.is_storage then
                 func(server, server.vtest.replicaset, ...)
@@ -602,25 +658,105 @@ function helpers.assert_timeout_error(value, message)
     error(err, 2)
 end
 
+local function inherit(self, object)
+    setmetatable(object, self)
+    self.__index = self
+    return object
+end
+
+-- Implements log capture from log file.
+local FileCapture = {inherit = inherit}
+
+function FileCapture:new(object)
+    checks('table', {
+        server = 'table',
+    })
+
+    self:inherit(object)
+    object:initialize()
+    return object
+end
+
+function FileCapture:initialize()
+    local box_cfg_log = self.server:exec(function()
+        return box.cfg.log
+    end)
+
+    local logpath = helpers.string_replace(box_cfg_log, 'file:', '')
+
+    local relative_logpath = logpath:sub(1, 1) ~= '/'
+    if relative_logpath then
+        logpath = fio.pathjoin(self.server.chdir, logpath)
+    end
+
+    local logfile, err = fio.open(logpath, {'O_RDONLY', 'O_NONBLOCK'})
+    assert(err == nil, err)
+
+    logfile:read()
+
+    self.logfile = logfile
+end
+
+function FileCapture:read()
+    return self.logfile:read()
+end
+
+function FileCapture:close()
+    self.logfile:close()
+end
+
+-- Implements wrapper over built-in Luatest capture.
+local LuatestCapture = {inherit = inherit}
+
+function LuatestCapture:new()
+    local object = {}
+    self:inherit(object)
+    object:initialize()
+    return object
+end
+
+function LuatestCapture:initialize()
+    self.capture = luatest_capture:new()
+    self.capture:enable()
+end
+
+function LuatestCapture:read()
+    return self.capture:flush().stdout
+end
+
+function LuatestCapture:close()
+    self.capture:disable()
+end
+
+local function assert_class_implements_interface(class, interface)
+    for _, method in ipairs(interface) do
+        assert(type(class[method]) == 'function', ('class implements %q method'):format(method))
+    end
+end
+
+local Capture = {
+    'new',
+    'read',
+    'close',
+}
+
+assert_class_implements_interface(FileCapture, Capture)
+assert_class_implements_interface(LuatestCapture, Capture)
+
 function helpers.get_command_log(router, backend, call, args)
     local capture
-    local logfile
-    if backend == helpers.backend.CARTRIDGE then
-        capture = luatest_capture:new()
-        capture:enable()
-    elseif backend == helpers.backend.VSHARD then
-        local logpath = router.net_box:eval('return box.cfg.log')
-        logfile = fio.open(logpath, {'O_RDONLY', 'O_NONBLOCK'})
-        logfile:read()
+
+    local use_builtin_capture = (backend == helpers.backend.CARTRIDGE)
+                                or (backend == helpers.backend.CONFIG)
+    if use_builtin_capture then
+        capture = LuatestCapture:new()
+    else
+        capture = FileCapture:new({server = router})
     end
 
     local _, err = router.net_box:call(call, args)
     if err ~= nil then
-        if backend == helpers.backend.CARTRIDGE then
-            capture:disable()
-        elseif backend == helpers.backend.VSHARD then
-            logfile:close()
-        end
+        capture:close()
         return nil, err
     end
 
@@ -631,32 +767,11 @@ function helpers.get_command_log(router, backend, call, args)
     ]])
     local captured = ""
     while not string.find(captured, "crud fflush message", 1, true) do
-        if backend == helpers.backend.CARTRIDGE then
-            captured = captured .. (capture:flush().stdout or "")
-        elseif backend == helpers.backend.VSHARD then
-            captured = captured .. (logfile:read() or "")
-        end
+        captured = captured .. (capture:read() or "")
     end
 
-    if backend == helpers.backend.CARTRIDGE then
-        capture:disable()
-    elseif backend == helpers.backend.VSHARD then
-        logfile:close()
-    end
+    capture:close()
     return captured, nil
-end
-
-function helpers.fflush_main_server_stdout(cluster, capture)
-    -- Sometimes we have a delay here. This hack helps to wait for the end of
-    -- the output. It shouldn't take much time.
-    cluster.main_server.net_box:eval([[
-        require('log').error("crud fflush stdout message")
-    ]])
-    local captured = ""
-    while not string.find(captured, "crud fflush stdout message", 1, true) do
-        captured = captured .. (capture:flush().stdout or "")
-    end
-    return captured
 end
 
 function helpers.complement_tuples_batch_with_operations(tuples, operations)
@@ -711,27 +826,90 @@ function helpers.skip_old_tarantool_cartridge_hotreload()
         "Cartridge hotreload tests stuck for vshard 0.1.22+ on Tarantool 2.2, 2.3 and 2.4")
 end
 
-function helpers.start_default_cluster(g, srv_name)
-    local cartridge_cfg = {
+function helpers.build_default_cartridge_cfg(srv_name)
+    return {
         datadir = fio.tempdir(),
         server_command = helpers.entrypoint_cartridge(srv_name),
         use_vshard = true,
         replicasets = helpers.get_test_cartridge_replicasets(),
     }
-    local vshard_cfg = {
-        sharding = helpers.get_test_vshard_sharding(),
-        bucket_count = 3000,
-        storage_entrypoint = entrypoint_vshard(srv_name, 'storage', false),
-        router_entrypoint = entrypoint_vshard(srv_name, 'router', false),
-        all_entrypoint = entrypoint_vshard(srv_name, 'all', false),
-        crud_init = true,
-    }
-
-    helpers.start_cluster(g, cartridge_cfg, vshard_cfg)
 end
 
-function helpers.start_cluster(g, cartridge_cfg, vshard_cfg, opts)
-    checks('table', '?table', '?table', {wait_crud_is_ready = '?boolean'})
+function helpers.build_default_vshard_cfg(srv_name)
+    return {
+        sharding = helpers.get_test_vshard_sharding(),
+        bucket_count = 3000,
+        storage_entrypoint = helpers.entrypoint_vshard(srv_name, 'storage', false),
+        router_entrypoint = helpers.entrypoint_vshard(srv_name, 'router', false),
+        all_entrypoint = helpers.entrypoint_vshard(srv_name, 'all', false),
+        crud_init = true,
+    }
+end
+
+function helpers.build_default_tarantool3_cluster_cfg(srv_name)
+    return {
+        groups = helpers.get_test_config_groups(),
+        bucket_count = 3000,
+        storage_entrypoint = helpers.entrypoint_vshard(srv_name, 'storage', false),
+        router_entrypoint = helpers.entrypoint_vshard(srv_name, 'router', false),
+        all_entrypoint = helpers.entrypoint_vshard(srv_name, 'all', false),
+        crud_init = true,
+    }
+end
+
+function helpers.start_default_cluster(g, srv_name)
+    local cartridge_cfg = helpers.build_default_cartridge_cfg(srv_name)
+    local vshard_cfg =  helpers.build_default_vshard_cfg(srv_name)
+    local tarantool3_cluster_cfg = helpers.build_default_tarantool3_cluster_cfg(srv_name)
+
+    helpers.start_cluster(g, cartridge_cfg, vshard_cfg, tarantool3_cluster_cfg)
+end
+
+function helpers.start_cartridge_cluster(g, cfg)
+    local cfg = table.deepcopy(cfg)
+    cfg.env = {
+        ['ENGINE'] = g.params.engine
+    }
+
+    g.cfg = cfg
+    g.cluster = helpers.Cluster:new(cfg)
+
+    for k, server in ipairs(g.cluster.servers) do
+        local mt = getmetatable(server)
+
+        local extended_mt = table.deepcopy(mt)
+        extended_mt.__index = vclock_utils.extend_with_vclock_methods(extended_mt.__index)
+
+        g.cluster.servers[k] = setmetatable(server, extended_mt)
+    end
+    g.cluster.main_server = g.cluster.servers[1]
+
+    g.cluster:start()
+end
+
+function helpers.start_vshard_cluster(g, cfg)
+    local cfg = table.deepcopy(cfg)
+    cfg.engine = g.params.engine
+
+    g.cfg = vtest.config_new(cfg, g.params.backend_cfg)
+    vtest.cluster_new(g, g.cfg)
+    g.cfg.engine = nil
+end
+
+function helpers.start_tarantool3_cluster(g, cfg)
+    local cfg = table.deepcopy(cfg)
+    cfg.env = {
+        ['ENGINE'] = g.params.engine,
+    }
+    cfg = tarantool3_config.new(cfg)
+
+    g.cfg = cfg
+    g.cluster = tarantool3_cluster:new(cfg)
+    g.cluster:start()
+end
+
+function helpers.start_cluster(g, cartridge_cfg, vshard_cfg, tarantool3_cluster_cfg, opts)
+    checks('table', '?table', '?table', '?table', {wait_crud_is_ready = '?boolean'})
 
     opts = opts or {}
     if opts.wait_crud_is_ready == nil then
@@ -741,32 +919,13 @@ function helpers.start_cluster(g, cartridge_cfg, vshard_cfg, opts)
     if g.params.backend == helpers.backend.CARTRIDGE then
         helpers.skip_cartridge_unsupported()
 
-        local cfg = table.deepcopy(cartridge_cfg)
-        cfg.env = {
-            ['ENGINE'] = g.params.engine
-        }
-
-        g.cfg = cfg
-        g.cluster = helpers.Cluster:new(cfg)
-
-        for k, server in ipairs(g.cluster.servers) do
-            local mt = getmetatable(server)
-
-            local extended_mt = table.deepcopy(mt)
-            extended_mt.__index = vclock_utils.extend_with_vclock_methods(extended_mt.__index)
-
-            g.cluster.servers[k] = setmetatable(server, extended_mt)
-        end
-        g.cluster.main_server = g.cluster.servers[1]
-
-        g.cluster:start()
+        helpers.start_cartridge_cluster(g, cartridge_cfg)
     elseif g.params.backend == helpers.backend.VSHARD then
-        local cfg = table.deepcopy(vshard_cfg)
-        cfg.engine = g.params.engine
+        helpers.start_vshard_cluster(g, vshard_cfg)
+    elseif g.params.backend == helpers.backend.CONFIG then
+        helpers.skip_if_tarantool_config_unsupported()
 
-        g.cfg = vtest.config_new(cfg, g.params.backend_cfg)
-        vtest.cluster_new(g, g.cfg)
-        g.cfg.engine = nil
+        helpers.start_tarantool3_cluster(g, tarantool3_cluster_cfg)
     end
 
     g.router = g.cluster:server('router')
@@ -794,6 +953,8 @@ local function count_storages_in_topology(g, backend, vshard_group, storage_role
                 storages_in_topology = storages_in_topology + 1
             end
         end
+    elseif backend == helpers.backend.CONFIG then
+        error('not implemented yet')
     end
 
     return storages_in_topology
@@ -852,21 +1013,36 @@ function helpers.wait_crud_is_ready_on_cluster(g, opts)
         opts.storage_roles = {'crud-storage'}
     end
 
-    local storages_in_topology = count_storages_in_topology(g, opts.backend, opts.vshard_group, opts.storage_roles)
+    local default_impl = function()
+        local storages_in_topology = count_storages_in_topology(
+            g,
+            opts.backend,
+            opts.vshard_group,
+            opts.storage_roles
+        )
 
-    local WAIT_TIMEOUT = 5
-    local DELAY = 0.1
-    t.helpers.retrying(
-        {timeout = WAIT_TIMEOUT, delay = DELAY},
-        assert_expected_number_of_storages_is_running,
-        g, opts.vshard_group, storages_in_topology
-    )
+        local WAIT_TIMEOUT = 5
+        local DELAY = 0.1
+        t.helpers.retrying(
+            {timeout = WAIT_TIMEOUT, delay = DELAY},
+            assert_expected_number_of_storages_is_running,
+            g, opts.vshard_group, storages_in_topology
+        )
+    end
+
+    if g.cluster.wait_crud_is_ready_on_cluster ~= nil then
+        g.cluster:wait_crud_is_ready_on_cluster()
+    else
+        default_impl()
+    end
 end
 
 function helpers.stop_cluster(cluster, backend)
     if backend == helpers.backend.CARTRIDGE then
         helpers.stop_cartridge_cluster(cluster)
     elseif backend == helpers.backend.VSHARD then
+        cluster:drop()
+    elseif backend == helpers.backend.CONFIG then
         cluster:drop()
     end
 end
@@ -988,6 +1164,15 @@ function helpers.backend_matrix(base_matrix)
             'master',
             {'auto'},
             {mode = 'extend'}
+        )
+    end
+
+    if helpers.is_tarantool_config_supported() then
+        table.insert(backend_params,
+            {
+                backend = helpers.backend.CONFIG,
+                backend_cfg = nil,
+            }
         )
     end
 
@@ -1264,6 +1449,18 @@ end
 
 function helpers.skip_if_box_watch_supported()
     t.skip_if(helpers.is_box_watch_supported(), 'box.watch is supported')
+end
+
+function helpers.is_tarantool_config_supported()
+    local tarantool_version = luatest_utils.get_tarantool_version()
+    return luatest_utils.version_ge(tarantool_version, luatest_utils.version(3, 0, 0))
+end
+
+function helpers.skip_if_tarantool_config_unsupported()
+    -- box.info.version fails before box.cfg on old versions.
+    local version = rawget(_G, '_TARANTOOL')
+    t.skip_if(not helpers.is_tarantool_config_supported(),
+              ("Tarantool %s does not support starting from config"):format(version))
 end
 
 return helpers
