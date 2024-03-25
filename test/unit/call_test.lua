@@ -26,7 +26,7 @@ local vshard_cfg_template = {
         },
     },
     bucket_count = 3000,
-    all_init = helpers.entrypoint_vshard_all('srv_say_hi'),
+    all_entrypoint = helpers.entrypoint_vshard_all('srv_say_hi'),
     crud_init = true,
 }
 

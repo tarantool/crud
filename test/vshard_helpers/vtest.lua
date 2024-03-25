@@ -221,16 +221,26 @@ local function start_router(g, cfg, opts)
     cfg.engine = nil
 
     local router = router_new(g, 'router', cfg)
-    if opts.router_init ~= nil then
-        router:exec(function(router_init)
-            require(router_init)()
-        end, {opts.router_init})
+    if opts.router_entrypoint ~= nil then
+        router:exec(function(router_entrypoint)
+            local entrypoint = require(router_entrypoint)
+            entrypoint.init()
+            if entrypoint.wait_until_ready ~= nil then
+                entrypoint.wait_until_ready()
+            end
+        end, {opts.router_entrypoint})
     end
-    if opts.all_init ~= nil then
-        router:exec(function(all_init)
-            require(all_init)()
-        end, {opts.all_init})
+
+    if opts.all_entrypoint ~= nil then
+        router:exec(function(all_entrypoint)
+            local entrypoint = require(all_entrypoint)
+            entrypoint.init()
+            if entrypoint.wait_until_ready ~= nil then
+                entrypoint.wait_until_ready()
+            end
+        end, {opts.all_entrypoint})
     end
+
     if opts.crud_init then
         router:exec(function()
             require('crud').init_router()
@@ -400,14 +410,14 @@ local function cluster_new(g, cfg)
     local replicas = {}
     local master_map = {}
 
-    local storage_init = cfg.storage_init
-    local router_init = cfg.router_init
-    local all_init = cfg.all_init
+    local storage_entrypoint = cfg.storage_entrypoint
+    local router_entrypoint = cfg.router_entrypoint
+    local all_entrypoint = cfg.all_entrypoint
     local crud_init = cfg.crud_init
 
-    cfg.storage_init = nil
-    cfg.router_init = nil
-    cfg.all_init = nil
+    cfg.storage_entrypoint = nil
+    cfg.router_entrypoint = nil
+    cfg.all_entrypoint = nil
     cfg.crud_init = nil
 
     for replicaset_id, replicaset in pairs(cfg.sharding) do
@@ -534,17 +544,43 @@ local function cluster_new(g, cfg)
         end, {cfg})
     end
 
+    -- Init on all servers.
     for _, replica in pairs(all_servers) do
-        if storage_init ~= nil then
-            replica:exec(function(storage_init)
-                require(storage_init)()
-            end, {storage_init})
+        if storage_entrypoint ~= nil then
+            replica:exec(function(storage_entrypoint)
+                local entrypoint = require(storage_entrypoint)
+                entrypoint.init()
+            end, {storage_entrypoint})
         end
-        if all_init ~= nil then
-            replica:exec(function(all_init)
-                require(all_init)()
-            end, {all_init})
+
+        if all_entrypoint ~= nil then
+            replica:exec(function(all_entrypoint)
+                local entrypoint = require(all_entrypoint)
+                entrypoint.init()
+            end, {all_entrypoint})
         end
+    end
+
+    -- Wait until all servers are ready.
+    for _, replica in pairs(all_servers) do
+        if storage_entrypoint ~= nil then
+            replica:exec(function(storage_entrypoint)
+                local entrypoint = require(storage_entrypoint)
+                if entrypoint.wait_until_ready then
+                    entrypoint.wait_until_ready()
+                end
+            end, {storage_entrypoint})
+        end
+
+        if all_entrypoint ~= nil then
+            replica:exec(function(all_entrypoint)
+                local entrypoint = require(all_entrypoint)
+                if entrypoint.wait_until_ready then
+                    entrypoint.wait_until_ready()
+                end
+            end, {all_entrypoint})
+        end
+
         if crud_init then
             replica:exec(function()
                 require('crud').init_storage()
@@ -553,8 +589,8 @@ local function cluster_new(g, cfg)
     end
 
     start_router(g, cfg, {
-        router_init = router_init,
-        all_init = all_init,
+        router_entrypoint = router_entrypoint,
+        all_entrypoint = all_entrypoint,
         crud_init = crud_init,
     })
 

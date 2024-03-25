@@ -3,6 +3,7 @@
 require('strict').on()
 _G.is_initialized = function() return false end
 
+local fio = require('fio')
 local log = require('log')
 local errors = require('errors')
 local cartridge = require('cartridge')
@@ -13,10 +14,13 @@ else
     package.path = package.path .. debug.sourcedir() .. "/?.lua;"
 end
 
+local root = fio.dirname(fio.dirname(fio.dirname(debug.sourcedir())))
+package.path = package.path .. root .. "/?.lua;"
+
 package.preload['customers-storage'] = function()
     return {
         role_name = 'customers-storage',
-        init = require('storage_init'),
+        init = require('storage').init,
     }
 end
 
@@ -36,6 +40,6 @@ if not ok then
     os.exit(1)
 end
 
-require('all_init')()
+require('all').init()
 
 _G.is_initialized = cartridge.is_healthy

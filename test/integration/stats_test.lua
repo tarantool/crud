@@ -115,24 +115,28 @@ group_metrics.after_each(disable_stats)
 
 local function create_new_space(g)
     helpers.call_on_storages(g.cluster, function(server)
-        server.net_box:eval([[
-            local space_name = ...
-            if not box.cfg.read_only then
-                local sp = box.schema.space.create(space_name, { format = {
-                    {name = 'id', type = 'unsigned'},
-                    {name = 'bucket_id', type = 'unsigned'},
-                }})
+        server:exec(function(space_name)
+            if not box.info.ro then
+                local sp = box.schema.space.create(space_name, {
+                    format = {
+                        {name = 'id', type = 'unsigned'},
+                        {name = 'bucket_id', type = 'unsigned'},
+                    },
+                    if_not_exists = true,
+                })
 
                 sp:create_index('pk', {
                     parts = { {field = 'id'} },
+                    if_not_exists = true,
                 })
 
                 sp:create_index('bucket_id', {
                     parts = { {field = 'bucket_id'} },
                     unique = false,
+                    if_not_exists = true,
                 })
             end
-        ]], { new_space_name })
+        end, {new_space_name})
     end)
 end
 

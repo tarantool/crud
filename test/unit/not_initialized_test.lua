@@ -18,7 +18,7 @@ local vshard_cfg_template = {
         },
     },
     bucket_count = 20,
-    storage_init = helpers.entrypoint_vshard_storage('srv_not_initialized'),
+    storage_entrypoint = helpers.entrypoint_vshard_storage('srv_not_initialized'),
 }
 
 local cartridge_cfg_template = {
