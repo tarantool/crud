@@ -1,71 +1,11 @@
-local fio = require('fio')
-
 local t = require('luatest')
 
 local helpers = require('test.helper')
 
 local pgroup = t.group('call', helpers.backend_matrix())
 
-local vshard_cfg_template = {
-    sharding = {
-        ['s-1'] = {
-            replicas = {
-                ['s1-master'] = {
-                    master = true,
-                },
-                ['s1-replica'] = {},
-            },
-        },
-        ['s-2'] = {
-            replicas = {
-                ['s2-master'] = {
-                    master = true,
-                },
-                ['s2-replica'] = {},
-            },
-        },
-    },
-    bucket_count = 3000,
-    all_entrypoint = helpers.entrypoint_vshard_all('srv_say_hi'),
-    crud_init = true,
-}
-
-local cartridge_cfg_template = {
-    datadir = fio.tempdir(),
-    server_command = helpers.entrypoint_cartridge('srv_say_hi'),
-    use_vshard = true,
-    replicasets = {
-        {
-            uuid = helpers.uuid('a'),
-            alias = 'router',
-            roles = { 'crud-router' },
-            servers = {
-                { instance_uuid = helpers.uuid('a', 1), alias = 'router' },
-            },
-        },
-        {
-            uuid = helpers.uuid('b'),
-            alias = 's-1',
-            roles = { 'crud-storage' },
-            servers = {
-                { instance_uuid = helpers.uuid('b', 1), alias = 's1-master' },
-                { instance_uuid = helpers.uuid('b', 2), alias = 's1-replica' },
-            },
-        },
-        {
-            uuid = helpers.uuid('c'),
-            alias = 's-2',
-            roles = { 'crud-storage' },
-            servers = {
-                { instance_uuid = helpers.uuid('c', 1), alias = 's2-master' },
-                { instance_uuid = helpers.uuid('c', 2), alias = 's2-replica' },
-            },
-        }
-    },
-}
-
 pgroup.before_all(function(g)
-    helpers.start_cluster(g, cartridge_cfg_template, vshard_cfg_template)
+    helpers.start_default_cluster(g, 'srv_say_hi')
 
     g.clear_vshard_calls = function()
         g.router:call('clear_vshard_calls')

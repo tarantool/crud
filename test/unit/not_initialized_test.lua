@@ -45,10 +45,47 @@ local cartridge_cfg_template = {
     },
 }
 
+local tarantool3_cluster_cfg_template = {
+    groups = {
+        routers = {
+            sharding = {
+                roles = {'router'},
+            },
+            replicasets = {
+                ['router'] = {
+                    leader = 'router',
+                    instances = {
+                        ['router'] = {},
+                    },
+                },
+            },
+        },
+        storages = {
+            sharding = {
+                roles = {'storage'},
+            },
+            replicasets = {
+                ['s-1'] = {
+                    leader = 's1-master',
+                    instances = {
+                        ['s1-master'] = {},
+                    },
+                },
+            },
+        },
+    },
+    bucket_count = 20,
+    storage_entrypoint = helpers.entrypoint_vshard_storage('srv_not_initialized'),
+    crud_init = false,
+}
+
 pgroup.before_all(function(g)
-    helpers.start_cluster(g, cartridge_cfg_template, vshard_cfg_template, {
-        wait_crud_is_ready = false,
-    })
+    helpers.start_cluster(g,
+        cartridge_cfg_template,
+        vshard_cfg_template,
+        tarantool3_cluster_cfg_template,
+        {wait_crud_is_ready = false}
+    )
 
     g.router = g.cluster:server('router')
 end)

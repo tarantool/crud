@@ -2322,6 +2322,12 @@ pgroup.test_stop_select = function(g)
             require('vshard.storage').cfg(cfg, box.info[bootstrap_key])
             require('crud').init_storage()
         end, {g.cfg, bootstrap_key})
+    elseif g.params.backend == helpers.backend.CONFIG then
+        g.cluster:server('s2-master'):wait_for_rw()
+
+        g.cluster:server('s2-master'):exec(function()
+            require('crud').init_storage()
+        end)
     end
 
     helpers.wait_crud_is_ready_on_cluster(g)
