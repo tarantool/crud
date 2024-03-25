@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
+### Added
+* Asynchronous bootstrap support for storages (#412).
+
 ### Changed
 * Explicitly forbid datetime interval conditions (#373).
 
