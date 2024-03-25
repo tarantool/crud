@@ -687,13 +687,18 @@ local function determine_enabled_features()
     -- https://github.com/tarantool/tarantool/commit/11f2d999a92e45ee41b8c8d0014d8a09290fef7b
     enabled_tarantool_features.box_watch = is_version_ge(major, minor, patch, suffix,
                                                          2, 10, 0, 'beta2')
+
+    enabled_tarantool_features.tarantool_3 = is_version_ge(major, minor, patch, suffix,
+                                                           3, 0, 0, nil)
 end
 
 determine_enabled_features()
 
 for feature_name, feature_enabled in pairs(enabled_tarantool_features) do
     local util_name
-    if feature_name == 'builtin_merger' then
+    if feature_name == 'tarantool_3' then
+        util_name = ('is_%s'):format(feature_name)
+    elseif feature_name == 'builtin_merger' then
         util_name = ('tarantool_has_%s'):format(feature_name)
     else
         util_name = ('tarantool_supports_%s'):format(feature_name)
