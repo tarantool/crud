@@ -1,4 +1,7 @@
+local checks = require('checks')
+
 local dev_checks = require('crud.common.dev_checks')
+local stash = require('crud.common.stash')
 local utils = require('crud.common.utils')
 
 local sharding_metadata = require('crud.common.sharding.sharding_metadata')
@@ -20,6 +23,8 @@ local readview = require('crud.readview')
 local storage_info = require('crud.storage_info')
 
 local storage = {}
+
+local internal_stash = stash.get(stash.name.storage_init)
 
 local function init_local_part(_, name, func)
     rawset(_G[utils.STORAGE_NAMESPACE], name, func)
@@ -77,11 +82,7 @@ local modules_with_storage_api = {
     storage_info,
 }
 
-function storage.init()
-    if type(box.cfg) ~= 'table' then
-        error('box.cfg() must be called first')
-    end
-
+local function init_impl()
     rawset(_G, utils.STORAGE_NAMESPACE, {})
 
     -- User is required only for persistent part of the init.
@@ -98,7 +99,40 @@ function storage.init()
     end
 end
 
+function storage.init(opts)
+    checks({async = '?boolean'})
+
+    opts = opts or {}
+
+    if opts.async == nil then
+        opts.async = false
+    end
+
+    if type(box.cfg) ~= 'table' then
+        error('box.cfg() must be called first')
+    end
+
+    if internal_stash.watcher ~= nil then
+        internal_stash.watcher:unregister()
+        internal_stash.watcher = nil
+    end
+
+    if opts.async then
+        assert(utils.tarantool_supports_box_watch(),
+               'async start is supported only for Tarantool versions with box.watch support')
+
+        internal_stash.watcher = box.watch('box.status', init_impl)
+    else
+        init_impl()
+    end
+end
+
 function storage.stop()
+    if internal_stash.watcher ~= nil then
+        internal_stash.watcher:unregister()
+        internal_stash.watcher = nil
+    end
+
     rawset(_G, utils.STORAGE_NAMESPACE, nil)
 end
 

@@ -1254,4 +1254,16 @@ function helpers.wait_schema_init()
     return helpers.wait_func_flag(helpers.SCHEMA_READY_FLAG)
 end
 
+function helpers.is_box_watch_supported()
+    return crud_utils.tarantool_supports_box_watch()
+end
+
+function helpers.skip_if_box_watch_unsupported()
+    t.skip_if(not helpers.is_box_watch_supported(), 'box.watch is not supported')
+end
+
+function helpers.skip_if_box_watch_supported()
+    t.skip_if(helpers.is_box_watch_supported(), 'box.watch is supported')
+end
+
 return helpers
