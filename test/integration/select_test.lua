@@ -164,7 +164,7 @@ for name, case in pairs(select_safety_cases) do
         end
 
         local captured, err = helpers.get_command_log(g.router,
-            g.params.backend, 'crud.select', {space, uc, opts})
+            'crud.select', {space, uc, opts})
         t.assert_equals(err, nil)
 
         if case.has_crit then
