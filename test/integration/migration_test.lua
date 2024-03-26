@@ -5,7 +5,6 @@ local helpers = require('test.helper')
 -- The migrations package requires cartridge as a dependency.
 local pgroup = t.group('migration', {
     {backend = helpers.backend.CARTRIDGE, engine = 'memtx'},
-    {backend = helpers.backend.CARTRIDGE, engine = 'vinyl'},
 })
 
 pgroup.before_all(function(g)

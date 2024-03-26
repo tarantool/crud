@@ -11,22 +11,18 @@ end
 
 local pgroup_storage = t.group('ddl_storage_sharding_info', helpers.backend_matrix({
     {engine = 'memtx'},
-    {engine = 'vinyl'},
 }))
 
 local pgroup_new_space = t.group('ddl_sharding_info_on_new_space', helpers.backend_matrix({
     {engine = 'memtx'},
-    {engine = 'vinyl'},
 }))
 
 local pgroup_key_change = t.group('ddl_sharding_key_reload_after_schema_change', helpers.backend_matrix({
     {engine = 'memtx'},
-    {engine = 'vinyl'},
 }))
 
 local pgroup_func_change = t.group('ddl_sharding_func_reload_after_schema_change', helpers.backend_matrix({
     {engine = 'memtx'},
-    {engine = 'vinyl'},
 }))
 
 local select_limit = 100

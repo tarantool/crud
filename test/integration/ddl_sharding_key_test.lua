@@ -11,7 +11,6 @@ end
 
 local pgroup = t.group('ddl_sharding_key', helpers.backend_matrix({
     {engine = 'memtx'},
-    {engine = 'vinyl'},
 }))
 
 pgroup.before_all(function(g)

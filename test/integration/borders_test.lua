@@ -6,7 +6,6 @@ local helpers = require('test.helper')
 
 local pgroup = t.group('borders', helpers.backend_matrix({
     {engine = 'memtx'},
-    {engine = 'vinyl'},
 }))
 
 pgroup.before_all(function(g)

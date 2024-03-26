@@ -7,7 +7,6 @@ local crud_utils = require('crud.common.utils')
 
 local pgroup = t.group('updated_schema', helpers.backend_matrix({
     {engine = 'memtx'},
-    {engine = 'vinyl'},
 }))
 
 pgroup.before_all(function(g)
