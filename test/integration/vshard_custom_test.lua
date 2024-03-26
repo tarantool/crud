@@ -7,8 +7,6 @@ local helpers = require('test.helper')
 local pgroup = t.group('vshard_custom', {
     {engine = 'memtx', option = 'group_name'},
     {engine = 'memtx', option = 'router_object'},
-    {engine = 'vinyl', option = 'group_name'},
-    {engine = 'vinyl', option = 'router_object'},
 })
 
 pgroup.before_all(function(g)

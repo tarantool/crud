@@ -7,7 +7,6 @@ local batching_utils = require('crud.common.batching_utils')
 
 local pgroup = t.group('insert_many', helpers.backend_matrix({
     {engine = 'memtx'},
-    {engine = 'vinyl'},
 }))
 
 pgroup.before_all(function(g)

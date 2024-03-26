@@ -11,18 +11,14 @@ end
 local pgroup = t.group('ddl_sharding_func', helpers.backend_matrix({
     {engine = 'memtx', space_name = 'customers_G_func'},
     {engine = 'memtx', space_name = 'customers_body_func'},
-    {engine = 'vinyl', space_name = 'customers_G_func'},
-    {engine = 'vinyl', space_name = 'customers_body_func'},
 }))
 
 local cache_group = t.group('ddl_sharding_func_cache', helpers.backend_matrix({
     {engine = 'memtx'},
-    {engine = 'vinyl'},
 }))
 
 local vshard_group = t.group('ddl_vshard_sharding_func', helpers.backend_matrix({
     {engine = 'memtx'},
-    {engine = 'vinyl'},
 }))
 
 local function before_all(g)

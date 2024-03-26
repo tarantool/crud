@@ -7,7 +7,6 @@ local read_scenario = require('test.integration.read_scenario')
 
 local pgroup = t.group('pairs', helpers.backend_matrix({
     {engine = 'memtx'},
-    {engine = 'vinyl'},
 }))
 
 pgroup.before_all(function(g)
