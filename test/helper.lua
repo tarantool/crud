@@ -743,16 +743,8 @@ local Capture = {
 assert_class_implements_interface(FileCapture, Capture)
 assert_class_implements_interface(LuatestCapture, Capture)
 
-function helpers.get_command_log(router, backend, call, args)
-    local capture
-
-    local use_builtin_capture = (backend == helpers.backend.CARTRIDGE)
-                                or (backend == helpers.backend.CONFIG)
-    if use_builtin_capture then
-        capture = LuatestCapture:new()
-    else
-        capture = FileCapture:new({server = router})
-    end
+function helpers.get_command_log(router, call, args)
+    local capture = LuatestCapture:new()
 
     local _, err = router.net_box:call(call, args)
     if err ~= nil then

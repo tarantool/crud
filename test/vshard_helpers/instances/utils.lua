@@ -7,7 +7,6 @@ local function default_cfg()
     return {
         work_dir = os.getenv('TARANTOOL_WORKDIR'),
         listen = os.getenv('TARANTOOL_LISTEN'),
-        log = ('%s/%s.log'):format(os.getenv('TARANTOOL_WORKDIR'), os.getenv('TARANTOOL_ALIAS')),
     }
 end
 
