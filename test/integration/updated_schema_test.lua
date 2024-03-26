@@ -2,7 +2,6 @@ local t = require('luatest')
 
 local helpers = require('test.helper')
 
-local fiber = require('fiber')
 local crud = require('crud')
 local crud_utils = require('crud.common.utils')
 
@@ -779,21 +778,21 @@ pgroup.test_alter_index_parts = function(g)
         server.net_box:call('alter_number_value_index')
     end)
 
-    -- Wait for index rebuild and schema update
-    fiber.sleep(1)
+    -- Retry to wait for index rebuild and schema update.
+    -- Sort order should be new after rebuild.
+    t.helpers.retrying({timeout = 3, delay = 0.1}, function()
+        local result, err = g.router:call('crud.select', {
+            'customers',
+            {{'>=', 'number_value_index', {"0", 0}}},
+            {fullscan = true, mode = 'write'},
+        })
+        t.assert_equals(err, nil)
+        t.assert_equals(#result.rows, 10)
 
-    -- Sort order should be new
-    local result, err = g.router:call('crud.select', {
-        'customers',
-        {{'>=', 'number_value_index', {"0", 0}}},
-        {fullscan = true, mode = 'write'},
-    })
-    t.assert_equals(err, nil)
-    t.assert_equals(#result.rows, 10)
-
-    local objects = crud.unflatten_rows(result.rows, result.metadata)
-    for i = 0, 9 do
-        t.assert_equals(objects[i + 1].number, 9 - i)
-        t.assert_equals(objects[i + 1].value, tostring(i))
-    end
+        local objects = crud.unflatten_rows(result.rows, result.metadata)
+        for i = 0, 9 do
+            t.assert_equals(objects[i + 1].number, 9 - i)
+            t.assert_equals(objects[i + 1].value, tostring(i))
+        end
+    end)
 end
