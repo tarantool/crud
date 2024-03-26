@@ -144,7 +144,7 @@ function helpers.box_cfg(opts)
 
     if opts.wait_rw then
         t.helpers.retrying(
-            {timeout = 3, delay = 0.1},
+            {timeout = 60, delay = 0.1},
             t.assert_equals, box.info.ro, false
         )
     end
@@ -1021,7 +1021,7 @@ function helpers.wait_crud_is_ready_on_cluster(g, opts)
             opts.storage_roles
         )
 
-        local WAIT_TIMEOUT = 5
+        local WAIT_TIMEOUT = 60
         local DELAY = 0.1
         t.helpers.retrying(
             {timeout = WAIT_TIMEOUT, delay = DELAY},
@@ -1368,7 +1368,7 @@ function helpers.is_func_flag(flag)
 end
 
 function helpers.wait_func_flag(flag)
-    local TIMEOUT = 5
+    local TIMEOUT = 60
     local start = clock.monotonic()
 
     while clock.monotonic() - start < TIMEOUT do

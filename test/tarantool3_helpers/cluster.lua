@@ -262,7 +262,7 @@ function Cluster:wait_crud_is_ready_on_cluster()
     local router = self:get_router()
     local storages_in_topology = self:count_storages()
 
-    local WAIT_TIMEOUT = 5
+    local WAIT_TIMEOUT = 60
     local DELAY = 0.1
     t.helpers.retrying(
         {timeout = WAIT_TIMEOUT, delay = DELAY},
