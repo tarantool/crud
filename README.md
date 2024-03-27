@@ -2102,6 +2102,21 @@ issues.
 5.  Start the application cluster. You can check whether asynchronous bootstrap
     had finished through `crud.storage_info()` calls on router.
 
+6.  Configure the statistics with roles configuration
+    (see `crud.cfg` options in [statistics](#statistics) section):
+    ```yaml
+    roles:
+      - roles.crud-router
+    roles_cfg:
+      roles.crud-router:
+        stats: true
+        stats_driver: metrics
+        stats_quantiles: false
+        stats_quantile_tolerated_error: 0.001
+        stats_quantile_age_buckets_count: 5
+        stats_quantile_max_age_time: 180
+    ```
+
 Now your cluster contains storages that are configured to be used for
 CRUD-operations.
 You can simply call CRUD functions on the router to insert, select, and update

@@ -1468,4 +1468,8 @@ function helpers.skip_if_tarantool3_crud_roles_unsupported()
               ("Tarantool %s does not support crud roles"):format(version))
 end
 
+function helpers.skip_if_not_config_backend(backend)
+    t.skip_if(backend ~= helpers.backend.CONFIG, "The test is for Tarantool 3 with config only")
+end
+
 return helpers
