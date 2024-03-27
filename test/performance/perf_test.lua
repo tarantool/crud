@@ -114,6 +114,7 @@ local tarantool3_cluster_cfg_template = {
             sharding = {
                 roles = {'router'},
             },
+            roles = {'roles.crud-router'},
             replicasets = {
                 ['router'] = {
                     leader = 'router',
@@ -127,6 +128,7 @@ local tarantool3_cluster_cfg_template = {
             sharding = {
                 roles = {'storage'},
             },
+            roles = {'roles.crud-storage'},
             replicasets = {
                 ['s-1'] = {
                     leader = 's1-master',
@@ -155,7 +157,6 @@ local tarantool3_cluster_cfg_template = {
     bucket_count = 3000,
     router_entrypoint = helpers.entrypoint_vshard_storage('srv_ddl'),
     storage_entrypoint = helpers.entrypoint_vshard_storage('srv_ddl'),
-    crud_init = true,
 }
 
 g.before_all(function(g)

@@ -14,6 +14,12 @@ It also provides the `crud-storage` and `crud-router` roles for
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 - [Quickstart](#quickstart)
+  - [Install](#install)
+    - [Manual install](#manual-install)
+    - [Application dependency](#application-dependency)
+    - [Repository clone](#repository-clone)
+  - [Usage](#usage)
+  - [Sandbox](#sandbox)
 - [API](#api)
   - [Package info](#package-info)
   - [Insert](#insert)
@@ -44,8 +50,10 @@ It also provides the `crud-storage` and `crud-router` roles for
       - [Read view select conditions](#read-view-select-conditions)
     - [Read view pairs](#read-view-pairs)
   - [Schema](#schema)
+- [Tarantool 3 roles](#tarantool-3-roles)
+  - [Usage](#usage-1)
 - [Cartridge roles](#cartridge-roles)
-  - [Usage](#usage)
+  - [Usage](#usage-2)
 - [License](#license)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -54,38 +62,84 @@ It also provides the `crud-storage` and `crud-router` roles for
 
 First, [install Tarantool](https://www.tarantool.io/en/download).
 
-Now you have the following options for learning the crud API and using it in a
-project:
+### Install
 
-* Play with crud on a test dataset on a single instance:
+#### Manual install
 
-  ```shell
-  $ git clone https://github.com/tarantool/crud.git
-  $ cd crud
-  $ tt rocks make
-  $ ./doc/playground.lua
-  tarantool> crud.select('customers', {{'<=', 'age', 35}}, {first = 10})
-  tarantool> crud.select('developers', nil, {first = 6})
-  ```
-* Install crud into the current directory:
+To try `crud` in your application, you may install it manually fron web
+with `tt rocks` rock management tool.
 
-  ```shell
-  $ tt rocks install crud
-  ```
-* Add the [crud initialization code](#API) to router and storage instances
-  initialization code for [VShard](https://github.com/tarantool/vshard).
-* Add crud into dependencies of a Cartridge application and add crud roles into
-  dependencies of your roles (see [Cartridge roles](#cartridge-roles) section).
-* Add crud into dependencies of your application (rockspec, RPM spec -- depends
-  on your choice) and call crud initialization code from storage and router
-  code (see [API](#api) section).
+```bash
+tt rocks install crud
+```
+
+#### Application dependency
+
+To use crud in your application, set it as a rockspec dependency.
+
+```lua
+package = 'myapp'
+
+version = 'scm-1'
+
+source  = {
+    url = '/dev/null',
+}
+
+dependencies = {
+    'tarantool >= 3.1.0',
+    'crud == <the-latest-tag>-1',
+}
+
+build = {
+    type = 'none';
+}
+```
+
+#### Repository clone
+
+You can also clone the repository to explore crud and try it inside a sandbox.
+
+```bash
+git clone https://github.com/tarantool/crud.git
+cd crud
+tt rocks make
+```
+
+### Usage
+
+For Tarantool 3.x, enable crud roles on your application instances in a configuration
+(see [Tarantool 3 roles](#tarantool-3-roles) section).
+Roles support Tarantool 3.0.2, Tarantool 3.1.0 and newer.
+Older versions are not supported due to
+[tarantool/tarantool#9643](https://github.com/tarantool/tarantool/issues/9643) and
+[tarantool/tarantool#9649](https://github.com/tarantool/tarantool/issues/9649)
+issues.
+
+For Tarantool 1.10 and 2.x, add crud roles into dependencies of your roles
+(see [Cartridge roles](#cartridge-roles) section).
+
+For Tarantool 1.10, 2.x and 3.x you can also manually call
+the [crud initialization code](#api) on [VShard](https://github.com/tarantool/vshard)
+router and storage instances.
+
+### Sandbox
+
+The repository provide a simple sandbox application with a test dataset on a single instance.
+
+```bash
+./doc/playground.lua
+tarantool> crud.select('customers', {{'<=', 'age', 35}}, {first = 10})
+tarantool> crud.select('developers', nil, {first = 6})
+```
 
 ## API
 
 The CRUD operations should be called from router.
 
 All VShard storages should call `crud.init_storage()` after
-`vshard.storage.cfg()` (or enable the `crud-storage` role for Cartridge)
+`vshard.storage.cfg()` (or enable the `roles.crud-storage` role for Tarantool 3
+or the `crud-storage` role for Cartridge)
 first to initialize storage-side functions that are used to manipulate data
 across the cluster. The storage-side functions have the same access
 as a user calling `crud.init_storage()`. Therefore, if `crud` do not have
@@ -98,7 +152,8 @@ asynchronous bootstrap is used for Tarantool 3.x and
 synchronous bootstrap is used for Tarantool 1.10 and 2.x.
 
 All VShard routers should call `crud.init_router()` after `vshard.router.cfg()`
-(or enable the `crud-router` role for Cartridge) to make `crud` functions
+(or enable the `roles.crud-storage` role for Tarantool 3
+or the `crud-router` role for Cartridge) to make `crud` functions
 callable via `net.box`. If a user is allowed to execute `crud` functions on
 the router-side then the user does not need additional access on storages.
 
@@ -1832,6 +1887,225 @@ crud.schema()
     format: ...
     indexes: ...
 ```
+
+## Tarantool 3 roles
+
+`roles.crud-storage` is a Tarantool 3 role that initializes functions that
+are used on the storage side to perform CRUD operations. Role must be enabled
+on sharding storages.
+
+`cartridge.roles.crud-router` is a role that exposes public `crud` functions
+to the global scope so that you can call them via `net.box` or with connectors.
+Role must be enabled on sharding routers.
+
+Roles support Tarantool 3.0.2, Tarantool 3.1.0 and newer.
+Older versions are not supported due to
+[tarantool/tarantool#9643](https://github.com/tarantool/tarantool/issues/9643) and
+[tarantool/tarantool#9649](https://github.com/tarantool/tarantool/issues/9649)
+issues.
+
+### Usage
+
+1.  Add `crud` to dependencies in the project rockspec.
+
+    **Note**: it's better to use tagged version than `scm-1`.
+    Check the latest available [release](https://github.com/tarantool/crud/releases) tag and use it.
+
+    ```lua
+    -- <project-name>-scm-1.rockspec
+    dependencies = {
+       ...
+       'crud == <the-latest-tag>-1',
+        ...
+    }
+    ```
+
+2.  Add crud roles to your application configuration.
+    Application must be a sharded one.
+    It is required that `roles.crud-storage` is enabled on each
+    sharding storage.
+
+    ```yaml
+    groups:
+      routers:
+        sharding:
+          roles:
+            - router
+        roles:
+          - roles.crud-router
+        replicasets:
+          router:
+
+      storages:
+        sharding:
+          roles:
+            - storage
+        roles:
+          - roles.crud-storage
+        replicasets:
+          s-1:
+          s-2:
+    ```
+
+    <details>
+      <summary>Full configuration example</summary>
+      
+      ```yaml
+      credentials:
+        users:
+          replicator:
+            password: replicating
+            roles:
+              - replication
+          storage:
+            password: storing-buckets
+            roles:
+              - sharding
+          guest:
+            roles:
+              - super
+
+      sharding:
+        bucket_count: 30000
+
+      replication:
+        failover: manual
+
+      iproto:
+        advertise:
+          peer:
+            login: replicator
+          sharding:
+            login: storage
+
+      groups:
+        routers:
+          sharding:
+            roles:
+            - router
+          roles:
+            - roles.crud-router
+          app:
+            module: myrouter
+          replicasets:
+            router:
+              leader: router
+              instances:
+                router:
+                  iproto:
+                    listen:
+                      - uri: localhost:3301
+        storages:
+          sharding:
+            roles:
+            - storage
+          roles:
+            - roles.crud-storage
+          app:
+            module: mystorage
+          replicasets:
+            s-1:
+              leader: s1-master
+              instances:
+                s1-master:
+                  iproto:
+                    listen:
+                      - uri: localhost:3302
+                s1-replica:
+                  iproto:
+                    listen:
+                      - uri: localhost:3303
+            s-2:
+              leader: s2-master
+              instances:
+                s2-replica:
+                  iproto:
+                    listen:
+                      - uri: localhost:3304
+                s2-master:
+                  iproto:
+                    listen:
+                      - uri: localhost:3305
+      ```
+    </details>
+
+3. Bootstrap vshard routers (for example, through `app.module` section
+   in Tarantool 3 routers configuration).
+
+    ```lua
+    -- myrouter.lua
+
+    local clock = require('clock')
+    local fiber = require('fiber')
+    local log = require('log')
+
+    local vshard = require('vshard')
+
+    local TIMEOUT = 60
+    local DELAY = 0.1
+
+    local start = clock.monotonic()
+    while clock.monotonic() - start < TIMEOUT do
+        local ok, err = vshard.router.bootstrap({
+            if_not_bootstrapped = true,
+        })
+
+        if ok then
+            break
+        end
+
+        log.info(('Router bootstrap error: %s'):format(err))
+        fiber.sleep(DELAY)
+    end
+    ```
+
+4. Set up your schema on storages (for example, through `app.module` section
+   in Tarantool 3 storages configuration).
+
+    ```lua
+    -- mystorage.lua
+
+    -- Schema setup is idempotent.
+    box.watch('box.status', function()
+        if box.info.ro then
+            return
+        end
+
+        local customers_space = box.schema.space.create('customers', {
+            format = {
+                {name = 'id', type = 'unsigned'},
+                {name = 'bucket_id', type = 'unsigned'},
+                {name = 'name', type = 'string'},
+                {name = 'age', type = 'number'},
+            },
+            if_not_exists = true,
+        })
+
+        customers_space:create_index('id', {
+            parts = { {field ='id', is_nullable = false} },
+            if_not_exists = true,
+        })
+
+        customers_space:create_index('bucket_id', {
+            parts = { {field ='bucket_id', is_nullable = false} },
+            if_not_exists = true,
+        })
+
+        customers_space:create_index('age', {
+            parts = { {field ='age'} },
+            unique = false,
+            if_not_exists = true,
+        })
+    end)
+    ```
+
+5.  Start the application cluster. You can check whether asynchronous bootstrap
+    had finished through `crud.storage_info()` calls on router.
+
+Now your cluster contains storages that are configured to be used for
+CRUD-operations.
+You can simply call CRUD functions on the router to insert, select, and update
+data across the cluster.
 
 ## Cartridge roles
 

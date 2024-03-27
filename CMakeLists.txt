@@ -9,6 +9,7 @@ file(GLOB_RECURSE LUA_FILES
   "${CMAKE_CURRENT_SOURCE_DIR}/crud.lua"
   "${CMAKE_CURRENT_SOURCE_DIR}/crud/*.lua"
   "${CMAKE_CURRENT_SOURCE_DIR}/cartridge/roles/*.lua"
+  "${CMAKE_CURRENT_SOURCE_DIR}/roles/*.lua"
 )
 
 ## Testing ####################################################################
@@ -93,5 +94,10 @@ install(
 
 install(
   DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/cartridge
+  DESTINATION ${TARANTOOL_INSTALL_LUADIR}
+)
+
+install(
+  DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/roles
   DESTINATION ${TARANTOOL_INSTALL_LUADIR}
 )

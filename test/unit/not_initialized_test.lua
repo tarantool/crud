@@ -76,7 +76,6 @@ local tarantool3_cluster_cfg_template = {
     },
     bucket_count = 20,
     storage_entrypoint = helpers.entrypoint_vshard_storage('srv_not_initialized'),
-    crud_init = false,
 }
 
 pgroup.before_all(function(g)

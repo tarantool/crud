@@ -5,6 +5,7 @@ local ffi = require('ffi')
 local fun = require('fun')
 local vshard = require('vshard')
 local log = require('log')
+local tarantool = require('tarantool')
 
 local is_cartridge, cartridge = pcall(require, 'cartridge')
 local is_cartridge_hotreload, cartridge_hotreload = pcall(require, 'cartridge.hotreload')
@@ -628,6 +629,10 @@ end
 
 utils.tarantool_version_at_least = tarantool_version_at_least
 
+function utils.is_enterprise_package()
+    return tarantool.package == 'Tarantool Enterprise'
+end
+
 
 local enabled_tarantool_features = {}
 
@@ -726,13 +731,57 @@ local function determine_enabled_features()
 
     enabled_tarantool_features.tarantool_3 = is_version_ge(major, minor, patch, suffix, commits_since,
                                                            3, 0, 0, nil, nil)
+
+    enabled_tarantool_features.config_get_inside_roles = (
+        -- https://github.com/tarantool/tarantool/commit/ebb170cb8cf2b9c4634bcf0178665909f578c335
+        not utils.is_enterprise_package()
+        and is_version_ge(major, minor, patch, suffix, commits_since,
+                          3, 1, 0, 'entrypoint', 77)
+    ) or (
+        -- https://github.com/tarantool/tarantool/commit/e0e1358cb60d6749c34daf508e05586e0959bf89
+        not utils.is_enterprise_package()
+        and is_version_in_range(major, minor, patch, suffix, commits_since,
+                                3, 0, 1, nil, 10,
+                                3, 0, math.huge, nil, nil)
+    ) or (
+        -- https://github.com/tarantool/tarantool-ee/commit/368cc4007727af30ae3ca3a3cdfc7065f34e02aa
+        utils.is_enterprise_package()
+        and is_version_ge(major, minor, patch, suffix, commits_since,
+                          3, 1, 0, 'entrypoint', 44)
+    ) or (
+        -- https://github.com/tarantool/tarantool-ee/commit/1dea81bed4cbe4856a0fc77dcc548849a2dabf45
+        utils.is_enterprise_package()
+        and is_version_in_range(major, minor, patch, suffix, commits_since,
+                                3, 0, 1, nil, 10,
+                                3, 0, math.huge, nil, nil)
+    )
+
+    enabled_tarantool_features.role_privileges_not_revoked = (
+        -- https://github.com/tarantool/tarantool/commit/b982b46442e62e05ab6340343233aa766ad5e52c
+        not utils.is_enterprise_package()
+        and is_version_ge(major, minor, patch, suffix, commits_since,
+                          3, 1, 0, 'entrypoint', 179)
+    ) or (
+        -- https://github.com/tarantool/tarantool/commit/ee2faf7c328abc54631233342cb9b88e4ce8cae4
+        not utils.is_enterprise_package()
+        and is_version_in_range(major, minor, patch, suffix, commits_since,
+                                3, 0, 1, nil, 57,
+                                3, 0, math.huge, nil, nil)
+    ) or (
+        -- https://github.com/tarantool/tarantool-ee/commit/5388e9d0f40d86226dc15bb27d85e63b0198e789
+        utils.is_enterprise_package()
+        and is_version_ge(major, minor, patch, suffix, commits_since,
+                          3, 1, 0, 'entrypoint', 82)
+    ) or (
+        -- https://github.com/tarantool/tarantool-ee/commit/83d378d01bf2761da8ec684b6afe5683d38faeae
+        utils.is_enterprise_package()
+        and is_version_in_range(major, minor, patch, suffix, commits_since,
+                                3, 0, 1, nil, 35,
+                                3, 0, math.huge, nil, nil)
+    )
 end
 
 determine_enabled_features()
-
-local function feature_in_list(feature_to_check, list_of_features)
-
-end
 
 for feature_name, feature_enabled in pairs(enabled_tarantool_features) do
     local util_name
@@ -740,6 +789,8 @@ for feature_name, feature_enabled in pairs(enabled_tarantool_features) do
         util_name = ('is_%s'):format(feature_name)
     elseif feature_name == 'builtin_merger' then
         util_name = ('tarantool_has_%s'):format(feature_name)
+    elseif feature_name == 'role_privileges_not_revoked' then
+        util_name = ('tarantool_%s'):format(feature_name)
     else
         util_name = ('tarantool_supports_%s'):format(feature_name)
     end
