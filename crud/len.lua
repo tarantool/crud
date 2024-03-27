@@ -17,9 +17,7 @@ local function len_on_storage(space_name)
     return box.space[space_name]:len()
 end
 
-function len.init(user)
-    utils.init_storage_call(user, LEN_FUNC_NAME, len_on_storage)
-end
+len.storage_api = {[LEN_FUNC_NAME] = len_on_storage}
 
 --- Calculates the number of tuples in the space for memtx engine
 --- Calculates the maximum approximate number of tuples in the space for vinyl engine

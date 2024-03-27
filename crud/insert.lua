@@ -53,9 +53,7 @@ local function insert_on_storage(space_name, tuple, opts)
     })
 end
 
-function insert.init(user)
-    utils.init_storage_call(user, INSERT_FUNC_NAME, insert_on_storage)
-end
+insert.storage_api = {[INSERT_FUNC_NAME] = insert_on_storage}
 
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help

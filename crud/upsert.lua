@@ -50,9 +50,7 @@ local function upsert_on_storage(space_name, tuple, operations, opts)
     })
 end
 
-function upsert.init(user)
-    utils.init_storage_call(user, UPSERT_FUNC_NAME, upsert_on_storage)
-end
+upsert.storage_api = {[UPSERT_FUNC_NAME] = upsert_on_storage}
 
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help

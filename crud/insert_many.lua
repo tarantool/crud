@@ -123,9 +123,7 @@ local function insert_many_on_storage(space_name, tuples, opts)
     return inserted_tuples, nil, replica_schema_version
 end
 
-function insert_many.init(user)
-    utils.init_storage_call(user, INSERT_MANY_FUNC_NAME, insert_many_on_storage)
-end
+insert_many.storage_api = {[INSERT_MANY_FUNC_NAME] = insert_many_on_storage}
 
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help

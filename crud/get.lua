@@ -50,9 +50,7 @@ local function get_on_storage(space_name, key, field_names, opts)
     })
 end
 
-function get.init(user)
-    utils.init_storage_call(user, GET_FUNC_NAME, get_on_storage)
-end
+get.storage_api = {[GET_FUNC_NAME] = get_on_storage}
 
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help

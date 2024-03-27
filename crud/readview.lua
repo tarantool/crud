@@ -27,9 +27,11 @@ local CRUD_CLOSE_FUNC_NAME = utils.get_storage_call(CLOSE_FUNC_NAME)
 if (not utils.tarantool_version_at_least(2, 11, 0))
 or (tarantool.package ~= 'Tarantool Enterprise') or (not has_merger) then
     return {
-        new = function() return nil,
-        ReadviewError:new("Tarantool does not support readview") end,
-        init = function() return nil end}
+        new = function()
+            return nil, ReadviewError:new("Tarantool does not support readview")
+        end,
+        storage_api = {},
+    }
 end
 local select = require('crud.select.compat.select')
 
@@ -241,11 +243,11 @@ function Readview_obj:pairs(space_name, user_conditions, opts)
     return pairs_call(space_name, user_conditions, opts)
 end
 
-function readview.init(user)
-    utils.init_storage_call(user, OPEN_FUNC_NAME, readview_open_on_storage)
-    utils.init_storage_call(user, CLOSE_FUNC_NAME, readview_close_on_storage)
-    utils.init_storage_call(user, SELECT_FUNC_NAME, select_readview_on_storage)
- end
+readview.storage_api = {
+    [OPEN_FUNC_NAME] = readview_open_on_storage,
+    [CLOSE_FUNC_NAME] = readview_close_on_storage,
+    [SELECT_FUNC_NAME] = select_readview_on_storage,
+}
 
 function Readview_obj:close(opts)
     checks('table', {

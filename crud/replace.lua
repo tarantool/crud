@@ -53,9 +53,7 @@ local function replace_on_storage(space_name, tuple, opts)
     })
 end
 
-function replace.init(user)
-    utils.init_storage_call(user, REPLACE_FUNC_NAME, replace_on_storage)
-end
+replace.storage_api = {[REPLACE_FUNC_NAME] = replace_on_storage}
 
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help

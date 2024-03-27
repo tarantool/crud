@@ -43,9 +43,7 @@ local function get_border_on_storage(border_name, space_name, index_id, field_na
     })
 end
 
-function borders.init(user)
-    utils.init_storage_call(user, STAT_FUNC_NAME, get_border_on_storage)
-end
+borders.storage_api = {[STAT_FUNC_NAME] = get_border_on_storage}
 
 local is_closer
 

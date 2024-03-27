@@ -86,9 +86,7 @@ local function count_on_storage(space_name, index_id, conditions, opts)
     return tuples_count
 end
 
-function count.init(user)
-    utils.init_storage_call(user, COUNT_FUNC_NAME, count_on_storage)
-end
+count.storage_api = {[COUNT_FUNC_NAME] = count_on_storage}
 
 local check_count_safety_rl = ratelimit.new()
 local function check_count_safety(space_name, plan, opts)

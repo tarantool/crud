@@ -214,8 +214,6 @@ function sharding_metadata_module.reload_sharding_cache(vshard_router, space_nam
     end
 end
 
-function sharding_metadata_module.init(user)
-    utils.init_storage_call(user, FETCH_FUNC_NAME, sharding_metadata_module.fetch_on_storage)
-end
+sharding_metadata_module.storage_api = {[FETCH_FUNC_NAME] = sharding_metadata_module.fetch_on_storage}
 
 return sharding_metadata_module

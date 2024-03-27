@@ -77,9 +77,7 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
     return res, err
 end
 
-function update.init(user)
-    utils.init_storage_call(user, UPDATE_FUNC_NAME, update_on_storage)
-end
+update.storage_api = {[UPDATE_FUNC_NAME] = update_on_storage}
 
 -- returns result, err, need_reload
 -- need_reload indicates if reloading schema could help
