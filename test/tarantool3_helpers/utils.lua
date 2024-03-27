@@ -40,9 +40,34 @@ local function is_group_a_sharding_storage(group)
     return is_group_has_sharding_role(group, 'storage')
 end
 
+local function is_group_a_crud_router(group)
+    return has_role(group, 'roles.crud-router')
+end
+
+local function is_group_a_crud_storage(group)
+    return has_role(group, 'roles.crud-storage')
+end
+
+local function is_replicaset_has_role(group, replicaset, role)
+    return has_role(group, role) or has_role(replicaset, role)
+end
+
+local function is_replicaset_a_crud_router(group, replicaset)
+    return is_replicaset_has_role(group, replicaset, 'roles.crud-router')
+end
+
+local function is_replicaset_a_crud_storage(group, replicaset)
+    return is_replicaset_has_role(group, replicaset, 'roles.crud-storage')
+end
+
 return {
     is_group_a_sharding_router = is_group_a_sharding_router,
     is_group_a_sharding_storage = is_group_a_sharding_storage,
     is_replicaset_a_sharding_router = is_replicaset_a_sharding_router,
     is_replicaset_a_sharding_storage = is_replicaset_a_sharding_storage,
+
+    is_group_a_crud_router = is_group_a_crud_router,
+    is_group_a_crud_storage = is_group_a_crud_storage,
+    is_replicaset_a_crud_router = is_replicaset_a_crud_router,
+    is_replicaset_a_crud_storage = is_replicaset_a_crud_storage,
 }

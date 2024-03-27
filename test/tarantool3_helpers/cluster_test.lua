@@ -6,7 +6,7 @@ local cluster_helpers = require('test.tarantool3_helpers.cluster')
 local g = t.group()
 
 g.before_all(function(cg)
-    helpers.skip_if_tarantool_config_unsupported()
+    helpers.skip_if_tarantool3_crud_roles_unsupported()
 
     local config = {
         credentials = {
@@ -42,6 +42,7 @@ g.before_all(function(cg)
                 sharding = {
                     roles = {'router'},
                 },
+                roles = {'roles.crud-router'},
                 replicasets = {
                     ['router'] = {
                         leader = 'router',
@@ -62,6 +63,7 @@ g.before_all(function(cg)
                 sharding = {
                     roles = {'storage'},
                 },
+                roles = {'roles.crud-storage'},
                 replicasets = {
                     ['s-1'] = {
                         leader = 's1-master',
@@ -158,7 +160,6 @@ g.before_all(function(cg)
 
             error('timeout while waiting for storage bootstrap')
         ]],
-        crud_init = true,
     })
 
     cg.cluster:start()

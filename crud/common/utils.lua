@@ -726,13 +726,27 @@ local function determine_enabled_features()
 
     enabled_tarantool_features.tarantool_3 = is_version_ge(major, minor, patch, suffix, commits_since,
                                                            3, 0, 0, nil, nil)
+
+    -- https://github.com/tarantool/tarantool/commit/ebb170cb8cf2b9c4634bcf0178665909f578c335
+    -- https://github.com/tarantool/tarantool/commit/e0e1358cb60d6749c34daf508e05586e0959bf89
+    enabled_tarantool_features.config_get_inside_roles = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                                       3, 1, 0, 'entrypoint', 77)
+                                                         or is_version_in_range(major, minor, patch, suffix,
+                                                                                commits_since,
+                                                                                3, 0, 1, nil, 10,
+                                                                                3, 0, math.huge, nil, nil)
+
+    -- https://github.com/tarantool/tarantool/commit/b982b46442e62e05ab6340343233aa766ad5e52c
+    -- https://github.com/tarantool/tarantool/commit/ee2faf7c328abc54631233342cb9b88e4ce8cae4
+    enabled_tarantool_features.role_privileges_not_revoked = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                                           3, 1, 0, 'entrypoint', 179)
+                                                             or is_version_in_range(major, minor, patch, suffix,
+                                                                                    commits_since,
+                                                                                    3, 0, 1, nil, 57,
+                                                                                    3, 0, math.huge, nil, nil)
 end
 
 determine_enabled_features()
-
-local function feature_in_list(feature_to_check, list_of_features)
-
-end
 
 for feature_name, feature_enabled in pairs(enabled_tarantool_features) do
     local util_name
@@ -740,6 +754,8 @@ for feature_name, feature_enabled in pairs(enabled_tarantool_features) do
         util_name = ('is_%s'):format(feature_name)
     elseif feature_name == 'builtin_merger' then
         util_name = ('tarantool_has_%s'):format(feature_name)
+    elseif feature_name == 'role_privileges_not_revoked' then
+        util_name = ('tarantool_%s'):format(feature_name)
     else
         util_name = ('tarantool_supports_%s'):format(feature_name)
     end

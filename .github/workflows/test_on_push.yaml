@@ -43,6 +43,8 @@ jobs:
             external-keydef-version: "0.0.4"
           - tarantool-version: "3.0.0"
             vshard-version: "0.1.25"
+          - tarantool-version: "master"
+            vshard-version: "0.1.26"
       fail-fast: false
     # Can't install older versions on 22.04,
     # see https://github.com/tarantool/setup-tarantool/issues/36
