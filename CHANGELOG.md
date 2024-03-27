@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 * Explicitly forbid datetime interval conditions (#373).
 * Storage initialization is now asynchronous by default for Tarantool 3.0+ (#412).
+* Additionally check backoff error on storage info fetch (#427).
 
 ### Fixed
 * Working with datetime conditions in case of non-indexed fields or
