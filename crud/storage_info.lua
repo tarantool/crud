@@ -68,18 +68,22 @@ function storage_info.call(opts)
                 is_master = master == replica
             }
 
-            local ok, res = pcall(replica.conn.call, replica.conn, CRUD_STORAGE_INFO_FUNC_NAME,
-                                  {}, async_opts)
-            if ok then
-                futures_by_replicas[replica_id] = res
+            if replica.backoff_err ~= nil then
+                replica_state_by_id[replica_id].message = tostring(replica.backoff_err)
             else
-                local err_msg = string.format("Error getting storage info for %s", replica_id)
-                if res ~= nil then
-                    log.error("%s: %s", err_msg, res)
-                    replica_state_by_id[replica_id].message = tostring(res)
+                local ok, res = pcall(replica.conn.call, replica.conn, CRUD_STORAGE_INFO_FUNC_NAME,
+                                      {}, async_opts)
+                if ok then
+                    futures_by_replicas[replica_id] = res
                 else
-                    log.error(err_msg)
-                    replica_state_by_id[replica_id].message = err_msg
+                    local err_msg = string.format("Error getting storage info for %s", replica_id)
+                    if res ~= nil then
+                        log.error("%s: %s", err_msg, res)
+                        replica_state_by_id[replica_id].message = tostring(res)
+                    else
+                        log.error(err_msg)
+                        replica_state_by_id[replica_id].message = err_msg
+                    end
                 end
             end
         end
