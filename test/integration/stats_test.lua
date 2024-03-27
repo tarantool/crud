@@ -9,15 +9,19 @@ local matrix = helpers.backend_matrix({
     { way = 'call', args = { driver = 'metrics', quantiles = false }},
     { way = 'call', args = { driver = 'metrics', quantiles = true }},
 })
-table.insert(matrix, {backend = helpers.backend.CARTRIDGE,
-    way = 'role', args = { driver = 'local' },
-})
-table.insert(matrix, {backend = helpers.backend.CARTRIDGE,
-    way = 'role', args = { driver = 'metrics', quantiles = false },
-})
-table.insert(matrix, {backend = helpers.backend.CARTRIDGE,
-    way = 'role', args = { driver = 'metrics', quantiles = true },
-})
+
+for _, backend in ipairs({helpers.backend.CARTRIDGE, helpers.backend.CONFIG}) do
+    table.insert(matrix, {backend = backend,
+        way = 'role', args = { driver = 'local' },
+    })
+    table.insert(matrix, {backend = backend,
+        way = 'role', args = { driver = 'metrics', quantiles = false },
+    })
+    table.insert(matrix, {backend = backend,
+        way = 'role', args = { driver = 'metrics', quantiles = true },
+    })
+end
+
 local pgroup = t.group('stats_integration', matrix)
 
 matrix = helpers.backend_matrix({
@@ -57,7 +61,17 @@ local call_cfg = function(g, way, cfg)
             require('crud').cfg(...)
         ]], { cfg })
     elseif way == 'role' then
-        g.router:upload_config{crud = cfg}
+        if g.params.backend == helpers.backend.CARTRIDGE then
+            g.router:upload_config{crud = cfg}
+        elseif g.params.backend == helpers.backend.CONFIG then
+            local cluster_cfg = g.cluster:cfg()
+
+            cluster_cfg.groups['routers'].roles_cfg = {
+                ['roles.crud-router'] = cfg,
+            }
+
+            g.cluster:reload_config(cluster_cfg)
+        end
     end
 end
 
