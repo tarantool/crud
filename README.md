@@ -1848,79 +1848,79 @@ scope, so that you can call them via `net.box`.
 
 1. Add `crud` to dependencies in the project rockspec.
 
-**Note**: it's better to use tagged version than `scm-1`.
-Check the latest available [release](https://github.com/tarantool/crud/releases) tag and use it.
+    **Note**: it's better to use tagged version than `scm-1`.
+    Check the latest available [release](https://github.com/tarantool/crud/releases) tag and use it.
 
-```lua
--- <project-name>-scm-1.rockspec
-dependencies = {
-    ...
-    'crud == <the-latest-tag>-1',
-    ...
-}
-```
+    ```lua
+    -- <project-name>-scm-1.rockspec
+    dependencies = {
+        ...
+        'crud == <the-latest-tag>-1',
+        ...
+    }
+    ```
 
 2. Create the role that stores your data and depends on `crud-storage`.
 
-```lua
--- app.roles.customers-storage.lua
-local cartridge = require('cartridge')
+    ```lua
+    -- app.roles.customers-storage.lua
+    local cartridge = require('cartridge')
 
-return {
-        role_name = 'customers-storage',
-        init = function()
-            local customers_space = box.schema.space.create('customers', {
-                format = {
-                    {name = 'id', type = 'unsigned'},
-                    {name = 'bucket_id', type = 'unsigned'},
-                    {name = 'name', type = 'string'},
-                    {name = 'age', type = 'number'},
-                },
-                if_not_exists = true,
-            })
-            customers_space:create_index('id', {
-                parts = { {field ='id', is_nullable = false} },
-                if_not_exists = true,
-            })
-            customers_space:create_index('bucket_id', {
-                parts = { {field ='bucket_id', is_nullable = false} },
-                if_not_exists = true,
-            })
-            customers_space:create_index('age', {
-                parts = { {field ='age'} },
-                unique = false,
-                if_not_exists = true,
-            })
-        end,
-        dependencies = {'cartridge.roles.crud-storage'},
-    }
-```
+    return {
+            role_name = 'customers-storage',
+            init = function()
+                local customers_space = box.schema.space.create('customers', {
+                    format = {
+                        {name = 'id', type = 'unsigned'},
+                        {name = 'bucket_id', type = 'unsigned'},
+                        {name = 'name', type = 'string'},
+                        {name = 'age', type = 'number'},
+                    },
+                    if_not_exists = true,
+                })
+                customers_space:create_index('id', {
+                    parts = { {field ='id', is_nullable = false} },
+                    if_not_exists = true,
+                })
+                customers_space:create_index('bucket_id', {
+                    parts = { {field ='bucket_id', is_nullable = false} },
+                    if_not_exists = true,
+                })
+                customers_space:create_index('age', {
+                    parts = { {field ='age'} },
+                    unique = false,
+                    if_not_exists = true,
+                })
+            end,
+            dependencies = {'cartridge.roles.crud-storage'},
+        }
+    ```
 
-```lua
--- app.roles.customers-router.lua
-local cartridge = require('cartridge')
-return {
-        role_name = 'customers-router',
-        dependencies = {'cartridge.roles.crud-router'},
-    }
-```
+    ```lua
+    -- app.roles.customers-router.lua
+    local cartridge = require('cartridge')
+    return {
+            role_name = 'customers-router',
+            dependencies = {'cartridge.roles.crud-router'},
+        }
+    ```
 
-3. Start the application and create `customers-storage` and
-   `customers-router` replica sets.
+3.  Start the application and create `customers-storage` and
+    `customers-router` replica sets.
 
-4. Don't forget to bootstrap vshard.
+4.  Don't forget to bootstrap vshard.
 
-5. Configure the statistics with clusterwide configuration
-   (see `crud.cfg` options in [statistics](#statistics) section):
-```yaml
-crud:
-  stats: true
-  stats_driver: metrics
-  stats_quantiles: false
-  stats_quantile_tolerated_error: 0.001
-  stats_quantile_age_buckets_count: 5
-  stats_quantile_max_age_time: 180
-```
+5.  Configure the statistics with clusterwide configuration
+    (see `crud.cfg` options in [statistics](#statistics) section):
+    ```yaml
+    crud:
+      stats: true
+      stats_driver: metrics
+      stats_quantiles: false
+      stats_quantile_tolerated_error: 0.001
+      stats_quantile_age_buckets_count: 5
+      stats_quantile_max_age_time: 180
+    ```
 
 Now your cluster contains storages that are configured to be used for
 CRUD-operations.
