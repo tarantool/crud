@@ -27,7 +27,7 @@ end
 
 
 g.test_get_tarantool_version = function()
-    local major, minor, patch, suffix = utils.get_tarantool_version()
+    local major, minor, patch, suffix, commits_since = utils.get_tarantool_version()
 
     t.assert_gt(major, 0, 'Tarantool version major is a positive number')
     t.assert_ge(minor, 0, 'Tarantool version minor is a non-negative number')
@@ -35,6 +35,10 @@ g.test_get_tarantool_version = function()
 
     if suffix ~= nil then
         t.assert_type(suffix, 'string')
+    end
+
+    if commits_since ~= nil then
+        t.assert_type(commits_since, 'number')
     end
 end
 
@@ -190,90 +194,119 @@ end
 -- Pairwise-like testing cases since there are too many combinations.
 local is_version_ge_cases = {
     case_1 = {
-        args = {2, 10, 5, nil,
-                2, 10, 5, nil},
+        args = {2, 10, 5, nil, nil,
+                2, 10, 5, nil, nil},
         le = true,
     },
     case_2 = {
-        args = {2, 10, 5, 'entrypoint',
-                2, 10, 5, 'entrypoint'},
+        args = {2, 10, 5, 'entrypoint', nil,
+                2, 10, 5, 'entrypoint', nil},
         le = true,
     },
     case_3 = {
-        args = {2, 10, 5, nil,
-                2, 10, 5, 'entrypoint'},
+        args = {2, 10, 5, nil, nil,
+                2, 10, 5, 'entrypoint', nil},
     },
     case_4 = {
-        args = {2, 10, 5, 'alpha3',
-                2, 10, 5, 'alpha1'},
+        args = {2, 10, 5, 'alpha3', nil,
+                2, 10, 5, 'alpha1', nil},
     },
     case_5 = {
-        args = {2, 10, 5, 'rc1',
-                2, 10, 5, 'alpha1'},
+        args = {2, 10, 5, 'rc1', nil,
+                2, 10, 5, 'alpha1', nil},
     },
     case_6 = {
-        args = {2, 10, 5, nil,
-                2, 10, 4, nil},
+        args = {2, 10, 5, nil, nil,
+                2, 10, 4, nil, nil},
     },
     case_7 = {
-        args = {2, 10, 4, nil,
-                2, 9, 5, nil},
+        args = {2, 10, 4, nil, nil,
+                2, 9, 5, nil, nil},
     },
     case_8 = {
-        args = {2, 10, 5, nil,
-                2, 9, 4, nil},
+        args = {2, 10, 5, nil, nil,
+                2, 9, 4, nil, nil},
     },
     case_9 = {
-        args = {2, 10, 5, 'alpha1',
-                2, 9, 4, nil},
+        args = {2, 10, 5, 'alpha1', nil,
+                2, 9, 4, nil, nil},
     },
     case_10 = {
-        args = {2, 10, 5, nil,
-                2, 9, 4, 'alpha1'},
+        args = {2, 10, 5, nil, nil,
+                2, 9, 4, 'alpha1', nil},
     },
     case_11 = {
-        args = {3, 10, 5, nil,
-                2, 10, 5, nil},
+        args = {3, 10, 5, nil, nil,
+                2, 10, 5, nil, nil},
     },
     case_12 = {
-        args = {3, 9, 5, nil,
-                2, 10, 5, nil},
+        args = {3, 9, 5, nil, nil,
+                2, 10, 5, nil, nil},
     },
     case_13 = {
-        args = {3, 10, 5, nil,
-                2, 9, 5, nil},
+        args = {3, 10, 5, nil, nil,
+                2, 9, 5, nil, nil},
     },
     case_14 = {
-        args = {3, 10, 4, nil,
-                2, 10, 5, nil},
+        args = {3, 10, 4, nil, nil,
+                2, 10, 5, nil, nil},
     },
     case_15 = {
-        args = {3, 10, 5, nil,
-                2, 10, 4, nil},
+        args = {3, 10, 5, nil, nil,
+                2, 10, 4, nil, nil},
     },
     case_16 = {
-        args = {3, 10, 5, 'alpha1',
-                2, 10, 5, nil},
+        args = {3, 10, 5, 'alpha1', nil,
+                2, 10, 5, nil, nil},
     },
     case_17 = {
-        args = {3, 10, 5, nil,
-                2, 10, 5, 'alpha1'},
+        args = {3, 10, 5, nil, nil,
+                2, 10, 5, 'alpha1', nil},
     },
     case_18 = {
-        args = {3, 10, 5, 'alpha1',
-                2, 10, 5, nil},
+        args = {3, 10, 5, 'alpha1', nil,
+                2, 10, 5, nil, nil},
     },
     case_19 = {
-        args = {3, 10, 4, nil,
-                2, 10, 5, 'alpha1'},
+        args = {3, 10, 4, nil, nil,
+                2, 10, 5, 'alpha1', nil},
     },
     case_20 = {
-        args = {3, 9, 5, nil,
-                2, 10, 5, 'alpha1'},
+        args = {3, 9, 5, nil, nil,
+                2, 10, 5, 'alpha1', nil},
     },
     case_21 = {
-        args = {3, 9, 5, 'rc1',
-                2, 10, 4, nil},
+        args = {3, 9, 5, 'rc1', nil,
+                2, 10, 4, nil, nil},
+    },
+    case_22 = {
+        args = {2, 10, 5, nil, 0,
+                2, 10, 5, nil, 0},
+        le = true,
+    },
+    case_23 = {
+        args = {2, 10, 5, nil, 10,
+                2, 10, 5, nil, 0},
+    },
+    case_24 = {
+        args = {2, 10, 5, 'beta2', 0,
+                2, 10, 5, 'alpha1', 10},
+    },
+    case_25 = {
+        args = {2, 10, 5, 'beta2', 15,
+                2, 10, 5, 'alpha1', 10},
+    },
+    case_26 = {
+        args = {2, 10, 6, nil, 0,
+                2, 10, 5, nil, 10},
+    },
+    case_27 = {
+        args = {2, 11, 5, nil, 0,
+                2, 10, 5, nil, 10},
+    },
+    case_28 = {
+        args = {3, 10, 5, nil, 0,
+                2, 10, 5, nil, 10},
     },
 }
 
@@ -289,8 +322,8 @@ for name, case in pairs(is_version_ge_cases) do
             le = case.le
         end
 
-        t.assert_equals(utils.is_version_ge(unpack_N(case.args, 8)), ge)
-        t.assert_equals(utils.is_version_ge(unpack_N_swap_halves(case.args, 8)), le)
+        t.assert_equals(utils.is_version_ge(unpack_N(case.args, 10)), ge)
+        t.assert_equals(utils.is_version_ge(unpack_N_swap_halves(case.args, 10)), le)
     end
 end
 
@@ -298,21 +331,27 @@ end
 -- Even more cases here, rely on utils.is_version_ge tests.
 local is_version_in_range_cases = {
     case_1 = {
-        args = {2, 11, 0, 'entrypoint',
-                2, 10, 4, nil,
-                3, 9, 5, 'rc1'},
+        args = {2, 11, 0, 'entrypoint', nil,
+                2, 10, 4, nil, nil,
+                3, 9, 5, 'rc1', nil},
         res = true,
     },
     case_2 = {
-        args = {3, 9, 0, nil,
-                2, 10, 4, nil,
-                3, 4, 5, 'rc1'},
+        args = {3, 9, 0, nil, nil,
+                2, 10, 4, nil, nil,
+                3, 4, 5, 'rc1', nil},
+        res = false,
+    },
+    case_3 = {
+        args = {3, 9, 0, nil, nil,
+                2, 10, 4, nil, nil,
+                3, 4, 5, 'rc1', nil},
         res = false,
     },
 }
 
 for name, case in pairs(is_version_in_range_cases) do
     g['test_is_version_range_' .. name] = function()
-        t.assert_equals(utils.is_version_in_range(unpack_N(case.args, 12)), case.res)
+        t.assert_equals(utils.is_version_in_range(unpack_N(case.args, 15)), case.res)
     end
 end
