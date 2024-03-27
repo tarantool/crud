@@ -1,7 +1,6 @@
 local fiber = require('fiber')
 local checks = require('checks')
 local errors = require('errors')
-local tarantool = require('tarantool')
 
 local const = require('crud.common.const')
 local stash = require('crud.common.stash')
@@ -25,7 +24,7 @@ local CLOSE_FUNC_NAME = 'readview_close_on_storage'
 local CRUD_CLOSE_FUNC_NAME = utils.get_storage_call(CLOSE_FUNC_NAME)
 
 if (not utils.tarantool_version_at_least(2, 11, 0))
-or (tarantool.package ~= 'Tarantool Enterprise') or (not has_merger) then
+or (not utils.is_enterprise_package()) or (not has_merger) then
     return {
         new = function()
             return nil, ReadviewError:new("Tarantool does not support readview")
@@ -40,7 +39,7 @@ local readview = {}
 
 local function readview_open_on_storage(readview_name)
     if not utils.tarantool_version_at_least(2, 11, 0) or
-    tarantool.package ~= 'Tarantool Enterprise' then
+    not utils.is_enterprise_package() then
         ReadviewError:assert(false, ("Tarantool does not support readview"))
     end
     -- We store readview in stash because otherwise gc will delete it.

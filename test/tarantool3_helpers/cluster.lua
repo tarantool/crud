@@ -51,8 +51,8 @@ function Cluster:initialize()
 
     for _, group in pairs(self.config.groups) do
         for _, replicaset in pairs(group.replicasets) do
-            local is_router = utils.is_replicaset_a_sharding_router(group, replicaset)
-            local is_storage = utils.is_replicaset_a_sharding_storage(group, replicaset)
+            local is_router = utils.is_replicaset_a_crud_router(group, replicaset)
+            local is_storage = utils.is_replicaset_a_crud_storage(group, replicaset)
 
             for alias, _ in pairs(replicaset.instances) do
                 local dir = treegen.prepare_directory(self.treegen, {}, {})
@@ -154,30 +154,6 @@ function Cluster:bootstrap_vshard_routers()
     end
 end
 
-local function bootstrap_crud_router()
-    local crud = require('crud')
-    crud.init_router()
-end
-
-local function bootstrap_crud_storage()
-    local crud = require('crud')
-    crud.init_storage{async = true}
-end
-
-function Cluster:bootstrap_crud()
-    for _, group in pairs(self.config.groups) do
-        for _, rs in pairs(group.replicasets) do
-            if utils.is_replicaset_a_sharding_router(group, rs) then
-                self:exec_on_replicaset(rs, bootstrap_crud_router)
-            end
-
-            if utils.is_replicaset_a_sharding_storage(group, rs) then
-                self:exec_on_replicaset(rs, bootstrap_crud_storage)
-            end
-        end
-    end
-end
-
 function Cluster:wait_for_leaders_rw()
     for _, group in pairs(self.config.groups) do
         for _, rs in pairs(group.replicasets) do
@@ -218,10 +194,6 @@ function Cluster:bootstrap()
     self:set_etalon_bucket_balance()
     self:bootstrap_vshard_routers()
 
-    if self.crud_init then
-        self:bootstrap_crud()
-    end
-
     return self
 end
 
@@ -260,6 +232,11 @@ end
 
 function Cluster:wait_crud_is_ready_on_cluster()
     local router = self:get_router()
+    if router == nil then
+        -- Cluster is not a crud cluster.
+        return self
+    end
+
     local storages_in_topology = self:count_storages()
 
     local WAIT_TIMEOUT = 60
@@ -298,12 +275,12 @@ function Cluster:wait_modules_are_ready_on_cluster()
     for _, group in pairs(self.config.groups) do
         for _, rs in pairs(group.replicasets) do
             if self.router_wait_until_ready ~= nil
-            and utils.is_replicaset_a_sharding_router(group, rs) then
+            and utils.is_replicaset_a_crud_router(group, rs) then
                 self:eval_on_replicaset(rs, self.router_wait_until_ready)
             end
 
             if self.storage_wait_until_ready ~= nil
-            and utils.is_replicaset_a_sharding_storage(group, rs) then
+            and utils.is_replicaset_a_crud_storage(group, rs) then
                 self:eval_on_replicaset(rs, self.storage_wait_until_ready)
             end
         end

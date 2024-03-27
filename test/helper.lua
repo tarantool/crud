@@ -285,6 +285,7 @@ function helpers.get_test_config_groups()
             sharding = {
                 roles = {'router'},
             },
+            roles = {'roles.crud-router'},
             replicasets = {
                 ['router'] = {
                     leader = 'router',
@@ -298,6 +299,7 @@ function helpers.get_test_config_groups()
             sharding = {
                 roles = {'storage'},
             },
+            roles = {'roles.crud-storage'},
             replicasets = {
                 ['s-1'] = {
                     leader = 's1-master',
@@ -845,7 +847,6 @@ function helpers.build_default_tarantool3_cluster_cfg(srv_name)
         storage_entrypoint = helpers.entrypoint_vshard(srv_name, 'storage', false),
         router_entrypoint = helpers.entrypoint_vshard(srv_name, 'router', false),
         all_entrypoint = helpers.entrypoint_vshard(srv_name, 'all', false),
-        crud_init = true,
     }
 end
 
@@ -860,7 +861,7 @@ end
 function helpers.start_cartridge_cluster(g, cfg)
     local cfg = table.deepcopy(cfg)
     cfg.env = {
-        ['ENGINE'] = g.params.engine
+        ['ENGINE'] = (g.params and g.params.engine)
     }
 
     g.cfg = cfg
@@ -881,7 +882,7 @@ end
 
 function helpers.start_vshard_cluster(g, cfg)
     local cfg = table.deepcopy(cfg)
-    cfg.engine = g.params.engine
+    cfg.engine = (g.params and g.params.engine)
 
     g.cfg = vtest.config_new(cfg, g.params.backend_cfg)
     vtest.cluster_new(g, g.cfg)
@@ -891,7 +892,7 @@ end
 function helpers.start_tarantool3_cluster(g, cfg)
     local cfg = table.deepcopy(cfg)
     cfg.env = {
-        ['ENGINE'] = g.params.engine,
+        ['ENGINE'] = (g.params and g.params.engine),
     }
     cfg = tarantool3_config.new(cfg)
 
@@ -915,7 +916,7 @@ function helpers.start_cluster(g, cartridge_cfg, vshard_cfg, tarantool3_cluster_
     elseif g.params.backend == helpers.backend.VSHARD then
         helpers.start_vshard_cluster(g, vshard_cfg)
     elseif g.params.backend == helpers.backend.CONFIG then
-        helpers.skip_if_tarantool_config_unsupported()
+        helpers.skip_if_tarantool3_crud_roles_unsupported()
 
         helpers.start_tarantool3_cluster(g, tarantool3_cluster_cfg)
     end
@@ -997,7 +998,7 @@ function helpers.wait_crud_is_ready_on_cluster(g, opts)
     opts = opts or {}
 
     if opts.backend == nil then
-        opts.backend = g.params.backend
+        opts.backend = (g.params and g.params.backend)
     end
     assert(opts.backend ~= nil)
 
@@ -1159,7 +1160,7 @@ function helpers.backend_matrix(base_matrix)
         )
     end
 
-    if helpers.is_tarantool_config_supported() then
+    if helpers.is_tarantool3_crud_roles_supported() then
         table.insert(backend_params,
             {
                 backend = helpers.backend.CONFIG,
@@ -1453,6 +1454,18 @@ function helpers.skip_if_tarantool_config_unsupported()
     local version = rawget(_G, '_TARANTOOL')
     t.skip_if(not helpers.is_tarantool_config_supported(),
               ("Tarantool %s does not support starting from config"):format(version))
+end
+
+function helpers.is_tarantool3_crud_roles_supported()
+    return crud_utils.tarantool_supports_config_get_inside_roles()
+           and crud_utils.tarantool_role_privileges_not_revoked()
+end
+
+function helpers.skip_if_tarantool3_crud_roles_unsupported()
+    -- box.info.version fails before box.cfg on old versions.
+    local version = rawget(_G, '_TARANTOOL')
+    t.skip_if(not helpers.is_tarantool3_crud_roles_supported(),
+              ("Tarantool %s does not support crud roles"):format(version))
 end
 
 return helpers

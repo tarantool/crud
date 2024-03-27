@@ -133,7 +133,6 @@ local function new(cfg)
         router_entrypoint = '?string',
         all_entrypoint = '?string',
         env = '?table',
-        crud_init = '?boolean',
     })
 
     local modules = generate_modules(
@@ -200,7 +199,6 @@ local function new(cfg)
     return {
         config = config,
         modules = modules,
-        crud_init = cfg.crud_init,
         env = cfg.env,
         router_wait_until_ready = wait_until_ready_evals.router,
         storage_wait_until_ready = wait_until_ready_evals.storage,
