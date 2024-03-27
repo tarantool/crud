@@ -180,32 +180,59 @@ end
 
 local role_cfg_error_cases = {
     wrong_section_type = {
-        args = {crud = 'enabled'},
-        err = 'Configuration \\\"crud\\\" section must be a table',
+        args = 'enabled',
+        err_cartridge = 'Configuration \\\"crud\\\" section must be a table',
+        err_tarantool3 = 'Wrong config for role roles.crud-router: TarantoolRoleConfigurationError: '..
+                         'roles_cfg must be a table',
     },
     wrong_structure = {
-        args = {crud = {crud = {stats = true}}},
-        err = '\\\"crud\\\" section is already presented as a name of \\\"crud.yml\\\", ' ..
-              'do not use it as a top-level section name',
+        args = {crud = {stats = true}},
+        err_cartridge = '\\\"crud\\\" section is already presented as a name of \\\"crud.yml\\\", ' ..
+                        'do not use it as a top-level section name',
+        err_tarantool3 = 'Wrong config for role roles.crud-router: TarantoolRoleConfigurationError: '..
+                         'Unknown field \"crud\"',
     },
     wrong_type = {
-        args = {crud = {stats = 'enabled'}},
-        err = 'Invalid crud configuration field \\\"stats\\\" type: expected boolean, got string',
+        args = {stats = 'enabled'},
+        err_cartridge = 'Invalid crud configuration field \\\"stats\\\" type: expected boolean, got string',
+        err_tarantool3 = 'Wrong config for role roles.crud-router: TarantoolRoleConfigurationError: '..
+                         'Invalid \"stats\" field type: expected boolean, got string',
     },
     wrong_value = {
-        args = {crud = {stats_driver = 'prometheus'}},
-        err = 'Invalid crud configuration field \\\"stats_driver\\\" value: \\\"prometheus\\\" is not supported',
+        args = {stats_driver = 'prometheus'},
+        err_cartridge = 'Invalid crud configuration field \\\"stats_driver\\\" value: '..
+                        '\\\"prometheus\\\" is not supported',
+        err_tarantool3 = 'Wrong config for role roles.crud-router: TarantoolRoleConfigurationError: '..
+                         'Invalid \"stats_driver\" field value: \"prometheus\" is not supported',
     }
 }
 
 for name, case in pairs(role_cfg_error_cases) do
-    group['test_role_cfg_' .. name] = function(g)
+    group['test_cartridge_role_cfg_' .. name] = function(g)
         helpers.skip_not_cartridge_backend(g.params.backend)
         local success, error = pcall(function()
-            g.router:upload_config(case.args)
+            g.router:upload_config({
+                crud = case.args,
+            })
         end)
 
         t.assert_equals(success, false)
-        t.assert_str_contains(error.response.body, case.err)
+        t.assert_str_contains(error.response.body, case.err_cartridge)
+    end
+
+    group['test_tarantool3_role_cfg_' .. name] = function(g)
+        helpers.skip_if_not_config_backend(g.params.backend)
+        local success, error = pcall(function()
+            local cfg = g.cluster:cfg()
+
+            cfg.groups['routers'].roles_cfg = {
+                ['roles.crud-router'] = case.args,
+            }
+
+            g.cluster:reload_config(cfg)
+        end)
+
+        t.assert_equals(success, false)
+        t.assert_str_contains(tostring(error), case.err_tarantool3)
     end
 end
