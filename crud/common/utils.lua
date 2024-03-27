@@ -484,6 +484,34 @@ local function get_version_suffix(suffix_candidate)
     return nil
 end
 
+local function get_commits_since_from_version_part(commits_since_candidate)
+    if commits_since_candidate == nil then
+        return 0
+    end
+
+    local ok, val = pcall(tonumber, commits_since_candidate)
+    if ok then
+        return val
+    else
+        -- It may be unknown suffix instead.
+        -- Since suffix already unknown, there is no way to properly compare versions.
+        return 0
+    end
+end
+
+local function get_commits_since(suffix, commits_since_candidate_1, commits_since_candidate_2)
+    -- x.x.x.-candidate_1-candidate_2
+
+    if suffix ~= nil then
+        -- X.Y.Z-suffix-N
+        return get_commits_since_from_version_part(commits_since_candidate_2)
+    else
+        -- X.Y.Z-N
+        -- Possibly X.Y.Z-suffix-N with unknown suffix
+        return get_commits_since_from_version_part(commits_since_candidate_1)
+    end
+end
+
 utils.get_version_suffix = get_version_suffix
 
 
@@ -517,18 +545,20 @@ utils.get_version_suffix_weight = get_version_suffix_weight
 
 
 local function is_version_ge(major, minor,
-                             patch, suffix,
+                             patch, suffix, commits_since,
                              major_to_compare, minor_to_compare,
-                             patch_to_compare, suffix_to_compare)
+                             patch_to_compare, suffix_to_compare, commits_since_to_compare)
     major = major or 0
     minor = minor or 0
     patch = patch or 0
     local suffix_weight = get_version_suffix_weight(suffix)
+    commits_since = commits_since or 0
 
     major_to_compare = major_to_compare or 0
     minor_to_compare = minor_to_compare or 0
     patch_to_compare = patch_to_compare or 0
     local suffix_weight_to_compare = get_version_suffix_weight(suffix_to_compare)
+    commits_since_to_compare = commits_since_to_compare or 0
 
     if major > major_to_compare then return true end
     if major < major_to_compare then return false end
@@ -542,6 +572,9 @@ local function is_version_ge(major, minor,
     if suffix_weight > suffix_weight_to_compare then return true end
     if suffix_weight < suffix_weight_to_compare then return false end
 
+    if commits_since > commits_since_to_compare then return true end
+    if commits_since < commits_since_to_compare then return false end
+
     return true
 end
 
@@ -549,26 +582,26 @@ utils.is_version_ge = is_version_ge
 
 
 local function is_version_in_range(major, minor,
-                                   patch, suffix,
+                                   patch, suffix, commits_since,
                                    major_left_side, minor_left_side,
-                                   patch_left_side, suffix_left_side,
+                                   patch_left_side, suffix_left_side, commits_since_left_side,
                                    major_right_side, minor_right_side,
-                                   patch_right_side, suffix_right_side)
+                                   patch_right_side, suffix_right_side, commits_since_right_side)
     return is_version_ge(major, minor,
-                         patch, suffix,
+                         patch, suffix, commits_since,
                          major_left_side, minor_left_side,
-                         patch_left_side, suffix_left_side)
+                         patch_left_side, suffix_left_side, commits_since_left_side)
        and is_version_ge(major_right_side, minor_right_side,
-                         patch_right_side, suffix_right_side,
+                         patch_right_side, suffix_right_side, commits_since_right_side,
                          major, minor,
-                         patch, suffix)
+                         patch, suffix, commits_since)
 end
 
 utils.is_version_in_range = is_version_in_range
 
 
 local function get_tarantool_version()
-    local version_parts = rawget(_G, '_TARANTOOL'):split('-', 1)
+    local version_parts = rawget(_G, '_TARANTOOL'):split('-', 3)
 
     local major_minor_patch_parts = version_parts[1]:split('.', 2)
     local major = tonumber(major_minor_patch_parts[1])
@@ -577,17 +610,20 @@ local function get_tarantool_version()
 
     local suffix = get_version_suffix(version_parts[2])
 
-    return major, minor, patch, suffix
+    local commits_since = get_commits_since(suffix, version_parts[2], version_parts[3])
+
+    return major, minor, patch, suffix, commits_since
 end
 
 utils.get_tarantool_version = get_tarantool_version
 
 
-local function tarantool_version_at_least(wanted_major, wanted_minor, wanted_patch)
-    local major, minor, patch, suffix = get_tarantool_version()
+local function tarantool_version_at_least(wanted_major, wanted_minor,
+                                          wanted_patch, wanted_suffix, wanted_commits_since)
+    local major, minor, patch, suffix, commits_since = get_tarantool_version()
 
-    return is_version_ge(major, minor, patch, suffix,
-                         wanted_major, wanted_minor, wanted_patch, nil)
+    return is_version_ge(major, minor, patch, suffix, commits_since,
+                         wanted_major, wanted_minor, wanted_patch, wanted_suffix, wanted_commits_since)
 end
 
 utils.tarantool_version_at_least = tarantool_version_at_least
@@ -596,49 +632,49 @@ utils.tarantool_version_at_least = tarantool_version_at_least
 local enabled_tarantool_features = {}
 
 local function determine_enabled_features()
-    local major, minor, patch, suffix = get_tarantool_version()
+    local major, minor, patch, suffix, commits_since = get_tarantool_version()
 
     -- since Tarantool 2.3.1
-    enabled_tarantool_features.fieldpaths = is_version_ge(major, minor, patch, suffix,
-                                                          2, 3, 1, nil)
+    enabled_tarantool_features.fieldpaths = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                          2, 3, 1, nil, nil)
 
     -- Full support (Lua type, space format type and indexes) for decimal type
     -- is since Tarantool 2.3.1 [1]
     --
     -- [1] https://github.com/tarantool/tarantool/commit/485439e33196e26d120e622175f88b4edc7a5aa1
-    enabled_tarantool_features.decimals = is_version_ge(major, minor, patch, suffix,
-                                                        2, 3, 1, nil)
+    enabled_tarantool_features.decimals = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                        2, 3, 1, nil, nil)
 
     -- Full support (Lua type, space format type and indexes) for uuid type
     -- is since Tarantool 2.4.1 [1]
     --
     -- [1] https://github.com/tarantool/tarantool/commit/b238def8065d20070dcdc50b54c2536f1de4c7c7
-    enabled_tarantool_features.uuids = is_version_ge(major, minor, patch, suffix,
-                                                     2, 4, 1, nil)
+    enabled_tarantool_features.uuids = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                     2, 4, 1, nil, nil)
 
     -- Full support (Lua type, space format type and indexes) for datetime type
     -- is since Tarantool 2.10.0-beta2 [1]
     --
     -- [1] https://github.com/tarantool/tarantool/commit/3bd870261c462416c29226414fe0a2d79aba0c74
-    enabled_tarantool_features.datetimes = is_version_ge(major, minor, patch, suffix,
-                                                         2, 10, 0, 'beta2')
+    enabled_tarantool_features.datetimes = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                         2, 10, 0, 'beta2', nil)
 
     -- Full support (Lua type, space format type and indexes) for datetime type
     -- is since Tarantool 2.10.0-rc1 [1]
     --
     -- [1] https://github.com/tarantool/tarantool/commit/38f0c904af4882756c6dc802f1895117d3deae6a
-    enabled_tarantool_features.intervals = is_version_ge(major, minor, patch, suffix,
-                                                         2, 10, 0, 'rc1')
+    enabled_tarantool_features.intervals = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                         2, 10, 0, 'rc1', nil)
 
     -- since Tarantool 2.6.3 / 2.7.2 / 2.8.1
-    enabled_tarantool_features.jsonpath_indexes = is_version_ge(major, minor, patch, suffix,
-                                                                2, 8, 1, nil)
-                                               or is_version_in_range(major, minor, patch, suffix,
-                                                                      2, 7, 2, nil,
-                                                                      2, 7, math.huge, nil)
-                                               or is_version_in_range(major, minor, patch, suffix,
-                                                                      2, 6, 3, nil,
-                                                                      2, 6, math.huge, nil)
+    enabled_tarantool_features.jsonpath_indexes = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                                2, 8, 1, nil, nil)
+                                               or is_version_in_range(major, minor, patch, suffix, commits_since,
+                                                                      2, 7, 2, nil, nil,
+                                                                      2, 7, math.huge, nil, nil)
+                                               or is_version_in_range(major, minor, patch, suffix, commits_since,
+                                                                      2, 6, 3, nil, nil,
+                                                                      2, 6, math.huge, nil, nil)
 
     -- The merger module was implemented in 2.2.1, see [1].
     -- However it had the critical problem [2], which leads to
@@ -648,17 +684,17 @@ local function determine_enabled_features()
     --
     -- [1]: https://github.com/tarantool/tarantool/issues/3276
     -- [2]: https://github.com/tarantool/tarantool/issues/4954
-    enabled_tarantool_features.builtin_merger = is_version_ge(major, minor, patch, suffix,
-                                                              2, 6, 0, nil)
-                                             or is_version_in_range(major, minor, patch, suffix,
-                                                                    2, 5, 1, nil,
-                                                                    2, 5, math.huge, nil)
-                                             or is_version_in_range(major, minor, patch, suffix,
-                                                                    2, 4, 2, nil,
-                                                                    2, 4, math.huge, nil)
-                                             or is_version_in_range(major, minor, patch, suffix,
-                                                                    2, 3, 3, nil,
-                                                                    2, 3, math.huge, nil)
+    enabled_tarantool_features.builtin_merger = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                              2, 6, 0, nil, nil)
+                                             or is_version_in_range(major, minor, patch, suffix, commits_since,
+                                                                    2, 5, 1, nil, nil,
+                                                                    2, 5, math.huge, nil, nil)
+                                             or is_version_in_range(major, minor, patch, suffix, commits_since,
+                                                                    2, 4, 2, nil, nil,
+                                                                    2, 4, math.huge, nil, nil)
+                                             or is_version_in_range(major, minor, patch, suffix, commits_since,
+                                                                    2, 3, 3, nil, nil,
+                                                                    2, 3, math.huge, nil, nil)
 
     -- The external merger module leans on a set of relatively
     -- new APIs in tarantool. So it works only on tarantool
@@ -666,33 +702,37 @@ local function determine_enabled_features()
     --
     -- See README of the module:
     -- https://github.com/tarantool/tuple-merger
-    enabled_tarantool_features.external_merger = is_version_ge(major, minor, patch, suffix,
-                                                               2, 7, 0, nil)
-                                              or is_version_in_range(major, minor, patch, suffix,
-                                                                     2, 6, 1, nil,
-                                                                     2, 6, math.huge, nil)
-                                              or is_version_in_range(major, minor, patch, suffix,
-                                                                     2, 5, 2, nil,
-                                                                     2, 5, math.huge, nil)
-                                              or is_version_in_range(major, minor, patch, suffix,
-                                                                     2, 4, 3, nil,
-                                                                     2, 4, math.huge, nil)
-                                              or is_version_in_range(major, minor, patch, suffix,
-                                                                     1, 10, 8, nil,
-                                                                     1, 10, math.huge, nil)
+    enabled_tarantool_features.external_merger = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                               2, 7, 0, nil, nil)
+                                              or is_version_in_range(major, minor, patch, suffix, commits_since,
+                                                                     2, 6, 1, nil, nil,
+                                                                     2, 6, math.huge, nil, nil)
+                                              or is_version_in_range(major, minor, patch, suffix, commits_since,
+                                                                     2, 5, 2, nil, nil,
+                                                                     2, 5, math.huge, nil, nil)
+                                              or is_version_in_range(major, minor, patch, suffix, commits_since,
+                                                                     2, 4, 3, nil, nil,
+                                                                     2, 4, math.huge, nil, nil)
+                                              or is_version_in_range(major, minor, patch, suffix, commits_since,
+                                                                     1, 10, 8, nil, nil,
+                                                                     1, 10, math.huge, nil, nil)
 
-    enabled_tarantool_features.netbox_skip_header_option = is_version_ge(major, minor, patch, suffix,
-                                                                         2, 2, 0, nil)
+    enabled_tarantool_features.netbox_skip_header_option = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                                         2, 2, 0, nil, nil)
 
     -- https://github.com/tarantool/tarantool/commit/11f2d999a92e45ee41b8c8d0014d8a09290fef7b
-    enabled_tarantool_features.box_watch = is_version_ge(major, minor, patch, suffix,
-                                                         2, 10, 0, 'beta2')
+    enabled_tarantool_features.box_watch = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                         2, 10, 0, 'beta2', nil)
 
-    enabled_tarantool_features.tarantool_3 = is_version_ge(major, minor, patch, suffix,
-                                                           3, 0, 0, nil)
+    enabled_tarantool_features.tarantool_3 = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                           3, 0, 0, nil, nil)
 end
 
 determine_enabled_features()
+
+local function feature_in_list(feature_to_check, list_of_features)
+
+end
 
 for feature_name, feature_enabled in pairs(enabled_tarantool_features) do
     local util_name
