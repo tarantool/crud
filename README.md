@@ -43,6 +43,7 @@ It also provides the `crud-storage` and `crud-router` roles for
     - [Read view select](#read-view-select)
       - [Read view select conditions](#read-view-select-conditions)
     - [Read view pairs](#read-view-pairs)
+  - [Schema](#schema)
 - [Cartridge roles](#cartridge-roles)
   - [Usage](#usage)
 - [License](#license)
