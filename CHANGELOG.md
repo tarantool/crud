@@ -9,10 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 * Asynchronous bootstrap support for storages (#412).
+* Tarantool 3 roles for setting up crud routers and storages (#415).
+* Ability to configure crud through Tarantool 3 roles configuration (#415).
 
 ### Changed
 * Explicitly forbid datetime interval conditions (#373).
 * Storage initialization is now asynchronous by default for Tarantool 3.0+ (#412).
+* Additionally check backoff error on storage info fetch (#427).
 
 ### Fixed
 * Working with datetime conditions in case of non-indexed fields or

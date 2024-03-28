@@ -153,7 +153,7 @@ for name, case in pairs(count_safety_cases) do
         local uc = case.user_conditions
         local opts = case.opts
         local captured, err = helpers.get_command_log(g.router,
-            g.params.backend, 'crud.count', {space, uc, opts})
+            'crud.count', {space, uc, opts})
 
         t.assert_equals(err, nil)
         if case.has_crit then
