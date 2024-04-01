@@ -49,7 +49,7 @@ function storage_info.call(opts)
     end
 
     local replicasets, err = vshard_router:routeall()
-    if replicasets == nil then
+    if err ~= nil then
         return nil, StorageInfoError:new("Failed to get router replicasets: %s", err.err)
     end
 
@@ -59,8 +59,9 @@ function storage_info.call(opts)
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
 
     for _, replicaset in pairs(replicasets) do
+        local master = utils.get_replicaset_master(replicaset, {cached = false})
+
         for replica_id, replica in pairs(replicaset.replicas) do
-            local master = utils.get_replicaset_master(replicaset, {cached = false})
 
             replica_state_by_id[replica_id] = {
                 status = "error",
