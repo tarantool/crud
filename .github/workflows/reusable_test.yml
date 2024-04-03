@@ -40,11 +40,6 @@ jobs:
       - name: Install requirements
         run: ./deps.sh
 
-      - name: Install metrics
-        run: |
-          tt init
-          tt rocks install metrics 1.0.0
-
       # This server starts and listen on 8084 port that is used for tests
       - name: Stop Mono server
         run: sudo kill -9 $(sudo lsof -t -i tcp:8084) || true
