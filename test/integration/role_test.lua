@@ -13,10 +13,9 @@ end)
 g.before_each(function(cg)
     -- Tests are rather dangerous and may break the cluster,
     -- so it's safer to restart for each case.
-    helpers.start_tarantool3_cluster(cg, cg.template_cfg)
-    cg.router = cg.cluster:server('router')
-
-    helpers.wait_crud_is_ready_on_cluster(cg, {backend = helpers.backend.CONFIG})
+    helpers.start_cluster(cg, nil, nil, cg.template_cfg, {
+        backend = helpers.backend.CONFIG,
+    })
 end)
 
 g.after_each(function(cg)

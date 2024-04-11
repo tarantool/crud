@@ -902,30 +902,63 @@ function helpers.start_tarantool3_cluster(g, cfg)
 end
 
 function helpers.start_cluster(g, cartridge_cfg, vshard_cfg, tarantool3_cluster_cfg, opts)
-    checks('table', '?table', '?table', '?table', {wait_crud_is_ready = '?boolean'})
+    checks('table', '?table', '?table', '?table', {
+        wait_crud_is_ready = '?boolean',
+        backend = '?string',
+        retries = '?number',
+    })
 
     opts = opts or {}
+
     if opts.wait_crud_is_ready == nil then
         opts.wait_crud_is_ready = true
     end
 
-    if g.params.backend == helpers.backend.CARTRIDGE then
-        helpers.skip_cartridge_unsupported()
+    if opts.backend == nil then
+        opts.backend = g.params.backend
+    end
+    assert(opts.backend ~= nil, 'Please, provide backend')
 
-        helpers.start_cartridge_cluster(g, cartridge_cfg)
-    elseif g.params.backend == helpers.backend.VSHARD then
-        helpers.start_vshard_cluster(g, vshard_cfg)
-    elseif g.params.backend == helpers.backend.CONFIG then
-        helpers.skip_if_tarantool3_crud_roles_unsupported()
-
-        helpers.start_tarantool3_cluster(g, tarantool3_cluster_cfg)
+    local DEFAULT_RETRIES = 3
+    if opts.retries == nil then
+        opts.retries = DEFAULT_RETRIES
     end
 
-    g.router = g.cluster:server('router')
-    assert(g.router ~= nil, 'router found')
+    local current_attempt = 0
+    while true do
+        current_attempt = current_attempt + 1
 
-    if opts.wait_crud_is_ready then
-        helpers.wait_crud_is_ready_on_cluster(g)
+        if opts.backend == helpers.backend.CARTRIDGE then
+            helpers.skip_cartridge_unsupported()
+
+            helpers.start_cartridge_cluster(g, cartridge_cfg)
+        elseif opts.backend == helpers.backend.VSHARD then
+            helpers.start_vshard_cluster(g, vshard_cfg)
+        elseif opts.backend == helpers.backend.CONFIG then
+            helpers.skip_if_tarantool3_crud_roles_unsupported()
+
+            helpers.start_tarantool3_cluster(g, tarantool3_cluster_cfg)
+        end
+
+        g.router = g.cluster:server('router')
+        assert(g.router ~= nil, 'router found')
+
+        local ok, err = false, nil -- luacheck: ignore
+        if opts.wait_crud_is_ready then
+            ok, err = pcall(helpers.wait_crud_is_ready_on_cluster, g, {backend = opts.backend})
+        else
+            ok = true
+        end
+
+        if ok then
+            break
+        end
+
+        helpers.stop_cluster(g.cluster, opts.backend)
+
+        if current_attempt == opts.retries then
+            error(err)
+        end
     end
 end
 
