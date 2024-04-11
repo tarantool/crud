@@ -83,7 +83,7 @@ pgroup.before_all(function(g)
         cartridge_cfg_template,
         vshard_cfg_template,
         tarantool3_cluster_cfg_template,
-        {wait_crud_is_ready = false}
+        {wait_crud_is_ready = false, retries = 1}
     )
 
     g.router = g.cluster:server('router')
