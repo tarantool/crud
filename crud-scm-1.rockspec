@@ -5,6 +5,10 @@ source  = {
     branch = 'master',
 }
 
+description = {
+    license = 'BSD',
+}
+
 dependencies = {
     'lua ~> 5.1',
     'checks >= 3.1.0-1',
