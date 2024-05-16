@@ -818,6 +818,12 @@ function helpers.skip_old_tarantool_cartridge_hotreload()
     t.skip_if(luatest_utils.version_ge(tarantool_version, luatest_utils.version(2, 0, 0))
           and luatest_utils.version_ge(luatest_utils.version(2, 5, 1), tarantool_version),
         "Cartridge hotreload tests stuck for vshard 0.1.22+ on Tarantool 2.2, 2.3 and 2.4")
+
+    -- Flaky tests for Tarantool 1.10.15.
+    -- s2-replica | E> ER_READONLY: Can't modify data because this instance is in read-only mode.
+    -- s2-replica | E> ApplyConfigError: Can't modify data because this instance is in read-only mode.
+    t.skip_if(luatest_utils.version_ge(luatest_utils.version(2, 0, 0), tarantool_version),
+        "Flaky tests for Tarantool 1.10.15")
 end
 
 function helpers.build_default_cartridge_cfg(srv_name)
