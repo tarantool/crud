@@ -16,7 +16,7 @@ $TTCTL rocks install luacheck 0.25.0
 $TTCTL rocks install luacov 0.13.0
 
 # cluacov, luacov-coveralls and dependencies
-$TTCTL rocks install https://raw.githubusercontent.com/mpeterv/cluacov/master/cluacov-scm-1.rockspec
+$TTCTL rocks install https://raw.githubusercontent.com/luarocks/cluacov/master/cluacov-scm-1.rockspec
 $TTCTL rocks install https://raw.githubusercontent.com/LuaDist/dkjson/master/dkjson-2.5-2.rockspec
 $TTCTL rocks install https://raw.githubusercontent.com/keplerproject/luafilesystem/master/luafilesystem-scm-1.rockspec
 $TTCTL rocks install https://raw.githubusercontent.com/moteus/lua-path/master/rockspecs/lua-path-scm-0.rockspec
