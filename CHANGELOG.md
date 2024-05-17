@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+* `insert_many`, `insert_object_many`, `replace_many`, `replace_object_many`,
+  `upsert_many`, `upsert_object_many` operations no longer fail with
+  `ShardingHashMismatchError` if a space has custom sharding info and
+  every tuple/object in the request has `bucket_id` set (#437).
+
 ## [1.5.1] - 27-04-24
 
 ### Added

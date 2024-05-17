@@ -3,6 +3,7 @@ local t = require('luatest')
 local crud = require('crud')
 
 local helpers = require('test.helper')
+local write_scenario = require('test.integration.write_scenario')
 
 local batching_utils = require('crud.common.batching_utils')
 
@@ -20,6 +21,7 @@ end)
 
 pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'developers')
+    helpers.truncate_space_on_cluster(g.cluster, 'customers_sharded_by_age')
 end)
 
 pgroup.test_non_existent_space = function(g)
@@ -2061,4 +2063,28 @@ pgroup.test_zero_objects = function(g)
     t.assert_equals(#errs, 1)
     t.assert_str_contains(errs[1].err, "At least one object expected")
     t.assert_equals(result, nil)
+end
+
+pgroup.test_gh_437_replace_many_explicit_bucket_ids = function(g)
+    write_scenario.gh_437_many_explicit_bucket_ids(g, 'replace_many')
+end
+
+pgroup.test_gh_437_replace_many_partial_explicit_bucket_ids = function(g)
+    write_scenario.gh_437_many_explicit_bucket_ids(
+        g,
+        'replace_many',
+        {partial_explicit_bucket_ids = true}
+    )
+end
+
+pgroup.test_gh_437_replace_object_many_explicit_bucket_ids = function(g)
+    write_scenario.gh_437_many_explicit_bucket_ids(g, 'replace_object_many', {objects = true})
+end
+
+pgroup.test_gh_437_replace_object_many_partial_explicit_bucket_ids = function(g)
+    write_scenario.gh_437_many_explicit_bucket_ids(
+        g,
+        'replace_object_many',
+        {objects = true, partial_explicit_bucket_ids = true}
+    )
 end
