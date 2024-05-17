@@ -222,13 +222,11 @@ function sharding.split_tuples_by_replicaset(vshard_router, tuples, space, opts)
 
     local batches = {}
 
-    local sharding_func_hash
-    local sharding_key_hash
-    local skip_sharding_hash_check
-    local sharding_data
-    local err
+    local sharding_func_hash = nil
+    local sharding_key_hash = nil
+    local skip_sharding_hash_check = true
     for i, tuple in ipairs(tuples) do
-        sharding_data, err = sharding.tuple_set_and_return_bucket_id(vshard_router, tuple, space)
+        local sharding_data, err = sharding.tuple_set_and_return_bucket_id(vshard_router, tuple, space)
         if err ~= nil then
             return nil, BucketIDError:new("Failed to get bucket ID: %s", err)
         end
