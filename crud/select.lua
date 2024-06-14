@@ -1,3 +1,6 @@
+---- Module
+-- @module crud.select
+--
 local errors = require('errors')
 
 local stash = require('crud.common.stash')
