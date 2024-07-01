@@ -11,7 +11,7 @@ then
 fi
 
 # Test dependencies:
-$TTCTL rocks install luatest
+$TTCTL rocks install luatest 1.0.1
 $TTCTL rocks install luacheck 0.25.0
 $TTCTL rocks install luacov 0.13.0
 
