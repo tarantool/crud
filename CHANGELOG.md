@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 * `crud.schema` no longer returns system space `_gc_consumers` with Tarantool 3.2+.
+* `crud.schema` no longer returns `tt` system space `_tt_migrations`.
 * Tests of `schema` with Tarantool 3.2+.
 * Fixed bad error handling for method `call.single`
 
