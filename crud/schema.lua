@@ -36,6 +36,7 @@ schema.system_spaces = {
     ['_ck_constraint'] = true,
     ['_func_index'] = true,
     ['_session_settings'] = true,
+    ['_gc_consumers'] = true,
     -- https://github.com/tarantool/vshard/blob/b3c27b32637863e9a03503e641bb7c8c69779a00/vshard/storage/init.lua#L752
     ['_bucket'] = true,
     -- https://github.com/tarantool/ddl/blob/b55d0ff7409f32e4d527e2d25444d883bce4163b/test/set_sharding_metadata_test.lua#L92-L98
