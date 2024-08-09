@@ -198,7 +198,7 @@ function call.single(vshard_router, bucket_id, func_name, func_args, opts)
 
     local replicaset, err = vshard_router:route(bucket_id)
     if err ~= nil then
-        return nil, CallError:new("Failed to get router replicaset: %s", err.err)
+        return nil, CallError:new("Failed to get router replicaset: %s", tostring(err))
     end
 
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
