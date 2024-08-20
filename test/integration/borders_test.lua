@@ -367,7 +367,12 @@ pgroup.test_opts_not_damaged = function(g)
     })
 
     -- min
-    local min_opts = {timeout = 1, fields = {'name', 'age'}, mode = 'write'}
+    local min_opts = {
+        timeout = 1,
+        request_timeout = 1,
+        fields = {'name', 'age'},
+        mode = 'write',
+    }
     local new_min_opts, err = g.router:eval([[
         local crud = require('crud')
 
@@ -382,7 +387,12 @@ pgroup.test_opts_not_damaged = function(g)
     t.assert_equals(new_min_opts, min_opts)
 
     -- max
-    local max_opts = {timeout = 1, fields = {'name', 'age'}, mode = 'write'}
+    local max_opts = {
+        timeout = 1,
+        request_timeout = 1,
+        fields = {'name', 'age'},
+        mode = 'write',
+    }
     local new_max_opts, err = g.router:eval([[
         local crud = require('crud')
 

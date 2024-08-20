@@ -54,10 +54,13 @@ local function select_iteration(space_name, plan, opts)
         space_name, plan.index_id, plan.conditions, storage_select_opts,
     }
 
+    local mode = call_opts.mode or 'read'
+
     local results, err, storages_info = call.map(opts.vshard_router, common.SELECT_FUNC_NAME, storage_select_args, {
         replicasets = opts.replicasets,
         timeout = call_opts.timeout,
-        mode = call_opts.mode or 'read',
+        request_timeout = mode == 'read' and call_opts.request_timeout or nil,
+        mode = mode,
         prefer_replica = call_opts.prefer_replica,
         balance = call_opts.balance,
     })
@@ -355,6 +358,8 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
         end
     end
 
+    local mode = opts.mode or 'read'
+
     local iterator_opts = {
         after = opts.after,
         first = opts.first,
@@ -364,10 +369,11 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
         field_names = opts.fields,
         yield_every = opts.yield_every,
         call_opts = {
-            mode = opts.mode,
+            mode = mode,
             prefer_replica = opts.prefer_replica,
             balance = opts.balance,
             timeout = opts.timeout,
+            request_timeout = mode == 'read' and opts.request_timeout or nil,
             fetch_latest_metadata = opts.fetch_latest_metadata,
         },
     }
@@ -439,6 +445,7 @@ function select_module.call(space_name, user_conditions, opts)
         prefer_replica = '?boolean',
         balance = '?boolean',
         timeout = '?number',
+        request_timeout= '?number',
 
         vshard_router = '?string|table',
 

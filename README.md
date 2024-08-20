@@ -544,6 +544,9 @@ where:
   * `bucket_id` (`?number|cdata`) - bucket ID
   * `timeout` (`?number`) - `vshard.call` timeout and vshard master
     discovery timeout (in seconds), default value is 2
+  * `request_timeout` (`?number`) - `vshard.call` `request_timeout` parameter.
+    Can be specified only with `mode` = `read`, and default value is the same as
+    user-passed `timeout`.
   * `mode` (`?string`, `read` or `write`) - if `write` is specified then `get` is
     performed on master, default value is `read`
   * `prefer_replica` (`?boolean`) - if `true` then the preferred target is one of
@@ -1103,6 +1106,9 @@ where:
      then the map call is performed without any optimizations even
      if full primary key equal condition is specified
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `request_timeout` (`?number`) - `vshard.call` `request_timeout` parameter.
+    Can be specified only with `mode` = `read`, and default value is the same as
+    user-passed `timeout`.
   * `fields` (`?table`) - field names for getting only a subset of fields
   * `fullscan` (`?boolean`) - if `true` then a critical log entry will be skipped
     on potentially long `select`, see [avoiding full scan](doc/select.md#avoiding-full-scan).
@@ -1200,6 +1206,9 @@ where:
 * `index_id` (`?string|number`) - index name or index id. Primary index by default
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `request_timeout` (`?number`) - `vshard.call` `request_timeout` parameter.
+    Can be specified only with `mode` = `read`, and default value is the same as
+    user-passed `timeout`.
   * `fields` (`?table`) - field names for getting only a subset of fields
   * `mode` (`?string`, `read` or `write`) - if `write` is specified then `select` is
     performed on master, default value is `read`
@@ -1428,6 +1437,10 @@ where:
 * `space_name` (`string`) - name of the space
 * `conditions` (`?table`) - array of [conditions](#select-conditions)
 * `opts`:
+  * `timeout` (`?number`) - `vshard.call` timeout (in seconds)
+  * `request_timeout` (`?number`) - `vshard.call` `request_timeout` parameter.
+    Can be specified only with `mode` = `read`, and default value is the same as
+    user-passed `timeout`.
   * `yield_every` (`?number`) - number of tuples processed to yield after,
     `yield_every` should be > 0, default value is 1000
   * `timeout` (`?number`) - `vshard.call` timeout and vshard master
@@ -1733,7 +1746,7 @@ local result, err = rv:select(space_name, conditions, opts)
 rv:close()
 ```
 
-Opts are the same as [select opts](#select), except `balance`, `prefer_replica` and `mode` are not supported.
+Opts are the same as [select opts](#select), except `balance`, `request_timeout`, `prefer_replica` and `mode` are not supported.
 
 Returns metadata and array of rows, error.
 

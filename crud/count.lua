@@ -110,6 +110,7 @@ end
 local function call_count_on_router(vshard_router, space_name, user_conditions, opts)
     checks('table', 'string', '?table', {
         timeout = '?number',
+        request_timeout = '?number',
         bucket_id = '?',
         force_map_call = '?boolean',
         fullscan = '?boolean',
@@ -221,11 +222,14 @@ local function call_count_on_router(vshard_router, space_name, user_conditions, 
 
     local yield_every = opts.yield_every or const.DEFAULT_YIELD_EVERY
 
+    local mode = opts.mode or 'read'
+
     local call_opts = {
-        mode = opts.mode or 'read',
+        mode = mode,
         prefer_replica = opts.prefer_replica,
         balance = opts.balance,
         timeout = opts.timeout,
+        request_timeout = mode == 'read' and opts.request_timeout or nil,
         replicasets = replicasets_to_count,
     }
 
@@ -282,6 +286,10 @@ end
 --  Function call timeout in seconds,
 --  default value is 2 seconds
 --
+-- @tparam ?number opts.request_timeout
+--  vshard call request_timeout,
+--  default is the same as opts.timeout
+--
 -- @tparam ?number opts.bucket_id
 --  Bucket ID
 --  default is vshard.router.bucket_id_strcrc32 of primary key
@@ -317,6 +325,7 @@ end
 function count.call(space_name, user_conditions, opts)
     checks('string', '?table', {
         timeout = '?number',
+        request_timeout = '?number',
         bucket_id = '?',
         force_map_call = '?boolean',
         fullscan = '?boolean',

@@ -214,6 +214,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         prefer_replica = '?boolean',
         balance = '?boolean',
         timeout = '?number',
+        request_timeout = '?number',
         readview = '?boolean',
         readview_info = '?table',
 
@@ -247,6 +248,10 @@ function select_module.pairs(space_name, user_conditions, opts)
         if opts.vshard_router ~= nil then
             return nil, SelectError:new("Readview does not support 'vshard_router' option")
         end
+
+        if opts.request_timeout ~= nil then
+            return nil, SelectError:new("Readview does not support 'request_timeout' option")
+        end
     end
 
     if opts.first ~= nil and opts.first < 0 then
@@ -271,6 +276,8 @@ function select_module.pairs(space_name, user_conditions, opts)
             prefer_replica = opts.prefer_replica,
             balance = opts.balance,
             timeout = opts.timeout,
+            request_timeout = (opts.mode == 'read' or opts.mode == nil) and
+                              opts.request_timeout or nil,
             fetch_latest_metadata = opts.fetch_latest_metadata,
         },
         readview = opts.readview,
@@ -338,6 +345,7 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
         prefer_replica = '?boolean',
         balance = '?boolean',
         timeout = '?number',
+        request_timeout = '?number',
         readview = '?boolean',
         readview_info = '?table',
 
@@ -362,6 +370,10 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
         if opts.vshard_router ~= nil then
             return nil, SelectError:new("Readview does not support 'vshard_router' option")
         end
+
+        if opts.request_timeout ~= nil then
+            return nil, SelectError:new("Readview does not support 'request_timeout' option")
+        end
     end
 
     if opts.first ~= nil and opts.first < 0 then
@@ -383,6 +395,8 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
             prefer_replica = opts.prefer_replica,
             balance = opts.balance,
             timeout = opts.timeout,
+            request_timeout = (opts.mode == 'read' or opts.mode == nil) and
+                              opts.request_timeout or nil,
             fetch_latest_metadata = opts.fetch_latest_metadata,
         },
         readview = opts.readview,

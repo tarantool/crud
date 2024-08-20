@@ -58,6 +58,7 @@ get.storage_api = {[GET_FUNC_NAME] = get_on_storage}
 local function call_get_on_router(vshard_router, space_name, key, opts)
     dev_checks('table', 'string', '?', {
         timeout = '?number',
+        request_timeout = '?number',
         bucket_id = '?',
         fields = '?table',
         prefer_replica = '?boolean',
@@ -116,11 +117,14 @@ local function call_get_on_router(vshard_router, space_name, key, opts)
         fetch_latest_metadata = opts.fetch_latest_metadata,
     }
 
+    local mode = opts.mode or 'read'
+
     local call_opts = {
-        mode = opts.mode or 'read',
+        mode = mode,
         prefer_replica = opts.prefer_replica,
         balance = opts.balance,
         timeout = opts.timeout,
+        request_timeout = mode == 'read' and opts.request_timeout or nil,
     }
 
     local storage_result, err = call.single(vshard_router,
@@ -174,6 +178,10 @@ end
 -- @tparam ?number opts.timeout
 --  Function call timeout
 --
+-- @tparam ?number opts.request_timeout
+--  vshard call request_timeout
+--  default is the same as opts.timeout
+--
 -- @tparam ?number opts.bucket_id
 --  Bucket ID
 --  (by default, it's vshard.router.bucket_id_strcrc32 of primary key)
@@ -196,6 +204,7 @@ end
 function get.call(space_name, key, opts)
     checks('string', '?', {
         timeout = '?number',
+        request_timeout = '?number',
         bucket_id = '?',
         fields = '?table',
         prefer_replica = '?boolean',
