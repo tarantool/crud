@@ -108,6 +108,7 @@ function call.map(vshard_router, func_name, func_args, opts)
         prefer_replica = '?boolean',
         balance = '?boolean',
         timeout = '?number',
+        request_timeout = '?number',
         replicasets = '?table',
         iter = '?table',
         postprocessor = '?table',
@@ -139,7 +140,10 @@ function call.map(vshard_router, func_name, func_args, opts)
     end
 
     local futures_by_replicasets = {}
-    local call_opts = {is_async = true}
+    local call_opts = {
+        is_async = true,
+        request_timeout = opts.mode == 'read' and opts.request_timeout or nil,
+    }
     while iter:has_next() do
         local args, replicaset, replicaset_id = iter:get()
 
@@ -201,6 +205,7 @@ function call.single(vshard_router, bucket_id, func_name, func_args, opts)
         prefer_replica = '?boolean',
         balance = '?boolean',
         timeout = '?number',
+        request_timeout = '?number',
     })
 
     local vshard_call_name, err = call.get_vshard_call_name(opts.mode, opts.prefer_replica, opts.balance)
@@ -214,9 +219,11 @@ function call.single(vshard_router, bucket_id, func_name, func_args, opts)
     end
 
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
+    local request_timeout = opts.mode == 'read' and opts.request_timeout or nil
 
     local res, err = retry_call_with_master_discovery(replicaset, vshard_call_name,
-        func_name, func_args, {timeout = timeout})
+        func_name, func_args, {timeout = timeout,
+                               request_timeout = request_timeout})
     if err ~= nil then
         return nil, wrap_vshard_err(vshard_router, err, func_name, nil, bucket_id)
     end

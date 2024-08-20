@@ -1370,7 +1370,12 @@ pgroup.test_opts_not_damaged = function(g)
     t.assert_equals(new_upsert_opts, upsert_opts)
 
     -- get
-    local get_opts = {timeout = 1, bucket_id = 401, fields = {'name', 'age'}}
+    local get_opts = {
+        timeout = 1,
+        request_timeout = 1,
+        bucket_id = 401,
+        fields = {'name', 'age'},
+    }
     local new_get_opts, err = g.router:eval([[
         local crud = require('crud')
 

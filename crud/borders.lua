@@ -69,6 +69,7 @@ end
 local function call_get_border_on_router(vshard_router, border_name, space_name, index_name, opts)
     checks('table', 'string', 'string', '?string|number', {
         timeout = '?number',
+        request_timeout = '?number',
         fields = '?table',
         mode = '?string',
         vshard_router = '?string|table',
@@ -105,10 +106,12 @@ local function call_get_border_on_router(vshard_router, border_name, space_name,
     if err ~= nil then
         return nil, BorderError:new("Failed to get router replicasets: %s", err)
     end
+    local mode = opts.mode or 'read'
     local call_opts = {
-        mode = opts.mode or 'read',
+        mode = mode,
         replicasets = replicasets,
         timeout = opts.timeout,
+        request_timeout = mode == 'read' and opts.request_timeout or nil,
     }
     local results, err, storages_info = call.map(vshard_router,
         CRUD_STAT_FUNC_NAME,
@@ -198,6 +201,10 @@ end
 -- @tparam ?number opts.timeout
 --  Function call timeout
 --
+-- @tparam ?number opts.request_timeout
+--  vshard call request_timeout
+--  default is the same as opts.timeout
+--
 -- @tparam ?table opts.fields
 --  Field names for getting only a subset of fields
 --
@@ -225,6 +232,10 @@ end
 --
 -- @tparam ?number opts.timeout
 --  Function call timeout
+--
+-- @tparam ?number opts.request_timeout
+--  vshard call request_timeout
+--  default is the same as opts.timeout
 --
 -- @tparam ?table opts.fields
 --  Field names for getting only a subset of fields

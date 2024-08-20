@@ -614,6 +614,7 @@ pgroup.test_opts_not_damaged = function(g)
 
     local count_opts = {
         timeout = 1,
+        request_timeout = 1,
         bucket_id = 1161,
         yield_every = 105,
         mode = 'read',
