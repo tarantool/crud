@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * `crud.schema` no longer returns `tt` system space `_tt_migrations`.
 * Tests of `schema` with Tarantool 3.2+.
 * Fixed bad error handling for method `call.single`
+* Added support for working in 3.1 with data from 2.11, previously there was an error
+due to the inability to find the replicasets by name https://github.com/tarantool/crud-ee/issues/16
 
 ## [1.5.2] - 20-05-24
 
