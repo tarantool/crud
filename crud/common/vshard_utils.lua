@@ -5,12 +5,15 @@ local vshard = require('vshard')
 local vshard_utils = {}
 
 function vshard_utils.get_self_vshard_replicaset()
-    local box_info = box.info()
+    local box_info = vshard_utils.__get_box_info()
 
-    local ok, storage_info = pcall(vshard.storage.info)
+    local ok, storage_info = vshard_utils.__get_storage_info()
     assert(ok, 'vshard.storage.cfg() must be called first')
 
-    if vshard_utils.get_vshard_identification_mode() == 'name_as_key' then
+
+    local is_needs_upgrade_2_11 = vshard_utils.is_schema_needs_upgrade_from_2_11()
+
+    if vshard_utils.get_vshard_identification_mode() == 'name_as_key' and not is_needs_upgrade_2_11 then
         local replicaset_name = box_info.replicaset.name
 
         return replicaset_name, storage_info.replicasets[replicaset_name]
@@ -22,7 +25,30 @@ function vshard_utils.get_self_vshard_replicaset()
             replicaset_uuid = box_info.cluster.uuid
         end
 
-        return replicaset_uuid, storage_info.replicasets[replicaset_uuid]
+        for _, rep in pairs(storage_info.replicasets) do
+            if rep.uuid == replicaset_uuid then
+                return replicaset_uuid, rep
+            end
+        end
+        error(('failed to find replicaset by uuid %s'):format(replicaset_uuid))
+    end
+end
+
+-- for unit tests
+function vshard_utils.__get_storage_info()
+    return pcall(vshard.storage.info)
+end
+
+-- for unit tests
+function vshard_utils.__get_box_info()
+    return box.info()
+end
+
+function vshard_utils.is_schema_needs_upgrade_from_2_11()
+    local version_tup = box.space._schema:get({'version'})
+    local version_str = ("%s.%s"):format(version_tup[2], version_tup[3])
+    if version_str == "2.11" and box.internal.schema_needs_upgrade() then
+        return true
     end
 end
 
