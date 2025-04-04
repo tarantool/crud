@@ -1,5 +1,6 @@
 local errors = require('errors')
 
+local call_cache = require('crud.common.call_cache')
 local dev_checks = require('crud.common.dev_checks')
 local utils = require('crud.common.utils')
 local sharding_utils = require('crud.common.sharding.utils')
@@ -11,7 +12,17 @@ local BasePostprocessor = require('crud.common.map_call_cases.base_postprocessor
 
 local CallError = errors.new_class('CallError')
 
+local CALL_FUNC_NAME = 'call_on_storage'
+local CRUD_CALL_FUNC_NAME = utils.get_storage_call(CALL_FUNC_NAME)
+
+
 local call = {}
+
+local function call_on_storage(run_as_user, func_name, ...)
+    return box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)
+end
+
+call.storage_api = {[CALL_FUNC_NAME] = call_on_storage}
 
 function call.get_vshard_call_name(mode, prefer_replica, balance)
     dev_checks('string', '?boolean', '?boolean')
@@ -71,11 +82,12 @@ local function wrap_vshard_err(vshard_router, err, func_name, replicaset_id, buc
     ))
 end
 
-local function retry_call_with_master_discovery(replicaset, method, ...)
+local function retry_call_with_master_discovery(replicaset, method, func_name, func_args, call_opts)
+    local func_args_ext = utils.append_array({ box.session.effective_user(), func_name }, func_args)
+
     -- In case cluster was just bootstrapped with auto master discovery,
     -- replicaset may miss master.
-
-    local resp, err = replicaset[method](replicaset, ...)
+    local resp, err = replicaset[method](replicaset, CRUD_CALL_FUNC_NAME, func_args_ext, call_opts)
 
     if err == nil then
         return resp, err
@@ -87,7 +99,7 @@ local function retry_call_with_master_discovery(replicaset, method, ...)
 
     -- Retry only once: should be enough for initial discovery,
     -- otherwise force user fix up cluster bootstrap.
-    return replicaset[method](replicaset, ...)
+    return replicaset[method](replicaset, CRUD_CALL_FUNC_NAME, func_args_ext, call_opts)
 end
 
 function call.map(vshard_router, func_name, func_args, opts)
