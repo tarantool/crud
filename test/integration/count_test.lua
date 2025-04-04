@@ -28,6 +28,7 @@ pgroup.before_each(function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
     helpers.truncate_space_on_cluster(g.cluster, 'coord')
     helpers.truncate_space_on_cluster(g.cluster, 'book_translation')
+    helpers.truncate_space_on_cluster(g.cluster, 'interval')
 end)
 
 pgroup.test_count_non_existent_space = function(g)

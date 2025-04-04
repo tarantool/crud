@@ -39,9 +39,11 @@ pgroup.after_all(function(g)
 end)
 
 pgroup.before_each(function(g)
+    helpers.reset_call_cache(g.cluster)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
     helpers.truncate_space_on_cluster(g.cluster, 'developers')
     helpers.truncate_space_on_cluster(g.cluster, 'cars')
+    helpers.truncate_space_on_cluster(g.cluster, 'interval')
 end)
 
 local function set_master(cluster, uuid, master_uuid)

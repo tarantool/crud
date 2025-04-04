@@ -51,21 +51,21 @@ local function count_on_storage(space_name, index_id, conditions, opts)
     end
 
     local value = opts.scan_value
-
-    local filter_func, err = filters.gen_func(space, index, conditions, {
-        tarantool_iter = opts.tarantool_iter,
-        scan_condition_num = opts.scan_condition_num,
-    })
-    if err ~= nil then
-        return nil, CountError:new("Failed to generate tuples filter: %s", err)
-    end
-
+    local filter_func
     local tuples_count = 0
     local looked_up_tuples = 0
 
     for _, tuple in index:pairs(value, {iterator = opts.tarantool_iter}) do
         if tuple == nil then
             break
+        elseif not filter_func then
+            filter_func, err = filters.gen_func(space, index, conditions, {
+                tarantool_iter = opts.tarantool_iter,
+                scan_condition_num = opts.scan_condition_num,
+            })
+            if err ~= nil then
+                return nil, CountError:new("Failed to generate tuples filter: %s", err)
+            end
         end
 
         looked_up_tuples = looked_up_tuples + 1

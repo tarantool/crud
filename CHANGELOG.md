@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+* Обеспечена поддержка ролевой модели в CRUD (https://jira.vk.team/browse/TNTP-2177)
 
 ### Fixed
 * `crud.schema` no longer returns TCF system space `_cdc_state`.

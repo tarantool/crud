@@ -34,7 +34,7 @@ pgroup.test_map_non_existent_func = function(g)
 
     t.assert_equals(results, nil)
     helpers.assert_str_contains_pattern_with_replicaset_id(err.err, "Failed for [replicaset_id]")
-    t.assert_str_contains(err.err, "Function non_existent_func is not registered")
+    t.assert_str_contains(err.err, "Function 'non_existent_func' is not registered")
 end
 
 pgroup.test_single_non_existent_func = function(g)
@@ -47,7 +47,7 @@ pgroup.test_single_non_existent_func = function(g)
 
     t.assert_equals(results, nil)
     helpers.assert_str_contains_pattern_with_replicaset_id(err.err, "Failed for [replicaset_id]")
-    t.assert_str_contains(err.err, "Function non_existent_func is not registered")
+    t.assert_str_contains(err.err, "Function 'non_existent_func' is not registered")
 end
 
 pgroup.test_map_invalid_mode = function(g)
