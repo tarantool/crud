@@ -123,6 +123,25 @@ For Tarantool 1.10, 2.x and 3.x you can also manually call
 the [crud initialization code](#api) on [VShard](https://github.com/tarantool/vshard)
 router and storage instances.
 
+> **Note**
+> 
+> Before changing the cluster configuration (for example, adding a new replica set or triggering bucket rebalancing), 
+> follow these steps to ensure consistent data operations:
+>
+> 1. Pause all DML operations (insert, update, delete) across your application.
+> 2. Apply topology changes or initiate rebalancing.
+> 3. Wait until all buckets have finished migrating.
+> 4. Clear the route map cache on all routers:
+>    ```lua
+>    vshard.router._route_map_clear()
+>    ```
+> 5. Resume DML operations.
+>
+> Following these steps ensures correct routing and consistent CRUD behavior after topology updates.
+> 
+> Failure to follow these steps may lead to issues such as duplicated records,
+> missing updates, or inconsistent state across replica sets due to incorrect routing during rebalancing.
+
 ### Sandbox
 
 The repository provide a simple sandbox application with a test dataset on a single instance.
