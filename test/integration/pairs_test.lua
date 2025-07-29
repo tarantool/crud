@@ -953,3 +953,25 @@ for case_name_template, case in pairs(read_scenario.gh_422_nullability_cases) do
         case(g, read_impl)
     end
 end
+
+pgroup.test_invalid_bucket_id_pairs = function(g)
+    local invalid_opts_list = {
+        {bucket_id = "string"},
+        {bucket_id = {}},
+        {bucket_id = true},
+        {bucket_id = -1},
+    }
+
+    for _, opts in ipairs(invalid_opts_list) do
+        local expected_err = string.format(
+            "Invalid bucket_id: expected unsigned, got %s",
+            type(opts.bucket_id)
+        )
+        t.assert_error_msg_contains(expected_err, function()
+            g.router:eval([[
+                local crud = require('crud')
+                crud.pairs('customers', nil, ...)
+            ]], {opts})
+        end)
+    end
+end

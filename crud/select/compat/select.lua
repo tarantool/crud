@@ -25,7 +25,7 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
         after = '?table|cdata',
         first = '?number',
         batch_size = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         force_map_call = '?boolean',
         field_names = '?table',
         yield_every = '?number',
@@ -205,7 +205,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         first = '?number',
         batch_size = '?number',
         use_tomap = '?boolean',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         force_map_call = '?boolean',
         fields = '?table',
         fetch_latest_metadata = '?boolean',
@@ -223,6 +223,13 @@ function select_module.pairs(space_name, user_conditions, opts)
     })
 
     opts = opts or {}
+
+    if opts.bucket_id ~= nil then
+        local err = sharding.validate_bucket_id(opts.bucket_id)
+        if err ~= nil then
+            return error(err)
+        end
+    end
 
     if opts.readview == true then
         if opts.mode ~= nil then
@@ -321,7 +328,7 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
         after = '?table|cdata',
         first = '?number',
         batch_size = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         force_map_call = '?boolean',
         fields = '?table',
         fullscan = '?boolean',

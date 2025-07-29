@@ -110,7 +110,7 @@ end
 local function call_count_on_router(vshard_router, space_name, user_conditions, opts)
     checks('table', 'string', '?table', {
         timeout = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         force_map_call = '?boolean',
         fullscan = '?boolean',
         yield_every = '?number',
@@ -317,7 +317,7 @@ end
 function count.call(space_name, user_conditions, opts)
     checks('string', '?table', {
         timeout = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         force_map_call = '?boolean',
         fullscan = '?boolean',
         yield_every = '?number',

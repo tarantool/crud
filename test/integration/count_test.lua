@@ -914,3 +914,32 @@ for case_name_template, case in pairs(read_scenario.gh_422_nullability_cases) do
         case(g, read_impl)
     end
 end
+
+pgroup.test_invalid_bucket_id_in_opts = function(g)
+    local invalid_values = {
+        "string",
+        {},
+        true,
+        -1,
+    }
+
+    for _, bucket_id in ipairs(invalid_values) do
+        local expected_err = string.format(
+            "Invalid bucket_id: expected unsigned, got %s",
+            type(bucket_id)
+        )
+
+        local result, err = g.router:call('crud.count', {
+            'customers',
+            nil,
+            {
+                mode = 'write',
+                bucket_id = bucket_id,
+                fullscan = true,
+            }
+        })
+
+        t.assert_equals(result, nil)
+        t.assert_str_contains(err.err or err.str, expected_err)
+    end
+end

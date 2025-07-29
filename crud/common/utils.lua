@@ -1338,4 +1338,15 @@ function utils.append_array(array_src, array_dst)
     return array_src
 end
 
+function utils.is_uint(value)
+    if type(value) == 'number' then
+        return value >= 0 and math.floor(value) == value
+    elseif type(value) == 'cdata' then
+        local ok, casted = pcall(tonumber, value)
+        return ok and type(casted) == 'number' and casted >= 0 and math.floor(casted) == casted
+    end
+
+    return false
+end
+
 return utils
