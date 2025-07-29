@@ -58,7 +58,7 @@ get.storage_api = {[GET_FUNC_NAME] = get_on_storage}
 local function call_get_on_router(vshard_router, space_name, key, opts)
     dev_checks('table', 'string', '?', {
         timeout = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         fields = '?table',
         prefer_replica = '?boolean',
         balance = '?boolean',
@@ -196,7 +196,7 @@ end
 function get.call(space_name, key, opts)
     checks('string', '?', {
         timeout = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         fields = '?table',
         prefer_replica = '?boolean',
         balance = '?boolean',

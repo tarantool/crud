@@ -29,9 +29,14 @@ function sharding.get_replicasets_by_bucket_id(vshard_router, bucket_id)
 end
 
 function sharding.key_get_bucket_id(vshard_router, space_name, key, specified_bucket_id)
-    dev_checks('table', 'string', '?', '?number|cdata')
+    dev_checks('table', 'string', '?', '?')
 
     if specified_bucket_id ~= nil then
+        local err = sharding.validate_bucket_id(specified_bucket_id)
+        if err ~= nil then
+            return nil, err
+        end
+
         return { bucket_id = specified_bucket_id }
     end
 
@@ -77,6 +82,15 @@ function sharding.tuple_get_bucket_id(vshard_router, tuple, space, specified_buc
     }
 end
 
+function sharding.validate_bucket_id(bucket_id)
+    if not utils.is_uint(bucket_id) or bucket_id < 1 then
+        return BucketIDError:new(
+                "Invalid bucket_id: expected unsigned, got %s",
+                type(bucket_id)
+        )
+    end
+end
+
 function sharding.tuple_set_and_return_bucket_id(vshard_router, tuple, space, specified_bucket_id)
     local bucket_id_fieldno, err = utils.get_bucket_id_fieldno(space)
     if err ~= nil then
@@ -106,6 +120,11 @@ function sharding.tuple_set_and_return_bucket_id(vshard_router, tuple, space, sp
         tuple[bucket_id_fieldno] = sharding_data.bucket_id
     else
         sharding_data.skip_sharding_hash_check = true
+    end
+
+    err = sharding.validate_bucket_id(sharding_data.bucket_id)
+    if err ~= nil then
+        return nil, err
     end
 
     return sharding_data

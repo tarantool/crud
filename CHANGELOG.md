@@ -6,9 +6,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-* Обеспечена поддержка ролевой модели в CRUD (https://jira.vk.team/browse/TNTP-2177)
+
+### Changed
+* bumped: metrics version in rockspec
+* bumped: cartridge version in rockspec
+* bumped: vshard version in rockspec
+* Role model support in CRUD is provided (https://jira.vk.team/browse/TNTP-2177)
+
+### Added
+* Validation of `bucket_id`. Invalid values now raise `BucketIDError`
+  before routing. [TNTP-3536](https://jira.vk.team/browse/TNTP-3536)
 
 ### Fixed
+* Fixed compatibility with cartridge `2.16.0` ([TNTP-3598](https://jira.vk.team/browse/TNTP-3598))
 * `crud.schema` no longer returns TCF system space `_cdc_state`.
 * `crud.schema` no longer returns system space `_gc_consumers` with Tarantool 3.2+.
 * `crud.schema` no longer returns `tt` system space `_tt_migrations`.

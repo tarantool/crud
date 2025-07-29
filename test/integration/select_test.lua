@@ -2325,3 +2325,28 @@ for case_name_template, case in pairs(read_scenario.gh_422_nullability_cases) do
         case(g, read_impl)
     end
 end
+
+pgroup.test_select_invalid_bucket_id = function(g)
+    local invalid_opts_list = {
+        {bucket_id = "str"},
+        {bucket_id = -1},
+        {bucket_id = {}},
+        {bucket_id = true},
+    }
+
+    for _, opts in ipairs(invalid_opts_list) do
+        opts.mode = 'write'
+        opts.fullscan = true
+
+        local expected_err = string.format(
+            "Invalid bucket_id: expected unsigned, got %s",
+            type(opts.bucket_id)
+        )
+
+        local resp, err = g.router:call('crud.select', {
+            'customers', nil, opts
+        })
+        t.assert_equals(resp, nil)
+        t.assert_str_contains(err.err or err.str, expected_err)
+    end
+end

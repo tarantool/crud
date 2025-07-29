@@ -91,7 +91,7 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
         after = '?table',
         first = '?number',
         batch_size = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         force_map_call = '?boolean',
         field_names = '?table',
         yield_every = '?number',
@@ -230,7 +230,7 @@ function select_module.pairs(space_name, user_conditions, opts)
         first = '?number',
         batch_size = '?number',
         use_tomap = '?boolean',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         force_map_call = '?boolean',
         fields = '?table',
         fetch_latest_metadata = '?boolean',
@@ -246,6 +246,13 @@ function select_module.pairs(space_name, user_conditions, opts)
     })
 
     opts = opts or {}
+
+    if opts.bucket_id ~= nil then
+        local err = sharding.validate_bucket_id(opts.bucket_id)
+        if err ~= nil then
+            return nil, SelectError:new(err)
+        end
+    end
 
     if opts.first ~= nil and opts.first < 0 then
         error(string.format("Negative first isn't allowed for pairs"))
@@ -422,7 +429,7 @@ function select_module.call(space_name, user_conditions, opts)
         after = '?table',
         first = '?number',
         batch_size = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         force_map_call = '?boolean',
         fields = '?table',
         fullscan = '?boolean',

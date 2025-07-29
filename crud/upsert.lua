@@ -58,7 +58,7 @@ upsert.storage_api = {[UPSERT_FUNC_NAME] = upsert_on_storage}
 local function call_upsert_on_router(vshard_router, space_name, original_tuple, user_operations, opts)
     dev_checks('table', 'string', '?', 'table', {
         timeout = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         add_space_schema_hash = '?boolean',
         fields = '?table',
         vshard_router = '?string|table',
@@ -183,7 +183,7 @@ end
 function upsert.tuple(space_name, tuple, user_operations, opts)
     checks('string', '?', 'table', {
         timeout = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         add_space_schema_hash = '?boolean',
         fields = '?table',
         vshard_router = '?string|table',
@@ -226,7 +226,7 @@ end
 function upsert.object(space_name, obj, user_operations, opts)
     checks('string', 'table', 'table', {
         timeout = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         add_space_schema_hash = '?boolean',
         fields = '?table',
         vshard_router = '?string|table',
