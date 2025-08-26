@@ -1166,18 +1166,22 @@ function utils.update_storage_call_error_description(err, func_name, replicaset_
         return nil
     end
 
-    if (err.type == 'ClientError' or err.type == 'AccessDeniedError')
+    if (err.type == 'ClientError' or err.type == 'AccessDeniedError' or err.type == 'LuajitError')
         and type(err.message) == 'string' then
         local not_defined_str = string.format("Procedure '%s' is not defined", func_name)
+        local not_registered_str = string.format("Function '%s' is not registered", func_name)
         local access_denied_str = string.format("Execute access to function '%s' is denied", func_name)
-        if err.message == not_defined_str or err.message:startswith(access_denied_str) then
+        if err.message == not_defined_str or err.message:startswith(access_denied_str)
+                or err.message:find(not_registered_str)
+                or err.message == "Procedure '_crud.call_on_storage' is not defined"
+                or err.message:startswith("Execute access to function '_crud.call_on_storage' is denied") then
             if func_name:startswith('_crud.') then
-                err = NotInitializedError:new("Function %s is not registered: " ..
+                err = NotInitializedError:new("Function '%s' is not registered: " ..
                     "crud isn't initialized on replicaset %q or crud module versions mismatch " ..
                     "between router and storage",
                     func_name, replicaset_id or "Unknown")
             else
-                err = NotInitializedError:new("Function %s is not registered", func_name)
+                err = NotInitializedError:new("Function '%s' is not registered", func_name)
             end
         end
     end
@@ -1322,6 +1326,27 @@ end
 
 for k, v in pairs(require('crud.common.vshard_utils')) do
     utils[k] = v
+end
+
+function utils.append_array(array_src, array_dst)
+    if not array_dst then
+        return array_src
+    end
+
+    table.move(array_dst, 1, #array_dst, #array_src + 1, array_src)
+
+    return array_src
+end
+
+function utils.is_uint(value)
+    if type(value) == 'number' then
+        return value >= 0 and math.floor(value) == value
+    elseif type(value) == 'cdata' then
+        local ok, casted = pcall(tonumber, value)
+        return ok and type(casted) == 'number' and casted >= 0 and math.floor(casted) == casted
+    end
+
+    return false
 end
 
 return utils

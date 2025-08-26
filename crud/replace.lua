@@ -61,7 +61,7 @@ replace.storage_api = {[REPLACE_FUNC_NAME] = replace_on_storage}
 local function call_replace_on_router(vshard_router, space_name, original_tuple, opts)
     dev_checks('table', 'string', 'table', {
         timeout = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         add_space_schema_hash = '?boolean',
         fields = '?table',
         vshard_router = '?string|table',
@@ -174,7 +174,7 @@ end
 function replace.tuple(space_name, tuple, opts)
     checks('string', 'table', {
         timeout = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         add_space_schema_hash = '?boolean',
         fields = '?table',
         vshard_router = '?string|table',
@@ -213,7 +213,7 @@ end
 function replace.object(space_name, obj, opts)
     checks('string', 'table', {
         timeout = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         add_space_schema_hash = '?boolean',
         fields = '?table',
         vshard_router = '?string|table',

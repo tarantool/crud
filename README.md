@@ -2,7 +2,6 @@
 
 [![Run static analysis](https://github.com/tarantool/crud/actions/workflows/check_on_push.yaml/badge.svg)](https://github.com/tarantool/crud/actions/workflows/check_on_push.yaml)
 [![Run tests](https://github.com/tarantool/crud/actions/workflows/test_on_push.yaml/badge.svg)](https://github.com/tarantool/crud/actions/workflows/test_on_push.yaml)
-[![Coverage Status](https://coveralls.io/repos/github/tarantool/crud/badge.svg?branch=master)](https://coveralls.io/github/tarantool/crud?branch=master)
 
 The `CRUD` module allows to perform CRUD operations on the cluster.
 It also provides the `crud-storage` and `crud-router` roles for
@@ -55,6 +54,7 @@ It also provides the `crud-storage` and `crud-router` roles for
 - [Cartridge roles](#cartridge-roles)
   - [Usage](#usage-2)
 - [License](#license)
+- [For developers](#for-developers)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -66,7 +66,7 @@ First, [install Tarantool](https://www.tarantool.io/en/download).
 
 #### Manual install
 
-To try `crud` in your application, you may install it manually fron web
+To try `crud` in your application, you may install it manually from web
 with `tt rocks` rock management tool.
 
 ```bash
@@ -123,6 +123,25 @@ For Tarantool 1.10, 2.x and 3.x you can also manually call
 the [crud initialization code](#api) on [VShard](https://github.com/tarantool/vshard)
 router and storage instances.
 
+> **Note**
+> 
+> Before changing the cluster configuration (for example, adding a new replica set or triggering bucket rebalancing), 
+> follow these steps to ensure consistent data operations:
+>
+> 1. Pause all DML operations (insert, update, delete) across your application.
+> 2. Apply topology changes or initiate rebalancing.
+> 3. Wait until all buckets have finished migrating.
+> 4. Clear the route map cache on all routers:
+>    ```lua
+>    vshard.router._route_map_clear()
+>    ```
+> 5. Resume DML operations.
+>
+> Following these steps ensures correct routing and consistent CRUD behavior after topology updates.
+> 
+> Failure to follow these steps may lead to issues such as duplicated records,
+> missing updates, or inconsistent state across replica sets due to incorrect routing during rebalancing.
+
 ### Sandbox
 
 The repository provide a simple sandbox application with a test dataset on a single instance.
@@ -136,6 +155,12 @@ tarantool> crud.select('developers', nil, {first = 6})
 ## API
 
 The CRUD operations should be called from router.
+
+Assuming that:
+
+```lua
+local crud = require('crud')
+```
 
 All VShard storages should call `crud.init_storage()` after
 `vshard.storage.cfg()` (or enable the `roles.crud-storage` role for Tarantool 3
@@ -1949,7 +1974,6 @@ issues.
 
     <details>
       <summary>Full configuration example</summary>
-      
       ```yaml
       credentials:
         users:
@@ -2034,28 +2058,12 @@ issues.
 
     ```lua
     -- myrouter.lua
-
-    local clock = require('clock')
-    local fiber = require('fiber')
     local log = require('log')
-
     local vshard = require('vshard')
 
-    local TIMEOUT = 60
-    local DELAY = 0.1
-
-    local start = clock.monotonic()
-    while clock.monotonic() - start < TIMEOUT do
-        local ok, err = vshard.router.bootstrap({
-            if_not_bootstrapped = true,
-        })
-
-        if ok then
-            break
-        end
-
-        log.info(('Router bootstrap error: %s'):format(err))
-        fiber.sleep(DELAY)
+    local ok, err = vshard.router.bootstrap({timeout = 15})
+    if not ok then
+      log.info(('Router bootstrap error: %s'):format(err))
     end
     ```
 

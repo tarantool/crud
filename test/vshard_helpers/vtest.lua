@@ -525,7 +525,7 @@ local function cluster_new(g, cfg)
             -- Logged in as guest with 'super' access rights. Yet 'super' is not
             -- enough to grant 'replication' privilege. The simplest way - login
             -- as admin for that temporary.
-            local user = box.session.user()
+            local user = box.session.effective_user()
             box.session.su('admin')
 
             cfg.engine = nil

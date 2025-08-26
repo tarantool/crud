@@ -11,7 +11,7 @@ on:
 
 jobs:
   run_tests:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Clone the crud module
@@ -39,8 +39,6 @@ jobs:
 
       - name: Install requirements
         run: ./deps.sh
-        env:
-          VSHARD_VERSION: "0.1.26"
 
       # This server starts and listen on 8084 port that is used for tests
       - name: Stop Mono server

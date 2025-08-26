@@ -1,4 +1,5 @@
 local fun = require('fun')
+local ffi = require('ffi')
 
 local t = require('luatest')
 local g = t.group('utils')
@@ -353,5 +354,27 @@ local is_version_in_range_cases = {
 for name, case in pairs(is_version_in_range_cases) do
     g['test_is_version_range_' .. name] = function()
         t.assert_equals(utils.is_version_in_range(unpack_N(case.args, 15)), case.res)
+    end
+end
+
+local is_uint_cases = {
+    positive_number      = {value = 1, expected = true},
+    zero                 = {value = 0, expected = true},
+    negative_number      = {value = -1,expected = false},
+    non_integer_number   = {value = 123.45, expected = false},
+    string_value         = {value = '123', expected = false},
+    table_value          = {value = {}, expected = false},
+    boolean_value        = {value = true, expected = false},
+    nil_value            = {value = nil, expected = false},
+    box_null             = {value = box.NULL, expected = false},
+    ffi_uint64           = {value = ffi.new('uint64_t', 1), expected = true},
+    ffi_uint64_zero      = {value = ffi.new('uint64_t', 0), expected = true},
+    ffi_int64_negative   = {value = ffi.new('int64_t', -1), expected = false},
+}
+
+for name, case in pairs(is_uint_cases) do
+    g["test_is_uint_" .. name] = function()
+        local actual = utils.is_uint(case.value)
+        t.assert_equals(actual, case.expected)
     end
 end

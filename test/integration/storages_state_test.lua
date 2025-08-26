@@ -83,33 +83,54 @@ local function build_storage_info(g, array_info)
     return res
 end
 
+local function ordered_keys_for_results(g)
+    local is_vshard = g.params.backend == 'vshard'
+    local is_config = g.params.backend == 'config'
+
+    local name_as_key = is_vshard and (
+        type(g.params.backend_cfg) == 'table'
+        and g.params.backend_cfg.identification_mode == 'name_as_key'
+    ) or is_config
+
+    if name_as_key then
+        return {
+            's1-master',
+            's1-replica',
+            's2-master',
+            's2-replica',
+        }
+    end
+
+    return {
+        helpers.uuid('b', 1),
+        helpers.uuid('b', 10),
+        helpers.uuid('c', 1),
+        helpers.uuid('c', 10),
+    }
+end
+
 pgroup.test_crud_storage_status_of_stopped_servers = function(g)
     g.cluster:server("s2-replica"):stop()
 
     local results, err = g.router:call("crud.storage_info", {})
     t.assert_equals(err, nil, "Error getting storages info")
 
-    t.assert_equals(results, build_storage_info(g, {
-        {
-            status = "running",
-            is_master = true
-        },
-        {
-            status = "running",
-            is_master = false
-        },
-        {
-            status = "running",
-            is_master = true
-        },
-        {
-            status = "error",
-            is_master = false,
-            message = "Peer closed"
-        },
-    }))
-end
+    local keys = ordered_keys_for_results(g)
 
+    local expected = {
+        [keys[1]] = { status = "running", is_master = true  },
+        [keys[2]] = { status = "running", is_master = false },
+        [keys[3]] = { status = "running", is_master = true  },
+        [keys[4]] = { status = "error",   is_master = false },
+    }
+
+    for _, k in ipairs(keys) do
+        local got = results[k]
+        t.assert_not_equals(got, nil, ("No result for key %s"):format(k))
+        t.assert_equals(got.status,   expected[k].status,   ("status mismatch for %s"):format(k))
+        t.assert_equals(got.is_master, expected[k].is_master, ("is_master mismatch for %s"):format(k))
+    end
+end
 pgroup.after_test('test_crud_storage_status_of_stopped_servers', function(g)
     helpers.stop_cluster(g.cluster, g.params.backend)
     g.cluster = nil

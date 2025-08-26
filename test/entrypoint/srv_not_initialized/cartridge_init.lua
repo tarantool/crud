@@ -11,8 +11,11 @@ local cartridge = require('cartridge')
 if package.setsearchroot ~= nil then
     package.setsearchroot()
 else
-    package.path = package.path .. debug.sourcedir() .. "/?.lua;"
+    package.path = package.path .. debug.sourcedir() .. "/?.lua;" .. debug.sourcedir() .. "/?/init.lua;"
 end
+
+local root = fio.dirname(fio.dirname(fio.dirname(debug.sourcedir())))
+package.path = package.path .. root .. "/?.lua;" .. root .. "/?/init.lua;"
 
 local root = fio.dirname(fio.dirname(fio.dirname(debug.sourcedir())))
 package.path = package.path .. root .. "/?.lua;"

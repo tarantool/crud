@@ -62,7 +62,7 @@ local call_cfg = function(g, way, cfg)
         ]], { cfg })
     elseif way == 'role' then
         if g.params.backend == helpers.backend.CARTRIDGE then
-            g.router:upload_config{crud = cfg}
+            g.router:upload_config{["crud"] = cfg}
         elseif g.params.backend == helpers.backend.CONFIG then
             local cluster_cfg = g.cluster:cfg()
 

@@ -157,7 +157,7 @@ group.test_role_cfg = function(g)
         stats_quantile_max_age_time = 180,
     }
 
-    g.router:upload_config({crud = cfg})
+    g.router:upload_config({["crud"] = cfg})
 
     local actual_cfg = g.router:eval("return require('crud').cfg")
     t.assert_equals(cfg, actual_cfg)
@@ -172,7 +172,7 @@ group.test_role_partial_cfg = function(g)
     local cfg_after = table.deepcopy(cfg_before)
     cfg_after.stats = not cfg_before.stats
 
-    g.router:upload_config({crud = {stats = cfg_after.stats}})
+    g.router:upload_config({["crud"] = {stats = cfg_after.stats}})
 
     local actual_cfg = g.router:eval("return require('crud').cfg")
     t.assert_equals(cfg_after, actual_cfg, "Only requested field were updated")
@@ -212,7 +212,7 @@ for name, case in pairs(role_cfg_error_cases) do
         helpers.skip_not_cartridge_backend(g.params.backend)
         local success, error = pcall(function()
             g.router:upload_config({
-                crud = case.args,
+                ["crud"] = case.args,
             })
         end)
 

@@ -85,7 +85,7 @@ update.storage_api = {[UPDATE_FUNC_NAME] = update_on_storage}
 local function call_update_on_router(vshard_router, space_name, key, user_operations, opts)
     dev_checks('table', 'string', '?', 'table', {
         timeout = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         fields = '?table',
         vshard_router = '?string|table',
         noreturn = '?boolean',
@@ -230,7 +230,7 @@ end
 function update.call(space_name, key, user_operations, opts)
     checks('string', '?', 'table', {
         timeout = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         fields = '?table',
         vshard_router = '?string|table',
         noreturn = '?boolean',

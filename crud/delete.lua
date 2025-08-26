@@ -60,7 +60,7 @@ delete.storage_api = {[DELETE_FUNC_NAME] = delete_on_storage}
 local function call_delete_on_router(vshard_router, space_name, key, opts)
     dev_checks('table', 'string', '?', {
         timeout = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         fields = '?table',
         vshard_router = '?string|table',
         noreturn = '?boolean',
@@ -194,7 +194,7 @@ end
 function delete.call(space_name, key, opts)
     checks('string', '?', {
         timeout = '?number',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
         fields = '?table',
         vshard_router = '?string|table',
         noreturn = '?boolean',

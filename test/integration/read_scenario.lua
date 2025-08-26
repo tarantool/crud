@@ -555,6 +555,9 @@ local gh_373_read_with_interval_condition_cases = {
     ['gh_373_%s_with_interval_single_condition_is_forbidden'] = function(cg, read)
         helpers.skip_interval_unsupported()
 
+        local _, err = cg.router:call("crud.insert", {"interval", {1, nil, datetime.interval.new{}}})
+        t.assert_equals(err, nil)
+
         local _, err = read(cg,
             'interval',
             {{'>=', 'interval_field', datetime.interval.new{}}}
@@ -566,6 +569,9 @@ local gh_373_read_with_interval_condition_cases = {
     end,
     ['gh_373_%s_with_interval_second_condition_is_forbidden'] = function(cg, read)
         helpers.skip_interval_unsupported()
+
+        local _, err = cg.router:call("crud.insert", {"interval", {1, nil, datetime.interval.new{}}})
+        t.assert_equals(err, nil)
 
         local _, err = read(cg,
             'interval',

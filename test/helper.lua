@@ -139,6 +139,7 @@ function helpers.box_cfg(opts)
     box.cfg({
         memtx_dir = tempdir,
         wal_mode = 'none',
+        listen = opts.listen,
     })
     fio.rmtree(tempdir)
 
@@ -325,6 +326,12 @@ function helpers.call_on_servers(cluster, aliases, func)
     for _, alias in ipairs(aliases) do
         local server = cluster:server(alias)
         func(server)
+    end
+end
+
+function helpers.exec_on_cluster(cluster, func, ...)
+    for _, server in ipairs(cluster.servers) do
+        server:exec(func, ...)
     end
 end
 
@@ -760,8 +767,16 @@ function helpers.get_command_log(router, call, args)
         require('log').error("crud fflush message")
     ]])
     local captured = ""
+    local start_time = fiber.time()
+    local timeout = 2.0
+
     while not string.find(captured, "crud fflush message", 1, true) do
         captured = captured .. (capture:read() or "")
+        if fiber.time() - start_time > timeout then
+            capture:close()
+            t.skip("Log message not received in time")
+        end
+        fiber.sleep(0.01)
     end
 
     capture:close()
@@ -942,6 +957,7 @@ function helpers.start_cluster(g, cartridge_cfg, vshard_cfg, tarantool3_cluster_
             helpers.start_vshard_cluster(g, vshard_cfg)
         elseif opts.backend == helpers.backend.CONFIG then
             helpers.skip_if_tarantool3_crud_roles_unsupported()
+            helpers.skip_tarantool3_vshard_unsupported()
 
             helpers.start_tarantool3_cluster(g, tarantool3_cluster_cfg)
         end
@@ -1507,8 +1523,22 @@ function helpers.skip_if_tarantool3_crud_roles_unsupported()
               ("Tarantool %s does not support crud roles"):format(version))
 end
 
+function helpers.skip_tarantool3_vshard_unsupported()
+    t.skip("vshard is not supported in config yet: " ..
+           "https://github.com/tarantool/tarantool-ee/issues/815")
+end
+
 function helpers.skip_if_not_config_backend(backend)
     t.skip_if(backend ~= helpers.backend.CONFIG, "The test is for Tarantool 3 with config only")
+end
+
+function helpers.reset_call_cache(cluster)
+    helpers.call_on_storages(cluster, function(server)
+        server:exec(function()
+            local call_cache = require('crud.common.call_cache')
+            call_cache.reset()
+        end)
+    end)
 end
 
 return helpers

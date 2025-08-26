@@ -7,6 +7,7 @@ local g = t.group()
 
 g.before_all(function(cg)
     helpers.skip_if_tarantool3_crud_roles_unsupported()
+    helpers.skip_tarantool3_vshard_unsupported()
 
     local config = {
         credentials = {

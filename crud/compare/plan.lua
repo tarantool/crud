@@ -168,7 +168,7 @@ function plan.new(space, conditions, opts)
         field_names = '?table',
         force_map_call = '?boolean',
         sharding_key_as_index_obj = '?table',
-        bucket_id = '?number|cdata',
+        bucket_id = '?',
     })
 
     conditions = conditions ~= nil and conditions or {}
