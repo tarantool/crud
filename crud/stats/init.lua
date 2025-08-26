@@ -130,7 +130,7 @@ function stats.enable(opts)
         'Can be enabled only on crud router'
     )
 
-    opts = table.deepcopy(opts) or {}
+    opts = table.deepcopy(opts or {})
     if opts.driver == nil then
         opts.driver = stats.get_default_driver()
     end

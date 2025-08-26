@@ -28,10 +28,12 @@ pgroup.after_all(function(g)
 end)
 
 pgroup.before_each(function(g)
+    helpers.reset_call_cache(g.cluster)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
     helpers.truncate_space_on_cluster(g.cluster, 'developers')
     helpers.truncate_space_on_cluster(g.cluster, 'cars')
     helpers.truncate_space_on_cluster(g.cluster, 'logins')
+    helpers.truncate_space_on_cluster(g.cluster, 'interval')
 end)
 
 
@@ -2080,7 +2082,7 @@ pgroup.test_storage_uninit_select_error_text = function(g)
     t.assert_equals(obj, nil)
     t.assert_str_contains(err.str, 'SelectError')
     t.assert_str_contains(err.str, 'NotInitialized')
-    t.assert_str_contains(err.str, "Function _crud.select_on_storage is not registered")
+    t.assert_str_contains(err.str, "Function '_crud.select_on_storage' is not registered")
     t.assert_str_contains(err.str, "crud isn't initialized on replicaset")
     t.assert_str_contains(err.str, "or crud module versions mismatch between router and storage")
 end
@@ -2110,7 +2112,7 @@ pgroup.test_storage_uninit_get_error_text = function(g)
     t.assert_equals(obj, nil)
     t.assert_str_contains(err.str, 'GetError')
     t.assert_str_contains(err.str, 'NotInitialized')
-    t.assert_str_contains(err.str, "Function _crud.get_on_storage is not registered")
+    t.assert_str_contains(err.str, "Function '_crud.get_on_storage' is not registered")
     t.assert_str_contains(err.str, "crud isn't initialized on replicaset")
     t.assert_str_contains(err.str, "or crud module versions mismatch between router and storage")
 end
@@ -2321,5 +2323,30 @@ for case_name_template, case in pairs(read_scenario.gh_422_nullability_cases) do
 
     pgroup[case_name] = function(g)
         case(g, read_impl)
+    end
+end
+
+pgroup.test_select_invalid_bucket_id = function(g)
+    local invalid_opts_list = {
+        {bucket_id = "str"},
+        {bucket_id = -1},
+        {bucket_id = {}},
+        {bucket_id = true},
+    }
+
+    for _, opts in ipairs(invalid_opts_list) do
+        opts.mode = 'write'
+        opts.fullscan = true
+
+        local expected_err = string.format(
+            "Invalid bucket_id: expected unsigned, got %s",
+            type(opts.bucket_id)
+        )
+
+        local resp, err = g.router:call('crud.select', {
+            'customers', nil, opts
+        })
+        t.assert_equals(resp, nil)
+        t.assert_str_contains(err.err or err.str, expected_err)
     end
 end

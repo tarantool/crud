@@ -42,6 +42,10 @@ schema.system_spaces = {
     -- https://github.com/tarantool/ddl/blob/b55d0ff7409f32e4d527e2d25444d883bce4163b/test/set_sharding_metadata_test.lua#L92-L98
     ['_ddl_sharding_key'] = true,
     ['_ddl_sharding_func'] = true,
+    -- https://github.com/tarantool/tt-ee/blob/6045cd6f4f9b10fbba7e2c6abeecb8f856fee9b0/lib/migrations/internal/eval/body/lua/status_api.lua
+    ['_tt_migrations'] = true,
+    -- https://github.com/tarantool/cluster-federation/blob/01738cafa0dc7a3138e64f93c4e84cb323653257/src/internal/utils/utils.go#L17
+    ['_cdc_state'] = true,
 }
 
 local function get_crud_schema(space)

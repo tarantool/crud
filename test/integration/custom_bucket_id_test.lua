@@ -555,3 +555,17 @@ pgroup.test_select = function(g)
     -- tuple is found
     t.assert_equals(#result.rows, 1)
 end
+
+pgroup.test_non_existent_bucket_id = function(g)
+    local _, err = g.router:call('crud.insert', {
+        'customers', {1, box.NULL, 'Maria', 23}, {bucket_id = 999999}
+    })
+    t.assert_equals(type(err), 'table')
+    t.assert_equals(err.class_name, 'InsertError')
+    t.assert_str_contains(
+        err.err,
+        'Failed to call insert on storage-side: CallError: Failed to get router replicaset: '
+        .. '{"bucket_id":999999,"code":9,"type":"ShardingError","message":"Bucket 999999 cannot'
+        .. ' be found. Is rebalancing in progress?","name":"NO_ROUTE_TO_BUCKET"}'
+    )
+end

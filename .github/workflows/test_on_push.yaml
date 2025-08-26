@@ -10,51 +10,27 @@ jobs:
       github.event_name == 'push' ||
       github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
     strategy:
+      fail-fast: false
       matrix:
-        # We need 1.10.6 here to check that module works with
-        # old Tarantool versions that don't have "tuple-keydef"/"tuple-merger" support.
-        # We test old metrics with Tarantool 2.10 because since Tarantool 2.11.1
-        # it uses its own metrics package.
-        # We test old metrics with Cartridge 2.7.9 because since 2.8.0 it
-        # requires metrics 1.0.0.
-        tarantool-version: ["1.10.6", "1.10", "2.8", "2.10", "2.11"]
-        metrics-version: [""]
-        cartridge-version: ["2.8.0"]
-        external-tuple-merger-version: [""]
-        external-tuple-keydef-version: [""]
         include:
-          - tarantool-version: "1.10"
-            metrics-version: "1.0.0"
-            cartridge-version: "2.8.0"
-          - tarantool-version: "2.7"
-            cartridge-version: "2.8.0"
           - tarantool-version: "2.10"
-            metrics-version: "0.10.0"
-            cartridge-version: "2.7.9"
           - tarantool-version: "2.11"
             coveralls: true
-            metrics-version: "1.0.0"
-            cartridge-version: "2.8.0"
           - tarantool-version: "2.11"
-            metrics-version: "1.0.0"
-            vshard-version: "0.1.25"
-          - tarantool-version: "2.11"
-            external-merger-version: "0.0.5"
-            external-keydef-version: "0.0.4"
-          - tarantool-version: "3.0.0"
-            vshard-version: "0.1.25"
+            external-tuple-merger-version: "0.0.5"
+            external-tuple-keydef-version: "0.0.4"
+          - tarantool-version: "3.0"
+          - tarantool-version: "3.1"
+          - tarantool-version: "3.2"
+          - tarantool-version: "3.3"
           - tarantool-version: "master"
-            vshard-version: "0.1.26"
-      fail-fast: false
-    # Can't install older versions on 22.04,
-    # see https://github.com/tarantool/setup-tarantool/issues/36
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v4
 
       - name: Setup Tarantool CE (1.x, 2.x)
         if: ${{ startsWith( matrix.tarantool-version, '1.' ) || startsWith( matrix.tarantool-version, '2.' ) }}
-        uses: tarantool/setup-tarantool@v2
+        uses: tarantool/setup-tarantool@v3
         with:
           tarantool-version: ${{ matrix.tarantool-version }}
 
@@ -67,7 +43,7 @@ jobs:
       - name: Cache Tarantool 3.x
         if: ${{ startsWith( matrix.tarantool-version, '3.' ) }}
         id: cache-v3
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: "${GITHUB_WORKSPACE}/bin"
           key: cache-${{ matrix.tarantool-version }}
@@ -88,7 +64,7 @@ jobs:
       - name: Cache Tarantool master
         if: matrix.tarantool-version == 'master'
         id: cache-latest
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: "${GITHUB_WORKSPACE}/bin"
           key: cache-latest-${{ env.LATEST_COMMIT }}
@@ -103,18 +79,10 @@ jobs:
         if: ${{ startsWith( matrix.tarantool-version, '3.' ) || matrix.tarantool-version == 'master' }}
         run: echo "${GITHUB_WORKSPACE}/bin" >> $GITHUB_PATH
 
-      - name: Fix luarocks in Tarantool CE 1.10.6
-        if: matrix.tarantool-version == '1.10.6'
-        run: |
-          sudo patch -p1 /usr/share/tarantool/luarocks/manif.lua luarocks.patch
-
       - name: Install requirements for community
         run: |
           tarantool --version
           ./deps.sh
-        env:
-          CARTRIDGE_VERSION: ${{ matrix.cartridge-version }}
-          VSHARD_VERSION: ${{ matrix.vshard-version }}
 
       - name: Install metrics
         if: matrix.metrics-version != ''
@@ -144,116 +112,30 @@ jobs:
         run: make -C build coveralls
         if: ${{ matrix.coveralls }}
 
-  run-perf-tests-ce:
-    if: |
-      github.event_name == 'push' ||
-      github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-    strategy:
-      matrix:
-        tarantool-version: ["1.10", "2.11"]
-        metrics-version: ["1.0.0"]
-        cartridge-version: ["2.8.0"]
-        include:
-          - tarantool-version: "3.0.0"
-            vshard-version: "0.1.25"
-      fail-fast: false
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@master
-
-      - name: Setup Tarantool CE (1.x, 2.x)
-        if: ${{ startsWith( matrix.tarantool-version, '1.' ) || startsWith( matrix.tarantool-version, '2.' ) }}
-        uses: tarantool/setup-tarantool@v2
-        with:
-          tarantool-version: ${{ matrix.tarantool-version }}
-
-      - name: Setup tt
-        run: |
-          curl -L https://tarantool.io/release/2/installer.sh | sudo bash
-          sudo apt install -y tt
-          tt version
-
-      - name: Cache Tarantool 3.x
-        if: ${{ startsWith( matrix.tarantool-version, '3.' ) }}
-        id: cache-v3
-        uses: actions/cache@v3
-        with:
-          path: "${GITHUB_WORKSPACE}/bin"
-          key: cache-${{ matrix.tarantool-version }}
-
-      - name: Setup Tarantool CE (3.x)
-        if: ${{ startsWith( matrix.tarantool-version, '3.' ) && steps.cache-latest.outputs.cache-hit != 'true' }}
-        run: |
-          tt init
-          tt install tarantool ${{ matrix.tarantool-version }}
-
-      - name: Get Tarantool master latest commit
-        if: matrix.tarantool-version == 'master'
-        run: |
-          commit_hash=$(git ls-remote https://github.com/tarantool/tarantool.git --branch master | head -c 8)
-          echo "LATEST_COMMIT=${commit_hash}" >> $GITHUB_ENV
-        shell: bash
-
-      - name: Cache Tarantool master
-        if: matrix.tarantool-version == 'master'
-        id: cache-latest
-        uses: actions/cache@v3
-        with:
-          path: "${GITHUB_WORKSPACE}/bin"
-          key: cache-latest-${{ env.LATEST_COMMIT }}
-
-      - name: Setup Tarantool CE (master)
-        if: matrix.tarantool-version == 'master' && steps.cache-latest.outputs.cache-hit != 'true'
-        run: |
-          tt init
-          tt install tarantool master
-
-      - name: Add tt Tarantool to PATH
-        if: ${{ startsWith( matrix.tarantool-version, '3.' ) || matrix.tarantool-version == 'master' }}
-        run: echo "${GITHUB_WORKSPACE}/bin" >> $GITHUB_PATH
-
-      - name: Install requirements for community
-        run: |
-          tarantool --version
-          ./deps.sh
-        env:
-          CARTRIDGE_VERSION: ${{ matrix.cartridge-version }}
-          VSHARD_VERSION: ${{ matrix.vshard-version }}
-
-      - name: Install metrics
-        if: matrix.metrics-version != ''
-        run: tt rocks install metrics ${{ matrix.metrics-version }}
-
-      # This server starts and listen on 8084 port that is used for tests
-      - name: Stop Mono server
-        run: sudo kill -9 $(sudo lsof -t -i tcp:8084) || true
-
-      - run: cmake -S . -B build
-
-      - name: Run performance tests
-        run: make -C build performance
-
   run-tests-ee:
     if: github.event_name == 'push'
     strategy:
+      fail-fast: false
       matrix:
-        tarantool-version:
-          - folder: "1.10"
-            bundle: "tarantool-enterprise-sdk-1.10.15-0-r609"
-          - folder: "2.11"
-            bundle: "tarantool-enterprise-sdk-nogc64-2.11.2-0-r609.linux.x86_64"
-        metrics-version: ["", "1.0.0"]
-        cartridge-version: ["2.8.0"]
         include:
           - tarantool-version:
-              folder: "3.0"
-              bundle: "tarantool-enterprise-sdk-gc64-3.0.0-0-gf58f7d82a-r23.linux.x86_64"
-            vshard-version: "0.1.25"
-
-      fail-fast: false
-    runs-on: ubuntu-20.04
+              folder: "2.10"
+              bundle: "tarantool-enterprise-sdk-gc64-2.10.8-0-r691.linux.x86_64"
+          - tarantool-version:
+              folder: "2.11"
+              bundle: "tarantool-enterprise-sdk-gc64-2.11.7-0-r691.linux.x86_64"
+          - tarantool-version:
+              folder: "3.2"
+              bundle: "tarantool-enterprise-sdk-gc64-3.2.0-0-r40.linux.x86_64"
+          - tarantool-version:
+              folder: "3.3"
+              bundle: "tarantool-enterprise-sdk-gc64-3.3.2-0-r62.linux.x86_64"
+          - tarantool-version:
+              folder: "3.4"
+              bundle: "tarantool-enterprise-sdk-gc64-3.4.0-0-r62.linux.x86_64"
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v4
 
       - name: Install requirements for enterprise
         run: |

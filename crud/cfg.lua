@@ -157,7 +157,7 @@ local function __call(self, opts)
     })
     -- Value validation would be performed in stats checks, if required.
 
-    opts = table.deepcopy(opts) or {}
+    opts = table.deepcopy(opts or {})
     -- opts from Cartridge clusterwide configuration is read-only,
     -- but we want to work with copy anyway.
     setmetatable(opts, {})

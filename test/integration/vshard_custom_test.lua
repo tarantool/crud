@@ -217,10 +217,12 @@ pgroup.before_all(function(g)
 end)
 
 pgroup.before_each(function(g)
+    helpers.reset_call_cache(g.cluster)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
     helpers.truncate_space_on_cluster(g.cluster, 'customers_ddl')
     helpers.truncate_space_on_cluster(g.cluster, 'locations')
     helpers.truncate_space_on_cluster(g.cluster, 'locations_ddl')
+    helpers.truncate_space_on_cluster(g.cluster, 'interval')
 
     g.router:call('prepare_data', {'customers', 'customers', {1, box.NULL, 'Akiyama Shun', 32}})
     g.router:call('prepare_data', {'customers', 'customers', {2, box.NULL, 'Kazuma Kiryu', 41}})

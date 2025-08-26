@@ -1,6 +1,7 @@
 local checks = require('checks')
 local errors = require('errors')
 
+local call = require('crud.common.call')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
 
@@ -60,7 +61,10 @@ function len.call(space_name, opts)
         return nil, LenError:new("Space %q doesn't exist", space_name)
     end
 
-    local results, err = vshard_router:map_callrw(CRUD_LEN_FUNC_NAME, {space_name}, opts)
+    local results, err = call.map(vshard_router, CRUD_LEN_FUNC_NAME, {space_name}, {
+        mode = 'write',
+        timeout = opts.timeout,
+    })
 
     if err ~= nil then
         return nil, LenError:new("Failed to call len on storage-side: %s", err)

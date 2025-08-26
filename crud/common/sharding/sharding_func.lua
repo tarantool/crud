@@ -10,7 +10,7 @@ local ShardingFuncError = errors.new_class('ShardingFuncError',  {capture_stack 
 local sharding_func_module = {}
 
 local sharding_module_names = {
-    ['vshard'] = true,
+    ['vshard'] = 'vshard',
 }
 
 local function is_callable(object)
@@ -50,8 +50,9 @@ local function get_function_from_G(func_name)
     local sharding_module = false
     local ok
 
-    if sharding_module_names[chunks[1]] then
-        ok, sharding_func = pcall(require, chunks[1])
+    if sharding_module_names[chunks[1]] ~= nil then
+        local module_name = sharding_module_names[chunks[1]]
+        ok, sharding_func = pcall(require, module_name)
         if not ok then
             return nil
         end

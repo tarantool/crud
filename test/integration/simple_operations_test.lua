@@ -1704,3 +1704,171 @@ pgroup.test_noreturn_opt = function(g)
     t.assert_not_equals(err, nil)
     t.assert_equals(result, nil)
 end
+
+pgroup.test_valid_bucket_id_values = function(g)
+    local valid_cases = {
+        {
+            description = 'bucket_id = nil (auto-detection)',
+            opts = {},
+            id = 100,
+        },
+        {
+            description = 'bucket_id = unsigned number',
+            opts = {bucket_id = 123},
+            id = 101,
+        },
+    }
+
+    for _, case in ipairs(valid_cases) do
+        helpers.truncate_space_on_cluster(g.cluster, 'customers')
+
+        local tuple = {case.id, box.NULL, 'Valid', 30}
+        local obj = {id = case.id + 1000, name = 'Valid', age = 31}
+
+        local result, err = g.router:call('crud.insert', {
+            'customers', tuple, case.opts
+        })
+        t.assert_equals(err, nil, case.description .. ' (tuple)')
+        t.assert_not_equals(result, nil, case.description .. ' (tuple)')
+
+        result, err = g.router:call('crud.insert_object', {
+            'customers', obj, case.opts
+        })
+        t.assert_equals(err, nil, case.description .. ' (object)')
+        t.assert_not_equals(result, nil, case.description .. ' (object)')
+    end
+end
+
+pgroup.test_invalid_bucket_id_operations = function(g)
+    helpers.truncate_space_on_cluster(g.cluster, 'customers')
+
+    local invalid_bucket_id = 'bad-id'
+    local expected_err = string.format('Invalid bucket_id: expected unsigned, got %s', type(invalid_bucket_id))
+
+    local key = 1
+    local tuple = {key, invalid_bucket_id, 'Test', 42}
+    local tuple_clean = {key, box.NULL, 'Test', 42}
+    local object = {id = key + 1000, bucket_id = invalid_bucket_id, name = 'Test', age = 42}
+    local object_clean = {id = key + 1001, name = 'Test', age = 42}
+    local operations = {{'=', 'name', 'NewName'}}
+
+    local crud_calls = {
+        {'crud.insert', {'customers', tuple, {}}},
+        {'crud.insert', {'customers', tuple_clean, {bucket_id = invalid_bucket_id}}},
+
+        {'crud.insert_object', {'customers', object, {}}},
+        {'crud.insert_object', {'customers', object_clean, {bucket_id = invalid_bucket_id}}},
+
+        {'crud.replace', {'customers', tuple, {}}},
+        {'crud.replace', {'customers', tuple_clean, {bucket_id = invalid_bucket_id}}},
+
+        {'crud.replace_object', {'customers', object, {}}},
+        {'crud.replace_object', {'customers', object_clean, {bucket_id = invalid_bucket_id}}},
+
+        {'crud.upsert', {'customers', tuple, operations, {}}},
+        {'crud.upsert', {'customers', tuple_clean, operations, {bucket_id = invalid_bucket_id}}},
+
+        {'crud.upsert_object', {'customers', object, operations, {}}},
+        {'crud.upsert_object', {'customers', object_clean, operations, {bucket_id = invalid_bucket_id}}},
+
+        {'crud.update', {'customers', key, operations, {bucket_id = invalid_bucket_id}}},
+        {'crud.delete', {'customers', key, {bucket_id = invalid_bucket_id}}},
+    }
+
+    for _, call in ipairs(crud_calls) do
+        local func, args = call[1], call[2]
+        local _, err = g.router:call(func, args)
+        t.assert_str_contains(err.err or err[1].err, expected_err, func)
+    end
+end
+
+pgroup.test_invalid_bucket_id_many_operations = function(g)
+    local invalid_bucket_id = 'bad-id'
+    local expected_err = string.format('Invalid bucket_id: expected unsigned, got %s', type(invalid_bucket_id))
+
+    local many_calls = {
+        {
+            func = 'crud.insert_many',
+            args = {'customers', {
+                {1, invalid_bucket_id, 'ManyInsert', 10},
+            }},
+        },
+        {
+            func = 'crud.replace_many',
+            args = {'customers', {
+                {2, invalid_bucket_id, 'ManyReplace', 20},
+            }},
+        },
+        {
+            func = 'crud.upsert_many',
+            args = {'customers', {
+                {
+                    {3, invalid_bucket_id, 'ManyUpsert', 30},
+                    {{'=', 'name', 'replaced'}}
+                },
+            }},
+        },
+    }
+
+    for _, call in ipairs(many_calls) do
+        local _, err = g.router:call(call.func, call.args)
+        t.assert_str_contains(err.err or err[1].err, expected_err, call.func)
+    end
+end
+
+pgroup.test_invalid_bucket_id_object_many_operations = function(g)
+    local invalid_bucket_id = 'bad-id'
+    local expected_err = string.format('Invalid bucket_id: expected unsigned, got %s', type(invalid_bucket_id))
+
+    local object_many_calls = {
+        {
+            func = 'crud.insert_object_many',
+            args = {'customers', {
+                {id = 1001, bucket_id = invalid_bucket_id, name = 'ManyObjInsert', age = 20},
+            }},
+        },
+        {
+            func = 'crud.replace_object_many',
+            args = {'customers', {
+                {id = 1002, bucket_id = invalid_bucket_id, name = 'ManyObjReplace', age = 30},
+            }},
+        },
+        {
+            func = 'crud.upsert_object_many',
+            args = {'customers', {
+                {
+                    {id = 1003, bucket_id = invalid_bucket_id, name = 'ManyObjUpsert', age = 40},
+                    {{'=', 'age', 50}},
+                },
+            }},
+        },
+    }
+
+    for _, call in ipairs(object_many_calls) do
+        local _, err = g.router:call(call.func, call.args)
+        t.assert_str_contains(err.err or err[1].err, expected_err, call.func)
+    end
+end
+
+pgroup.test_get_invalid_bucket_id = function(g)
+    local invalid_values = {
+        "string",
+        {},
+        true,
+        -1,
+    }
+
+    for _, bucket_id in ipairs(invalid_values) do
+        local expected_err = string.format(
+            "Invalid bucket_id: expected unsigned, got %s",
+            type(bucket_id)
+        )
+        local result, err = g.router:call('crud.get', {
+            'customers', 1, {bucket_id = bucket_id, mode = 'write'}
+        })
+
+        t.assert_equals(result, nil)
+        t.assert_str_contains(err.err or err.str, expected_err)
+    end
+end
+

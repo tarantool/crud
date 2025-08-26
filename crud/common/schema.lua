@@ -217,14 +217,15 @@ function schema.wrap_func_result(space, func, args, opts)
     opts = opts or {}
 
     local ok, func_res = pcall(func, unpack(args))
-    if not ok then
-        result.err = func_res
-        if opts.add_space_schema_hash then
-            result.space_schema_hash = get_space_schema_hash(space)
-        end
-    else
+    if ok then
         if opts.noreturn ~= true then
             result.res = filter_tuple_fields(func_res, opts.field_names)
+        end
+    else
+        result.err = func_res
+        if opts.add_space_schema_hash then
+            local _, space_schema_hash = pcall(get_space_schema_hash, space)
+            result.space_schema_hash = space_schema_hash
         end
     end
 

@@ -11,6 +11,9 @@ luacov.stats.out
 build/*.cmake
 build/Makefile
 .idea
+sdk
+sdk-2
+sdk-3
 
 # Vim Swap files.
 .*.s[a-w][a-z]

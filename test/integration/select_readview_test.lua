@@ -39,9 +39,11 @@ pgroup.after_all(function(g)
 end)
 
 pgroup.before_each(function(g)
+    helpers.reset_call_cache(g.cluster)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
     helpers.truncate_space_on_cluster(g.cluster, 'developers')
     helpers.truncate_space_on_cluster(g.cluster, 'cars')
+    helpers.truncate_space_on_cluster(g.cluster, 'interval')
 end)
 
 local function set_master(cluster, uuid, master_uuid)
@@ -2560,5 +2562,36 @@ for case_name_template, case in pairs(read_scenario.gh_422_nullability_cases) do
 
     pgroup[case_name] = function(g)
         case(g, read_impl)
+    end
+end
+
+pgroup.test_invalid_bucket_id_in_readview = function(g)
+    local invalid_opts_list = {
+        {bucket_id = "string"},
+        {bucket_id = {}},
+        {bucket_id = true},
+        {bucket_id = -1},
+    }
+
+    for _, opts in ipairs(invalid_opts_list) do
+        local expected_err = string.format(
+            "Invalid bucket_id: expected unsigned, got %s",
+            type(opts.bucket_id)
+        )
+        local _, err = g.router:eval([[
+            local crud = require('crud')
+
+            local rv, err = crud.readview({name = 'foo'})
+            if err ~= nil then
+                return nil, err
+            end
+
+            local _, err = rv:select('customers', nil, ...)
+
+            rv:close()
+            return nil, err
+        ]], {opts})
+
+        t.assert_str_contains(err.err, expected_err)
     end
 end

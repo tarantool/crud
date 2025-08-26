@@ -2,6 +2,7 @@ local fiber = require('fiber')
 local checks = require('checks')
 local errors = require('errors')
 
+local call = require('crud.common.call')
 local const = require('crud.common.const')
 local stash = require('crud.common.stash')
 local utils = require('crud.common.utils')
@@ -334,8 +335,15 @@ function Readview_obj.create(vshard_router, opts)
     setmetatable(readview, Readview_obj)
 
     readview._name = opts.name
-    local results, err, err_id = vshard_router:map_callrw(CRUD_OPEN_FUNC_NAME,
-        {readview._name}, {timeout = opts.timeout})
+    local results, err, err_id = call.map(
+            vshard_router,
+            CRUD_OPEN_FUNC_NAME,
+            {readview._name},
+            {
+                mode = "write",
+                timeout = opts.timeout,
+            }
+    )
     if err ~= nil then
         return nil, ReadviewError:new(
             "Failed to call readview_open_on_storage on storage-side: storage id: %s err: %s",

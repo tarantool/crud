@@ -11,9 +11,10 @@ then
 fi
 
 # Test dependencies:
-$TTCTL rocks install luatest 1.0.1
-$TTCTL rocks install luacheck 0.25.0
-$TTCTL rocks install luacov 0.13.0
+${TTCTL} rocks install luatest 1.0.1
+${TTCTL} rocks install luacheck 0.26.0
+${TTCTL} rocks install luacov 0.13.0
+${TTCTL} rocks install luacov-reporters 0.1.0
 
 # cluacov, luacov-coveralls and dependencies
 $TTCTL rocks install https://raw.githubusercontent.com/luarocks/cluacov/master/cluacov-dev-1.rockspec
@@ -33,15 +34,16 @@ $TTCTL rocks install "${LUACOV_COVERALLS_ROCKSPEC_FILE}"
 rm "${LUACOV_COVERALLS_ROCKSPEC_FILE}"
 rmdir "${TMPDIR}"
 
-if [[ -n "$CARTRIDGE_VERSION" ]]
-then
-	$TTCTL rocks install cartridge "$CARTRIDGE_VERSION"
-	$TTCTL rocks install migrations 0.4.2
-else
-	VSHARD_VERSION="${VSHARD_VERSION:-0.1.24}"
-	$TTCTL rocks install vshard "$VSHARD_VERSION"
-fi
+CARTRIDGE_VERSION="${CARTRIDGE_VERSION:-2.16.3}"
+VSHARD_VERSION="${VSHARD_VERSION:-0.1.36}"
+METRICS_VERSION="${METRICS_VERSION:-1.5.0}"
+DDL_VERSION="${METRICS_VERSION:-1.7.1}"
+MIGRATIONS_VERSION="${MIGRATIONS_VERSION:-1.1.0}"
 
-$TTCTL rocks install ddl 1.6.2
+${TTCTL} rocks install cartridge "${CARTRIDGE_VERSION}"
+${TTCTL} rocks install vshard "${VSHARD_VERSION}"
+${TTCTL} rocks install metrics "${METRICS_VERSION}"
+${TTCTL} rocks install ddl "${DDL_VERSION}"
+${TTCTL} rocks install migrations "${MIGRATIONS_VERSION}"
 
-$TTCTL rocks make
+${TTCTL} rocks make

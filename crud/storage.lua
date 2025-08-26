@@ -4,6 +4,7 @@ local dev_checks = require('crud.common.dev_checks')
 local stash = require('crud.common.stash')
 local utils = require('crud.common.utils')
 
+local call = require('crud.common.call')
 local sharding_metadata = require('crud.common.sharding.sharding_metadata')
 local insert = require('crud.insert')
 local insert_many = require('crud.insert_many')
@@ -61,6 +62,7 @@ local function init_storage_call(user, storage_api)
 end
 
 local modules_with_storage_api = {
+    call,
     sharding_metadata,
     insert,
     insert_many,
