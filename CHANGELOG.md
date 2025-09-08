@@ -5,13 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.6.0] - 09-09-25
 
 ### Changed
 * bumped: vshard version in rockspec.
-* Role model support in CRUD is provided ([commit](https://github.com/tarantool/crud/pull/453/commits/379f7e0a133b3ad8763885b51626e7d30b2920ee)).
 
 ### Added
+* Role model support in CRUD is provided ([commit](https://github.com/tarantool/crud/pull/453/commits/379f7e0a133b3ad8763885b51626e7d30b2920ee)).
 * Validation of `bucket_id`. Invalid values now raise `BucketIDError`
   before routing ([commit](https://github.com/tarantool/crud/pull/453/commits/3019e76a09200b0c12523b0b5221350ae8a0a8b4)).
 
