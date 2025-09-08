@@ -1,4 +1,12 @@
+local ci_node_index = os.getenv("CI_NODE_INDEX") or ""
+
+statsfile = "luacov.stats" .. ci_node_index .. ".out"
 exclude = {
-    '/test/',
-    '/.rocks/',
+    "test"
+}
+include = {
+    "crud%/.+$",
+    "crud.lua",
+    "roles%/.+$",
+    "cartridge%/.+$",
 }

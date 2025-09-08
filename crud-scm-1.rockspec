@@ -11,9 +11,9 @@ description = {
 
 dependencies = {
     'lua ~> 5.1',
-    'checks >= 3.1.0-1',
+    'checks >= 3.3.0-1',
     'errors >= 2.2.1-1',
-    'vshard >= 0.1.18-1',
+    'vshard >= 0.1.36-1',
 }
 
 build = {

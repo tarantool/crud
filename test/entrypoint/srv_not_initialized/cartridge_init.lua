@@ -17,6 +17,9 @@ end
 local root = fio.dirname(fio.dirname(fio.dirname(debug.sourcedir())))
 package.path = package.path .. root .. "/?.lua;" .. root .. "/?/init.lua;"
 
+local root = fio.dirname(fio.dirname(fio.dirname(debug.sourcedir())))
+package.path = package.path .. root .. "/?.lua;"
+
 package.preload['customers-storage'] = function()
     return {
         role_name = 'customers-storage',

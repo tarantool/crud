@@ -66,7 +66,7 @@ First, [install Tarantool](https://www.tarantool.io/en/download).
 
 #### Manual install
 
-To try `crud` in your application, you may install it manually fron web
+To try `crud` in your application, you may install it manually from web
 with `tt rocks` rock management tool.
 
 ```bash
@@ -155,6 +155,12 @@ tarantool> crud.select('developers', nil, {first = 6})
 ## API
 
 The CRUD operations should be called from router.
+
+Assuming that:
+
+```lua
+local crud = require('crud')
+```
 
 All VShard storages should call `crud.init_storage()` after
 `vshard.storage.cfg()` (or enable the `roles.crud-storage` role for Tarantool 3
@@ -1968,7 +1974,6 @@ issues.
 
     <details>
       <summary>Full configuration example</summary>
-      
       ```yaml
       credentials:
         users:
