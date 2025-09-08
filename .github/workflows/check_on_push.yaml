@@ -9,14 +9,14 @@ jobs:
     if: |
       github.event_name == 'push' ||
       github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@master
+    - uses: actions/checkout@v4
 
     - name: Setup Tarantool CE
-      uses: tarantool/setup-tarantool@v2
+      uses: tarantool/setup-tarantool@v4
       with:
-        tarantool-version: '2.10'
+        tarantool-version: '2.11'
 
     - name: Setup tt
       run: |
