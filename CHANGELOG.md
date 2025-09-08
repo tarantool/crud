@@ -8,24 +8,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Changed
-* bumped: metrics version in rockspec
-* bumped: cartridge version in rockspec
-* bumped: vshard version in rockspec
-* Role model support in CRUD is provided (https://jira.vk.team/browse/TNTP-2177)
+* bumped: vshard version in rockspec.
+* Role model support in CRUD is provided ([commit](https://github.com/tarantool/crud/pull/453/commits/379f7e0a133b3ad8763885b51626e7d30b2920ee)).
 
 ### Added
 * Validation of `bucket_id`. Invalid values now raise `BucketIDError`
-  before routing. [TNTP-3536](https://jira.vk.team/browse/TNTP-3536)
+  before routing ([commit](https://github.com/tarantool/crud/pull/453/commits/3019e76a09200b0c12523b0b5221350ae8a0a8b4)).
 
 ### Fixed
-* Fixed compatibility with cartridge `2.16.0` ([TNTP-3598](https://jira.vk.team/browse/TNTP-3598))
+* Fixed compatibility with cartridge `2.16.0`.
 * `crud.schema` no longer returns TCF system space `_cdc_state`.
 * `crud.schema` no longer returns system space `_gc_consumers` with Tarantool 3.2+.
 * `crud.schema` no longer returns `tt` system space `_tt_migrations`.
 * Tests of `schema` with Tarantool 3.2+.
 * Fixed bad error handling for method `call.single`
 * Added support for working in 3.1 with data from 2.11, previously there was an error
-due to the inability to find the replicasets by name https://github.com/tarantool/crud-ee/issues/16
+due to the inability to find the replicasets by name ([commit](https://github.com/tarantool/crud/pull/453/commits/fdce364254a234fb8db9ed1bab9bbe0d3c9d3e17)).
 
 ## [1.5.2] - 20-05-24
 

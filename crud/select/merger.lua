@@ -12,7 +12,7 @@ local merger_lib = compat.require('tuple.merger', 'merger')
 
 local Keydef = require('crud.compare.keydef')
 local stats = require('crud.stats')
-local utils = require("crud.common.utils")
+local utils = require('crud.common.utils')
 
 local function bswap_u16(num)
     return bit.rshift(bit.bswap(tonumber(num)), 16)

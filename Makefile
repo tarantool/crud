@@ -5,15 +5,13 @@ S3_TARANTOOL_SDK_2_PATH := s3://packages/enterprise/release/linux/x86_64/2.11/ta
 S3_ENDPOINT_URL := $(if $(S3_ENDPOINT_URL),$(S3_ENDPOINT_URL),https://hb.vkcs.cloud)
 
 .rocks: sdk
-	# в sdk-2 есть все нужные роки, в sdk-3 нет
 	source ./sdk-2/env.sh && \
 	tt rocks install luacheck 0.26.0 --only-server=sdk-2/rocks && \
 	tt rocks install luacov 0.13.0 --only-server=sdk-2/rocks && \
 	tt rocks install luacov-reporters 0.1.0 --only-server=sdk-2/rocks && \
-	tt rocks install metrics  1.4.0 --only-server=sdk-2/rocks && \
-	tt rocks install ddl-ee 1.8.0 --only-server=sdk-2/rocks && \
-	tt rocks install cartridge 2.16.2 --only-server=sdk-2/rocks && \
-	tt rocks install migrations-ee 1.3.2 --only-server=sdk-2/rocks && \
+	tt rocks install metrics  1.5.0 && \
+	tt rocks install cartridge 2.16.3 && \
+	tt rocks install migrations 1.1.0 && \
 	tt rocks make
 
 sdk-2:
@@ -25,7 +23,6 @@ sdk-3:
 	mkdir sdk-3 && tar -xvzf tarantool-enterprise-*.tar.gz -C ./sdk-3 --strip-components=1 && rm tarantool-enterprise-*.tar.gz
 
 sdk: sdk-2 sdk-3
-	# в sdk-3 нет luatest
 	source sdk-3/env.sh && \
 	cp sdk-2/rocks/luatest-1.0.1-1.all.rock sdk-3/rocks/ && \
 	chmod 644 sdk-3/rocks/* && \

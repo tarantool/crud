@@ -35,6 +35,10 @@ local ORIGINAL_ROWS = {
 }
 
 group_of_tests.before_all(function(g)
+    if (not helpers.tarantool_version_at_least(2, 11, 0))
+    or (not require('luatest.tarantool').is_enterprise_package()) then
+        t.skip('Readview is supported only for Tarantool Enterprise starting from v2.11.0')
+    end
     helpers.start_default_cluster(g, 'srv_select')
 
     g.space_format = g.cluster:server('s1-master').net_box.space.customers:format()
