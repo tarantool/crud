@@ -28,7 +28,7 @@ sdk: sdk-2 sdk-3
 	chmod 644 sdk-3/rocks/* && \
 	tt rocks make_manifest sdk-3/rocks
 
-lint: .rocks
+lint:
 	source sdk-2/env.sh && .rocks/bin/luacheck .
 
 .PHONY: test

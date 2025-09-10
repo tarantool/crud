@@ -2339,7 +2339,7 @@ pgroup.test_select_invalid_bucket_id = function(g)
         opts.fullscan = true
 
         local expected_err = string.format(
-            "Invalid bucket_id: expected unsigned, got %s",
+            "Invalid bucket_id in opts: expected unsigned, got %s",
             type(opts.bucket_id)
         )
 

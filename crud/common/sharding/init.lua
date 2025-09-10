@@ -82,11 +82,13 @@ function sharding.tuple_get_bucket_id(vshard_router, tuple, space, specified_buc
     }
 end
 
-function sharding.validate_bucket_id(bucket_id)
+function sharding.validate_bucket_id(bucket_id, where)
+    where = where or 'opts'
+
     if not utils.is_uint(bucket_id) or bucket_id < 1 then
         return BucketIDError:new(
-                "Invalid bucket_id: expected unsigned, got %s",
-                type(bucket_id)
+                "Invalid bucket_id in %s: expected unsigned, got %s",
+                where, type(bucket_id)
         )
     end
 end
@@ -97,7 +99,19 @@ function sharding.tuple_set_and_return_bucket_id(vshard_router, tuple, space, sp
         return nil, BucketIDError:new("Failed to get bucket ID fieldno: %s", err)
     end
 
+    if tuple[bucket_id_fieldno] ~= nil then
+        err = sharding.validate_bucket_id(tuple[bucket_id_fieldno], 'data')
+        if err ~= nil then
+            return nil, err
+        end
+    end
+
     if specified_bucket_id ~= nil then
+        err = sharding.validate_bucket_id(specified_bucket_id)
+        if err ~= nil then
+            return nil, err
+        end
+
         if tuple[bucket_id_fieldno] == nil then
             tuple[bucket_id_fieldno] = specified_bucket_id
         else
@@ -120,11 +134,6 @@ function sharding.tuple_set_and_return_bucket_id(vshard_router, tuple, space, sp
         tuple[bucket_id_fieldno] = sharding_data.bucket_id
     else
         sharding_data.skip_sharding_hash_check = true
-    end
-
-    err = sharding.validate_bucket_id(sharding_data.bucket_id)
-    if err ~= nil then
-        return nil, err
     end
 
     return sharding_data

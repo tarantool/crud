@@ -925,7 +925,7 @@ pgroup.test_invalid_bucket_id_in_opts = function(g)
 
     for _, bucket_id in ipairs(invalid_values) do
         local expected_err = string.format(
-            "Invalid bucket_id: expected unsigned, got %s",
+            "Invalid bucket_id in opts: expected unsigned, got %s",
             type(bucket_id)
         )
 
