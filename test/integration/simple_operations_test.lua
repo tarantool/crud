@@ -1743,48 +1743,103 @@ pgroup.test_invalid_bucket_id_operations = function(g)
     helpers.truncate_space_on_cluster(g.cluster, 'customers')
 
     local invalid_bucket_id = 'bad-id'
-    local expected_err = string.format('Invalid bucket_id: expected unsigned, got %s', type(invalid_bucket_id))
+    local ERR_IN_DATA = string.format('Invalid bucket_id in data: expected unsigned, got %s', type(invalid_bucket_id))
+    local ERR_IN_OPTS = string.format('Invalid bucket_id in opts: expected unsigned, got %s', type(invalid_bucket_id))
 
-    local key = 1
-    local tuple = {key, invalid_bucket_id, 'Test', 42}
-    local tuple_clean = {key, box.NULL, 'Test', 42}
-    local object = {id = key + 1000, bucket_id = invalid_bucket_id, name = 'Test', age = 42}
-    local object_clean = {id = key + 1001, name = 'Test', age = 42}
-    local operations = {{'=', 'name', 'NewName'}}
+    local base = 10000
+
+    local tuple_bad = { base + 1, invalid_bucket_id, 'Test', 42 }
+    local tuple_clean = { base + 2, box.NULL, 'Test', 42 }
+    local obj_bad = { id = base + 1001, bucket_id = invalid_bucket_id, name = 'Test', age = 42 }
+    local obj_clean = { id = base + 1002, name = 'Test', age = 42 }
+    local ops = { { '=', 'name', 'NewName' } }
 
     local crud_calls = {
-        {'crud.insert', {'customers', tuple, {}}},
-        {'crud.insert', {'customers', tuple_clean, {bucket_id = invalid_bucket_id}}},
-
-        {'crud.insert_object', {'customers', object, {}}},
-        {'crud.insert_object', {'customers', object_clean, {bucket_id = invalid_bucket_id}}},
-
-        {'crud.replace', {'customers', tuple, {}}},
-        {'crud.replace', {'customers', tuple_clean, {bucket_id = invalid_bucket_id}}},
-
-        {'crud.replace_object', {'customers', object, {}}},
-        {'crud.replace_object', {'customers', object_clean, {bucket_id = invalid_bucket_id}}},
-
-        {'crud.upsert', {'customers', tuple, operations, {}}},
-        {'crud.upsert', {'customers', tuple_clean, operations, {bucket_id = invalid_bucket_id}}},
-
-        {'crud.upsert_object', {'customers', object, operations, {}}},
-        {'crud.upsert_object', {'customers', object_clean, operations, {bucket_id = invalid_bucket_id}}},
-
-        {'crud.update', {'customers', key, operations, {bucket_id = invalid_bucket_id}}},
-        {'crud.delete', {'customers', key, {bucket_id = invalid_bucket_id}}},
+        {
+            func = 'crud.insert',
+            args = { 'customers', tuple_bad, {} },
+            expected = ERR_IN_DATA
+        },
+        {
+            func = 'crud.insert',
+            args = { 'customers', tuple_clean, { bucket_id = invalid_bucket_id } },
+            expected = ERR_IN_OPTS
+        },
+        {
+            func = 'crud.insert_object',
+            args = { 'customers', obj_bad, {} },
+            expected = ERR_IN_DATA
+        },
+        {
+            func = 'crud.insert_object',
+            args = { 'customers', obj_clean, { bucket_id = invalid_bucket_id } },
+            expected = ERR_IN_OPTS
+        },
+        {
+            func = 'crud.replace',
+            args = { 'customers', { base + 3, invalid_bucket_id, 'Test', 42 }, {} },
+            expected = ERR_IN_DATA
+        },
+        {
+            func = 'crud.replace',
+            args = { 'customers', { base + 4, box.NULL, 'Test', 42 }, { bucket_id = invalid_bucket_id } },
+            expected = ERR_IN_OPTS
+        },
+        {
+            func = 'crud.replace_object',
+            args = { 'customers', { id = base + 1003, bucket_id = invalid_bucket_id, name = 'Test', age = 42 }, {} },
+            expected = ERR_IN_DATA
+        },
+        {
+            func = 'crud.replace_object',
+            args = { 'customers', { id = base + 1004, name = 'Test', age = 42 }, { bucket_id = invalid_bucket_id } },
+            expected = ERR_IN_OPTS
+        },
+        {
+            func = 'crud.upsert',
+            args = { 'customers', { base + 5, invalid_bucket_id, 'Test', 42 }, ops, {} },
+            expected = ERR_IN_DATA
+        },
+        {
+            func = 'crud.upsert',
+            args = { 'customers', { base + 6, box.NULL, 'Test', 42 }, ops, { bucket_id = invalid_bucket_id } },
+            expected = ERR_IN_OPTS
+        },
+        {
+            func = 'crud.upsert_object',
+            args = { 'customers',
+                     { id = base + 1005, bucket_id = invalid_bucket_id, name = 'Test', age = 42 }, ops, {}
+            },
+            expected = ERR_IN_DATA
+        },
+        {
+            func = 'crud.upsert_object',
+            args = { 'customers',
+                     { id = base + 1006, name = 'Test', age = 42 }, ops, { bucket_id = invalid_bucket_id }
+            },
+            expected = ERR_IN_OPTS
+        },
+        {
+            func = 'crud.update',
+            args = { 'customers', base + 7, ops, { bucket_id = invalid_bucket_id } },
+            expected = ERR_IN_OPTS
+        },
+        {
+            func = 'crud.delete',
+            args = { 'customers', base + 8, { bucket_id = invalid_bucket_id } },
+            expected = ERR_IN_OPTS
+        },
     }
 
     for _, call in ipairs(crud_calls) do
-        local func, args = call[1], call[2]
-        local _, err = g.router:call(func, args)
-        t.assert_str_contains(err.err or err[1].err, expected_err, func)
+        local _, err = g.router:call(call.func, call.args)
+        t.assert_str_contains(err.err or err[1].err, call.expected, call.func)
     end
 end
 
 pgroup.test_invalid_bucket_id_many_operations = function(g)
     local invalid_bucket_id = 'bad-id'
-    local expected_err = string.format('Invalid bucket_id: expected unsigned, got %s', type(invalid_bucket_id))
+    local expected_err = string.format('Invalid bucket_id in data: expected unsigned, got %s', type(invalid_bucket_id))
 
     local many_calls = {
         {
@@ -1818,7 +1873,7 @@ end
 
 pgroup.test_invalid_bucket_id_object_many_operations = function(g)
     local invalid_bucket_id = 'bad-id'
-    local expected_err = string.format('Invalid bucket_id: expected unsigned, got %s', type(invalid_bucket_id))
+    local expected_err = string.format('Invalid bucket_id in data: expected unsigned, got %s', type(invalid_bucket_id))
 
     local object_many_calls = {
         {
@@ -1860,7 +1915,7 @@ pgroup.test_get_invalid_bucket_id = function(g)
 
     for _, bucket_id in ipairs(invalid_values) do
         local expected_err = string.format(
-            "Invalid bucket_id: expected unsigned, got %s",
+            "Invalid bucket_id in opts: expected unsigned, got %s",
             type(bucket_id)
         )
         local result, err = g.router:call('crud.get', {
@@ -1871,4 +1926,3 @@ pgroup.test_get_invalid_bucket_id = function(g)
         t.assert_str_contains(err.err or err.str, expected_err)
     end
 end
-

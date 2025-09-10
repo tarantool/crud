@@ -957,7 +957,7 @@ pgroup.test_invalid_bucket_id_in_readview_pairs = function(g)
 
     for _, opts in ipairs(invalid_opts_list) do
         local expected_err = string.format(
-            "Invalid bucket_id: expected unsigned, got %s",
+            "Invalid bucket_id in opts: expected unsigned, got %s",
             type(opts.bucket_id)
         )
         local _, err = g.router:eval([[
