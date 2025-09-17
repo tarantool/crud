@@ -112,6 +112,9 @@ local function call_delete_on_router(vshard_router, space_name, key, opts)
         return nil, err
     end
 
+    -- When the sharding index (bucket_id) is the primary index, bucket_id can be passed as box.NULL.
+    sharding.fill_bucket_id_pk(space, key, bucket_id_data.bucket_id)
+
     local delete_on_storage_opts = {
         sharding_func_hash = bucket_id_data.sharding_func_hash,
         sharding_key_hash = sharding_key_hash,

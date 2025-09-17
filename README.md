@@ -236,6 +236,22 @@ require any actions from user side. However, for operations that accepts
 tuple/object bucket ID can be specified as tuple/object field as well as
 `opts.bucket_id` value.
 
+**Primary key requests without explicit `bucket_id`**
+
+If the sharding index (with `bucket_id` as the first field) also acts as the
+primary index, CRUD can populate the missing `bucket_id` automatically. You may
+pass `box.NULL` instead of the first key part, and the router will compute the
+`bucket_id` from the remaining primary key fields:
+
+```lua
+local res, err = crud.get('customers', {box.NULL, customer_id})
+local res, err = crud.update('customers', {box.NULL, customer_id}, {{'=', 'name', 'Jane'}})
+local res, err = crud.delete('customers', {box.NULL, customer_id})
+```
+
+The behaviour works as long as the router has up-to-date sharding metadata and
+the primary index layout is `(bucket_id, ...)`.
+
 Starting from 0.10.0 users who don't want to use primary key as a sharding key
 may set custom sharding key definition as a part of [DDL
 schema](https://github.com/tarantool/ddl#input-data-format) or insert manually
