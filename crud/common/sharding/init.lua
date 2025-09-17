@@ -55,6 +55,42 @@ function sharding.key_get_bucket_id(vshard_router, space_name, key, specified_bu
     return { bucket_id = vshard_router:bucket_id_strcrc32(key) }
 end
 
+local function bucket_id_starts_pk(space)
+    dev_checks('table')
+
+    local primary_index_parts = space.index[0].parts
+
+    local bucket_id_fieldno = utils.get_bucket_id_fieldno(space)
+
+    return primary_index_parts[1].fieldno == bucket_id_fieldno
+end
+
+--- Fills the sharding (bucket_id) index first field with the computed bucket_id
+-- when the sharding index is the primary index and bucket_id is box.NULL.
+--
+-- @param table space
+--  Space reference used to detect sharding index layout.
+-- @param ?table key
+--  Key for the sharding index represented as a Lua table.
+-- @param number bucket_id
+--  Bucket id associated with the key.
+function sharding.fill_bucket_id_pk(space, key, bucket_id)
+    dev_checks('table', '?', 'number')
+
+    if type(key) ~= 'table' then
+        return
+    end
+
+    if not bucket_id_starts_pk(space) then
+        return
+    end
+
+    local first_key_part = key[1]
+    if first_key_part == nil or first_key_part == box.NULL then
+        key[1] = bucket_id
+    end
+end
+
 function sharding.tuple_get_bucket_id(vshard_router, tuple, space, specified_bucket_id)
     if specified_bucket_id ~= nil then
         return { bucket_id = specified_bucket_id }

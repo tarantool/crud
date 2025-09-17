@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Support for `vshard`'s `request_timeout` parameter for calls with `mode = 'read'`
 
 ### Changed
+* Auto-fill `bucket_id` for primary-key CRUD requests (get/update/delete) when the sharding index is the primary index and `bucket_id` is passed as `box.NULL`.
 
 ### Fixed
 
