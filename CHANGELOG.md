@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.6.1] - 19-09-25
+
 ### Added
 * Support for `vshard`'s `request_timeout` parameter for calls with `mode = 'read'`
 
