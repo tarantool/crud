@@ -957,7 +957,6 @@ function helpers.start_cluster(g, cartridge_cfg, vshard_cfg, tarantool3_cluster_
             helpers.start_vshard_cluster(g, vshard_cfg)
         elseif opts.backend == helpers.backend.CONFIG then
             helpers.skip_if_tarantool3_crud_roles_unsupported()
-            helpers.skip_tarantool3_vshard_unsupported()
 
             helpers.start_tarantool3_cluster(g, tarantool3_cluster_cfg)
         end
@@ -1521,11 +1520,6 @@ function helpers.skip_if_tarantool3_crud_roles_unsupported()
     local version = rawget(_G, '_TARANTOOL')
     t.skip_if(not helpers.is_tarantool3_crud_roles_supported(),
               ("Tarantool %s does not support crud roles"):format(version))
-end
-
-function helpers.skip_tarantool3_vshard_unsupported()
-    t.skip("vshard is not supported in config yet: " ..
-           "https://github.com/tarantool/tarantool-ee/issues/815")
 end
 
 function helpers.skip_if_not_config_backend(backend)
