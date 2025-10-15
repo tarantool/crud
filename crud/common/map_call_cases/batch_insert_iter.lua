@@ -76,10 +76,11 @@ function BatchInsertIterator:get()
         self.next_batch.tuples,
         self.opts,
     }
+    local bucket_ids = self.next_batch.bucket_ids
 
     self.next_index, self.next_batch = next(self.batches_by_replicasets, self.next_index)
 
-    return func_args, replicaset, replicaset_id
+    return func_args, replicaset, replicaset_id, bucket_ids
 end
 
 return BatchInsertIterator

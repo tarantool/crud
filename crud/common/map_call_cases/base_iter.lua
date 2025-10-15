@@ -72,7 +72,7 @@ function BaseIterator:get()
     local replicaset = self.next_replicaset
     self.next_index, self.next_replicaset = next(self.replicasets, self.next_index)
 
-    return self.func_args, replicaset, replicaset_id
+    return self.func_args, replicaset, replicaset_id, {}
 end
 
 return BaseIterator

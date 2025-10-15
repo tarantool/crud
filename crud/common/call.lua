@@ -186,10 +186,10 @@ function call.map(vshard_router, func_name, func_args, opts)
         request_timeout = opts.mode == 'read' and opts.request_timeout or nil,
     }
     while iter:has_next() do
-        local args, replicaset, replicaset_id = iter:get()
+        local args, replicaset, replicaset_id, bucket_ids = iter:get()
 
         local future, err = retry_call_with_master_discovery(replicaset, vshard_call_name,
-            func_name, args, call_opts, opts.mode, {}) -- TODO: provide bucket_ids
+            func_name, args, call_opts, opts.mode, bucket_ids)
 
         if err ~= nil then
             local result_info = {
