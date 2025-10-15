@@ -1,4 +1,5 @@
 local errors = require('errors')
+local vshard = require('vshard')
 
 local call_cache = require('crud.common.call_cache')
 local dev_checks = require('crud.common.dev_checks')

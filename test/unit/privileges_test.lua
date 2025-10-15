@@ -17,7 +17,8 @@ g.before_all(function()
 end)
 
 g.test_prepend_current_user_smoke = function()
-    local res = call.storage_api.call_on_storage(box.session.effective_user(), {}, "read", "unittestfunc", {"too", "foo"})
+    local res = call.storage_api.call_on_storage(
+            box.session.effective_user(), {}, "read", "unittestfunc", {"too", "foo"})
     t.assert_equals(res, {"too", "foo"})
 end
 

@@ -173,7 +173,9 @@ local function fetch_chunk(context, state)
     next_func_args[4].after_tuple = cursor.after_tuple
     local mode = "read"
     local bucket_ids = {}
-    local func_args_ext = utils.append_array({ box.session.effective_user(), bucket_ids, mode, func_name }, next_func_args)
+    local func_args_ext = utils.append_array(
+            { box.session.effective_user(), bucket_ids, mode, func_name },
+            next_func_args)
 
     if context.readview then
         next_state = {future = context.future_replica.conn:call("_crud.call_on_storage",
@@ -206,7 +208,9 @@ local function new(vshard_router, replicasets, space, index_id, func_name, func_
         local net_box_opts = {is_async = true, buffer = buf,
                               skip_header = utils.tarantool_supports_netbox_skip_header_option() or nil}
         local bucket_ids = {}
-        local func_args_ext = utils.append_array({ box.session.effective_user(), bucket_ids, mode, func_name }, func_args)
+        local func_args_ext = utils.append_array(
+                { box.session.effective_user(), bucket_ids, mode, func_name },
+                func_args)
         local future = replicaset[vshard_call_name](replicaset, "_crud.call_on_storage",
                 func_args_ext, net_box_opts)
 
@@ -284,7 +288,9 @@ local function new_readview(vshard_router, replicasets, readview_info, space, in
             func_args[4].readview_id = replicaset_info.id
             local mode = "read"
             local bucket_ids = {}
-            local func_args_ext = utils.append_array({ box.session.effective_user(), bucket_ids, mode, func_name }, func_args)
+            local func_args_ext = utils.append_array(
+                    { box.session.effective_user(), bucket_ids, mode, func_name },
+                    func_args)
             local future = replica.conn:call("_crud.call_on_storage",
                     func_args_ext, net_box_opts)
 
