@@ -18,8 +18,49 @@ local CRUD_CALL_FUNC_NAME = utils.get_storage_call(CALL_FUNC_NAME)
 
 local call = {}
 
-local function call_on_storage(run_as_user, func_name, ...)
-    return box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)
+local bucket_ref_many
+local bucket_unref_many
+
+bucket_ref_many = function(bucket_ids, mode)
+    local reffed = {}
+    for _, bucket_id in pairs(bucket_ids) do
+        local ok, err = vshard.storage.bucket_ref(bucket_id, mode)
+        if not ok then
+            bucket_unref_many(reffed, mode)
+            return nil, err
+        end
+        table.insert(reffed, bucket_id)
+    end
+    return true, nil
+end
+
+bucket_unref_many = function(bucket_ids, mode)
+    local all_ok = true
+    local last_err = nil
+    for _, bucket_id in pairs(bucket_ids) do
+        local ok, err = vshard.storage.bucket_unref(bucket_id, mode)
+        if not ok then
+            all_ok = nil
+            last_err = err
+        end
+    end
+    return all_ok, last_err
+end
+
+local function call_on_storage(run_as_user, bucket_ids, mode, func_name, ...)
+    local ok, ref_err = bucket_ref_many(bucket_ids, mode)
+    if not ok then
+        return nil, ref_err
+    end
+
+    local res = {box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)}
+
+    ok, ref_err = bucket_unref_many(bucket_ids, mode)
+    if not ok then
+        return nil, ref_err
+    end
+
+    return unpack(res, 1, table.maxn(res))
 end
 
 call.storage_api = {[CALL_FUNC_NAME] = call_on_storage}
@@ -82,8 +123,8 @@ local function wrap_vshard_err(vshard_router, err, func_name, replicaset_id, buc
     ))
 end
 
-local function retry_call_with_master_discovery(replicaset, method, func_name, func_args, call_opts)
-    local func_args_ext = utils.append_array({ box.session.effective_user(), func_name }, func_args)
+local function retry_call_with_master_discovery(replicaset, method, func_name, func_args, call_opts, mode, bucket_ids)
+    local func_args_ext = utils.append_array({ box.session.effective_user(), bucket_ids, mode, func_name }, func_args)
 
     -- In case cluster was just bootstrapped with auto master discovery,
     -- replicaset may miss master.
@@ -148,7 +189,7 @@ function call.map(vshard_router, func_name, func_args, opts)
         local args, replicaset, replicaset_id = iter:get()
 
         local future, err = retry_call_with_master_discovery(replicaset, vshard_call_name,
-            func_name, args, call_opts)
+            func_name, args, call_opts, opts.mode, {}) -- TODO: provide bucket_ids
 
         if err ~= nil then
             local result_info = {
@@ -222,8 +263,8 @@ function call.single(vshard_router, bucket_id, func_name, func_args, opts)
     local request_timeout = opts.mode == 'read' and opts.request_timeout or nil
 
     local res, err = retry_call_with_master_discovery(replicaset, vshard_call_name,
-        func_name, func_args, {timeout = timeout,
-                               request_timeout = request_timeout})
+        func_name, func_args, {timeout = timeout, request_timeout = request_timeout},
+        opts.mode, {bucket_id})
     if err ~= nil then
         return nil, wrap_vshard_err(vshard_router, err, func_name, nil, bucket_id)
     end
@@ -249,7 +290,8 @@ function call.any(vshard_router, func_name, func_args, opts)
     local replicaset_id, replicaset = next(replicasets)
 
     local res, err = retry_call_with_master_discovery(replicaset, 'call',
-        func_name, func_args, {timeout = timeout})
+        func_name, func_args, {timeout = timeout},
+    'read', {})
     if err ~= nil then
         return nil, wrap_vshard_err(vshard_router, err, func_name, replicaset_id)
     end
