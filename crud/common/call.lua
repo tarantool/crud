@@ -48,7 +48,7 @@ bucket_unref_many = function(bucket_ids, mode)
     return all_ok, last_err
 end
 
-local function call_on_storage(run_as_user, bucket_ids, mode, func_name, ...)
+local function call_on_storage_safe(run_as_user, bucket_ids, mode, func_name, ...)
     local ok, ref_err = bucket_ref_many(bucket_ids, mode)
     if not ok then
         return nil, ref_err
@@ -63,6 +63,12 @@ local function call_on_storage(run_as_user, bucket_ids, mode, func_name, ...)
 
     return unpack(res, 1, table.maxn(res))
 end
+
+local function call_on_storage_fast(run_as_user, _, _, func_name, ...)
+    return box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)
+end
+
+local call_on_storage = call_on_storage_fast
 
 call.storage_api = {[CALL_FUNC_NAME] = call_on_storage}
 
