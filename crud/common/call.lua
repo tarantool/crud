@@ -5,7 +5,7 @@ local call_cache = require('crud.common.call_cache')
 local dev_checks = require('crud.common.dev_checks')
 local utils = require('crud.common.utils')
 local sharding_utils = require('crud.common.sharding.utils')
-local fiber_clock = require('fiber').clock
+local fiber = require('fiber')
 local const = require('crud.common.const')
 
 local BaseIterator = require('crud.common.map_call_cases.base_iter')
@@ -15,27 +15,11 @@ local CallError = errors.new_class('CallError')
 
 local CALL_FUNC_NAME = 'call_on_storage'
 local CRUD_CALL_FUNC_NAME = utils.get_storage_call(CALL_FUNC_NAME)
-
+local CRUD_CALL_FIBER_NAME = CRUD_CALL_FUNC_NAME .. '/'
 
 local call = {}
 
-local bucket_ref_many
-local bucket_unref_many
-
-bucket_ref_many = function(bucket_ids, mode)
-    local reffed = {}
-    for _, bucket_id in pairs(bucket_ids) do
-        local ok, err = vshard.storage.bucket_ref(bucket_id, mode)
-        if not ok then
-            bucket_unref_many(reffed, mode)
-            return nil, err
-        end
-        table.insert(reffed, bucket_id)
-    end
-    return true, nil
-end
-
-bucket_unref_many = function(bucket_ids, mode)
+local function bucket_unref_many(bucket_ids, mode)
     local all_ok = true
     local last_err = nil
     for _, bucket_id in pairs(bucket_ids) do
@@ -46,6 +30,19 @@ bucket_unref_many = function(bucket_ids, mode)
         end
     end
     return all_ok, last_err
+end
+
+local function bucket_ref_many(bucket_ids, mode)
+    local reffed = {}
+    for _, bucket_id in pairs(bucket_ids) do
+        local ok, err = vshard.storage.bucket_ref(bucket_id, mode)
+        if not ok then
+            bucket_unref_many(reffed, mode)
+            return nil, err
+        end
+        table.insert(reffed, bucket_id)
+    end
+    return true, nil
 end
 
 local function call_on_storage_safe(run_as_user, bucket_ids, mode, func_name, ...)
@@ -65,6 +62,8 @@ local function call_on_storage_safe(run_as_user, bucket_ids, mode, func_name, ..
 end
 
 local function call_on_storage_fast(run_as_user, _, _, func_name, ...)
+    fiber.name(CRUD_CALL_FIBER_NAME .. func_name)
+
     return box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)
 end
 
@@ -218,9 +217,9 @@ function call.map(vshard_router, func_name, func_args, opts)
         futures_by_replicasets[replicaset_id] = future
     end
 
-    local deadline = fiber_clock() + timeout
+    local deadline = fiber.clock() + timeout
     for replicaset_id, future in pairs(futures_by_replicasets) do
-        local wait_timeout = deadline - fiber_clock()
+        local wait_timeout = deadline - fiber.clock()
         if wait_timeout < 0 then
             wait_timeout = 0
         end
