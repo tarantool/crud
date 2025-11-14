@@ -4,6 +4,7 @@ local dev_checks = require('crud.common.dev_checks')
 local stash = require('crud.common.stash')
 local utils = require('crud.common.utils')
 
+local rebalance = require('crud.common.rebalance')
 local call = require('crud.common.call')
 local sharding_metadata = require('crud.common.sharding.sharding_metadata')
 local insert = require('crud.insert')
@@ -62,6 +63,7 @@ local function init_storage_call(user, storage_api)
 end
 
 local modules_with_storage_api = {
+    rebalance,
     call,
     sharding_metadata,
     insert,
@@ -103,6 +105,8 @@ local function init_impl()
         user = utils.get_this_replica_user() or 'guest'
     end
 
+    rebalance.init()
+
     for _, module in ipairs(modules_with_storage_api) do
         init_storage_call(user, module.storage_api)
     end
@@ -141,6 +145,8 @@ function storage.stop()
         internal_stash.watcher:unregister()
         internal_stash.watcher = nil
     end
+
+    rebalance.stop()
 
     rawset(_G, utils.STORAGE_NAMESPACE, nil)
 end

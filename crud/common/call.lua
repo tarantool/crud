@@ -7,6 +7,7 @@ local utils = require('crud.common.utils')
 local sharding_utils = require('crud.common.sharding.utils')
 local fiber = require('fiber')
 local const = require('crud.common.const')
+local rebalance = require('crud.common.rebalance')
 
 local BaseIterator = require('crud.common.map_call_cases.base_iter')
 local BasePostprocessor = require('crud.common.map_call_cases.base_postprocessor')
@@ -46,6 +47,8 @@ local function bucket_ref_many(bucket_ids, mode)
 end
 
 local function call_on_storage_safe(run_as_user, bucket_ids, mode, func_name, ...)
+    fiber.name(CRUD_CALL_FIBER_NAME .. func_name)
+
     local ok, ref_err = bucket_ref_many(bucket_ids, mode)
     if not ok then
         return nil, ref_err
@@ -67,7 +70,24 @@ local function call_on_storage_fast(run_as_user, _, _, func_name, ...)
     return box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)
 end
 
-local call_on_storage = call_on_storage_fast
+local call_on_storage = rebalance.safe_mode and call_on_storage_safe or call_on_storage_fast
+
+local function safe_mode_enable()
+    call_on_storage = call_on_storage_safe
+
+    for fb_id, fb in pairs(fiber.info()) do
+        if string.find(fb.name, CRUD_CALL_FIBER_NAME) then
+            fiber.kill(fb_id)
+        end
+    end
+end
+
+local function safe_mode_disable()
+    call_on_storage = call_on_storage_fast
+end
+
+rebalance.register_safe_mode_enable_hook(safe_mode_enable)
+rebalance.register_safe_mode_disable_hook(safe_mode_disable)
 
 call.storage_api = {[CALL_FUNC_NAME] = call_on_storage}
 
