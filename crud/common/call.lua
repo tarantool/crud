@@ -149,7 +149,9 @@ local function wrap_vshard_err(vshard_router, err, func_name, replicaset_id, buc
     ))
 end
 
-local function retry_call_with_master_discovery(replicaset, method, func_name, func_args, call_opts, mode, bucket_ids)
+local function retry_call_with_master_discovery(vshard_router, replicaset,
+                                                method, func_name, func_args,
+                                                call_opts, mode, bucket_ids)
     local func_args_ext = utils.append_array({ box.session.effective_user(), bucket_ids, mode, func_name }, func_args)
 
     -- In case cluster was just bootstrapped with auto master discovery,
@@ -160,7 +162,18 @@ local function retry_call_with_master_discovery(replicaset, method, func_name, f
         return resp, err
     end
 
-    if err.name == 'MISSING_MASTER' and replicaset.locate_master ~= nil then
+    if err.name == 'WRONG_BUCKET' or
+       err.name == 'BUCKET_IS_LOCKED' or
+       err.name == 'TRANSFER_IS_IN_PROGRESS' then
+        vshard_router:_bucket_reset(err.bucket_id)
+
+        -- Substitute replicaset only for single bucket_id calls.
+        if err.destination and vshard_router.replicasets[err.destination] and #bucket_ids == 1 then
+            replicaset = vshard_router.replicasets[err.destination]
+        else
+            return nil, err
+        end
+    elseif err.name == 'MISSING_MASTER' and replicaset.locate_master ~= nil then
         replicaset:locate_master()
     end
 
@@ -214,7 +227,7 @@ function call.map(vshard_router, func_name, func_args, opts)
     while iter:has_next() do
         local args, replicaset, replicaset_id, bucket_ids = iter:get()
 
-        local future, err = retry_call_with_master_discovery(replicaset, vshard_call_name,
+        local future, err = retry_call_with_master_discovery(vshard_router, replicaset, vshard_call_name,
             func_name, args, call_opts, opts.mode, bucket_ids)
 
         if err ~= nil then
@@ -288,7 +301,7 @@ function call.single(vshard_router, bucket_id, func_name, func_args, opts)
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
     local request_timeout = opts.mode == 'read' and opts.request_timeout or nil
 
-    local res, err = retry_call_with_master_discovery(replicaset, vshard_call_name,
+    local res, err = retry_call_with_master_discovery(vshard_router, replicaset, vshard_call_name,
         func_name, func_args, {timeout = timeout, request_timeout = request_timeout},
         opts.mode, {bucket_id})
     if err ~= nil then
@@ -315,7 +328,7 @@ function call.any(vshard_router, func_name, func_args, opts)
     end
     local replicaset_id, replicaset = next(replicasets)
 
-    local res, err = retry_call_with_master_discovery(replicaset, 'call',
+    local res, err = retry_call_with_master_discovery(vshard_router, replicaset, 'call',
         func_name, func_args, {timeout = timeout},
     'read', {})
     if err ~= nil then
