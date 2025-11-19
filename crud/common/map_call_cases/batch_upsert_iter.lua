@@ -76,6 +76,7 @@ end
 -- @return[1] table func_args
 -- @return[2] table replicaset
 -- @return[3] string replicaset_id
+-- @return[4] table bucket_ids
 function BatchUpsertIterator:get()
     local replicaset_id = self.next_index
     local replicaset = self.next_batch.replicaset

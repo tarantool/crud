@@ -47,7 +47,7 @@ local function bucket_ref_many(bucket_ids, mode)
 end
 
 local function call_on_storage_safe(run_as_user, bucket_ids, mode, func_name, ...)
-    fiber.name(CRUD_CALL_FIBER_NAME .. func_name)
+    fiber.name(CRUD_CALL_FIBER_NAME .. 'safe/' .. func_name)
 
     local ok, ref_err = bucket_ref_many(bucket_ids, mode)
     if not ok then
@@ -65,7 +65,7 @@ local function call_on_storage_safe(run_as_user, bucket_ids, mode, func_name, ..
 end
 
 local function call_on_storage_fast(run_as_user, _, _, func_name, ...)
-    fiber.name(CRUD_CALL_FIBER_NAME .. func_name)
+    fiber.name(CRUD_CALL_FIBER_NAME .. 'fast/' .. func_name)
 
     return box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)
 end
@@ -162,9 +162,11 @@ local function retry_call_with_master_discovery(vshard_router, replicaset,
         return resp, err
     end
 
+    -- This is a partial copy of error handling from vshard.router.router_call_impl()
+    -- It is much simpler mostly because bucket_set() can't be accessed from outside vshard.
     if err.name == 'WRONG_BUCKET' or
-       err.name == 'BUCKET_IS_LOCKED' or
-       err.name == 'TRANSFER_IS_IN_PROGRESS' then
+            err.name == 'BUCKET_IS_LOCKED' or
+            err.name == 'TRANSFER_IS_IN_PROGRESS' then
         vshard_router:_bucket_reset(err.bucket_id)
 
         -- Substitute replicaset only for single bucket_id calls.

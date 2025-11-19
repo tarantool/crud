@@ -2,21 +2,16 @@ local fiber = require('fiber')
 local vshard_consts = require('vshard.consts')
 local utils = require('crud.common.utils')
 
-local MODULE_INTERNALS = '__module_crud_rebalance'
 local SETTINGS_SPACE_NAME = '_crud_settings'
+local SAFE_MOD_ENABLE_EVENT = '_crud.safe_mode_enable'
 
 
-local M = rawget(_G, MODULE_INTERNALS)
-if not M then
-    M = {
-        safe_mode = false,
-        safe_mode_enable_hooks = {},
-        safe_mode_disable_hooks = {},
-        _router_cache_last_clear_ts = fiber.time()
-    }
-else
-    return M
-end
+local M = {
+    safe_mode = false,
+    safe_mode_enable_hooks = {},
+    safe_mode_disable_hooks = {},
+    _router_cache_last_clear_ts = fiber.time()
+}
 
 local function create_space()
     local settings_space = box.schema.space.create(SETTINGS_SPACE_NAME, {
@@ -36,7 +31,7 @@ local function safe_mode_trigger(_, new, space, op)
     end
     if (op == 'INSERT' and new.status == vshard_consts.BUCKET.RECEIVING) or
             (op == 'REPLACE' and new.status == vshard_consts.BUCKET.SENDING) then
-        box.broadcast('_crud.safe_mode_enable', true)
+        box.broadcast(SAFE_MOD_ENABLE_EVENT, true)
     end
 end
 
@@ -86,11 +81,17 @@ end
 
 local function rebalance_init()
     box.watch('box.status', function()
-        if box.info.ro or box.space[SETTINGS_SPACE_NAME] == nil then
+        if box.info.ro then
             return
         end
 
-        local stored_safe_mode = box.space[SETTINGS_SPACE_NAME]:get{ 'safe_mode' }
+        local stored_safe_mode
+        if box.space[SETTINGS_SPACE_NAME] == nil then
+            create_space()
+            box.space[SETTINGS_SPACE_NAME]:insert{ 'safe_mode', false }
+        else
+            stored_safe_mode = box.space[SETTINGS_SPACE_NAME]:get{ 'safe_mode' }
+        end
         M.safe_mode = stored_safe_mode.value
 
         if M.safe_mode then
@@ -105,36 +106,12 @@ local function rebalance_init()
         end
     end)
 
-    box.watch('_crud.safe_mode_enable', function(_, do_enable)
+    box.watch(SAFE_MOD_ENABLE_EVENT, function(_, do_enable)
         if box.info.ro or not do_enable then
             return
         end
         safe_mode_enable()
     end)
-
-    if box.info.ro then
-        return
-    end
-
-    local stored_safe_mode
-    if box.space[SETTINGS_SPACE_NAME] == nil then
-        create_space()
-        box.space[SETTINGS_SPACE_NAME]:insert{ 'safe_mode', false }
-    else
-        stored_safe_mode = box.space[SETTINGS_SPACE_NAME]:get{ 'safe_mode' }
-    end
-    M.safe_mode = stored_safe_mode and stored_safe_mode.value or false
-
-    if M.safe_mode then
-        for hook, _ in pairs(M.safe_mode_enable_hooks) do
-            hook()
-        end
-    else
-        box.space._bucket:on_replace(safe_mode_trigger)
-        for hook, _ in pairs(M.safe_mode_disable_hooks) do
-            hook()
-        end
-    end
 end
 
 local function rebalance_stop()
