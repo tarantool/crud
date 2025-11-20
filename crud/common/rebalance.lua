@@ -1,4 +1,5 @@
 local fiber = require('fiber')
+local log = require('log')
 local vshard_consts = require('vshard.consts')
 local utils = require('crud.common.utils')
 
@@ -84,6 +85,13 @@ local function safe_mode_disable()
 end
 
 local function rebalance_init()
+    -- box.watch was introduced in tarantool 2.10.0
+    if not utils.tarantool_supports_box_watch() then
+        log.warn('This version of tarantool does not support autoswitch to safe mode during rebalance. '
+            .. 'Update to newer version or use `_crud.rebalance_safe_mode_enable()` to enable safe mode manually.')
+        return
+    end
+
     box.watch('box.status', function()
         if box.info.ro then
             return
