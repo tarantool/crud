@@ -58,7 +58,11 @@ end
 local function safe_mode_enable()
     if not box.info.ro then
         box.space[SETTINGS_SPACE_NAME]:replace{ 'safe_mode', true }
-        box.space._bucket:on_replace(nil, safe_mode_trigger)
+        for _, trig in pairs(box.space._bucket:on_replace()) do
+            if trig == safe_mode_trigger then
+                box.space._bucket:on_replace(nil, safe_mode_trigger)
+            end
+        end
     end
     M.safe_mode = true
 
@@ -92,7 +96,7 @@ local function rebalance_init()
         else
             stored_safe_mode = box.space[SETTINGS_SPACE_NAME]:get{ 'safe_mode' }
         end
-        M.safe_mode = stored_safe_mode.value
+        M.safe_mode = stored_safe_mode and stored_safe_mode.value or false
 
         if M.safe_mode then
             for hook, _ in pairs(M.safe_mode_enable_hooks) do
