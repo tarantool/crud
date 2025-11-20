@@ -174,7 +174,8 @@ crud.rebalance.router_cache_length = rebalance.router.cache_length
 crud.rebalance.router_cache_last_clear_ts = rebalance.router.cache_last_clear_ts
 
 function crud.init_router()
-   rawset(_G, 'crud', crud)
+    rawset(_G, 'crud', crud)
+    rebalance.metrics.enable_router_metrics()
 end
 
 function crud.stop_router()
