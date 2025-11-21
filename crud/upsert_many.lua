@@ -8,6 +8,7 @@ local batching_utils = require('crud.common.batching_utils')
 local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
+local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
 
 local BatchUpsertIterator = require('crud.common.map_call_cases.batch_upsert_iter')
 local BatchPostprocessor = require('crud.common.map_call_cases.batch_postprocessor')
@@ -47,6 +48,16 @@ local function upsert_many_on_storage(space_name, tuples, operations, opts)
         return nil, batching_utils.construct_sharding_hash_mismatch_errors(err.err, tuples)
     end
 
+    local bucket_ids = {}
+    for _, tuple in ipairs(tuples) do
+        bucket_ids[tuple[utils.get_bucket_id_fieldno(space)]] = true
+    end
+
+    local ref_ok, bucket_ref_err = bucket_ref_unref.bucket_refrw_many(bucket_ids)
+    if not ref_ok then
+        return nil, bucket_ref_err
+    end
+
     local processed_tuples = {}
     local errs = {}
     local replica_schema_version = nil
@@ -81,7 +92,11 @@ local function upsert_many_on_storage(space_name, tuples, operations, opts)
                 end
 
                 if opts.rollback_on_error == true then
+                    local unref_ok, bucket_unref_err = bucket_ref_unref.bucket_unrefrw_many(bucket_ids)
                     box.rollback()
+                    if not unref_ok then
+                        return nil, bucket_unref_err
+                    end
                     if next(processed_tuples) then
                         errs = batching_utils.complement_batching_errors(errs,
                                 batching_utils.rollback_on_error_msg, processed_tuples)
@@ -90,7 +105,11 @@ local function upsert_many_on_storage(space_name, tuples, operations, opts)
                     return nil, errs, replica_schema_version
                 end
 
+                local unref_ok, bucket_unref_err = bucket_ref_unref.bucket_unrefrw_many(bucket_ids)
                 box.commit()
+                if not unref_ok then
+                    return nil, bucket_unref_err
+                end
 
                 return nil, errs, replica_schema_version
             end
@@ -101,7 +120,11 @@ local function upsert_many_on_storage(space_name, tuples, operations, opts)
 
     if next(errs) ~= nil then
         if opts.rollback_on_error == true then
+            local unref_ok, bucket_unref_err = bucket_ref_unref.bucket_unrefrw_many(bucket_ids)
             box.rollback()
+            if not unref_ok then
+                return nil, bucket_unref_err
+            end
             if next(processed_tuples) then
                 errs = batching_utils.complement_batching_errors(errs,
                         batching_utils.rollback_on_error_msg, processed_tuples)
@@ -110,12 +133,20 @@ local function upsert_many_on_storage(space_name, tuples, operations, opts)
             return nil, errs, replica_schema_version
         end
 
+        local unref_ok, bucket_unref_err = bucket_ref_unref.bucket_unrefrw_many(bucket_ids)
         box.commit()
+        if not unref_ok then
+            return nil, bucket_unref_err
+        end
 
         return nil, errs, replica_schema_version
     end
 
+    local unref_ok, bucket_unref_err = bucket_ref_unref.bucket_unrefrw_many(bucket_ids)
     box.commit()
+    if not unref_ok then
+        return nil, bucket_unref_err
+    end
 
     return nil, nil, replica_schema_version
 end

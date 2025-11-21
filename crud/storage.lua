@@ -23,6 +23,7 @@ local count = require('crud.count')
 local borders = require('crud.borders')
 local readview = require('crud.readview')
 local storage_info = require('crud.storage_info')
+local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
 
 local storage = {}
 
@@ -106,6 +107,7 @@ local function init_impl()
     end
 
     rebalance.init()
+    bucket_ref_unref.set_safe_mode_status(rebalance.safe_mode_status)
 
     for _, module in ipairs(modules_with_storage_api) do
         init_storage_call(user, module.storage_api)

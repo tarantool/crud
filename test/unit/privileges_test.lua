@@ -17,14 +17,13 @@ g.before_all(function()
 end)
 
 g.test_prepend_current_user_smoke = function()
-    local res = call.storage_api.call_on_storage(
-            box.session.effective_user(), {}, "read", "unittestfunc", {"too", "foo"})
+    local res = call.storage_api.call_on_storage(box.session.effective_user(), "unittestfunc", {"too", "foo"})
     t.assert_equals(res, {"too", "foo"})
 end
 
 g.test_non_existent_user = function()
     t.assert_error_msg_contains("User 'non_existent_user' is not found",
-        call.storage_api.call_on_storage, "non_existent_user", {}, "read", "unittestfunc")
+        call.storage_api.call_on_storage, "non_existent_user", "unittestfunc")
 end
 
 g.test_that_the_session_switches_back = function()
@@ -35,7 +34,7 @@ g.test_that_the_session_switches_back = function()
     local reference_user = box.session.effective_user()
     t.assert_not_equals(reference_user, "unittestuser")
 
-    local res = call.storage_api.call_on_storage("unittestuser", {}, "read", "unittestfunc2")
+    local res = call.storage_api.call_on_storage("unittestuser", "unittestfunc2")
     t.assert_equals(res, "unittestuser")
     t.assert_equals(box.session.effective_user(), reference_user)
 end

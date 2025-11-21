@@ -7,6 +7,7 @@ local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
+local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
 
 local ReplaceError = errors.new_class('ReplaceError', { capture_stack = false })
 
@@ -42,15 +43,29 @@ local function replace_on_storage(space_name, tuple, opts)
         return nil, err
     end
 
-    -- add_space_schema_hash is true only in case of replace_object
-    -- the only one case when reloading schema can avoid insert error
-    -- is flattening object on router
-    return schema.wrap_box_space_func_result(space, 'replace', {tuple}, {
-        add_space_schema_hash = opts.add_space_schema_hash,
-        field_names = opts.fields,
-        noreturn = opts.noreturn,
-        fetch_latest_metadata = opts.fetch_latest_metadata,
-    })
+    local function make_replace()
+        local bucket_id = tuple[utils.get_bucket_id_fieldno(space)]
+        local ref_ok, bucket_ref_err = bucket_ref_unref.bucket_refrw(bucket_id)
+        if not ref_ok then
+            return nil, bucket_ref_err
+        end
+        -- add_space_schema_hash is true only in case of replace_object
+        -- the only one case when reloading schema can avoid insert error
+        -- is flattening object on router
+        local result = schema.wrap_box_space_func_result(space, 'replace', {tuple}, {
+            add_space_schema_hash = opts.add_space_schema_hash,
+            field_names = opts.fields,
+            noreturn = opts.noreturn,
+            fetch_latest_metadata = opts.fetch_latest_metadata,
+        })
+        local unref_ok, err_unref = bucket_ref_unref.bucket_unrefrw(bucket_id)
+        if not unref_ok then
+            return nil, err_unref
+        end
+        return result
+    end
+
+    return box.atomic(make_replace)
 end
 
 replace.storage_api = {[REPLACE_FUNC_NAME] = replace_on_storage}

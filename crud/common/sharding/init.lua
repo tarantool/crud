@@ -324,10 +324,8 @@ function sharding.split_tuples_by_replicaset(vshard_router, tuples, space, opts)
         local record_by_replicaset = batches[replicaset_id] or {
             replicaset = replicaset,
             tuples = {},
-            bucket_ids = {},
         }
         table.insert(record_by_replicaset.tuples, tuple)
-        record_by_replicaset.bucket_ids[sharding_data.bucket_id] = true
 
         if opts.operations ~= nil then
             record_by_replicaset.operations = record_by_replicaset.operations or {}
@@ -335,14 +333,6 @@ function sharding.split_tuples_by_replicaset(vshard_router, tuples, space, opts)
         end
 
         batches[replicaset_id] = record_by_replicaset
-    end
-
-    for _, rbr in pairs(batches) do
-        local bucket_ids = {}
-        for bid, _ in pairs(rbr.bucket_ids) do
-            table.insert(bucket_ids, bid)
-        end
-        rbr.bucket_ids = bucket_ids
     end
 
     return {
