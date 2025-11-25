@@ -981,6 +981,16 @@ function helpers.start_cluster(g, cartridge_cfg, vshard_cfg, tarantool3_cluster_
             error(err)
         end
     end
+
+    if g.params and g.params.safe_mode ~= nil then
+        local safe_mod_func = '_crud.rebalance_safe_mode_disable'
+        if g.params.safe_mode then
+            safe_mod_func = '_crud.rebalance_safe_mode_enable'
+        end
+        helpers.call_on_storages(g.cluster, function(server)
+            server:call(safe_mod_func)
+        end)
+    end
 end
 
 local function count_storages_in_topology(g, backend, vshard_group, storage_roles)
@@ -1178,8 +1188,34 @@ function helpers.is_cartridge_suite_supported()
     return is_module_provided and is_tarantool_supports
 end
 
-function helpers.backend_matrix(base_matrix)
+function helpers.safe_mode_matrix(base_matrix)
     base_matrix = base_matrix or {{}}
+
+    local safe_mode_params = {
+        { safe_mode = true },
+        { safe_mode = false },
+    }
+
+    local matrix = {}
+    for _, params in ipairs(safe_mode_params) do
+        for _, base in ipairs(base_matrix) do
+            base = table.deepcopy(base)
+            base.safe_mode = params.safe_mode
+            table.insert(matrix, base)
+        end
+    end
+
+    return matrix
+end
+
+function helpers.backend_matrix(base_matrix, opts)
+    base_matrix = base_matrix or {{}}
+    opts = opts or {}
+
+    if not opts.skip_safe_mode then
+        base_matrix = helpers.safe_mode_matrix(base_matrix)
+    end
+
     local backend_params = {
         {
             backend = helpers.backend.VSHARD,
