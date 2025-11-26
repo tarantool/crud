@@ -145,9 +145,6 @@ function storage.stop()
         internal_stash.watcher:unregister()
         internal_stash.watcher = nil
     end
-
-    rebalance.stop()
-
     rawset(_G, utils.STORAGE_NAMESPACE, nil)
 end
 

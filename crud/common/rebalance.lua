@@ -71,6 +71,8 @@ local function safe_mode_enable()
     for hook, _ in pairs(M.safe_mode_enable_hooks) do
         hook()
     end
+
+    log.info('Rebalance safe mode enabled')
 end
 
 local function safe_mode_disable()
@@ -83,6 +85,8 @@ local function safe_mode_disable()
     for hook, _ in pairs(M.safe_mode_disable_hooks) do
         hook()
     end
+
+    log.info('Rebalance safe mode disabled')
 end
 
 local function rebalance_init()
@@ -127,10 +131,6 @@ local function rebalance_init()
         end
         safe_mode_enable()
     end)
-end
-
-local function rebalance_stop()
-    M.safe_mode_disable()
 end
 
 local function router_cache_clear()
@@ -183,7 +183,6 @@ local function enable_router_metrics()
 end
 
 M.init = rebalance_init
-M.stop = rebalance_stop
 M.safe_mode_status = safe_mode_status
 M.safe_mode_enable = safe_mode_enable
 M.safe_mode_disable = safe_mode_disable
