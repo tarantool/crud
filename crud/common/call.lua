@@ -125,7 +125,6 @@ local function call_with_retry_and_recovery(vshard_router,
 
     -- This is a partial copy of error handling from vshard.router.router_call_impl()
     -- It is much simpler mostly because bucket_set() can't be accessed from outside vshard.
-    -- may be we cant get this -- todo: check
     if err.class_name == bucket_ref_unref.BucketRefError.name then
         local redirect_replicaset
         if is_single_call and #err.bucket_ref_errs == 1 then
