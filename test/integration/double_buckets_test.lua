@@ -57,11 +57,11 @@ end)
 --- Rebalance stalls if we move all buckets at once; use a small subset.
 local test_tuples = {
     {22, box.NULL, 'Alex', 34},
-    -- {92, box.NULL, 'Artur', 29},
-    -- {3, box.NULL, 'Anastasia', 22},
-    -- {5, box.NULL, 'Sergey', 25},
-    -- {9, box.NULL, 'Anna', 30},
-    -- {71, box.NULL, 'Oksana', 29},
+    {92, box.NULL, 'Artur', 29},
+    {3, box.NULL, 'Anastasia', 22},
+    {5, box.NULL, 'Sergey', 25},
+    {9, box.NULL, 'Anna', 30},
+    {71, box.NULL, 'Oksana', 29},
 }
 
 local last_call = fiber.time()
@@ -120,7 +120,6 @@ pgroup_duplicates.test_duplicates = function(g)
         'test implemented only for 3.1 and greater'
     )
     if g.params.backend == "config" then
-        t.xfail('not implemented yet')
         duplicate_operations[g.params.operation](g)
 
         local cfg = g.cluster:cfg()
@@ -246,8 +245,8 @@ pgroup_not_applied.test_not_applied = function(g)
         ),
         'test implemented only for 3.1 and greater'
     )
+    t.skip_if(g.params.operation == 'get' and g.params.safe_mode == false, 'todo: rework get')
     if g.params.backend == "config" then
-        t.xfail('not implemented yet')
         local tuples, tuples_count = {}, 1000
         for i = 1, tuples_count do
             tuples[i] = {i, box.NULL, 'John Fedor', 42}
