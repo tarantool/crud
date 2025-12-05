@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+* Implement "safe" mode to prevent writing data to wrong replicaset when vshard rebalance is in progress.
+* Auto switch to safe mode when rebalance process starts.
+* Manual return to fast mode.
+
 ## [1.6.1] - 19-09-25
 
 ### Added

@@ -16,17 +16,27 @@ local CallError = errors.new_class('CallError')
 
 local CALL_FUNC_NAME = 'call_on_storage'
 local CRUD_CALL_FUNC_NAME = utils.get_storage_call(CALL_FUNC_NAME)
-local CRUD_CALL_FIBER_NAME = CRUD_CALL_FUNC_NAME .. '/'
+
+-- Methods that can continue execution in fast mode when rebalance starts
+local safe_mode_allowed_fast_methods = {
+    CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('readview_open_on_storage'),
+    CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('readview_close_on_storage'),
+    CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('select_readview_on_storage'),
+    CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('truncate_on_storage'),
+    CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('len_on_storage'),
+    CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('count_on_storage'),
+    CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('get_border_on_storage'),
+}
 
 local call = {}
 
 local function call_on_storage_safe(run_as_user, func_name, ...)
-    fiber.name(CRUD_CALL_FIBER_NAME .. 'safe/' .. func_name)
+    fiber.name(CRUD_CALL_FUNC_NAME .. '/safe/' .. func_name)
     return box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)
 end
 
 local function call_on_storage_fast(run_as_user, func_name, ...)
-    fiber.name(CRUD_CALL_FIBER_NAME .. 'fast/' .. func_name)
+    fiber.name(CRUD_CALL_FUNC_NAME .. '/fast/' .. func_name)
     return box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)
 end
 
@@ -36,8 +46,17 @@ local function safe_mode_enable()
     call_on_storage = call_on_storage_safe
 
     for fb_id, fb in pairs(fiber.info()) do
-        if string.find(fb.name, CRUD_CALL_FIBER_NAME) then
-            fiber.kill(fb_id)
+        if string.find(fb.name, CRUD_CALL_FUNC_NAME .. '/fast/') then
+            local do_kill = true
+            for _, allowed_method in ipairs(safe_mode_allowed_fast_methods) do
+                if fb.name == allowed_method then
+                    do_kill = false
+                    break
+                end
+            end
+            if do_kill then
+                fiber.kill(fb_id)
+            end
         end
     end
 end
