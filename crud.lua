@@ -23,6 +23,7 @@ local readview = require('crud.readview')
 local schema = require('crud.schema')
 local storage_info = require('crud.storage_info')
 local storage = require('crud.storage')
+local rebalance = require('crud.common.rebalance')
 
 local crud = {}
 
@@ -158,8 +159,23 @@ crud.readview = readview.new
 -- @function schema
 crud.schema = schema.call
 
+crud.rebalance = {}
+
+-- @refer rebalance.router_cache_clear
+-- @function router_cache_clear
+crud.rebalance.router_cache_clear = rebalance.router.cache_clear
+
+-- @refer rebalance.router_cache_length
+-- @function router_cache_length
+crud.rebalance.router_cache_length = rebalance.router.cache_length
+
+-- @refer rebalance.router_cache_last_clear_ts
+-- @function router_cache_last_clear_ts
+crud.rebalance.router_cache_last_clear_ts = rebalance.router.cache_last_clear_ts
+
 function crud.init_router()
-   rawset(_G, 'crud', crud)
+    rawset(_G, 'crud', crud)
+    rebalance.metrics.enable_router_metrics()
 end
 
 function crud.stop_router()

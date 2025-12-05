@@ -46,6 +46,8 @@ schema.system_spaces = {
     ['_tt_migrations'] = true,
     -- https://github.com/tarantool/cluster-federation/blob/01738cafa0dc7a3138e64f93c4e84cb323653257/src/internal/utils/utils.go#L17
     ['_cdc_state'] = true,
+    -- crud/common/rebalance.lua
+    ['_crud_settings'] = true,
 }
 
 local function get_crud_schema(space)
