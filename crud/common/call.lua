@@ -1,11 +1,13 @@
 local errors = require('errors')
+local vshard = require('vshard')
 
 local call_cache = require('crud.common.call_cache')
 local dev_checks = require('crud.common.dev_checks')
 local utils = require('crud.common.utils')
 local sharding_utils = require('crud.common.sharding.utils')
-local fiber_clock = require('fiber').clock
+local fiber = require('fiber')
 local const = require('crud.common.const')
+local rebalance = require('crud.common.rebalance')
 
 local BaseIterator = require('crud.common.map_call_cases.base_iter')
 local BasePostprocessor = require('crud.common.map_call_cases.base_postprocessor')
@@ -14,13 +16,78 @@ local CallError = errors.new_class('CallError')
 
 local CALL_FUNC_NAME = 'call_on_storage'
 local CRUD_CALL_FUNC_NAME = utils.get_storage_call(CALL_FUNC_NAME)
-
+local CRUD_CALL_FIBER_NAME = CRUD_CALL_FUNC_NAME .. '/'
 
 local call = {}
 
-local function call_on_storage(run_as_user, func_name, ...)
+local function bucket_unref_many(bucket_ids, mode)
+    local all_ok = true
+    local last_err = nil
+    for _, bucket_id in pairs(bucket_ids) do
+        local ok, err = vshard.storage.bucket_unref(bucket_id, mode)
+        if not ok then
+            all_ok = nil
+            last_err = err
+        end
+    end
+    return all_ok, last_err
+end
+
+local function bucket_ref_many(bucket_ids, mode)
+    local reffed = {}
+    for _, bucket_id in pairs(bucket_ids) do
+        local ok, err = vshard.storage.bucket_ref(bucket_id, mode)
+        if not ok then
+            bucket_unref_many(reffed, mode)
+            return nil, err
+        end
+        table.insert(reffed, bucket_id)
+    end
+    return true, nil
+end
+
+local function call_on_storage_safe(run_as_user, bucket_ids, mode, func_name, ...)
+    fiber.name(CRUD_CALL_FIBER_NAME .. 'safe/' .. func_name)
+
+    local ok, ref_err = bucket_ref_many(bucket_ids, mode)
+    if not ok then
+        return nil, ref_err
+    end
+
+    local res = {box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)}
+
+    ok, ref_err = bucket_unref_many(bucket_ids, mode)
+    if not ok then
+        return nil, ref_err
+    end
+
+    return unpack(res, 1, table.maxn(res))
+end
+
+local function call_on_storage_fast(run_as_user, _, _, func_name, ...)
+    fiber.name(CRUD_CALL_FIBER_NAME .. 'fast/' .. func_name)
+
     return box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)
 end
+
+local call_on_storage = rebalance.safe_mode and call_on_storage_safe or call_on_storage_fast
+
+local function safe_mode_enable()
+    call_on_storage = call_on_storage_safe
+
+    for fb_id, fb in pairs(fiber.info()) do
+        if string.find(fb.name, CRUD_CALL_FIBER_NAME) then
+            fiber.kill(fb_id)
+        end
+    end
+end
+
+local function safe_mode_disable()
+    call_on_storage = call_on_storage_fast
+end
+
+rebalance.register_safe_mode_enable_hook(safe_mode_enable)
+rebalance.register_safe_mode_disable_hook(safe_mode_disable)
 
 call.storage_api = {[CALL_FUNC_NAME] = call_on_storage}
 
@@ -82,8 +149,10 @@ local function wrap_vshard_err(vshard_router, err, func_name, replicaset_id, buc
     ))
 end
 
-local function retry_call_with_master_discovery(replicaset, method, func_name, func_args, call_opts)
-    local func_args_ext = utils.append_array({ box.session.effective_user(), func_name }, func_args)
+local function retry_call_with_master_discovery(vshard_router, replicaset,
+                                                method, func_name, func_args,
+                                                call_opts, mode, bucket_ids)
+    local func_args_ext = utils.append_array({ box.session.effective_user(), bucket_ids, mode, func_name }, func_args)
 
     -- In case cluster was just bootstrapped with auto master discovery,
     -- replicaset may miss master.
@@ -93,7 +162,20 @@ local function retry_call_with_master_discovery(replicaset, method, func_name, f
         return resp, err
     end
 
-    if err.name == 'MISSING_MASTER' and replicaset.locate_master ~= nil then
+    -- This is a partial copy of error handling from vshard.router.router_call_impl()
+    -- It is much simpler mostly because bucket_set() can't be accessed from outside vshard.
+    if err.name == 'WRONG_BUCKET' or
+            err.name == 'BUCKET_IS_LOCKED' or
+            err.name == 'TRANSFER_IS_IN_PROGRESS' then
+        vshard_router:_bucket_reset(err.bucket_id)
+
+        -- Substitute replicaset only for single bucket_id calls.
+        if err.destination and vshard_router.replicasets[err.destination] and #bucket_ids == 1 then
+            replicaset = vshard_router.replicasets[err.destination]
+        else
+            return nil, err
+        end
+    elseif err.name == 'MISSING_MASTER' and replicaset.locate_master ~= nil then
         replicaset:locate_master()
     end
 
@@ -145,10 +227,10 @@ function call.map(vshard_router, func_name, func_args, opts)
         request_timeout = opts.mode == 'read' and opts.request_timeout or nil,
     }
     while iter:has_next() do
-        local args, replicaset, replicaset_id = iter:get()
+        local args, replicaset, replicaset_id, bucket_ids = iter:get()
 
-        local future, err = retry_call_with_master_discovery(replicaset, vshard_call_name,
-            func_name, args, call_opts)
+        local future, err = retry_call_with_master_discovery(vshard_router, replicaset, vshard_call_name,
+            func_name, args, call_opts, opts.mode, bucket_ids)
 
         if err ~= nil then
             local result_info = {
@@ -170,9 +252,9 @@ function call.map(vshard_router, func_name, func_args, opts)
         futures_by_replicasets[replicaset_id] = future
     end
 
-    local deadline = fiber_clock() + timeout
+    local deadline = fiber.clock() + timeout
     for replicaset_id, future in pairs(futures_by_replicasets) do
-        local wait_timeout = deadline - fiber_clock()
+        local wait_timeout = deadline - fiber.clock()
         if wait_timeout < 0 then
             wait_timeout = 0
         end
@@ -221,9 +303,9 @@ function call.single(vshard_router, bucket_id, func_name, func_args, opts)
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
     local request_timeout = opts.mode == 'read' and opts.request_timeout or nil
 
-    local res, err = retry_call_with_master_discovery(replicaset, vshard_call_name,
-        func_name, func_args, {timeout = timeout,
-                               request_timeout = request_timeout})
+    local res, err = retry_call_with_master_discovery(vshard_router, replicaset, vshard_call_name,
+        func_name, func_args, {timeout = timeout, request_timeout = request_timeout},
+        opts.mode, {bucket_id})
     if err ~= nil then
         return nil, wrap_vshard_err(vshard_router, err, func_name, nil, bucket_id)
     end
@@ -248,8 +330,9 @@ function call.any(vshard_router, func_name, func_args, opts)
     end
     local replicaset_id, replicaset = next(replicasets)
 
-    local res, err = retry_call_with_master_discovery(replicaset, 'call',
-        func_name, func_args, {timeout = timeout})
+    local res, err = retry_call_with_master_discovery(vshard_router, replicaset, 'call',
+        func_name, func_args, {timeout = timeout},
+    'read', {})
     if err ~= nil then
         return nil, wrap_vshard_err(vshard_router, err, func_name, replicaset_id)
     end
