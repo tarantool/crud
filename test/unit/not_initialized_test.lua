@@ -5,7 +5,7 @@ local server = require('luatest.server')
 
 local pgroup = t.group('not-initialized', helpers.backend_matrix({
     {},
-}))
+}, { skip_safe_mode = true }))
 
 local vshard_cfg_template = {
     sharding = {
