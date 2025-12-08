@@ -221,7 +221,7 @@ local not_applied_operations = {
     },
     get = {
         call = function (g, key)
-            return g.router:call('crud.get', { 'customers', key })
+            return g.router:call('crud.get', { 'customers', key, {mode = 'write'} })
         end,
         check_applied = function() end,
         check_not_applied = function(not_applied_ids)
@@ -245,7 +245,7 @@ pgroup_not_applied.test_not_applied = function(g)
         ),
         'test implemented only for 3.1 and greater'
     )
-    t.skip_if(g.params.operation == 'get' and g.params.safe_mode == false, 'todo: rework get')
+
     if g.params.backend == "config" then
         local tuples, tuples_count = {}, 1000
         for i = 1, tuples_count do
