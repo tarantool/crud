@@ -20,11 +20,11 @@ local M = {
 }
 
 local function make_bucket_ref_err(bucket_id, vshard_ref_err)
-    local err = M.BucketRefError:new(M.BucketRefError:new(
+    local err = M.BucketRefError:new(
         "failed bucket_ref: %s, bucket_id: %s",
         vshard_ref_err.name,
         bucket_id
-    ))
+    )
     err.bucket_ref_errs = {
         {
             bucket_id = bucket_id,
