@@ -2353,11 +2353,6 @@ end)
 
 pgroup.test_select_switch_master = function(g)
     helpers.skip_not_cartridge_backend(g.params.backend)
-    helpers.call_on_storages(g.cluster, function(server)
-        server.net_box:eval([[
-            require('crud.common.rebalance').safe_mode_disable()
-        ]])
-    end)
 
     helpers.insert_objects(g, 'customers', {
         {
