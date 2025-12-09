@@ -31,6 +31,9 @@ local function safe_mode_trigger(_, new, space, op)
     if space ~= '_bucket' then
         return
     end
+    -- We are interested only in two operations that indicate the beginning of bucket migration:
+    --  * We are receiving a bucket (new bucket with status RECEIVING)
+    --  * We are sending a bucket to another node (existing bucket status changes to SENDING)
     if (op == 'INSERT' and new.status == vshard_consts.BUCKET.RECEIVING) or
             (op == 'REPLACE' and new.status == vshard_consts.BUCKET.SENDING) then
         box.broadcast(SAFE_MOD_ENABLE_EVENT, true)
@@ -60,6 +63,8 @@ end
 local function safe_mode_enable()
     if not box.info.ro then
         box.space[SETTINGS_SPACE_NAME]:replace{ 'safe_mode', true }
+        -- The trigger is needed to detect the beginning of rebalance process to enable safe mode.
+        -- If safe mode is enabled we don't need the trigger anymore.
         for _, trig in pairs(box.space._bucket:on_replace()) do
             if trig == safe_mode_trigger then
                 box.space._bucket:on_replace(nil, safe_mode_trigger)
@@ -78,6 +83,8 @@ end
 local function safe_mode_disable()
     if not box.info.ro then
         box.space[SETTINGS_SPACE_NAME]:replace{ 'safe_mode', false }
+        -- We have disabled safe mode so we need to add the trigger to detect the beginning
+        -- of rebalance process to enable safe mode again.
         box.space._bucket:on_replace(safe_mode_trigger)
     end
     M.safe_mode = false

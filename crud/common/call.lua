@@ -1,4 +1,5 @@
 local errors = require('errors')
+local log = require('log')
 
 local call_cache = require('crud.common.call_cache')
 local dev_checks = require('crud.common.dev_checks')
@@ -19,13 +20,13 @@ local CRUD_CALL_FUNC_NAME = utils.get_storage_call(CALL_FUNC_NAME)
 
 -- Methods that can continue execution in fast mode when rebalance starts
 local safe_mode_allowed_fast_methods = {
-    CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('readview_open_on_storage'),
-    CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('readview_close_on_storage'),
-    CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('select_readview_on_storage'),
-    CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('truncate_on_storage'),
-    CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('len_on_storage'),
-    CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('count_on_storage'),
-    CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('get_border_on_storage'),
+    [CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('readview_open_on_storage')] = true,
+    [CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('readview_close_on_storage')] = true,
+    [CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('select_readview_on_storage')] = true,
+    [CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('truncate_on_storage')] = true,
+    [CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('len_on_storage')] = true,
+    [CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('count_on_storage')] = true,
+    [CRUD_CALL_FUNC_NAME .. '/fast/' .. utils.get_storage_call('get_border_on_storage')] = true,
 }
 
 local call = {}
@@ -46,18 +47,12 @@ local function safe_mode_enable()
     call_on_storage = call_on_storage_safe
 
     for fb_id, fb in pairs(fiber.info()) do
-        if string.find(fb.name, CRUD_CALL_FUNC_NAME .. '/fast/') then
-            local do_kill = true
-            for _, allowed_method in ipairs(safe_mode_allowed_fast_methods) do
-                if fb.name == allowed_method then
-                    do_kill = false
-                    break
-                end
-            end
-            if do_kill then
-                fiber.kill(fb_id)
-            end
+        local fibers_killed = 0
+        if fb.name:startswith(CRUD_CALL_FUNC_NAME .. '/fast/') and not safe_mode_allowed_fast_methods[fb.name] then
+            fiber.kill(fb_id)
+            fibers_killed = fibers_killed + 1
         end
+        log.debug('Killed %d fibers with fast-mode crud requests.', fibers_killed)
     end
 end
 
