@@ -5,7 +5,7 @@
 --- on fast mode it does nothing.
 --- default is fast mode.
 
---- bucket_refw and bucket_unrefrw must be called in one transaction in order to prevent
+--- bucket_ref/bucket_unref must be called in one transaction in order to prevent
 --- safe_mode change during execution.
 
 local vshard = require('vshard')
