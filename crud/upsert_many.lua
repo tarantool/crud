@@ -51,15 +51,20 @@ local function upsert_many_on_storage(space_name, tuples, operations, opts)
     local errs = {}
     local replica_schema_version = nil
 
+    local upsert_opts = {
+        add_space_schema_hash = opts.add_space_schema_hash,
+        fetch_latest_metadata = opts.fetch_latest_metadata,
+    }
+
     box.begin()
     for i, tuple in ipairs(tuples) do
         -- add_space_schema_hash is true only in case of upsert_object_many
         -- the only one case when reloading schema can avoid upsert error
         -- is flattening object on router
-        local insert_result = schema.wrap_box_space_func_result(space, 'upsert', {tuple, operations[i]}, {
-            add_space_schema_hash = opts.add_space_schema_hash,
-            fetch_latest_metadata = opts.fetch_latest_metadata,
-        })
+        local insert_result = schema.wrap_func_result(
+            space, space.upsert, upsert_opts, space,
+            tuple, operations[i]
+        )
         if opts.fetch_latest_metadata then
             replica_schema_version = insert_result.storage_info.replica_schema_version
         end

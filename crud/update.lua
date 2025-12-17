@@ -44,12 +44,12 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
 
     -- add_space_schema_hash is false because
     -- reloading space format on router can't avoid update error on storage
-    local res, err = schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
+    local res, err = schema.wrap_func_result(space, space.update, {
         add_space_schema_hash = false,
         field_names = field_names,
         noreturn = opts.noreturn,
         fetch_latest_metadata = opts.fetch_latest_metadata,
-    })
+    }, space, key, operations)
 
     if err ~= nil then
         return nil, err
@@ -66,12 +66,12 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
     -- More details: https://github.com/tarantool/tarantool/issues/3378
     if utils.is_field_not_found(res.err.code) then
         operations = utils.add_intermediate_nullable_fields(operations, space:format(), space:get(key))
-        res, err = schema.wrap_box_space_func_result(space, 'update', {key, operations}, {
+        res, err = schema.wrap_func_result(space, space.update, {
             add_space_schema_hash = false,
             field_names = field_names,
             noreturn = opts.noreturn,
             fetch_latest_metadata = opts.fetch_latest_metadata,
-        })
+        }, space, key, operations)
     end
 
     return res, err

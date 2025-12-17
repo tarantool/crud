@@ -43,11 +43,11 @@ local function get_on_storage(space_name, key, field_names, opts)
 
     -- add_space_schema_hash is false because
     -- reloading space format on router can't avoid get error on storage
-    return schema.wrap_box_space_func_result(space, 'get', {key}, {
+    return schema.wrap_func_result(space, space.get, {
         add_space_schema_hash = false,
         field_names = field_names,
         fetch_latest_metadata = opts.fetch_latest_metadata,
-    })
+    }, space, key)
 end
 
 get.storage_api = {[GET_FUNC_NAME] = get_on_storage}

@@ -45,12 +45,12 @@ local function insert_on_storage(space_name, tuple, opts)
     -- add_space_schema_hash is true only in case of insert_object
     -- the only one case when reloading schema can avoid insert error
     -- is flattening object on router
-    return schema.wrap_box_space_func_result(space, 'insert', {tuple}, {
+    return schema.wrap_func_result(space, space.insert, {
         add_space_schema_hash = opts.add_space_schema_hash,
         field_names = opts.fields,
         noreturn = opts.noreturn,
         fetch_latest_metadata = opts.fetch_latest_metadata,
-    })
+    }, space, tuple)
 end
 
 insert.storage_api = {[INSERT_FUNC_NAME] = insert_on_storage}

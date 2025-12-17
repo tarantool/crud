@@ -209,14 +209,16 @@ function schema.truncate_row_trailing_fields(tuple, field_names)
     return tuple
 end
 
-function schema.wrap_func_result(space, func, args, opts)
-    dev_checks('table', 'function', 'table', 'table')
-
+-- schema.wrap_func_result pcalls function
+-- and returns its result as a table
+-- `{res = ..., err = ..., space_schema_hash = ...}`
+-- space_schema_hash is computed if function failed and
+-- `add_space_schema_hash` is true
+function schema.wrap_func_result(space, func, opts, ...)
+    dev_checks('table', 'function', 'table')
     local result = {}
 
-    opts = opts or {}
-
-    local ok, func_res = pcall(func, unpack(args))
+    local ok, func_res = pcall(func, ...)
     if ok then
         if opts.noreturn ~= true then
             result.res = filter_tuple_fields(func_res, opts.field_names)
@@ -244,20 +246,6 @@ function schema.wrap_func_result(space, func, args, opts)
     end
 
     return result
-end
-
--- schema.wrap_box_space_func_result pcalls some box.space function
--- and returns its result as a table
--- `{res = ..., err = ..., space_schema_hash = ...}`
--- space_schema_hash is computed if function failed and
--- `add_space_schema_hash` is true
-function schema.wrap_box_space_func_result(space, box_space_func_name, box_space_func_args, opts)
-    dev_checks('table', 'string', 'table', 'table')
-    local function func(space, box_space_func_name, box_space_func_args)
-        return space[box_space_func_name](space, unpack(box_space_func_args))
-    end
-
-    return schema.wrap_func_result(space, func, {space, box_space_func_name, box_space_func_args}, opts)
 end
 
 -- schema.result_needs_reload checks that schema reload can
