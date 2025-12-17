@@ -32,15 +32,11 @@ local function get_border_on_storage(border_name, space_name, index_id, field_na
         return nil, BorderError:new("Index %q of space doesn't exist", index_id, space_name)
     end
 
-    local function get_index_border(index)
-        return index[border_name](index)
-    end
-
-    return schema.wrap_func_result(space, get_index_border, {index}, {
+    return schema.wrap_func_result(space, index[border_name], {
         add_space_schema_hash = true,
         field_names = field_names,
         fetch_latest_metadata = fetch_latest_metadata,
-    })
+    }, index)
 end
 
 borders.storage_api = {[STAT_FUNC_NAME] = get_border_on_storage}

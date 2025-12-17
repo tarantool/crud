@@ -52,17 +52,22 @@ local function replace_many_on_storage(space_name, tuples, opts)
     local errs = {}
     local replica_schema_version = nil
 
+    local replace_opts = {
+        add_space_schema_hash = opts.add_space_schema_hash,
+        field_names = opts.fields,
+        noreturn = opts.noreturn,
+        fetch_latest_metadata = opts.fetch_latest_metadata,
+    }
+
     box.begin()
     for i, tuple in ipairs(tuples) do
         -- add_space_schema_hash is true only in case of replace_object_many
         -- the only one case when reloading schema can avoid replace error
         -- is flattening object on router
-        local insert_result = schema.wrap_box_space_func_result(space, 'replace', {tuple}, {
-            add_space_schema_hash = opts.add_space_schema_hash,
-            field_names = opts.fields,
-            noreturn = opts.noreturn,
-            fetch_latest_metadata = opts.fetch_latest_metadata,
-        })
+        local insert_result = schema.wrap_func_result(
+            space, space.replace, replace_opts,
+            space, tuple
+        )
 
         if opts.fetch_latest_metadata then
             replica_schema_version = insert_result.storage_info.replica_schema_version

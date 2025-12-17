@@ -44,12 +44,12 @@ local function delete_on_storage(space_name, key, field_names, opts)
 
     -- add_space_schema_hash is false because
     -- reloading space format on router can't avoid delete error on storage
-    return schema.wrap_box_space_func_result(space, 'delete', {key}, {
+    return schema.wrap_func_result(space, space.delete, {
         add_space_schema_hash = false,
         field_names = field_names,
         noreturn = opts.noreturn,
         fetch_latest_metadata = opts.fetch_latest_metadata,
-    })
+    }, space, key)
 end
 
 delete.storage_api = {[DELETE_FUNC_NAME] = delete_on_storage}
