@@ -297,34 +297,7 @@ function Cluster:cfg(new_config)
     return table.deepcopy(self.config)
 end
 
-local function strip_all_entries(t, name)
-    if type(t) ~= 'table' then
-        return t
-    end
-
-    t[name] = nil
-
-    for k, v in pairs(t) do
-        t[k] = strip_all_entries(v, name)
-    end
-
-    return t
-end
-
-local function check_only_roles_cfg_changed_in_groups(old_groups, new_groups)
-    old_groups = table.deepcopy(old_groups)
-    new_groups = table.deepcopy(new_groups)
-
-    local old_groups_no_roles_cfg = strip_all_entries(old_groups, 'roles_cfg')
-    local new_groups_no_roles_cfg = strip_all_entries(new_groups, 'roles_cfg')
-
-    t.assert_equals(new_groups_no_roles_cfg, old_groups_no_roles_cfg,
-                    'groups reload supports only roles_cfg reload')
-end
-
 function Cluster:reload_config(new_config)
-    check_only_roles_cfg_changed_in_groups(self.config.groups, new_config.groups)
-
     for _, server in ipairs(self.servers) do
         write_config(self.dirs[server], new_config)
     end

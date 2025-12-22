@@ -1,0 +1,69 @@
+local helpers = require('test.helper')
+local t = require('luatest')
+
+local pgroup = t.group('metrics_integration', helpers.backend_matrix({
+    {engine = 'memtx'},
+}))
+
+local function before_all(g)
+    helpers.start_default_cluster(g, 'srv_stats')
+end
+
+local function after_all(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end
+
+local function before_each(g)
+    g.router:eval("crud = require('crud')")
+    helpers.call_on_storages(g.cluster, function(server)
+        server:call('_crud.rebalance_safe_mode_disable')
+    end)
+end
+
+pgroup.before_all(before_all)
+
+pgroup.after_all(after_all)
+
+pgroup.before_each(before_each)
+
+pgroup.test_safe_mode_storage_metrics = function(g)
+    local has_metrics_module = require('metrics')
+    t.skip_if(not has_metrics_module, 'No metrics module in current version')
+
+    -- Check safe mode metric on storage
+    helpers.call_on_storages(g.cluster, function(server)
+        local observed = server:eval("return require('metrics').collect({ invoke_callbacks = true })")
+        local has_metric = false
+        for _, m in pairs(observed) do
+            if m.metric_name == 'tnt_crud_storage_safe_mode_enabled' then
+                t.assert_equals(m.value, 0, 'Metric must show safe mode disabled')
+                has_metric = true
+                break
+            end
+        end
+        if not has_metric then
+            t.fail('No tnt_crud_storage_safe_mode_enabled metric found')
+        end
+    end)
+
+    -- Enable safe mode
+    helpers.call_on_storages(g.cluster, function(server)
+        server:call('_crud.rebalance_safe_mode_enable')
+    end)
+
+    -- Check that metric value has changed
+    helpers.call_on_storages(g.cluster, function(server)
+        local observed = server:eval("return require('metrics').collect({ invoke_callbacks = true })")
+        local has_metric = false
+        for _, m in pairs(observed) do
+            if m.metric_name == 'tnt_crud_storage_safe_mode_enabled' then
+                t.assert_equals(m.value, 1, 'Metric must show safe mode enabled')
+                has_metric = true
+                break
+            end
+        end
+        if not has_metric then
+            t.fail('No tnt_crud_storage_safe_mode_enabled metric found')
+        end
+    end)
+end
