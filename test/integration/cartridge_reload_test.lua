@@ -113,6 +113,11 @@ function g.test_storage()
     t.skip_if(not helpers.is_cartridge_hotreload_supported(),
         "Cartridge roles reload is not supported")
     helpers.skip_old_tarantool_cartridge_hotreload()
+    helpers.call_on_storages(g.cluster, function(server)
+        server.net_box:eval([[
+            require('crud.common.rebalance').safe_mode_disable()
+        ]])
+    end)
 
     g.highload_fiber = fiber.new(highload_loop, 'B')
 

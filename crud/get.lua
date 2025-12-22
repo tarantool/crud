@@ -9,6 +9,7 @@ local sharding_key_module = require('crud.common.sharding.sharding_key')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
+local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
 
 local GetError = errors.new_class('GetError', {capture_stack = false})
 
@@ -19,6 +20,7 @@ local CRUD_GET_FUNC_NAME = utils.get_storage_call(GET_FUNC_NAME)
 
 local function get_on_storage(space_name, key, field_names, opts)
     dev_checks('string', '?', '?table', {
+        bucket_id = 'number|cdata',
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
@@ -41,13 +43,25 @@ local function get_on_storage(space_name, key, field_names, opts)
         return nil, err
     end
 
+    local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refro(opts.bucket_id)
+    if not ref_ok then
+        return nil, bucket_ref_err
+    end
+
     -- add_space_schema_hash is false because
     -- reloading space format on router can't avoid get error on storage
-    return schema.wrap_func_result(space, space.get, {
+    local result = schema.wrap_func_result(space, space.get, {
         add_space_schema_hash = false,
         field_names = field_names,
         fetch_latest_metadata = opts.fetch_latest_metadata,
     }, space, key)
+
+    local unref_ok, err_unref = unref(opts.bucket_id)
+    if not unref_ok then
+        return nil, err_unref
+    end
+
+    return result
 end
 
 get.storage_api = {[GET_FUNC_NAME] = get_on_storage}
@@ -114,6 +128,7 @@ local function call_get_on_router(vshard_router, space_name, key, opts)
     sharding.fill_bucket_id_pk(space, key, bucket_id_data.bucket_id)
 
     local get_on_storage_opts = {
+        bucket_id = bucket_id_data.bucket_id,
         sharding_func_hash = bucket_id_data.sharding_func_hash,
         sharding_key_hash = sharding_key_hash,
         skip_sharding_hash_check = skip_sharding_hash_check,
