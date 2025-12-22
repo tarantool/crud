@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+* Implement "safe" mode to prevent writing data to wrong replicaset when vshard rebalance is in progress (#448).
+* Auto switch to safe mode when rebalance process starts.
+* Manual return to fast mode.
+
 ### Fixed
 * drop wrap_box_space_func_result to cut allocations and speed up storage calls.
 

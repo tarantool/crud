@@ -242,6 +242,11 @@ pgroup.test_any_vshard_call = function(g)
 end
 
 pgroup.test_any_vshard_call_timeout = function(g)
+    helpers.call_on_storages(g.cluster, function(server)
+        server.net_box:eval([[
+            require('crud.common.rebalance').safe_mode_disable()
+        ]])
+    end)
     local timeout = 0.2
 
     local results, err = g.router:eval([[

@@ -9,6 +9,7 @@ local sharding_key_module = require('crud.common.sharding.sharding_key')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
+local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
 
 local UpdateError = errors.new_class('UpdateError', {capture_stack = false})
 
@@ -19,6 +20,7 @@ local CRUD_UPDATE_FUNC_NAME = utils.get_storage_call(UPDATE_FUNC_NAME)
 
 local function update_on_storage(space_name, key, operations, field_names, opts)
     dev_checks('string', '?', 'table', '?table', {
+        bucket_id = 'number|cdata',
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
@@ -42,6 +44,11 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
         return nil, err
     end
 
+    local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refrw(opts.bucket_id)
+    if not ref_ok then
+        return nil, bucket_ref_err
+    end
+
     -- add_space_schema_hash is false because
     -- reloading space format on router can't avoid update error on storage
     local res, err = schema.wrap_func_result(space, space.update, {
@@ -51,20 +58,12 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
         fetch_latest_metadata = opts.fetch_latest_metadata,
     }, space, key, operations)
 
-    if err ~= nil then
-        return nil, err
-    end
-
-    if res.err == nil then
-        return res, nil
-    end
-
-    -- Relevant for Tarantool older than 2.8.1.
-    -- We can only add fields to end of the tuple.
-    -- If schema is updated and nullable fields are added, then we will get error.
-    -- Therefore, we need to add filling of intermediate nullable fields.
-    -- More details: https://github.com/tarantool/tarantool/issues/3378
-    if utils.is_field_not_found(res.err.code) then
+    if err == nil and res.err ~= nil and utils.is_field_not_found(res.err.code) then
+        -- Relevant for Tarantool older than 2.8.1.
+        -- We can only add fields to end of the tuple.
+        -- If schema is updated and nullable fields are added, then we will get error.
+        -- Therefore, we need to add filling of intermediate nullable fields.
+        -- More details: https://github.com/tarantool/tarantool/issues/3378
         operations = utils.add_intermediate_nullable_fields(operations, space:format(), space:get(key))
         res, err = schema.wrap_func_result(space, space.update, {
             add_space_schema_hash = false,
@@ -72,6 +71,11 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
             noreturn = opts.noreturn,
             fetch_latest_metadata = opts.fetch_latest_metadata,
         }, space, key, operations)
+    end
+
+    local unref_ok, err_unref = unref(opts.bucket_id)
+    if not unref_ok then
+        return nil, err_unref
     end
 
     return res, err
@@ -148,6 +152,7 @@ local function call_update_on_router(vshard_router, space_name, key, user_operat
     sharding.fill_bucket_id_pk(space, key, bucket_id_data.bucket_id)
 
     local update_on_storage_opts = {
+        bucket_id = bucket_id_data.bucket_id,
         sharding_func_hash = bucket_id_data.sharding_func_hash,
         sharding_key_hash = sharding_key_hash,
         skip_sharding_hash_check = skip_sharding_hash_check,

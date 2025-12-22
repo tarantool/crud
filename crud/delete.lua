@@ -9,6 +9,7 @@ local sharding_key_module = require('crud.common.sharding.sharding_key')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
+local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
 
 local DeleteError = errors.new_class('DeleteError', {capture_stack = false})
 
@@ -19,6 +20,7 @@ local CRUD_DELETE_FUNC_NAME = utils.get_storage_call(DELETE_FUNC_NAME)
 
 local function delete_on_storage(space_name, key, field_names, opts)
     dev_checks('string', '?', '?table', {
+        bucket_id = 'number|cdata',
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
@@ -42,14 +44,26 @@ local function delete_on_storage(space_name, key, field_names, opts)
         return nil, err
     end
 
+    local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refrw(opts.bucket_id)
+    if not ref_ok then
+        return nil, bucket_ref_err
+    end
+
     -- add_space_schema_hash is false because
     -- reloading space format on router can't avoid delete error on storage
-    return schema.wrap_func_result(space, space.delete, {
+    local result =  schema.wrap_func_result(space, space.delete, {
         add_space_schema_hash = false,
         field_names = field_names,
         noreturn = opts.noreturn,
         fetch_latest_metadata = opts.fetch_latest_metadata,
     }, space, key)
+
+    local unref_ok, err_unref = unref(opts.bucket_id)
+    if not unref_ok then
+        return nil, err_unref
+    end
+
+    return result
 end
 
 delete.storage_api = {[DELETE_FUNC_NAME] = delete_on_storage}
@@ -116,6 +130,7 @@ local function call_delete_on_router(vshard_router, space_name, key, opts)
     sharding.fill_bucket_id_pk(space, key, bucket_id_data.bucket_id)
 
     local delete_on_storage_opts = {
+        bucket_id = bucket_id_data.bucket_id,
         sharding_func_hash = bucket_id_data.sharding_func_hash,
         sharding_key_hash = sharding_key_hash,
         skip_sharding_hash_check = skip_sharding_hash_check,
