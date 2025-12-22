@@ -1,10 +1,13 @@
 local checks = require('checks')
 local errors = require('errors')
+local fiber = require('fiber')
 
 local SchemaError = errors.new_class('SchemaError', {capture_stack = false})
 
 local schema_module = require('crud.common.schema')
 local utils = require('crud.common.utils')
+
+local SETTINGS_SPACE = '_crud_settings_local'
 
 local schema = {}
 
@@ -46,6 +49,7 @@ schema.system_spaces = {
     ['_tt_migrations'] = true,
     -- https://github.com/tarantool/cluster-federation/blob/01738cafa0dc7a3138e64f93c4e84cb323653257/src/internal/utils/utils.go#L17
     ['_cdc_state'] = true,
+    [SETTINGS_SPACE] = true,
 }
 
 local function get_crud_schema(space)
@@ -115,6 +119,35 @@ schema.call = function(space_name, opts)
 
         return resp
     end
+end
+
+schema.init = function()
+    ::init_start::
+    if not box.info.ro then
+        if box.space[SETTINGS_SPACE] == nil then
+            box.schema.space.create(SETTINGS_SPACE, {
+                engine = 'memtx',
+                format = {
+                    { name = 'key', type = 'string' },
+                    { name = 'value', type = 'any' },
+                },
+                is_local = true,
+                if_not_exists = true,
+            })
+        end
+        if box.space[SETTINGS_SPACE].index[0] == nil then
+            box.space[SETTINGS_SPACE]:create_index('primary', { parts = { 'key' }, if_not_exists = true })
+        end
+    else
+        while box.space[SETTINGS_SPACE] == nil or box.space[SETTINGS_SPACE].index[0] == nil do
+            fiber.sleep(0.05)
+            if not box.info.ro then
+                goto init_start
+            end
+        end
+    end
+
+    schema.settings_space = box.space[SETTINGS_SPACE]
 end
 
 return schema

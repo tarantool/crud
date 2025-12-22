@@ -123,6 +123,9 @@ local function privilegies_test_base_init(g, access_operation_type)
             if access_operation_type and box.space.customers then
                 box.schema.user.grant('testuser1', access_operation_type, 'space', 'customers')
             end
+            if box.space._bucket then
+                box.schema.user.grant('testuser1', 'read', 'space', '_bucket')
+            end
 
             box.session.su(user)
         end

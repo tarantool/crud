@@ -501,7 +501,6 @@ local function cluster_new(g, cfg)
             }
             g.cluster:add_server(server)
 
-            table.insert(all_servers, server)
             if is_master then
                 table.insert(masters, server)
             else
@@ -509,7 +508,18 @@ local function cluster_new(g, cfg)
             end
         end
     end
-    for _, replica in pairs(all_servers) do
+
+    -- When initializing new cluster, crud.init_storage() on replicas depends on
+    -- crud.init_storage() being finished on the corresponding master.
+    -- So masters go first in all_servers list.
+    for _, server in pairs(masters) do
+        table.insert(all_servers, server)
+    end
+    for _, server in pairs(replicas) do
+        table.insert(all_servers, server)
+    end
+
+    for _, replica in ipairs(all_servers) do
         replica:start({wait_for_readiness = false})
     end
 
@@ -560,7 +570,7 @@ local function cluster_new(g, cfg)
     end
 
     -- Init on all servers.
-    for _, replica in pairs(all_servers) do
+    for _, replica in ipairs(all_servers) do
         if storage_entrypoint ~= nil then
             replica:exec(function(storage_entrypoint)
                 local entrypoint = require(storage_entrypoint)
@@ -577,7 +587,7 @@ local function cluster_new(g, cfg)
     end
 
     -- Wait until all servers are ready.
-    for _, replica in pairs(all_servers) do
+    for _, replica in ipairs(all_servers) do
         if storage_entrypoint ~= nil then
             replica:exec(function(storage_entrypoint)
                 local entrypoint = require(storage_entrypoint)
