@@ -13,11 +13,11 @@ local crud_utils = require('crud.common.utils')
 if package.setsearchroot ~= nil then
     package.setsearchroot()
 else
-    package.path = package.path .. debug.sourcedir() .. "/?.lua;"
+    package.path = package.path .. debug.sourcedir() .. "/?.lua;" .. debug.sourcedir() .. "/?/init.lua;"
 end
 
 local root = fio.dirname(fio.dirname(fio.dirname(debug.sourcedir())))
-package.path = package.path .. root .. "/?.lua;"
+package.path = package.path .. root .. "/?.lua;" .. root .. "/?/init.lua;"
 
 package.preload['customers-storage'] = function()
     return {
