@@ -313,3 +313,63 @@ pgroup_not_applied.test_not_applied = function(g)
         not_applied_operations[g.params.operation].check_not_applied(not_applied_ids)
     end
 end
+
+local pgroup_fiber_kill =  t.group('double_buckets_fiber_kill', helpers.backend_matrix({
+    {engine = 'memtx'},
+}, { skip_safe_mode = true }))
+
+pgroup_fiber_kill.before_all(function(g)
+    helpers.start_default_cluster(g, 'srv_simple_operations')
+end)
+
+pgroup_fiber_kill.after_all(function(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end)
+
+pgroup_fiber_kill.before_each(function(g)
+    helpers.truncate_space_on_cluster(g.cluster, 'customers')
+end)
+
+pgroup_fiber_kill.test_gh_473_same_fiber_name_for_different_requests = function(g)
+    local function send_crud_request(g, tup)
+        local _, err = g.router:call('crud.replace', {'customers', tup})
+        t.assert_equals(err, nil)
+    end
+
+    local f1 = fiber.create(function()
+        for _ = 1, 1000 do
+            send_crud_request(g, {92, box.NULL, 'Artur', 29})
+        end
+    end)
+    f1:set_joinable(true)
+
+    local f2 = fiber.create(function()
+        for _ = 1, 1000 do
+            local name = g.cluster:server('s2-master').net_box:eval([[return require('fiber').self():name()]])
+            if name ~= "main" then
+                return name
+            end
+        end
+        return "main"
+    end)
+    f2:set_joinable(true)
+
+    local f3 = fiber.create(function()
+        for _ = 1, 1000 do
+            local name = g.cluster:server('s1-master').net_box:eval([[return require('fiber').self():name()]])
+            if name ~= "main" then
+                return name
+            end
+        end
+        return "main"
+    end)
+    f3:set_joinable(true)
+
+    f1:join()
+    local ok2, name2 = f2:join()
+    t.assert_equals(ok2, true)
+    t.assert_equals(name2, "main")
+    local ok3, name3 = f3:join()
+    t.assert_equals(ok3, true)
+    t.assert_equals(name3, "main")
+end

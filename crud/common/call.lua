@@ -27,8 +27,25 @@ local function call_on_storage_safe(run_as_user, func_name, ...)
 end
 
 local function call_on_storage_fast(run_as_user, func_name, ...)
+    -- rename net box fiber from "main" to CRUD_CALL_FIBER_NAME
+    -- in order to kill him on safe mode enable.
+    local name = fiber.name()
     fiber.name(CRUD_CALL_FIBER_NAME)
-    return box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)
+    local ret1, ret2, ret3, ret4 = box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)
+    fiber.name(name)
+    if ret2 == nil and ret3 == nil and ret4 == nil then
+        return ret1
+    end
+
+    if ret3 == nil and ret4 == nil then
+        return ret1, ret2
+    end
+
+    if ret4 == nil then
+        return ret1, ret2, ret3
+    end
+
+    return ret1, ret2, ret3, ret4
 end
 
 local call_on_storage = rebalance.safe_mode and call_on_storage_safe or call_on_storage_fast
