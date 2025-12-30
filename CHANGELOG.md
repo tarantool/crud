@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+* Stop marking/killing fast-mode iproto fibers on safe-mode switch.
+  Storage ops are asserted by `yield_checks` in tests.
+
 ## [1.7.0] - 26-12-25
 
 ### Added
