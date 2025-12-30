@@ -1,5 +1,6 @@
 local checks = require('checks')
 local errors = require('errors')
+local yield_checks = require('crud.common.yield_checks')
 
 local call = require('crud.common.call')
 local const = require('crud.common.const')
@@ -32,12 +33,14 @@ local function insert_many_on_storage(space_name, tuples, opts)
         noreturn = '?boolean',
         fetch_latest_metadata = '?boolean',
     })
+    -- no-yield guard for tests (TARANTOOL_CRUD_ENABLE_INTERNAL_CHECKS)
+    local finish = yield_checks.start()
 
     opts = opts or {}
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, {InsertManyError:new("Space %q doesn't exist", space_name)}
+        return finish(nil, {InsertManyError:new("Space %q doesn't exist", space_name)})
     end
 
     local _, err = sharding.check_sharding_hash(space_name,
@@ -46,7 +49,7 @@ local function insert_many_on_storage(space_name, tuples, opts)
                                                 opts.skip_sharding_hash_check)
 
     if err ~= nil then
-        return nil, batching_utils.construct_sharding_hash_mismatch_errors(err.err, tuples)
+        return finish(nil, batching_utils.construct_sharding_hash_mismatch_errors(err.err, tuples))
     end
 
     local bucket_ids = {}
@@ -56,7 +59,7 @@ local function insert_many_on_storage(space_name, tuples, opts)
 
     local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refrw_many(bucket_ids)
     if not ref_ok then
-        return nil, bucket_ref_err
+        return finish(nil, bucket_ref_err)
     end
 
     local inserted_tuples = {}
@@ -70,6 +73,7 @@ local function insert_many_on_storage(space_name, tuples, opts)
         fetch_latest_metadata = opts.fetch_latest_metadata,
     }
 
+    yield_checks.check_no_yields()
     box.begin()
     for i, tuple in ipairs(tuples) do
         -- add_space_schema_hash is true only in case of insert_object_many
@@ -100,6 +104,7 @@ local function insert_many_on_storage(space_name, tuples, opts)
                 end
 
                 if opts.rollback_on_error == true then
+                    finish()
                     local unref_ok, bucket_unref_err = unref(bucket_ids)
                     box.rollback()
                     if not unref_ok then
@@ -113,6 +118,7 @@ local function insert_many_on_storage(space_name, tuples, opts)
                     return nil, errs, replica_schema_version
                 end
 
+                finish()
                 local unref_ok, bucket_unref_err = unref(bucket_ids)
                 box.commit()
                 if not unref_ok then
@@ -128,6 +134,7 @@ local function insert_many_on_storage(space_name, tuples, opts)
 
     if next(errs) ~= nil then
         if opts.rollback_on_error == true then
+            finish()
             local unref_ok, bucket_unref_err = unref(bucket_ids)
             box.rollback()
             if not unref_ok then
@@ -141,6 +148,7 @@ local function insert_many_on_storage(space_name, tuples, opts)
             return nil, errs, replica_schema_version
         end
 
+        finish()
         local unref_ok, bucket_unref_err = unref(bucket_ids)
         box.commit()
         if not unref_ok then
@@ -150,6 +158,7 @@ local function insert_many_on_storage(space_name, tuples, opts)
         return inserted_tuples, errs, replica_schema_version
     end
 
+    finish()
     local unref_ok, bucket_unref_err = unref(bucket_ids)
     box.commit()
     if not unref_ok then

@@ -1,5 +1,6 @@
 local checks = require('checks')
 local errors = require('errors')
+local yield_checks = require('crud.common.yield_checks')
 
 local call = require('crud.common.call')
 local const = require('crud.common.const')
@@ -26,12 +27,14 @@ local function replace_on_storage(space_name, tuple, opts)
         noreturn = '?boolean',
         fetch_latest_metadata = '?boolean',
     })
+    -- no-yield guard for tests (TARANTOOL_CRUD_ENABLE_INTERNAL_CHECKS)
+    local finish = yield_checks.start()
 
     opts = opts or {}
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, ReplaceError:new("Space %q doesn't exist", space_name)
+        return finish(nil, ReplaceError:new("Space %q doesn't exist", space_name))
     end
 
     local _, err = sharding.check_sharding_hash(space_name,
@@ -40,14 +43,16 @@ local function replace_on_storage(space_name, tuple, opts)
                                                 opts.skip_sharding_hash_check)
 
     if err ~= nil then
-        return nil, err
+        return finish(nil, err)
     end
 
     local bucket_id = tuple[utils.get_bucket_id_fieldno(space)]
     local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refrw(bucket_id)
     if not ref_ok then
-        return nil, bucket_ref_err
+        return finish(nil, bucket_ref_err)
     end
+
+    yield_checks.check_no_yields()
 
     -- add_space_schema_hash is true only in case of replace_object
     -- the only one case when reloading schema can avoid insert error
@@ -58,6 +63,8 @@ local function replace_on_storage(space_name, tuple, opts)
         noreturn = opts.noreturn,
         fetch_latest_metadata = opts.fetch_latest_metadata,
     }, space, tuple)
+
+    finish()
 
     local unref_ok, err_unref = unref(bucket_id)
     if not unref_ok then

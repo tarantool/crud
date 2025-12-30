@@ -1,5 +1,6 @@
 local checks = require('checks')
 local errors = require('errors')
+local yield_checks = require('crud.common.yield_checks')
 
 local call = require('crud.common.call')
 local const = require('crud.common.const')
@@ -27,12 +28,14 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
         noreturn = '?boolean',
         fetch_latest_metadata = '?boolean',
     })
+    -- no-yield guard for tests (TARANTOOL_CRUD_ENABLE_INTERNAL_CHECKS)
+    local finish = yield_checks.start()
 
     opts = opts or {}
 
     local space = box.space[space_name]
     if space == nil then
-        return nil, UpdateError:new("Space %q doesn't exist", space_name)
+        return finish(nil, UpdateError:new("Space %q doesn't exist", space_name))
     end
 
     local _, err = sharding.check_sharding_hash(space_name,
@@ -41,14 +44,15 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
                                                 opts.skip_sharding_hash_check)
 
     if err ~= nil then
-        return nil, err
+        return finish(nil, err)
     end
 
     local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refrw(opts.bucket_id)
     if not ref_ok then
-        return nil, bucket_ref_err
+        return finish(nil, bucket_ref_err)
     end
 
+    yield_checks.check_no_yields()
     -- add_space_schema_hash is false because
     -- reloading space format on router can't avoid update error on storage
     local res, err = schema.wrap_func_result(space, space.update, {
@@ -72,6 +76,8 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
             fetch_latest_metadata = opts.fetch_latest_metadata,
         }, space, key, operations)
     end
+
+    finish()
 
     local unref_ok, err_unref = unref(opts.bucket_id)
     if not unref_ok then
