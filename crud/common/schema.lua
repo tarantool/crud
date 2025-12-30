@@ -8,6 +8,7 @@ local ReloadSchemaError = errors.new_class('ReloadSchemaError', {capture_stack =
 
 local const = require('crud.common.const')
 local dev_checks = require('crud.common.dev_checks')
+local yield_checks = require('crud.common.yield_checks')
 local utils = require('crud.common.vshard_utils')
 
 local schema = {}
@@ -216,6 +217,8 @@ end
 -- `add_space_schema_hash` is true
 function schema.wrap_func_result(space, func, opts, ...)
     dev_checks('table', 'function', 'table')
+    yield_checks.check_no_yields()
+
     local result = {}
 
     local ok, func_res = pcall(func, ...)

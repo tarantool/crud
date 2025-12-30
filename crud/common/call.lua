@@ -1,14 +1,13 @@
 local errors = require('errors')
-local log = require('log')
 
 local call_cache = require('crud.common.call_cache')
 local dev_checks = require('crud.common.dev_checks')
+local yield_checks = require('crud.common.yield_checks')
 local utils = require('crud.common.utils')
 local sharding_utils = require('crud.common.sharding.utils')
 local fiber = require('fiber')
 local fiber_clock = fiber.clock
 local const = require('crud.common.const')
-local rebalance = require('crud.common.rebalance')
 local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
 
 local BaseIterator = require('crud.common.map_call_cases.base_iter')
@@ -18,37 +17,12 @@ local CallError = errors.new_class('CallError')
 
 local CALL_FUNC_NAME = 'call_on_storage'
 local CRUD_CALL_FUNC_NAME = utils.get_storage_call(CALL_FUNC_NAME)
-local CRUD_CALL_FIBER_NAME = CRUD_CALL_FUNC_NAME .. '/fast'
 
 local call = {}
 
-local function call_on_storage_safe(run_as_user, func_name, ...)
-    return box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)
+local function call_on_storage(run_as_user, func_name, ...)
+    return yield_checks.guard(box.session.su, run_as_user, call_cache.func_name_to_func(func_name), ...)
 end
-
-local function call_on_storage_fast(run_as_user, func_name, ...)
-    fiber.name(CRUD_CALL_FIBER_NAME)
-    return box.session.su(run_as_user, call_cache.func_name_to_func(func_name), ...)
-end
-
-local call_on_storage = rebalance.safe_mode and call_on_storage_safe or call_on_storage_fast
-
-rebalance.on_safe_mode_toggle(function(is_enabled)
-    if is_enabled then
-        call_on_storage = call_on_storage_safe
-
-        local fibers_killed = 0
-        for fb_id, fb in pairs(fiber.info()) do
-            if fb.name == CRUD_CALL_FIBER_NAME then
-                fiber.kill(fb_id)
-                fibers_killed = fibers_killed + 1
-            end
-        end
-        log.debug('Killed %d fibers with fast-mode crud requests.', fibers_killed)
-    else
-        call_on_storage = call_on_storage_fast
-    end
-end)
 
 call.storage_api = {[CALL_FUNC_NAME] = call_on_storage}
 
