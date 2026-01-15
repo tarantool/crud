@@ -58,28 +58,21 @@ local function _safe_mode_disable()
 end
 
 local function create_settings_trigger()
-    schema.settings_space:on_replace(function()
-        box.on_commit(function(rows_iter)
+    schema.settings_space:on_replace(function(old, new, _, op)
+        if op == 'REPLACE' then
             -- There may be multiple operations on safe mode status tuple in one transaction.
             -- We will take only the last action.
             -- 0 = do nothing, 1 = enable safe mode, -1 = disable safe mode
             local safe_mode_action = 0
-            for _, old, new, sp in rows_iter() do
-                -- These checks must be changed to skip unknown keys when there will be more than one setting
-                -- in _crud_settings_local space.
-                -- But for now it is better to raise an error than to silently ignore them.
-                if sp ~= schema.settings_space.id then
-                    goto continue
-                end
-                assert((old == nil or old.key == SAFE_MODE_STATUS) and (new.key == SAFE_MODE_STATUS))
+            -- These checks must be changed to skip unknown keys when there will be more than one setting
+            -- in _crud_settings_local space.
+            -- But for now it is better to raise an error than to silently ignore them.
+            assert((old == nil or old.key == SAFE_MODE_STATUS) and (new.key == SAFE_MODE_STATUS))
 
-                if (not old or not old.value) and new.value then
-                    safe_mode_action = 1
-                elseif old and old.value and not new.value then
-                    safe_mode_action = -1
-                end
-
-                ::continue::
+            if (not old or not old.value) and new.value then
+                safe_mode_action = 1
+            elseif old and old.value and not new.value then
+                safe_mode_action = -1
             end
 
             if safe_mode_action == 1 then
@@ -87,7 +80,7 @@ local function create_settings_trigger()
             elseif safe_mode_action == -1 then
                 _safe_mode_disable()
             end
-        end)
+        end
     end)
 end
 
