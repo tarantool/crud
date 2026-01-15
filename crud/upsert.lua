@@ -43,7 +43,7 @@ local function upsert_on_storage(space_name, tuple, operations, opts)
     end
 
     local bucket_id = tuple[utils.get_bucket_id_fieldno(space)]
-    local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refrw(bucket_id)
+    local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refrw(bucket_id, space.engine)
     if not ref_ok then
         return nil, bucket_ref_err
     end
@@ -56,7 +56,7 @@ local function upsert_on_storage(space_name, tuple, operations, opts)
         fetch_latest_metadata = opts.fetch_latest_metadata,
     }, space, tuple, operations)
 
-    local unref_ok, err_unref = unref(bucket_id)
+    local unref_ok, err_unref = unref(bucket_id, space.engine)
     if not unref_ok then
         return nil, err_unref
     end
