@@ -44,7 +44,7 @@ local function delete_on_storage(space_name, key, field_names, opts)
         return nil, err
     end
 
-    local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refrw(opts.bucket_id)
+    local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refrw(opts.bucket_id, space.engine)
     if not ref_ok then
         return nil, bucket_ref_err
     end
@@ -58,7 +58,7 @@ local function delete_on_storage(space_name, key, field_names, opts)
         fetch_latest_metadata = opts.fetch_latest_metadata,
     }, space, key)
 
-    local unref_ok, err_unref = unref(opts.bucket_id)
+    local unref_ok, err_unref = unref(opts.bucket_id, space.engine)
     if not unref_ok then
         return nil, err_unref
     end

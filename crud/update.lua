@@ -44,7 +44,7 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
         return nil, err
     end
 
-    local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refrw(opts.bucket_id)
+    local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refrw(opts.bucket_id, space.engine)
     if not ref_ok then
         return nil, bucket_ref_err
     end
@@ -73,7 +73,7 @@ local function update_on_storage(space_name, key, operations, field_names, opts)
         }, space, key, operations)
     end
 
-    local unref_ok, err_unref = unref(opts.bucket_id)
+    local unref_ok, err_unref = unref(opts.bucket_id, space.engine)
     if not unref_ok then
         return nil, err_unref
     end

@@ -125,13 +125,23 @@ safe_methods = {
     bucket_unrefrw_many = bucket_ref_unref._bucket_unrefrw_many,
 }
 
+local function make_fast_method(method_name)
+    return function(arg, space_engine)
+        if space_engine == 'vinyl' then
+            -- vinyl always works in safe mode
+            return safe_methods[method_name](arg)
+        end
+        return bucket_ref_unref._fast()
+    end
+end
+
 fast_methods = {
-    bucket_refrw = bucket_ref_unref._fast,
-    bucket_unrefrw = bucket_ref_unref._fast,
-    bucket_refro = bucket_ref_unref._fast,
-    bucket_unrefro = bucket_ref_unref._fast,
-    bucket_refrw_many = bucket_ref_unref._fast,
-    bucket_unrefrw_many = bucket_ref_unref._fast,
+    bucket_refrw = make_fast_method('bucket_refrw'),
+    bucket_unrefrw = make_fast_method('bucket_unrefrw'),
+    bucket_refro = make_fast_method('bucket_refro'),
+    bucket_unrefro = make_fast_method('bucket_unrefro'),
+    bucket_refrw_many = make_fast_method('bucket_refrw_many'),
+    bucket_unrefrw_many = make_fast_method('bucket_unrefrw_many')
 }
 
 local function set_methods(methods)

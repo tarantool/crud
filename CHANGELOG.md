@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Stop marking/killing fast-mode iproto fibers on safe-mode switch.
   Storage ops are asserted by `yield_checks` in tests.
 * Move switch to safe mode from `on_commit` trigger to `on_replace` trigger.
+* vinyl spaces always work in safe mode.
 
 ## [1.7.0] - 26-12-25
 
