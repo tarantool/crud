@@ -175,7 +175,15 @@ end
 
 function Cluster:wait_until_ready()
     for _, server in ipairs(self.servers) do
-        server:wait_until_ready()
+        local ok, err = pcall(server.wait_until_ready, server)
+        if not ok then
+            --utils.dump_cluster_xlogs(self.servers)
+            print("################# ERR: " .. err)
+            if string.find(err, 'for "server is ready" condition for server') then
+                self.__do_dump_cluster = true
+            end
+            error(err)
+        end
     end
 
     for _, server in ipairs(self.servers) do
@@ -321,6 +329,12 @@ end
 
 function Cluster:drop()
     self:stop()
+
+    --print('################# DO DUMP CLUSTER XLOGS = ' .. tostring(self.__do_dump_cluster))
+    if self.__do_dump_cluster then
+        utils.dump_cluster_xlogs(self.servers)
+    end
+
     treegen.clean(self.treegen)
 
     return self
