@@ -1217,38 +1217,7 @@ function helpers.backend_matrix(base_matrix, opts)
     end
 
     local backend_params = {
-        {
-            backend = helpers.backend.VSHARD,
-            backend_cfg = nil,
-        },
     }
-
-    if helpers.is_cartridge_suite_supported() then
-        table.insert(backend_params,
-            {
-                backend = helpers.backend.CARTRIDGE,
-                backend_cfg = nil,
-            }
-        )
-    end
-
-    if helpers.is_name_supported_as_vshard_id() then
-        backend_params = helpers.extend_vshard_matrix(
-            backend_params,
-            'identification_mode',
-            {'uuid_as_key', 'name_as_key'},
-            {mode = 'replace'}
-        )
-    end
-
-    if helpers.is_master_discovery_supported_in_vshard() then
-        backend_params = helpers.extend_vshard_matrix(
-            backend_params,
-            'master',
-            {'auto'},
-            {mode = 'extend'}
-        )
-    end
 
     if helpers.is_tarantool3_crud_roles_supported() then
         table.insert(backend_params,
