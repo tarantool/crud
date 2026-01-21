@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tarantool-version: [ "2.10", "2.11" ]
+        tarantool-version: [ "2.11" ]
         metrics-version: [ "" ]
         cartridge-version: [ "2.16.3" ]
         external-tuple-merger-version: [ "" ]
@@ -42,7 +42,7 @@ jobs:
             vshard-version: "0.1.36"
           - tarantool-version: "master"
             vshard-version: "0.1.36"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -139,9 +139,6 @@ jobs:
       fail-fast: false
       matrix:
         tarantool-version:
-          - tarantool-version:
-            folder: "2.10"
-            bundle: "tarantool-enterprise-sdk-gc64-2.10.8-0-r691.linux.x86_64"
           - folder: "2.11"
             bundle: "tarantool-enterprise-sdk-gc64-2.11.7-0-r691.linux.x86_64"
         metrics-version: [ "", "1.5.0" ]
@@ -159,7 +156,7 @@ jobs:
           - tarantool-version:
               folder: "3.5"
               bundle: "tarantool-enterprise-sdk-gc64-3.5.0-0-r70.linux.x86_64"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -198,7 +195,7 @@ jobs:
       github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
     strategy:
       matrix:
-        tarantool-version: [ "2.10", "2.11" ]
+        tarantool-version: [ "2.11" ]
         metrics-version: [ "1.1.0" ]
         cartridge-version: [ "2.16.3" ]
         include:
@@ -217,7 +214,7 @@ jobs:
           - tarantool-version: "master"
             vshard-version: "0.1.36"
       fail-fast: false
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
