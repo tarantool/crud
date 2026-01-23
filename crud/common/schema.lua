@@ -58,27 +58,32 @@ function schema.reload_schema(vshard_router)
     local replicasets = vshard_router:routeall()
     local vshard_router_name = vshard_router.name
 
+    if reload_schema_cond[vshard_router_name] == nil then
+        reload_schema_cond[vshard_router_name] = fiber.cond()
+    end
+
     if reload_in_progress[vshard_router_name] == true then
         if not reload_schema_cond[vshard_router_name]:wait(const.RELOAD_SCHEMA_TIMEOUT) then
             return nil, ReloadSchemaError:new('Waiting for schema to be reloaded is timed out')
         end
-    else
-        reload_in_progress[vshard_router_name] = true
-        if reload_schema_cond[vshard_router_name] == nil then
-            reload_schema_cond[vshard_router_name] = fiber.cond()
-        end
-
-        local ok, err = call_reload_schema(replicasets)
-        if not ok then
-            return nil, err
-        end
-
-        reload_schema_cond[vshard_router_name]:broadcast()
-        reload_in_progress[vshard_router_name] = false
+        return true
     end
+
+    reload_in_progress[vshard_router_name] = true
+
+    local ok, err = call_reload_schema(replicasets)
+
+    reload_in_progress[vshard_router_name] = false
+
+    if not ok then
+        return nil, err
+    end
+
+    reload_schema_cond[vshard_router_name]:broadcast()
 
     return true
 end
+
 
 -- schema.wrap_func_reload calls func with specified arguments.
 -- func should return `res, err, need_reload`
