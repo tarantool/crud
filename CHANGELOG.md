@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Move bucket_unref out of transaction.
 * Prevent duplicate metrics if init function is called multiple times.
 * Prevent creating duplicate triggers on `_crud_settings_local` space if init function is called multiple times.
+* Fix deadlock in `crud.schema()` after schema reload error (#479).
 
 ## [1.7.2] - 28-01-26
 
