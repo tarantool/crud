@@ -2,6 +2,7 @@ local checks = require('checks')
 local json = require('json')
 local fun = require('fun')
 local yaml = require('yaml')
+local log = require('log')
 
 local t = require('luatest')
 
@@ -165,12 +166,29 @@ function Cluster:wait_for_leaders_rw()
     end
 end
 
+local MAX_RESTART_ATTEMPTS = 5
+
 function Cluster:start()
-    for _, server in ipairs(self.servers) do
-        server:start({wait_until_ready = false})
+    -- Temporary hack to mitigate replication bug https://github.com/tarantool/tarantool/issues/11028
+    local ok, err
+    for i = 1, MAX_RESTART_ATTEMPTS do
+        for _, server in ipairs(self.servers) do
+            server:start({wait_until_ready = false})
+        end
+
+        ok, err = pcall(self.wait_until_ready, self)
+        if ok then
+            return self
+        end
+        if string.find(err, 'for "server is ready" condition for server') then
+            log.warn(('Restarting cluster (attempt %d of %d).'):format(i, MAX_RESTART_ATTEMPTS))
+            self:stop()
+        else
+            error(err)
+        end
     end
 
-    return self:wait_until_ready()
+    error(err)
 end
 
 function Cluster:wait_until_ready()
