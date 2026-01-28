@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+* Remove `tnt_crud_storage_safe_mode_enabled` metric from router.
+
 ## [1.7.1] - 16-01-26
 
 ### Changed

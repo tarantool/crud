@@ -97,6 +97,18 @@ function rebalance.init()
     else
         _safe_mode_disable()
     end
+
+    --- Rebalance related metrics
+    if has_metrics_module then
+        local safe_mode_enabled_gauge = metrics.gauge(
+                'tnt_crud_storage_safe_mode_enabled',
+                "is safe mode enabled on this storage instance"
+        )
+
+        metrics.register_callback(function()
+            safe_mode_enabled_gauge:set(rebalance.safe_mode_status() and 1 or 0)
+        end)
+    end
 end
 
 function rebalance.safe_mode_status()
@@ -128,18 +140,6 @@ function rebalance.router_api.cache_clear()
         return
     end
     return router:_route_map_clear()
-end
-
---- Rebalance related metrics
-if has_metrics_module then
-    local safe_mode_enabled_gauge = metrics.gauge(
-            'tnt_crud_storage_safe_mode_enabled',
-            "is safe mode enabled on this storage instance"
-    )
-
-    metrics.register_callback(function()
-        safe_mode_enabled_gauge:set(rebalance.safe_mode_status() and 1 or 0)
-    end)
 end
 
 return rebalance

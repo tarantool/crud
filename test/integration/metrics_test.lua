@@ -30,9 +30,17 @@ pgroup.test_safe_mode_storage_metrics = function(g)
     local has_metrics_module = require('metrics')
     t.skip_if(not has_metrics_module, 'No metrics module in current version')
 
+    -- Check no safe mode metric on router
+    local observed = g.router:eval("return require('metrics').collect({ invoke_callbacks = true })")
+    for _, m in pairs(observed) do
+        if m.metric_name == 'tnt_crud_storage_safe_mode_enabled' then
+            t.fail('tnt_crud_storage_safe_mode_enabled metric found on router')
+        end
+    end
+
     -- Check safe mode metric on storage
     helpers.call_on_storages(g.cluster, function(server)
-        local observed = server:eval("return require('metrics').collect({ invoke_callbacks = true })")
+        observed = server:eval("return require('metrics').collect({ invoke_callbacks = true })")
         local has_metric = false
         for _, m in pairs(observed) do
             if m.metric_name == 'tnt_crud_storage_safe_mode_enabled' then
@@ -42,7 +50,7 @@ pgroup.test_safe_mode_storage_metrics = function(g)
             end
         end
         if not has_metric then
-            t.fail('No tnt_crud_storage_safe_mode_enabled metric found')
+            t.fail('No tnt_crud_storage_safe_mode_enabled metric found on storage')
         end
     end)
 
@@ -51,9 +59,17 @@ pgroup.test_safe_mode_storage_metrics = function(g)
         server:call('_crud.rebalance_safe_mode_enable')
     end)
 
+    -- Check no safe mode metric on router after changing safe mode
+    observed = g.router:eval("return require('metrics').collect({ invoke_callbacks = true })")
+    for _, m in pairs(observed) do
+        if m.metric_name == 'tnt_crud_storage_safe_mode_enabled' then
+            t.fail('tnt_crud_storage_safe_mode_enabled metric found on router')
+        end
+    end
+
     -- Check that metric value has changed
     helpers.call_on_storages(g.cluster, function(server)
-        local observed = server:eval("return require('metrics').collect({ invoke_callbacks = true })")
+        observed = server:eval("return require('metrics').collect({ invoke_callbacks = true })")
         local has_metric = false
         for _, m in pairs(observed) do
             if m.metric_name == 'tnt_crud_storage_safe_mode_enabled' then
@@ -63,7 +79,7 @@ pgroup.test_safe_mode_storage_metrics = function(g)
             end
         end
         if not has_metric then
-            t.fail('No tnt_crud_storage_safe_mode_enabled metric found')
+            t.fail('No tnt_crud_storage_safe_mode_enabled metric found on storage')
         end
     end)
 end
