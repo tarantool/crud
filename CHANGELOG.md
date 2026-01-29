@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+* Return bucket_ref error as array in `crud.*_many` methods.
+
 ## [1.7.2] - 28-01-26
 
 ### Fixed

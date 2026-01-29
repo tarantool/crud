@@ -54,14 +54,15 @@ local function insert_many_on_storage(space_name, tuples, opts)
         bucket_ids[tuple[utils.get_bucket_id_fieldno(space)]] = true
     end
 
-    local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refrw_many(bucket_ids, space.engine)
-    if not ref_ok then
-        return nil, bucket_ref_err
-    end
-
     local inserted_tuples = {}
     local errs = {}
     local replica_schema_version = nil
+
+    local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refrw_many(bucket_ids, space.engine)
+    if not ref_ok then
+        table.insert(errs, bucket_ref_err)
+        return nil, errs, replica_schema_version
+    end
 
     local insert_opts = {
         add_space_schema_hash = opts.add_space_schema_hash,
@@ -103,7 +104,8 @@ local function insert_many_on_storage(space_name, tuples, opts)
                     local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
                     box.rollback()
                     if not unref_ok then
-                        return nil, bucket_unref_err
+                        table.insert(errs, bucket_unref_err)
+                        return nil, errs, replica_schema_version
                     end
                     if next(inserted_tuples) then
                         errs = batching_utils.complement_batching_errors(errs,
@@ -116,7 +118,8 @@ local function insert_many_on_storage(space_name, tuples, opts)
                 local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
                 box.commit()
                 if not unref_ok then
-                    return nil, bucket_unref_err
+                    table.insert(errs, bucket_unref_err)
+                    return nil, errs, replica_schema_version
                 end
 
                 return inserted_tuples, errs, replica_schema_version
@@ -131,7 +134,8 @@ local function insert_many_on_storage(space_name, tuples, opts)
             local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
             box.rollback()
             if not unref_ok then
-                return nil, bucket_unref_err
+                table.insert(errs, bucket_unref_err)
+                return nil, errs, replica_schema_version
             end
             if next(inserted_tuples) then
                 errs = batching_utils.complement_batching_errors(errs,
@@ -144,7 +148,8 @@ local function insert_many_on_storage(space_name, tuples, opts)
         local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
         box.commit()
         if not unref_ok then
-            return nil, bucket_unref_err
+            table.insert(errs, bucket_unref_err)
+            return nil, errs, replica_schema_version
         end
 
         return inserted_tuples, errs, replica_schema_version
@@ -153,7 +158,8 @@ local function insert_many_on_storage(space_name, tuples, opts)
     local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
     box.commit()
     if not unref_ok then
-        return nil, bucket_unref_err
+        table.insert(errs, bucket_unref_err)
+        return nil, errs, replica_schema_version
     end
 
     return inserted_tuples, nil, replica_schema_version
