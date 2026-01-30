@@ -104,8 +104,8 @@ local function replace_many_on_storage(space_name, tuples, opts)
                 end
 
                 if opts.rollback_on_error == true then
-                    local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
                     box.rollback()
+                    local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
                     if not unref_ok then
                         table.insert(errs, bucket_unref_err)
                         return nil, errs, replica_schema_version
@@ -117,8 +117,8 @@ local function replace_many_on_storage(space_name, tuples, opts)
                     return nil, errs, replica_schema_version
                 end
 
-                local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
                 box.commit()
+                local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
                 if not unref_ok then
                     table.insert(errs, bucket_unref_err)
                     return nil, errs, replica_schema_version
@@ -132,8 +132,8 @@ local function replace_many_on_storage(space_name, tuples, opts)
 
     if next(errs) ~= nil then
         if opts.rollback_on_error == true then
-            local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
             box.rollback()
+            local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
             if not unref_ok then
                 table.insert(errs, bucket_unref_err)
                 return nil, errs, replica_schema_version
@@ -146,8 +146,8 @@ local function replace_many_on_storage(space_name, tuples, opts)
             return nil, errs, replica_schema_version
         end
 
-        local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
         box.commit()
+        local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
         if not unref_ok then
             table.insert(errs, bucket_unref_err)
             return nil, errs, replica_schema_version
@@ -156,8 +156,8 @@ local function replace_many_on_storage(space_name, tuples, opts)
         return inserted_tuples, errs, replica_schema_version
     end
 
-    local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
     box.commit()
+    local unref_ok, bucket_unref_err = unref(bucket_ids, space.engine)
     if not unref_ok then
         table.insert(errs, bucket_unref_err)
         return nil, errs, replica_schema_version
