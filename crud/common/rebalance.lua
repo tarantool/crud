@@ -1,4 +1,5 @@
 local log = require('log')
+local fiber = require('fiber')
 local trigger = require('internal.trigger')
 local vshard_consts = require('vshard.consts')
 local schema = require('crud.schema')
@@ -11,6 +12,12 @@ local rebalance = {
     safe_mode = false,
     -- Trigger is run with one argument: true if safe mode is enabled and false if disabled.
     on_safe_mode_toggle = trigger.new('_crud.safe_mode_toggle'),
+    router_cache_clear_ts = 0,
+
+    _metrics = {
+        safe_mode_enabled_gauge = nil,
+        router_cache_clear_ts_gauge = nil,
+    },
 }
 
 local function safe_mode_bucket_trigger(_, new, space, op)
@@ -98,17 +105,7 @@ function rebalance.init()
         _safe_mode_disable()
     end
 
-    --- Rebalance related metrics
-    if has_metrics_module then
-        local safe_mode_enabled_gauge = metrics.gauge(
-                'tnt_crud_storage_safe_mode_enabled',
-                "is safe mode enabled on this storage instance"
-        )
-
-        metrics.register_callback(function()
-            safe_mode_enabled_gauge:set(rebalance.safe_mode_status() and 1 or 0)
-        end)
-    end
+    rebalance.init_storage_metrics()
 end
 
 function rebalance.safe_mode_status()
@@ -139,7 +136,37 @@ function rebalance.router_api.cache_clear()
         log.warn("Router is not initialized yet")
         return
     end
-    return router:_route_map_clear()
+    router:_route_map_clear()
+    rebalance.router_cache_clear_ts = fiber.time()
+end
+
+--- Rebalance related metrics
+function rebalance._metrics.storage_callback()
+    if not rebalance._metrics.safe_mode_enabled_gauge then return end
+    rebalance._metrics.safe_mode_enabled_gauge:set(rebalance.safe_mode_status() and 1 or 0)
+end
+
+function rebalance.init_storage_metrics()
+    if not has_metrics_module then return end
+    rebalance._metrics.safe_mode_enabled_gauge = metrics.gauge(
+            'tnt_crud_storage_safe_mode_enabled',
+            "is safe mode enabled on this storage instance"
+    )
+    metrics.register_callback(rebalance._metrics.storage_callback)
+end
+
+function rebalance._metrics.router_callback()
+    if not rebalance._metrics.router_cache_clear_ts_gauge then return end
+    rebalance._metrics.router_cache_clear_ts_gauge:set(rebalance.router_cache_clear_ts)
+end
+
+function rebalance.init_router_metrics()
+    if not has_metrics_module then return end
+    rebalance._metrics.router_cache_clear_ts_gauge = metrics.gauge(
+            'tnt_crud_router_cache_clear_ts',
+            "when route cache was last cleared on this router instance"
+    )
+    metrics.register_callback(rebalance._metrics.router_callback)
 end
 
 return rebalance

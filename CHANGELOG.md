@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+* Add `tnt_crud_router_cache_clear_ts` metric to router to help user correctly disable safe mode in cluster.
+
 ### Fixed
 * Return bucket_ref error as array in `crud.*_many` methods.
 * Move bucket_unref out of transaction.
+* Prevent duplicate metrics if init function is called multiple times.
 
 ## [1.7.2] - 28-01-26
 

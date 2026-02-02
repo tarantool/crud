@@ -167,6 +167,8 @@ crud.rebalance.router_cache_clear = rebalance.router_api.cache_clear
 
 function crud.init_router()
     rawset(_G, 'crud', crud)
+
+    rebalance.init_router_metrics()
 end
 
 function crud.stop_router()
