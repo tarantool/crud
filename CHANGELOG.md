@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Return bucket_ref error as array in `crud.*_many` methods.
 * Move bucket_unref out of transaction.
 * Prevent duplicate metrics if init function is called multiple times.
+* Prevent creating duplicate triggers on `_crud_settings_local` space if init function is called multiple times.
 
 ## [1.7.2] - 28-01-26
 

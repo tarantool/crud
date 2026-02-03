@@ -64,35 +64,38 @@ local function _safe_mode_disable()
     log.info('Rebalance safe mode disabled')
 end
 
-local function create_settings_trigger()
-    schema.settings_space:on_replace(function(old, new, _, op)
-        if op == 'REPLACE' then
-            -- There may be multiple operations on safe mode status tuple in one transaction.
-            -- We will take only the last action.
-            -- 0 = do nothing, 1 = enable safe mode, -1 = disable safe mode
-            local safe_mode_action = 0
-            -- These checks must be changed to skip unknown keys when there will be more than one setting
-            -- in _crud_settings_local space.
-            -- But for now it is better to raise an error than to silently ignore them.
-            assert((old == nil or old.key == SAFE_MODE_STATUS) and (new.key == SAFE_MODE_STATUS))
+local function safe_mode_settings_trigger(old, new, _, op)
+    if op == 'REPLACE' then
+        -- There may be multiple operations on safe mode status tuple in one transaction.
+        -- We will take only the last action.
+        -- 0 = do nothing, 1 = enable safe mode, -1 = disable safe mode
+        local safe_mode_action = 0
+        -- These checks must be changed to skip unknown keys when there will be more than one setting
+        -- in _crud_settings_local space.
+        -- But for now it is better to raise an error than to silently ignore them.
+        assert((old == nil or old.key == SAFE_MODE_STATUS) and (new.key == SAFE_MODE_STATUS))
 
-            if (not old or not old.value) and new.value then
-                safe_mode_action = 1
-            elseif old and old.value and not new.value then
-                safe_mode_action = -1
-            end
-
-            if safe_mode_action == 1 then
-                _safe_mode_enable()
-            elseif safe_mode_action == -1 then
-                _safe_mode_disable()
-            end
+        if (not old or not old.value) and new.value then
+            safe_mode_action = 1
+        elseif old and old.value and not new.value then
+            safe_mode_action = -1
         end
-    end)
+
+        if safe_mode_action == 1 then
+            _safe_mode_enable()
+        elseif safe_mode_action == -1 then
+            _safe_mode_disable()
+        end
+    end
 end
 
 function rebalance.init()
-    create_settings_trigger()
+    for _, trig in pairs(schema.settings_space:on_replace()) do
+        if trig == safe_mode_settings_trigger then
+            schema.settings_space:on_replace(nil, trig)
+        end
+    end
+    schema.settings_space:on_replace(safe_mode_settings_trigger)
 
     local stored_safe_mode = schema.settings_space:get{ SAFE_MODE_STATUS }
     if stored_safe_mode == nil then
