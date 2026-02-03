@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.7.3] - 03-02-26
+
 ### Added
 * Add `tnt_crud_router_cache_clear_ts` metric to router to help user correctly disable safe mode in cluster.
 
