@@ -60,6 +60,54 @@ local function is_replicaset_a_crud_storage(group, replicaset)
     return is_replicaset_has_role(group, replicaset, 'roles.crud-storage')
 end
 
+local utils = {}
+function utils.dump_pretty(o, max_depth, __current_depth, __indent)
+    max_depth = max_depth or 8
+    __current_depth = __current_depth or 0
+    __indent = __indent or 0
+
+    if __current_depth > max_depth then
+        return '<MAX DEPTH>'
+    end
+
+    if type(o) == 'table' then
+        local s = '{\n'
+        __indent = __indent + 1
+        for k,v in pairs(o) do
+            if type(k) == 'table' then
+                k = '"<' .. tostring(k) .. '>"'
+            elseif type(k) ~= 'number' then
+                k = '"'..k..'"'
+            end
+            s = s .. string.rep(' ', 4*__indent) .. '['..k..'] = ' ..
+                    utils.dump_pretty(v, max_depth, __current_depth + 1, __indent) .. ',\n'
+        end
+        __indent = __indent - 1
+        return s .. string.rep(' ', 4*__indent) .. '}'
+    else
+        return tostring(o)
+    end
+end
+
+local fio = require('fio')
+local xlog = require('xlog')
+local function dump_cluster_xlogs(servers)
+    print('###################### SNAP AND XLOG DUMP ######################')
+    for _, server in ipairs(servers) do
+        local xlogpath = fio.pathjoin(server.chdir, 'var', 'lib', server.alias)
+        if not fio.path.is_dir(xlogpath) then
+            error(xlogpath .. ' is not a directory')
+        end
+
+        print('###################### ' .. server.alias .. ' ######################')
+        for _, fname in ipairs(fio.listdir(xlogpath)) do
+            print('########## ' .. fname)
+            print(utils.dump_pretty(xlog.pairs(fio.pathjoin(xlogpath, fname)):totable()))
+        end
+    end
+    print('###################### END OF DUMP ######################')
+end
+
 return {
     is_group_a_sharding_router = is_group_a_sharding_router,
     is_group_a_sharding_storage = is_group_a_sharding_storage,
@@ -70,4 +118,7 @@ return {
     is_group_a_crud_storage = is_group_a_crud_storage,
     is_replicaset_a_crud_router = is_replicaset_a_crud_router,
     is_replicaset_a_crud_storage = is_replicaset_a_crud_storage,
+
+    dump_pretty = utils.dump_pretty,
+    dump_cluster_xlogs = dump_cluster_xlogs,
 }
