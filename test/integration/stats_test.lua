@@ -554,9 +554,7 @@ local select_cases = {
         opts = {batch_size = 1, mode = 'write'},
         map_reduces = 0,
         tuples_fetched = 1,
-        -- Since batch_size == 1, extra lookup is generated with
-        -- after_tuple scroll for second batch.
-        tuples_lookup = 2,
+        tuples_lookup = 1, -- native after (2.10+) avoids extra lookup
     },
     pairs_by_secondary_index = {
         eval = eval.pairs,
@@ -564,9 +562,7 @@ local select_cases = {
         opts = {batch_size = 1, mode = 'write'},
         map_reduces = 1,
         tuples_fetched = 1,
-        -- Since batch_size == 1, extra lookup is generated with
-        -- after_tuple scroll for second batch.
-        tuples_lookup = 2,
+        tuples_lookup = 1, -- native after (2.10+) avoids extra lookup
     },
     pairs_full_scan = {
         eval = eval.pairs,
@@ -576,6 +572,32 @@ local select_cases = {
         tuples_fetched = 0,
         tuples_lookup = 4,
     },
+}
+
+-- Readview test cases: on 2.x readview pairs use fallback (+1 lookup), on 3.x use native after.
+local pairs_tuples_lookup_readview = helpers.tarantool_version_at_least(3, 0, 0) and 1 or 2
+
+local select_cases_readview = {
+    select_by_primary_index = select_cases.select_by_primary_index,
+    select_by_secondary_index = select_cases.select_by_secondary_index,
+    select_full_scan = select_cases.select_full_scan,
+    pairs_by_primary_index = {
+        eval = eval.pairs,
+        conditions = {{ '==', 'id_index', 3 }},
+        opts = {batch_size = 1, mode = 'write'},
+        map_reduces = 0,
+        tuples_fetched = 1,
+        tuples_lookup = pairs_tuples_lookup_readview,
+    },
+    pairs_by_secondary_index = {
+        eval = eval.pairs,
+        conditions = {{ '==', 'age_index', 46 }},
+        opts = {batch_size = 1, mode = 'write'},
+        map_reduces = 1,
+        tuples_fetched = 1,
+        tuples_lookup = pairs_tuples_lookup_readview,
+    },
+    pairs_full_scan = select_cases.pairs_full_scan,
 }
 
 -- Generate non-null stats for all cases.
@@ -800,7 +822,7 @@ for name, case in pairs(select_cases) do
     end
 end
 
-for name, case in pairs(select_cases) do
+for name, case in pairs(select_cases_readview) do
     local test_name = ('test_%s_details_readview'):format(name)
     pgroup.before_test(test_name, is_readview_supported)
     pgroup.before_test(test_name, prepare_select_data)

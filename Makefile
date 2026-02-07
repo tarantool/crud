@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
-S3_TARANTOOL_SDK_3_PATH := s3://packages/enterprise/release/linux/x86_64/3.5/tarantool-enterprise-sdk-gc64-3.5.0-0-r70.linux.x86_64.tar.gz
-S3_TARANTOOL_SDK_2_PATH := s3://packages/enterprise/release/linux/x86_64/2.11/tarantool-enterprise-sdk-gc64-2.11.7-0-r691.linux.x86_64.tar.gz
+S3_TARANTOOL_SDK_3_PATH := s3://packages/enterprise/release/linux/x86_64/3.6/tarantool-enterprise-sdk-gc64-3.6.0-0-r85.linux.x86_64.tar.gz
+S3_TARANTOOL_SDK_2_PATH := s3://packages/enterprise/release/linux/x86_64/2.11/tarantool-enterprise-sdk-gc64-2.11.8-0-r706.linux.x86_64.tar.gz
 S3_ENDPOINT_URL := $(if $(S3_ENDPOINT_URL),$(S3_ENDPOINT_URL),https://hb.vkcs.cloud)
 
 .rocks: sdk

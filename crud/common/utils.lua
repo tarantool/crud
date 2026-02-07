@@ -729,6 +729,11 @@ local function determine_enabled_features()
     enabled_tarantool_features.box_watch = is_version_ge(major, minor, patch, suffix, commits_since,
                                                          2, 10, 0, 'beta2', nil)
 
+    -- Native `after` option in index:pairs() and index:select() for O(1) cursor positioning
+    -- Available since Tarantool 2.10
+    enabled_tarantool_features.index_pairs_after = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                                 2, 10, 0, nil, nil)
+
     enabled_tarantool_features.tarantool_3 = is_version_ge(major, minor, patch, suffix, commits_since,
                                                            3, 0, 0, nil, nil)
 

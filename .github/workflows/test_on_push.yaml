@@ -14,34 +14,36 @@ jobs:
       matrix:
         tarantool-version: [ "2.11" ]
         metrics-version: [ "" ]
-        cartridge-version: [ "2.16.3" ]
+        cartridge-version: [ "2.16.5" ]
         external-tuple-merger-version: [ "" ]
         external-tuple-keydef-version: [ "" ]
         include:
           - tarantool-version: "2.11"
             coveralls: true
             metrics-version: "1.1.0"
-            cartridge-version: "2.16.3"
+            cartridge-version: "2.16.5"
           - tarantool-version: "2.11"
             metrics-version: "1.1.0"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
           - tarantool-version: "2.11"
             external-tuple-merger-version: "0.0.5"
             external-tuple-keydef-version: "0.0.4"
           - tarantool-version: "3.0"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
           - tarantool-version: "3.1"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
           - tarantool-version: "3.2"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
           - tarantool-version: "3.3"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
           - tarantool-version: "3.4"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
           - tarantool-version: "3.5"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
+          - tarantool-version: "3.6"
+            vshard-version: "0.1.39"
           - tarantool-version: "master"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -142,20 +144,23 @@ jobs:
           - folder: "2.11"
             bundle: "tarantool-enterprise-sdk-gc64-2.11.7-0-r691.linux.x86_64"
         metrics-version: [ "", "1.5.0" ]
-        cartridge-version: [ "2.16.3" ]
+        cartridge-version: [ "2.16.5" ]
         include:
           - tarantool-version:
               folder: "3.2"
-              bundle: "tarantool-enterprise-sdk-gc64-3.2.0-0-r40.linux.x86_64"
+              bundle: "tarantool-enterprise-sdk-gc64-3.2.3-0-r82.linux.x86_64"
           - tarantool-version:
               folder: "3.3"
-              bundle: "tarantool-enterprise-sdk-gc64-3.3.3-0-r70.linux.x86_64"
+              bundle: "tarantool-enterprise-sdk-gc64-3.3.4-0-r85.linux.x86_64"
           - tarantool-version:
               folder: "3.4"
-              bundle: "tarantool-enterprise-sdk-gc64-3.4.1-0-r70.linux.x86_64"
+              bundle: "tarantool-enterprise-sdk-gc64-3.4.2-0-r85.linux.x86_64"
           - tarantool-version:
               folder: "3.5"
-              bundle: "tarantool-enterprise-sdk-gc64-3.5.0-0-r70.linux.x86_64"
+              bundle: "tarantool-enterprise-sdk-gc64-3.5.1-0-r85.linux.x86_64"
+          - tarantool-version:
+              folder: "3.6"
+              bundle: "tarantool-enterprise-sdk-gc64-3.6.0-0-r85.linux.x86_64"
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -197,22 +202,24 @@ jobs:
       matrix:
         tarantool-version: [ "2.11" ]
         metrics-version: [ "1.1.0" ]
-        cartridge-version: [ "2.16.3" ]
+        cartridge-version: [ "2.16.5" ]
         include:
           - tarantool-version: "3.0"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
           - tarantool-version: "3.1"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
           - tarantool-version: "3.2"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
           - tarantool-version: "3.3"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
           - tarantool-version: "3.4"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
           - tarantool-version: "3.5"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
+          - tarantool-version: "3.6"
+            vshard-version: "0.1.39"
           - tarantool-version: "master"
-            vshard-version: "0.1.36"
+            vshard-version: "0.1.39"
       fail-fast: false
     runs-on: ubuntu-24.04
     steps:

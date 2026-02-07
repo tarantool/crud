@@ -124,6 +124,79 @@ g.test_one_condition_no_index = function()
     t.assert_equals(#results.tuples, 0)
 end
 
+g.test_eq_condition_with_after_on_nonunique_index = function()
+    -- Test EQ iterator with after cursor on non-unique secondary index
+    -- This verifies that scroll_to_after_tuple fallback works correctly
+    -- (EQ/REQ iterators don't support native after option)
+    local customers = {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 33, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 33, city = "Chicago",
+        }, {
+            id = 5, name = "Jack", last_name = "Sparrow",
+            age = 33, city = "London",
+        },
+    }
+    insert_customers(customers)
+
+    -- EQ condition on non-unique age index
+    local conditions = { cond_funcs.eq('age', 33) }
+    local space = box.space.customers
+
+    local plan, err = select_plan.new(space, conditions)
+    t.assert_equals(err, nil)
+    local index = space.index[plan.index_id]
+
+    local filter_func, err = select_filters.gen_func(space, index, conditions, {
+        tarantool_iter = plan.tarantool_iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
+    t.assert_equals(err, nil)
+
+    -- no after - should return all customers with age=33
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(get_ids(results.tuples), {1, 3, 4, 5}) -- in id order
+
+    -- after tuple 1 - should return remaining customers with age=33
+    local after_tuple = space:frommap(customers[1]):totable()
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        after_tuple = after_tuple,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(get_ids(results.tuples), {3, 4, 5})
+
+    -- after tuple 3 - should return customers 4 and 5
+    local after_tuple = space:frommap(customers[3]):totable()
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        after_tuple = after_tuple,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(get_ids(results.tuples), {4, 5})
+
+    -- after tuple 5 (last with age=33) - should return empty
+    local after_tuple = space:frommap(customers[5]):totable()
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        after_tuple = after_tuple,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(#results.tuples, 0)
+end
+
 g.test_one_condition_with_index = function()
     local customers = {
         {
