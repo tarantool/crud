@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+* Optimize `crud.select()` and `crud.pairs()` pagination with `after` cursor
+  by using native `after` option on Tarantool 2.10+ for O(1) cursor positioning.
+  Readview operations use native `after` only on Tarantool 3.x (#488).
+
 ## [1.7.3] - 03-02-26
 
 ### Added

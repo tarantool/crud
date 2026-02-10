@@ -124,6 +124,124 @@ g.test_one_condition_no_index = function()
     t.assert_equals(#results.tuples, 0)
 end
 
+g.test_eq_condition_with_after_on_nonunique_index = function()
+    -- Test EQ iterator with after cursor on non-unique secondary index.
+    -- When after_tuple key matches scan_value, native after is used (O(1)).
+    -- When keys don't match, fallback scroll_to_after_tuple is used (O(N)).
+    local customers = {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 33, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 33, city = "Chicago",
+        }, {
+            id = 5, name = "Jack", last_name = "Sparrow",
+            age = 33, city = "London",
+        },
+    }
+    insert_customers(customers)
+
+    -- EQ condition on non-unique age index
+    local conditions = { cond_funcs.eq('age', 33) }
+    local space = box.space.customers
+
+    local plan, err = select_plan.new(space, conditions)
+    t.assert_equals(err, nil)
+    local index = space.index[plan.index_id]
+
+    local filter_func, err = select_filters.gen_func(space, index, conditions, {
+        tarantool_iter = plan.tarantool_iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
+    t.assert_equals(err, nil)
+
+    -- no after - should return all customers with age=33
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(get_ids(results.tuples), {1, 3, 4, 5}) -- in id order
+
+    -- after tuple 1 - should return remaining customers with age=33
+    local after_tuple = space:frommap(customers[1]):totable()
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        after_tuple = after_tuple,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(get_ids(results.tuples), {3, 4, 5})
+
+    -- after tuple 3 - should return customers 4 and 5
+    local after_tuple = space:frommap(customers[3]):totable()
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        after_tuple = after_tuple,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(get_ids(results.tuples), {4, 5})
+
+    -- after tuple 5 (last with age=33) - should return empty
+    local after_tuple = space:frommap(customers[5]):totable()
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        after_tuple = after_tuple,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(#results.tuples, 0)
+end
+
+g.test_eq_condition_with_after_mismatched_key = function()
+    -- Test EQ iterator when after_tuple key does NOT match scan_value.
+    -- This forces fallback to scroll_to_after_tuple (native after would
+    -- cause "Iterator position is invalid" error).
+    local customers = {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 20, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 46, city = "Chicago",
+        },
+    }
+    insert_customers(customers)
+
+    -- EQ condition on age=33, but after_tuple has age=20
+    local conditions = { cond_funcs.eq('age', 33) }
+    local space = box.space.customers
+
+    local plan, err = select_plan.new(space, conditions)
+    t.assert_equals(err, nil)
+    local index = space.index[plan.index_id]
+
+    local filter_func, err = select_filters.gen_func(space, index, conditions, {
+        tarantool_iter = plan.tarantool_iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
+    t.assert_equals(err, nil)
+
+    -- after_tuple with age=20 (mismatched key), should still return age=33 tuples
+    local after_tuple = space:frommap(customers[1]):totable()
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        after_tuple = after_tuple,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(get_ids(results.tuples), {2, 3})
+end
+
 g.test_one_condition_with_index = function()
     local customers = {
         {
@@ -171,6 +289,156 @@ g.test_one_condition_with_index = function()
         tarantool_iter = plan.tarantool_iter,
     })
     t.assert_equals(get_ids(results.tuples), {2, 4}) -- in age order
+end
+
+g.test_le_condition_with_after = function()
+    -- LE uses LE iterator, native after applies via generate_value path.
+    local customers = {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 81, city = "Chicago",
+        },
+    }
+    insert_customers(customers)
+
+    local conditions = { cond_funcs.le('age', 46) }
+    local space = box.space.customers
+
+    local plan, err = select_plan.new(space, conditions)
+    t.assert_equals(err, nil)
+    local index = space.index[plan.index_id]
+
+    local filter_func, err = select_filters.gen_func(space, index, conditions, {
+        tarantool_iter = plan.tarantool_iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
+    t.assert_equals(err, nil)
+
+    -- no after - returns age <= 46 in reverse order
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(get_ids(results.tuples), {2, 3, 1})
+
+    -- after tuple 2 (age=46) - should return remaining
+    local after_tuple = space:frommap(customers[2]):totable()
+
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        after_tuple = after_tuple,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(get_ids(results.tuples), {3, 1})
+end
+
+g.test_lt_condition_with_after = function()
+    -- LT uses LT iterator, native after applies via generate_value path.
+    local customers = {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 81, city = "Chicago",
+        },
+    }
+    insert_customers(customers)
+
+    local conditions = { cond_funcs.lt('age', 81) }
+    local space = box.space.customers
+
+    local plan, err = select_plan.new(space, conditions)
+    t.assert_equals(err, nil)
+    local index = space.index[plan.index_id]
+
+    local filter_func, err = select_filters.gen_func(space, index, conditions, {
+        tarantool_iter = plan.tarantool_iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
+    t.assert_equals(err, nil)
+
+    -- no after - returns age < 81 in reverse order
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(get_ids(results.tuples), {2, 3, 1})
+
+    -- after tuple 2 (age=46) - should return remaining
+    local after_tuple = space:frommap(customers[2]):totable()
+
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        after_tuple = after_tuple,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(get_ids(results.tuples), {3, 1})
+end
+
+g.test_gt_condition_with_after = function()
+    -- GT uses GT iterator, native after applies via generate_value path.
+    local customers = {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 81, city = "Chicago",
+        },
+    }
+    insert_customers(customers)
+
+    local conditions = { cond_funcs.gt('age', 12) }
+    local space = box.space.customers
+
+    local plan, err = select_plan.new(space, conditions)
+    t.assert_equals(err, nil)
+    local index = space.index[plan.index_id]
+
+    local filter_func, err = select_filters.gen_func(space, index, conditions, {
+        tarantool_iter = plan.tarantool_iter,
+        scan_condition_num = plan.scan_condition_num,
+    })
+    t.assert_equals(err, nil)
+
+    -- no after - returns age > 12 in order
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(get_ids(results.tuples), {3, 2, 4})
+
+    -- after tuple 3 (age=33) - should return remaining
+    local after_tuple = space:frommap(customers[3]):totable()
+
+    local results = select_executor.execute(space, index, filter_func, {
+        scan_value = plan.scan_value,
+        after_tuple = after_tuple,
+        tarantool_iter = plan.tarantool_iter,
+    })
+    t.assert_equals(get_ids(results.tuples), {2, 4})
 end
 
 g.test_multiple_conditions = function()

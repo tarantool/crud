@@ -94,6 +94,8 @@ function executor.execute(space, index, filter_func, opts)
     end
 
     local value = opts.scan_value
+    local use_native_after = false
+
     if opts.after_tuple ~= nil then
         local iter = opts.tarantool_iter
         if iter == box.index.EQ or iter == box.index.REQ then
@@ -107,10 +109,12 @@ function executor.execute(space, index, filter_func, opts)
 
             local is_eq = iter == box.index.EQ
             local is_after_bigger
+            local is_keys_equal
             if has_keydef then
                 local key_def = keydef_lib.new(parts)
                 local cmp = key_def:compare_with_key(opts.after_tuple, value)
                 is_after_bigger = (is_eq and cmp > 0) or (not is_eq and cmp < 0)
+                is_keys_equal = (cmp == 0)
             else
                 local comparator
                 if is_eq then
@@ -120,25 +124,47 @@ function executor.execute(space, index, filter_func, opts)
                 end
                 local after_key = utils.extract_key(opts.after_tuple, parts)
                 is_after_bigger = not comparator(after_key, value)
+                -- check equality for native after support
+                local eq_comparator = select_comparators.gen_func('==', parts)
+                is_keys_equal = eq_comparator(after_key, value)
             end
             if is_after_bigger then
                 -- it makes no sence to continue
                 return resp
             end
+            -- native after requires after_tuple to match scan_value for EQ/REQ
+            if is_keys_equal and utils.tarantool_supports_index_pairs_after() then
+                use_native_after = true
+            end
         else
             local new_value = generate_value(opts.after_tuple, value, index.parts, iter)
             if new_value ~= nil then
                 value = new_value
+                -- use native after for O(1) positioning (Tarantool 2.10+)
+                if utils.tarantool_supports_index_pairs_after() then
+                    use_native_after = true
+                end
             end
         end
     end
 
     local tuple
     local raw_gen, param, state
+    local pairs_opts = { iterator = opts.tarantool_iter }
+
+    -- Disable native after for readview on Tarantool < 3.x
+    if opts.readview and not utils.is_tarantool_3() then
+        use_native_after = false
+    end
+
+    if use_native_after then
+        pairs_opts.after = opts.after_tuple
+    end
+
     if opts.readview then
-        raw_gen, param, state = opts.readview_index:pairs(value, {iterator = opts.tarantool_iter})
+        raw_gen, param, state = opts.readview_index:pairs(value, pairs_opts)
     else
-        raw_gen, param, state = index:pairs(value, {iterator = opts.tarantool_iter})
+        raw_gen, param, state = index:pairs(value, pairs_opts)
     end
     local gen = fun.wrap(function(param, state)
         local next_state, var = raw_gen(param, state)
@@ -150,7 +176,7 @@ function executor.execute(space, index, filter_func, opts)
         return next_state, var
     end, param, state)
 
-    if opts.after_tuple ~= nil then
+    if opts.after_tuple ~= nil and not use_native_after then
         local err
         tuple, err = scroll_to_after_tuple(gen, space, index, opts.tarantool_iter, opts.after_tuple, opts.yield_every)
         if err ~= nil then
