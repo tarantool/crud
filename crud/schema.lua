@@ -139,11 +139,9 @@ schema.init = function()
             box.space[SETTINGS_SPACE]:create_index('primary', { parts = { 'key' }, if_not_exists = true })
         end
     else
-        while box.space[SETTINGS_SPACE] == nil or box.space[SETTINGS_SPACE].index[0] == nil do
+        if box.space[SETTINGS_SPACE] == nil or box.space[SETTINGS_SPACE].index[0] == nil then
             fiber.sleep(0.05)
-            if not box.info.ro then
-                goto init_start
-            end
+            goto init_start
         end
     end
 
