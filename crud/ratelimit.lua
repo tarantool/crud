@@ -117,6 +117,7 @@ local function log_ratelimited_closure(lvl)
 end
 
 Ratelimit.log_crit = log_ratelimited_closure(S_CRIT)
+Ratelimit.log_warn = log_ratelimited_closure(S_WARN)
 
 return {
     new = ratelimit_new,

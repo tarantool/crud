@@ -17,6 +17,7 @@ local rebalance = {
     _metrics = {
         safe_mode_enabled_gauge = nil,
         router_cache_clear_ts_gauge = nil,
+        nil_bucket_id_compat_counter = nil,
     },
 }
 
@@ -155,7 +156,23 @@ function rebalance.init_storage_metrics()
             'tnt_crud_storage_safe_mode_enabled',
             "is safe mode enabled on this storage instance"
     )
+    rebalance._metrics.nil_bucket_id_compat_counter = metrics.counter(
+            'tnt_crud_storage_nil_bucket_id_compat_total',
+            "count of storage operations performed with skipped bucket_ref (legacy router compatibility mode)"
+    )
     metrics.register_callback(rebalance._metrics.storage_callback)
+end
+
+function rebalance.inc_nil_bucket_id_compat(operation, engine)
+    if not has_metrics_module or not rebalance._metrics.nil_bucket_id_compat_counter then
+        return
+    end
+
+    rebalance._metrics.nil_bucket_id_compat_counter:inc(1, {
+        operation = operation,
+        engine = engine,
+        safe_mode = rebalance.safe_mode_status() and 'enabled' or 'disabled',
+    })
 end
 
 function rebalance._metrics.router_callback()

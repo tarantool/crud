@@ -1931,3 +1931,47 @@ pgroup.test_get_invalid_bucket_id = function(g)
         t.assert_str_contains(err.err or err.str, expected_err)
     end
 end
+
+pgroup.before_test('test_storage_compat_nil_bucket_id', function(g)
+    local storage = g.cluster:server('s1-master')
+
+    -- Disable yield checks to avoid 'fiber is not registered' error
+    storage:eval([[
+        local yield_checks = require('crud.common.yield_checks')
+        rawset(_G, '_old_check_no_yields', yield_checks.check_no_yields)
+        yield_checks.check_no_yields = function() end
+    ]])
+end)
+
+pgroup.after_test('test_storage_compat_nil_bucket_id', function(g)
+    local storage = g.cluster:server('s1-master')
+
+    storage:eval([[
+        local yield_checks = require('crud.common.yield_checks')
+        yield_checks.check_no_yields = rawget(_G, '_old_check_no_yields')
+        rawset(_G, '_old_check_no_yields', nil)
+    ]])
+end)
+
+pgroup.test_storage_compat_nil_bucket_id = function(g)
+    local storage = g.cluster:server('s1-master')
+
+    -- get_on_storage with nil bucket_id (emulating old router < 1.7.0)
+    local _, err = storage:call('_crud.get_on_storage', {
+        'customers', 1, nil, {bucket_id = nil, skip_sharding_hash_check = true},
+    })
+    t.assert_equals(err, nil)
+
+    -- update_on_storage with nil bucket_id
+    local _, err = storage:call('_crud.update_on_storage', {
+        'customers', 1, {{'=', 'name', 'UpdatedUser'}}, nil,
+        {bucket_id = nil, skip_sharding_hash_check = true},
+    })
+    t.assert_equals(err, nil)
+
+    -- delete_on_storage with nil bucket_id
+    local _, err = storage:call('_crud.delete_on_storage', {
+        'customers', 1, nil, {bucket_id = nil, skip_sharding_hash_check = true},
+    })
+    t.assert_equals(err, nil)
+end
