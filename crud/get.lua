@@ -2,6 +2,7 @@ local checks = require('checks')
 local errors = require('errors')
 
 local call = require('crud.common.call')
+local compat_warn = require('crud.common.compat_warn')
 local const = require('crud.common.const')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
@@ -20,7 +21,8 @@ local CRUD_GET_FUNC_NAME = utils.get_storage_call(GET_FUNC_NAME)
 
 local function get_on_storage(space_name, key, field_names, opts)
     dev_checks('string', '?', '?table', {
-        bucket_id = 'number|cdata',
+        -- bucket_id is optional to support old routers.
+        bucket_id = '?number|cdata',
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
@@ -43,9 +45,15 @@ local function get_on_storage(space_name, key, field_names, opts)
         return nil, err
     end
 
-    local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refro(opts.bucket_id, space.engine)
-    if not ref_ok then
-        return nil, bucket_ref_err
+    -- Skip bucket reference if bucket_id is not provided to support old routers.
+    local ref_ok, bucket_ref_err, unref
+    if opts.bucket_id ~= nil then
+        ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refro(opts.bucket_id, space.engine)
+        if not ref_ok then
+            return nil, bucket_ref_err
+        end
+    else
+        compat_warn.log_nil_bucket_id('get', space_name, space.engine)
     end
 
     -- add_space_schema_hash is false because
@@ -56,9 +64,11 @@ local function get_on_storage(space_name, key, field_names, opts)
         fetch_latest_metadata = opts.fetch_latest_metadata,
     }, space, key)
 
-    local unref_ok, err_unref = unref(opts.bucket_id, space.engine)
-    if not unref_ok then
-        return nil, err_unref
+    if unref ~= nil then
+        local unref_ok, err_unref = unref(opts.bucket_id, space.engine)
+        if not unref_ok then
+            return nil, err_unref
+        end
     end
 
     return result

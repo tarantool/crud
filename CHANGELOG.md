@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 * Allow read-only operations (`get`, `select`, `pairs`, `count`, `min`, `max`)
   to execute successfully using healthy replicas when all cluster masters are down.
+* Add `tnt_crud_storage_nil_bucket_id_compat_total` metric to track operations
+  performed without bucket_ref (legacy router compatibility mode).
+* Fixed storage compatibility with routers < 1.7.0 by handling nil bucket_id
+  in get, update, and delete operations. Now storage skips bucket referencing
+  and logs a rate-limited warning about reduced rebalance safety during rolling upgrades.
 
 ## [1.7.4] - 12-02-26
 

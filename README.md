@@ -154,6 +154,17 @@ router and storage instances.
 >
 > Requests to `vinyl` spaces always run in safe mode regardless of current safe mode status.
 
+> [!IMPORTANT]
+>
+> **Rolling Upgrade from < 1.7.0 to > 1.7.4**
+>
+>
+> Old routers (< 1.7.0) do not send `bucket_id` to storages. When you upgrade storages first,
+> new storages will operate in a compatibility mode with reduced rebalance safety for
+> `get`, `update` and `delete` operations. You will see warnings and
+> `tnt_crud_storage_nil_bucket_id_compat_total` metric increments until all routers are
+> upgraded.
+
 ### Sandbox
 
 The repository provide a simple sandbox application with a test dataset on a single instance.

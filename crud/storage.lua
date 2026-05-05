@@ -108,12 +108,12 @@ local function init_impl()
         user = utils.get_this_replica_user() or 'guest'
     end
 
-    schema.init()
-    rebalance.init()
-
     for _, module in ipairs(modules_with_storage_api) do
         init_storage_call(user, module.storage_api)
     end
+
+    schema.init()
+    rebalance.init()
 end
 
 function storage.init(opts)
