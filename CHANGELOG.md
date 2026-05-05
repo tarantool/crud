@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+* Fixed storage compatibility with routers < 1.7.0 by handling nil bucket_id
+in get, update, and delete operations.
+
 ## [1.7.4] - 12-02-26
 
 ### Fixed

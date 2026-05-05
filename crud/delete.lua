@@ -20,7 +20,7 @@ local CRUD_DELETE_FUNC_NAME = utils.get_storage_call(DELETE_FUNC_NAME)
 
 local function delete_on_storage(space_name, key, field_names, opts)
     dev_checks('string', '?', '?table', {
-        bucket_id = 'number|cdata',
+        bucket_id = '?number|cdata',
         sharding_key_hash = '?number',
         sharding_func_hash = '?number',
         skip_sharding_hash_check = '?boolean',
@@ -44,9 +44,14 @@ local function delete_on_storage(space_name, key, field_names, opts)
         return nil, err
     end
 
-    local ref_ok, bucket_ref_err, unref = bucket_ref_unref.bucket_refrw(opts.bucket_id, space.engine)
-    if not ref_ok then
-        return nil, bucket_ref_err
+    -- Skip bucket reference if bucket_id is not provided to support old routers.
+    local unref = nil
+    if opts.bucket_id ~= nil then
+        local ref_ok, bucket_ref_err, unref_func = bucket_ref_unref.bucket_refrw(opts.bucket_id, space.engine)
+        if not ref_ok then
+            return nil, bucket_ref_err
+        end
+        unref = unref_func
     end
 
     -- add_space_schema_hash is false because
@@ -58,9 +63,11 @@ local function delete_on_storage(space_name, key, field_names, opts)
         fetch_latest_metadata = opts.fetch_latest_metadata,
     }, space, key)
 
-    local unref_ok, err_unref = unref(opts.bucket_id, space.engine)
-    if not unref_ok then
-        return nil, err_unref
+    if unref ~= nil then
+        local unref_ok, err_unref = unref(opts.bucket_id, space.engine)
+        if not unref_ok then
+            return nil, err_unref
+        end
     end
 
     return result
