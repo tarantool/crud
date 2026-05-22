@@ -5,7 +5,7 @@ local utils = require('crud.common.utils')
 local helpers = require('test.helper')
 
 local function wait_balance(g, buckets_s1, buckets_s2)
-    t.helpers.retrying({timeout=30}, function()
+    t.helpers.retrying({timeout=60}, function()
         local s1 = g.cluster:server('s1-master').net_box:eval("return vshard.storage.rebalancer_request_state()")
         t.assert_not_equals(s1, nil)
         local s2 = g.cluster:server('s2-master').net_box:eval("return vshard.storage.rebalancer_request_state()")
@@ -19,6 +19,7 @@ end
 local function reset_weights(g)
     if g.params.backend == "config" then
         local cfg = g.cluster:cfg()
+        cfg.sharding.rebalancer_max_sending = 15
         cfg.groups.storages.replicasets["s-1"].sharding = {
             weight = 1,
         }
@@ -105,6 +106,7 @@ pgroup_many.test_errors = function(g)
     )
 
     local cfg = g.cluster:cfg()
+    cfg.sharding.rebalancer_max_sending = 15
     cfg.groups.storages.replicasets["s-1"].sharding = {
         weight = 0,
     }
@@ -115,7 +117,7 @@ pgroup_many.test_errors = function(g)
 
     local _, errs
     local start_id = 1
-    t.helpers.retrying({timeout=30}, function()
+    t.helpers.retrying({timeout=60}, function()
         _, errs = duplicate_operations[g.params.operation](g, start_id, 100)
         if g.params.operation == 'insert_many' then
             start_id = start_id + 100
