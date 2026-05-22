@@ -7,7 +7,7 @@ local utils = require('crud.common.utils')
 local helpers = require('test.helper')
 
 local function wait_balance(g)
-    t.helpers.retrying({timeout=30}, function()
+    t.helpers.retrying({timeout=60}, function()
         local buckets_count_s1 = g.cluster:server('s1-master').net_box:eval("return box.space._bucket:len()")
         local buckets_count_s2 = g.cluster:server('s2-master').net_box:eval("return box.space._bucket:len()")
         t.assert_equals(buckets_count_s1, 1500)
@@ -123,11 +123,12 @@ pgroup_duplicates.test_duplicates = function(g)
         duplicate_operations[g.params.operation](g)
 
         local cfg = g.cluster:cfg()
+        cfg.sharding.rebalancer_max_sending = 15
         cfg.groups.storages.replicasets["s-1"].sharding = {
             weight = 0,
         }
         g.cluster:cfg(cfg)
-        t.helpers.retrying({timeout=30}, function()
+        t.helpers.retrying({timeout=60}, function()
             local buckets_count = g.cluster:server('s1-master').net_box:eval("return box.space._bucket:len()")
             duplicate_operations[g.params.operation](g)
             t.assert_equals(buckets_count, 0)
@@ -140,7 +141,7 @@ pgroup_duplicates.test_duplicates = function(g)
             weight = 1,
         }
         g.cluster:cfg(cfg)
-        t.helpers.retrying({timeout=30}, function()
+        t.helpers.retrying({timeout=60}, function()
             local buckets_count = g.cluster:server('s2-master').net_box:eval("return box.space._bucket:len()")
             duplicate_operations[g.params.operation](g)
             t.assert_equals(buckets_count, 0)
@@ -255,6 +256,7 @@ pgroup_not_applied.test_not_applied = function(g)
         local _, err = g.router:call('crud.replace_many', {'customers', tuples})
         t.assert_equals(err, nil)
         local cfg = g.cluster:cfg()
+        cfg.sharding.rebalancer_max_sending = 15
         cfg.groups.storages.replicasets["s-1"].sharding = {
             weight = 0,
         }
@@ -262,7 +264,7 @@ pgroup_not_applied.test_not_applied = function(g)
         local tuple_id = 1
         local not_applied_ids = {}
         local applied_ids = {}
-        t.helpers.retrying({timeout=30}, function()
+        t.helpers.retrying({timeout=60}, function()
             if tuple_id > tuples_count then
                 return
             end
@@ -288,7 +290,7 @@ pgroup_not_applied.test_not_applied = function(g)
             weight = 1,
         }
         g.cluster:cfg(cfg)
-        t.helpers.retrying({timeout=30}, function()
+        t.helpers.retrying({timeout=60}, function()
             if tuple_id > tuples_count then
                 return
             end

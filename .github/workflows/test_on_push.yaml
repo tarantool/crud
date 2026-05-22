@@ -44,6 +44,8 @@ jobs:
             vshard-version: "0.1.39"
           - tarantool-version: "master"
             vshard-version: "0.1.39"
+          - tarantool-version: "master"
+            vshard-version: "master"
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
