@@ -28,7 +28,12 @@ then
     ${TTCTL} rocks install cartridge "${CARTRIDGE_VERSION}"
     ${TTCTL} rocks install migrations 1.1.0
 else
-    ${TTCTL} rocks install vshard "${VSHARD_VERSION:-0.1.36}"
+    if [[ "${VSHARD_VERSION}" == "master" ]]
+    then
+        ${TTCTL} rocks install vshard
+    else
+        ${TTCTL} rocks install vshard "${VSHARD_VERSION:-0.1.36}"
+    fi
 fi
 
 ${TTCTL} rocks install ddl 1.7.1
