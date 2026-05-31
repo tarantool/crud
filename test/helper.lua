@@ -1571,4 +1571,23 @@ function helpers.reset_call_cache(cluster)
     end)
 end
 
+function helpers.wait_active_bucket_count(server, expected_count)
+    t.helpers.retrying({timeout = 60}, function()
+        server:exec(function(count)
+            local vshard = require('vshard')
+
+            vshard.storage.rebalancer_wakeup()
+
+            local state = vshard.storage.rebalancer_request_state()
+            if state == nil then
+                error('vshard rebalancer state is nil')
+            end
+
+            if state.bucket_active_count ~= count then
+                error(string.format('Wrong bucket count: expected %d, got %d', count, state.bucket_active_count))
+            end
+        end, {expected_count})
+    end)
+end
+
 return helpers
