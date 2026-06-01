@@ -6,6 +6,7 @@ local call = require('crud.common.call')
 local fiber = require('fiber')
 local sharding = require('crud.common.sharding')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
+local storage_call = require('crud.common.storage_call')
 
 local compat = require('crud.common.compat')
 local merger_lib = compat.require('tuple.merger', 'merger')
@@ -58,6 +59,14 @@ end
 
 local data = ffi.new('const unsigned char *[1]')
 
+local function make_net_box_opts(buf)
+    return {
+        is_async = true,
+        buffer = buf,
+        skip_header = utils.tarantool_supports_netbox_skip_header_option() or nil,
+    }
+end
+
 local function decode_response_array_header()
     local c = data[0][0]
     data[0] = data[0] + 1
@@ -101,14 +110,53 @@ local function decode_metainfo(buf)
     return res, err
 end
 
+local function wrap_storage_call_error(context, err)
+    return errors.wrap(utils.update_storage_call_error_description(
+        err, context.func_name, context.replicaset_id
+    ))
+end
+
+local function call_storage_on_conn(conn, replicaset_id, func_name, func_args, net_box_opts, force_legacy)
+    local call_func_name, call_args, used_legacy_call = storage_call.prepare(
+        replicaset_id, func_name, func_args, force_legacy
+    )
+
+    return conn:call(call_func_name, call_args, net_box_opts), nil, used_legacy_call
+end
+
+local function request_chunk(context, func_args, force_legacy)
+    if context.readview then
+        return call_storage_on_conn(
+            context.future_replica.conn,
+            context.replicaset_id,
+            context.func_name,
+            func_args,
+            context.net_box_opts,
+            force_legacy
+        )
+    end
+
+    return call.storage_call(
+        context.replicaset,
+        context.vshard_call_name,
+        context.replicaset_id,
+        context.func_name,
+        func_args,
+        context.net_box_opts,
+        force_legacy
+    )
+end
+
+local function reset_chunk_buffer(context)
+    local buf = buffer.ibuf()
+    context.buffer = buf
+    context.net_box_opts = make_net_box_opts(buf)
+end
+
 --- Wait for a data chunk and request for the next data chunk.
 local function fetch_chunk(context, state)
-    local net_box_opts = context.net_box_opts
     local buf = context.buffer
-    local func_name = context.func_name
     local func_args = context.func_args
-    local replicaset = context.replicaset
-    local vshard_call_name = context.vshard_call_name
     local timeout = context.timeout or call.DEFAULT_VSHARD_CALL_TIMEOUT
     local space_name = context.space_name
     local vshard_router = context.vshard_router
@@ -121,9 +169,25 @@ local function fetch_chunk(context, state)
 
     -- Wait for requested data.
     local res, err = future:wait_result(timeout)
+    if err == nil and not state.used_legacy_call then
+        storage_call.mark_call_on_storage_supported(context.replicaset_id)
+    end
+
+    if res == nil and storage_call.should_fallback_to_legacy(
+        context.replicaset_id, err, state.used_legacy_call
+    ) then
+        reset_chunk_buffer(context)
+        buf = context.buffer
+
+        future, err, state.used_legacy_call = request_chunk(context, func_args, true)
+        if err == nil then
+            state.future = future
+            res, err = future:wait_result(timeout)
+        end
+    end
+
     if res == nil then
-        local wrapped_err = errors.wrap(utils.update_storage_call_error_description(err, func_name, replicaset.uuid))
-        error(wrapped_err)
+        error(wrap_storage_call_error(context, err))
     end
 
     -- Decode metainfo, leave data to be processed by the merger.
@@ -171,16 +235,16 @@ local function fetch_chunk(context, state)
 
     -- change context.func_args too, but it does not matter
     next_func_args[4].after_tuple = cursor.after_tuple
-    local func_args_ext = utils.append_array({ box.session.effective_user(), func_name }, next_func_args)
 
-    if context.readview then
-        next_state = {future = context.future_replica.conn:call("_crud.call_on_storage",
-                func_args_ext, net_box_opts)}
-    else
-        local next_future = replicaset[vshard_call_name](replicaset, "_crud.call_on_storage",
-                func_args_ext, net_box_opts)
-        next_state = {future = next_future}
+    local next_future, call_err, used_legacy_call = request_chunk(context, next_func_args)
+    if call_err ~= nil then
+        error(wrap_storage_call_error(context, call_err))
     end
+    next_state = {
+        future = next_future,
+        used_legacy_call = used_legacy_call,
+    }
+
     return next_state, buf
 end
 
@@ -198,14 +262,10 @@ local function new(vshard_router, replicasets, space, index_id, func_name, func_
 
     -- Request a first data chunk and create merger sources.
     local merger_sources = {}
-    for _, replicaset in pairs(replicasets) do
+    for replicaset_id, replicaset in pairs(replicasets) do
         -- Perform a request.
         local buf = buffer.ibuf()
-        local net_box_opts = {is_async = true, buffer = buf,
-                              skip_header = utils.tarantool_supports_netbox_skip_header_option() or nil}
-        local func_args_ext = utils.append_array({ box.session.effective_user(), func_name }, func_args)
-        local future = replicaset[vshard_call_name](replicaset, "_crud.call_on_storage",
-                func_args_ext, net_box_opts)
+        local net_box_opts = make_net_box_opts(buf)
 
         -- Create a source.
         local context = {
@@ -214,6 +274,7 @@ local function new(vshard_router, replicasets, space, index_id, func_name, func_
             func_name = func_name,
             func_args = func_args,
             replicaset = replicaset,
+            replicaset_id = replicaset_id,
             vshard_call_name = vshard_call_name,
             timeout = call_opts.timeout,
             fetch_latest_metadata = call_opts.fetch_latest_metadata,
@@ -222,7 +283,15 @@ local function new(vshard_router, replicasets, space, index_id, func_name, func_
             readview = false,
         }
 
-        local state = {future = future}
+        local future, call_err, used_legacy_call = request_chunk(context, func_args)
+        if call_err ~= nil then
+            error(wrap_storage_call_error(context, call_err))
+        end
+
+        local state = {
+            future = future,
+            used_legacy_call = used_legacy_call,
+        }
         local source = merger_lib.new_buffer_source(fetch_chunk, context, state)
         table.insert(merger_sources, source)
     end
@@ -276,11 +345,8 @@ local function new_readview(vshard_router, replicasets, readview_info, space, in
 
             -- Perform a request.
             local buf = buffer.ibuf()
-            local net_box_opts = {is_async = true, buffer = buf,
-                                  skip_header = utils.tarantool_supports_netbox_skip_header_option() or nil}
+            local net_box_opts = make_net_box_opts(buf)
             func_args[4].readview_id = replicaset_info.id
-            local func_args_ext = utils.append_array({ box.session.effective_user(), func_name }, func_args)
-            local future = replica.conn:call("_crud.call_on_storage", func_args_ext, net_box_opts)
 
             -- Create a source.
             local context = {
@@ -289,6 +355,7 @@ local function new_readview(vshard_router, replicasets, readview_info, space, in
                 func_name = func_name,
                 func_args = func_args,
                 replicaset = replicaset,
+                replicaset_id = replicaset_id,
                 vshard_call_name = nil,
                 timeout = call_opts.timeout,
                 fetch_latest_metadata = call_opts.fetch_latest_metadata,
@@ -297,7 +364,16 @@ local function new_readview(vshard_router, replicasets, readview_info, space, in
                 readview = true,
                 future_replica = replica
             }
-            local state = {future = future}
+
+            local future, call_err, used_legacy_call = request_chunk(context, func_args)
+            if call_err ~= nil then
+                error(wrap_storage_call_error(context, call_err))
+            end
+
+            local state = {
+                future = future,
+                used_legacy_call = used_legacy_call,
+            }
             local source = merger_lib.new_buffer_source(fetch_chunk, context, state)
             table.insert(merger_sources, source)
 

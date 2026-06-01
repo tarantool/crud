@@ -19,6 +19,7 @@ It also provides the `crud-storage` and `crud-router` roles for
     - [Application dependency](#application-dependency)
     - [Repository clone](#repository-clone)
   - [Usage](#usage)
+  - [Upgrade from CRUD < 1.6.0](#upgrade-from-crud--160)
   - [Sandbox](#sandbox)
 - [API](#api)
   - [Package info](#package-info)
@@ -122,6 +123,40 @@ For Tarantool 1.10 and 2.x, add crud roles into dependencies of your roles
 For Tarantool 1.10, 2.x and 3.x you can also manually call
 the [crud initialization code](#api) on [VShard](https://github.com/tarantool/vshard)
 router and storage instances.
+
+### Upgrade from CRUD < 1.6.0
+
+CRUD 1.6.0 and CRUD 1.7.0 introduced compatibility boundaries that require
+different upgrade orders.
+
+When upgrading from CRUD < 1.6.0 to CRUD >= 1.6.0 and < 1.7.0 (1.6.0 or
+1.6.1), update storages first:
+
+1. Update all storages to the target CRUD version.
+2. Make sure all storages are healthy and serve requests.
+3. Update routers to the same target CRUD version.
+
+CRUD 1.6.0 introduced router-to-storage calls through `_crud.call_on_storage`.
+Storages running CRUD older than 1.6.0 do not have this function. Updating
+storages first avoids the incompatible state where a new router calls
+`_crud.call_on_storage` on an old storage. Old routers can still call upgraded
+storages directly.
+
+When upgrading from CRUD >= 1.6.0 and < 1.7.0 to CRUD >= 1.7.0, use the
+[standard Tarantool replication cluster upgrade order](https://www.tarantool.io/en/doc/latest/admin/upgrades/upgrade_cluster/):
+update routers first, then storage replica sets.
+
+Direct upgrades from CRUD < 1.6.0 to CRUD >= 1.7.0 and <= 1.7.4 are not covered
+by this procedure. To upgrade from CRUD < 1.6.0 to CRUD 1.7.4, do it in two
+steps:
+
+1. Upgrade to CRUD 1.6.0 or 1.6.1 using the storage-first order described above.
+2. Upgrade from CRUD 1.6.0 or 1.6.1 to CRUD 1.7.4 using the standard
+   Tarantool/vshard order: routers first, then storages.
+
+When upgrading from CRUD < 1.6.0 to CRUD > 1.7.4, router-side compatibility
+mode is available, so use the standard Tarantool/vshard order: update routers
+first, then storage replica sets.
 
 > [!NOTE]
 >

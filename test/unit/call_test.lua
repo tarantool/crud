@@ -241,6 +241,65 @@ pgroup.test_any_vshard_call = function(g)
     t.assert_equals(err, nil)
 end
 
+pgroup.test_direct_storage_call_works_for_old_router_compat = function(g)
+    local results, err = g.router:eval([[
+        local vshard = require('vshard')
+        local replicasets = vshard.router.static:routeall()
+
+        local results = {}
+        for _, replicaset in pairs(replicasets) do
+            local result, err = replicaset:callrw('say_hi_politely', {'old-router'})
+            if err ~= nil then
+                return nil, err
+            end
+
+            table.insert(results, result)
+        end
+
+        return results
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert_equals(#results, 2)
+    t.assert_items_include(results, {'HI, old-router! I am 1', 'HI, old-router! I am 1'})
+end
+
+pgroup.test_legacy_storage_without_call_on_storage = function(g)
+    helpers.without_call_on_storage(g, function()
+        helpers.reset_storage_call_compat_cache(g.router)
+        local results_map, map_err = g.router:eval([[
+            local vshard = require('vshard')
+            local call = require('crud.common.call')
+
+            return call.map(vshard.router.static, 'say_hi_politely', {'legacy-map'}, {mode = 'write'})
+        ]])
+        t.assert_equals(map_err, nil)
+        local results = helpers.get_results_list(results_map)
+        t.assert_equals(#results, 2)
+        t.assert_items_include(results, {{"HI, legacy-map! I am 1"}, {"HI, legacy-map! I am 1"}})
+
+        helpers.reset_storage_call_compat_cache(g.router)
+        local single_result, single_err = g.router:eval([[
+            local vshard = require('vshard')
+            local call = require('crud.common.call')
+
+            return call.single(vshard.router.static, 1, 'say_hi_politely', {'legacy-single'}, {mode = 'write'})
+        ]])
+        t.assert_equals(single_err, nil)
+        t.assert_equals(single_result, 'HI, legacy-single! I am 1')
+
+        helpers.reset_storage_call_compat_cache(g.router)
+        local any_result, any_err = g.router:eval([[
+            local vshard = require('vshard')
+            local call = require('crud.common.call')
+
+            return call.any(vshard.router.static, 'say_hi_politely', {'legacy-any'}, {})
+        ]])
+        t.assert_equals(any_err, nil)
+        t.assert_equals(any_result, 'HI, legacy-any! I am 1')
+    end)
+end
+
 pgroup.test_any_vshard_call_timeout = function(g)
     helpers.call_on_storages(g.cluster, function(server)
         server.net_box:eval([[
