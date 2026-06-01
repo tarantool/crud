@@ -425,6 +425,56 @@ function helpers.call_on_storages(cluster, func, ...)
     end
 end
 
+function helpers.reset_storage_call_compat_cache(router)
+    router.net_box:eval([[
+        local vshard = require('vshard')
+        local storage_call = require('crud.common.storage_call')
+
+        local replicasets = vshard.router.static:routeall()
+        for replicaset_id in pairs(replicasets) do
+            storage_call.mark_call_on_storage_supported(replicaset_id)
+        end
+    ]])
+end
+
+function helpers.disable_call_on_storage(cluster, router)
+    helpers.call_on_storages(cluster, function(server)
+        server.net_box:eval([[
+            if rawget(_G, '_crud') ~= nil then
+                rawset(_G._crud, 'call_on_storage', nil)
+            end
+
+            if not box.info.ro and box.func['_crud.call_on_storage'] ~= nil then
+                box.schema.func.drop('_crud.call_on_storage')
+            end
+        ]])
+    end)
+
+    helpers.reset_storage_call_compat_cache(router)
+end
+
+function helpers.restore_call_on_storage(cluster, router)
+    helpers.call_on_storages(cluster, function(server)
+        server.net_box:eval([[
+            require('crud.storage').init({async = false})
+        ]])
+    end)
+
+    helpers.reset_storage_call_compat_cache(router)
+end
+
+function helpers.without_call_on_storage(g, func)
+    helpers.disable_call_on_storage(g.cluster, g.router)
+
+    local ok, err = pcall(func)
+
+    helpers.restore_call_on_storage(g.cluster, g.router)
+
+    if not ok then
+        error(err, 0)
+    end
+end
+
 function helpers.assert_ge(actual, expected, message)
     if not (actual >= expected) then
         local err = string.format('expected: %s >= %s', actual, expected)

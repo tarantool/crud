@@ -246,6 +246,38 @@ pgroup.test_select_all = function(g)
     t.assert_equals(#objects, 0)
 end
 
+pgroup.test_select_works_with_legacy_storage_without_call_on_storage = function(g)
+    helpers.insert_objects(g, 'customers', {
+        {
+            id = 1, name = "Elizabeth", last_name = "Jackson",
+            age = 12, city = "New York",
+        }, {
+            id = 2, name = "Mary", last_name = "Brown",
+            age = 46, city = "Los Angeles",
+        }, {
+            id = 3, name = "David", last_name = "Smith",
+            age = 33, city = "Los Angeles",
+        }, {
+            id = 4, name = "William", last_name = "White",
+            age = 81, city = "Chicago",
+        },
+    })
+
+    helpers.without_call_on_storage(g, function()
+        local result, err = g.router:call('crud.select', {
+            'customers', nil, {fullscan = true, mode = 'write'},
+        })
+
+        t.assert_equals(err, nil)
+        t.assert_equals(result.rows, {
+            {1, 477, "Elizabeth", "Jackson", 12, "New York"},
+            {2, 401, "Mary", "Brown", 46, "Los Angeles"},
+            {3, 2804, "David", "Smith", 33, "Los Angeles"},
+            {4, 1161, "William", "White", 81, "Chicago"},
+        })
+    end)
+end
+
 pgroup.test_select_all_with_first = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+* Support standard `router -> storage` upgrades from CRUD versions older than
+  1.6.0 by falling back to direct storage calls when old storages do not have
+  `_crud.call_on_storage` yet.
+
 ## [1.7.4] - 12-02-26
 
 ### Fixed
