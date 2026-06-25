@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+* Yield every 1000 iterations when fetching sharding keys and functions
+  so the server stays responsive when there are millions of records.
+
 ## [1.7.4] - 12-02-26
 
 ### Fixed

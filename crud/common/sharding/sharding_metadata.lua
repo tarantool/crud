@@ -16,6 +16,7 @@ local FetchShardingMetadataError = errors.new_class('FetchShardingMetadataError'
 
 local FETCH_FUNC_NAME = 'fetch_on_storage'
 local CRUD_FETCH_FUNC_NAME = utils.get_storage_call(FETCH_FUNC_NAME)
+local FETCH_BATCH_SIZE = 1000
 
 local sharding_metadata_module = {}
 
@@ -60,7 +61,9 @@ function sharding_metadata_module.fetch_on_storage()
     local metadata_map = {}
 
     if sharding_key_space ~= nil then
+        local i = 0
         for _, tuple in sharding_key_space:pairs() do
+            i = i + 1
             local space_name = tuple[sharding_utils.SPACE_NAME_FIELDNO]
             local sharding_key_def = tuple[sharding_utils.SPACE_SHARDING_KEY_FIELDNO]
             local space = box.space[space_name]
@@ -77,16 +80,26 @@ function sharding_metadata_module.fetch_on_storage()
                          'Ensure that you did a proper cleanup after DDL space drop.',
                          space_name)
             end
+
+            if i % FETCH_BATCH_SIZE == 0 then
+                fiber.yield()
+            end
         end
     end
 
     if sharding_func_space ~= nil then
+        local i = 0
         for _, tuple in sharding_func_space:pairs() do
+            i = i + 1
             local space_name = tuple[sharding_utils.SPACE_NAME_FIELDNO]
             local sharding_func_def = sharding_utils.extract_sharding_func_def(tuple)
             metadata_map[space_name] = metadata_map[space_name] or {}
             metadata_map[space_name].sharding_func_def = sharding_func_def
             metadata_map[space_name].sharding_func_hash = storage_cache.get_sharding_func_hash(space_name)
+
+            if i % FETCH_BATCH_SIZE == 0 then
+                fiber.yield()
+            end
         end
     end
 

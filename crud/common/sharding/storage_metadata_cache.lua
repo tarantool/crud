@@ -1,3 +1,4 @@
+local fiber = require('fiber')
 local stash = require('crud.common.stash')
 local utils = require('crud.common.sharding.utils')
 
@@ -5,6 +6,7 @@ local storage_metadata_cache = {}
 
 local FUNC = 1
 local KEY = 2
+local INIT_CACHE_BATCH_SIZE = 1000
 
 local cache_data = {
     [FUNC] = nil,
@@ -64,7 +66,9 @@ local function init_cache(section)
         end
     )
 
+    local i = 0
     for _, tuple in space:pairs() do
+        i = i + 1
         local space_name = tuple[utils.SPACE_NAME_FIELDNO]
         -- If the cache record for a space is not nil, it means
         -- that it was already set to up-to-date value with trigger.
@@ -72,6 +76,10 @@ local function init_cache(section)
         -- isn't expected to yield, but let it be here.
         if cache_data[section][space_name] == nil then
             update_hash_func(nil, tuple)
+        end
+
+        if i % INIT_CACHE_BATCH_SIZE == 0 then
+            fiber.yield()
         end
     end
 end
