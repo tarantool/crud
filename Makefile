@@ -11,7 +11,7 @@ S3_ENDPOINT_URL := $(if $(S3_ENDPOINT_URL),$(S3_ENDPOINT_URL),https://hb.vkcs.cl
 	tt rocks install luacov-reporters 0.1.0 --only-server=sdk-2/rocks && \
 	tt rocks install metrics  1.5.0 && \
 	tt rocks install cartridge 2.16.3 && \
-	tt rocks install migrations 1.1.0 && \
+	tt rocks install migrations 1.2.0 && \
 	tt rocks make
 
 sdk-2:
