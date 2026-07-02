@@ -26,7 +26,7 @@ then
     ${TTCTL} rocks install luacov-coveralls --only-server=https://luarocks.org/
 
     ${TTCTL} rocks install cartridge "${CARTRIDGE_VERSION}"
-    ${TTCTL} rocks install migrations 1.1.0
+    ${TTCTL} rocks install migrations 1.2.0
 else
     if [[ "${VSHARD_VERSION}" == "master" ]]; then
         echo "Installing vshard from master branch..."
