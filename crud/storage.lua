@@ -22,6 +22,7 @@ local truncate = require('crud.truncate')
 local len = require('crud.len')
 local count = require('crud.count')
 local borders = require('crud.borders')
+local locate = require('crud.locate')
 local readview = require('crud.readview')
 local storage_info = require('crud.storage_info')
 
@@ -81,6 +82,7 @@ local modules_with_storage_api = {
     len,
     count,
     borders,
+    locate,
     readview,
     -- Must be initialized last: properly working storage info is the flag
     -- of initialization success.

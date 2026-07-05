@@ -17,6 +17,7 @@ local truncate = require('crud.truncate')
 local len = require('crud.len')
 local count = require('crud.count')
 local borders = require('crud.borders')
+local locate = require('crud.locate')
 local utils = require('crud.common.utils')
 local stats = require('crud.stats')
 local readview = require('crud.readview')
@@ -126,6 +127,10 @@ crud.min = stats.wrap(borders.min, stats.op.BORDERS)
 -- @refer borders.max
 -- @function max
 crud.max = stats.wrap(borders.max, stats.op.BORDERS)
+
+-- @refer locate.call
+-- @function locate
+crud.locate = stats.wrap(locate.call, stats.op.LOCATE)
 
 -- @refer utils.cut_rows
 -- @function cut_rows
