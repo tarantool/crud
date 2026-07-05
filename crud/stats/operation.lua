@@ -26,4 +26,6 @@ return {
     COUNT = 'count',
     -- BORDERS identifies both `min` and `max`.
     BORDERS = 'borders',
+    -- LOCATE identifies `locate` operation via cooler module.
+    LOCATE = 'locate',
 }

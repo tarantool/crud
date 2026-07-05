@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 * Add `_recovery_point` system space introduced in upcoming Tarantool 3.8
   to crud.schema system spaces.
+* Add `crud.locate()` method to find whether a tuple is in `memtx` or `vinyl` engine.
+  Works for spaces managed by the enterprise `cooler` module.
 
 ### Fixed
 * Allow read-only operations (`get`, `select`, `pairs`, `count`, `min`, `max`)

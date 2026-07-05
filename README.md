@@ -35,6 +35,7 @@ It also provides the `crud-storage` and `crud-router` roles for
     - [Select conditions](#select-conditions)
   - [Pairs](#pairs)
   - [Min and max](#min-and-max)
+  - [Locate](#locate)
   - [Cut extra rows](#cut-extra-rows)
   - [Cut extra objects](#cut-extra-objects)
   - [Truncate](#truncate)
@@ -1269,6 +1270,55 @@ local result, err = crud.max('customers', 'age')
   - {'name': 'age', 'type': 'number'}
   rows:
   - [5, 1172, 'Jack', 35]
+```
+
+### Locate
+
+Locate the storage engine ('memtx' or 'vinyl') where the tuple is currently stored.
+This method works exclusively for spaces managed by the enterprise 'cooler' module.
+
+```lua
+local result, err = crud.locate(space_name, key, opts)
+```
+
+where:
+
+* `space_name` (`string`) - name of the space
+* `key` (`any`) - primary key value
+* `opts`:
+  * `bucket_id` (`?number|cdata`) - bucket ID
+  * `timeout` (`?number`) - `vshard.call` timeout and vshard master
+    discovery timeout (in seconds), default value is 2
+  * `request_timeout` (`?number`) - `vshard.call` `request_timeout` parameter.
+    Can be specified only with `mode` = `read`, and default value is the same as
+    user-passed `timeout`.
+  * `mode` (`?string`, `read` or `write`) - if `write` is specified then `locate` is
+    performed on master, default value is `read`
+  * `prefer_replica` (`?boolean`) - if `true` then the preferred target is one of
+    the replicas
+  * `balance` (`?boolean`) - use replica according to vshard load balancing policy
+
+Returns string ('memtx' or 'vinyl') if the tuple is found, nil if the tuple is missing
+on the target storage, or nil with error if something went wrong.
+
+**Example:**
+
+```lua
+crud.locate('customers', 100)
+---
+- memtx
+- null
+...
+crud.locate('customers', 200)
+---
+- vinyl
+- null
+...
+crud.locate('customers', 999) -- tuple doesn't exist
+---
+- null
+- null
+...
 ```
 
 ### Cut extra rows

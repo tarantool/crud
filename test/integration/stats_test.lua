@@ -985,6 +985,52 @@ pgroup.test_spaces_dropped_in_runtime_supported_with_stats = function(g)
         "Error requests count incremented since space was known to registry before drop")
 end
 
+pgroup.test_locate_stats_error = function(g)
+    local op = 'locate'
+
+    local stats_before = get_stats(g, space_name)
+    local op_before = set_defaults_if_empty(stats_before, op)
+
+    local _, err = g.router:call('crud.locate', { space_name, 999 })
+    t.assert_not_equals(err, nil)
+    t.assert_str_contains(err.err, "Module 'cooler' with function 'locate' is not available")
+
+    local stats_after = get_stats(g, space_name)
+    local op_after = stats_after[op]
+    t.assert_equals(op_after.error.count - op_before.error.count, 1, 'Error count incremented')
+end
+
+pgroup.test_locate_stats_success = function(g)
+    local op = 'locate'
+
+    helpers.call_on_storages(g.cluster, function(server)
+        server:exec(function()
+            package.loaded['cooler'] = {
+                locate = function()
+                    return 'memtx'
+                end
+            }
+        end)
+    end)
+
+    local stats_before = get_stats(g, space_name)
+    local op_before = set_defaults_if_empty(stats_before, op)
+
+    local res, err = g.router:call('crud.locate', { space_name, 12 })
+    t.assert_equals(err, nil)
+    t.assert_equals(res, 'memtx')
+
+    local stats_after = get_stats(g, space_name)
+    local op_after = stats_after[op]
+    t.assert_equals(op_after.ok.count - op_before.ok.count, 1, 'Success count incremented')
+
+    helpers.call_on_storages(g.cluster, function(server)
+        server:exec(function()
+            package.loaded['cooler'] = nil
+        end)
+    end)
+end
+
 -- https://github.com/tarantool/metrics/blob/fc5a67072340b12f983f09b7d383aca9e2f10cf1/test/utils.lua#L22-L31
 local function find_obs(metric_name, label_pairs, observations)
     for _, obs in pairs(observations) do
