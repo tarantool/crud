@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Add `_recovery_point` system space introduced in upcoming Tarantool 3.8
   to crud.schema system spaces.
 
+### Fixed
+* Allow read-only operations (`get`, `select`, `pairs`, `count`, `min`, `max`)
+  to execute successfully using healthy replicas when all cluster masters are down.
+
 ## [1.7.4] - 12-02-26
 
 ### Fixed

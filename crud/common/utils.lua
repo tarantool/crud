@@ -123,10 +123,44 @@ local function get_replicaset_by_replica_id(replicasets, id)
     return nil, nil
 end
 
-function utils.get_spaces(vshard_router, timeout, replica_id)
-    local replicasets, replicaset, replicaset_id, master
+local function find_any_healthy_replica_conn(replicasets)
+    for _, replicaset in pairs(replicasets) do
+        for _, replica in pairs(replicaset.replicas) do
+            if replica:is_connected() then
+                return replica.conn
+            end
+        end
+    end
+    return nil
+end
 
-    timeout = timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
+--- Returns all spaces existing in the schema.
+--
+-- @function get_spaces
+--
+-- @param table vshard_router
+--  A vshard router instance to route requests.
+--
+-- @tparam ?number opts.timeout
+--  Function call timeout. If not specified, `const.DEFAULT_VSHARD_CALL_TIMEOUT` is used.
+--
+-- @tparam ?boolean opts.read_only
+--  If true, the function will try to fetch spaces from any available healthy replica.
+--
+-- @tparam ?string opts.replica_id
+--  The exact replica ID to fetch the replicaset from.
+--
+-- @return[1] table map of spaces
+-- @return[1] nil
+-- @return[1] number schema version
+-- @treturn[2] nil
+-- @treturn[2] table Error description
+function utils.get_spaces(vshard_router, opts)
+    local replicasets, replicaset, replicaset_id, master, ro_replica_conn
+
+    opts = opts or {}
+
+    local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
     local deadline = fiber.clock() + timeout
     local iter_sleep = math.min(timeout / 100, 0.1)
     while (
@@ -136,12 +170,12 @@ function utils.get_spaces(vshard_router, timeout, replica_id)
     ) do
         -- Try to get master with timeout.
         replicasets = vshard_router:routeall()
-        if replica_id ~= nil then
+        if opts.replica_id ~= nil then
             -- Get the same replica on which the last DML operation was performed.
             -- This approach is temporary and is related to [1], [2].
             -- [1] https://github.com/tarantool/crud/issues/236
             -- [2] https://github.com/tarantool/crud/issues/361
-            replicaset_id, replicaset = get_replicaset_by_replica_id(replicasets, replica_id)
+            replicaset_id, replicaset = get_replicaset_by_replica_id(replicasets, opts.replica_id)
             break
         else
             replicaset_id, replicaset = next(replicasets)
@@ -155,7 +189,20 @@ function utils.get_spaces(vshard_router, timeout, replica_id)
             end
         end
 
+        -- If the master check above didn't succeed (or master is dead),
+        -- and this is a read-only operation, try to find any available healthy replica.
+        if opts.read_only then
+            ro_replica_conn = find_any_healthy_replica_conn(replicasets)
+            if ro_replica_conn ~= nil then
+                break
+            end
+        end
+
         fiber.sleep(iter_sleep)
+    end
+
+    if opts.read_only and ro_replica_conn ~= nil then
+        return ro_replica_conn.space, nil, ro_replica_conn.schema_version
     end
 
     if replicaset == nil then
@@ -184,8 +231,32 @@ function utils.get_spaces(vshard_router, timeout, replica_id)
     return master.conn.space, nil, master.conn.schema_version
 end
 
-function utils.get_space(space_name, vshard_router, timeout, replica_id)
-    local spaces, err, schema_version = utils.get_spaces(vshard_router, timeout, replica_id)
+--- Returns a specific space by its name.
+--
+-- @function get_space
+--
+-- @param string space_name
+--  A space name to fetch.
+--
+-- @param table vshard_router
+--  A vshard router instance to route requests.
+--
+-- @tparam ?number opts.timeout
+--  Function call timeout.
+--
+-- @tparam ?boolean opts.read_only
+--  If true, the function will try to fetch the space from any available healthy replica.
+--
+-- @tparam ?string opts.replica_id
+--  The exact replica ID to fetch the replicaset from.
+--
+-- @return[1] table space object
+-- @return[1] nil
+-- @return[1] number schema version
+-- @treturn[2] nil
+-- @treturn[2] table Error description
+function utils.get_space(space_name, vshard_router, opts)
+    local spaces, err, schema_version = utils.get_spaces(vshard_router, opts)
 
     if spaces == nil then
         return nil, err

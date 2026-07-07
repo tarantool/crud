@@ -85,7 +85,7 @@ local function call_insert_on_router(vshard_router, space_name, original_tuple, 
         fetch_latest_metadata = '?boolean',
     })
 
-    local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router, opts.timeout)
+    local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router, {timeout = opts.timeout})
     if err ~= nil then
         return nil, InsertError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end

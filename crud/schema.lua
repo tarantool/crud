@@ -96,7 +96,7 @@ schema.call = function(space_name, opts)
         end
     end
 
-    local spaces, err = utils.get_spaces(vshard_router, opts.timeout)
+    local spaces, err = utils.get_spaces(vshard_router, {timeout = opts.timeout})
     if err ~= nil then
         return nil, SchemaError:new(err)
     end

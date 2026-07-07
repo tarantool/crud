@@ -52,7 +52,9 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
         return nil, SelectError:new("Failed to parse conditions: %s", err)
     end
 
-    local space, err, netbox_schema_version  = utils.get_space(space_name, vshard_router)
+    local space, err, netbox_schema_version  = utils.get_space(space_name, vshard_router, {
+        read_only = opts.call_opts.mode ~= 'write',
+    })
     if err ~= nil then
         return nil, SelectError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end

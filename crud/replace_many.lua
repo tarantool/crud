@@ -183,7 +183,7 @@ local function call_replace_many_on_router(vshard_router, space_name, original_t
         fetch_latest_metadata = '?boolean',
     })
 
-    local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router, opts.timeout)
+    local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router, {timeout = opts.timeout})
     if err ~= nil then
         return nil, {
             ReplaceManyError:new("An error occurred during the operation: %s", err)
