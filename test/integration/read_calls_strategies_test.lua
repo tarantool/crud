@@ -52,6 +52,11 @@ pgroup.before_all(function(g)
         return vshard_call_strategies
     end
 
+    -- Warm up router sharding metadata cache.
+    -- This ensures that internal callro via call.any won't fire
+    -- unpredictably during actual test execution.
+    g.router:call('crud.get', {'customers', 1})
+
     -- patch vshard.router.call* functions
     local vshard_call_names = {'callro', 'callbro', 'callre', 'callbre', 'callrw'}
     g.router:call('patch_vshard_calls', {vshard_call_names})

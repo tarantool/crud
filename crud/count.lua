@@ -131,7 +131,10 @@ local function call_count_on_router(vshard_router, space_name, user_conditions, 
         return nil, CountError:new("Failed to parse conditions: %s", err)
     end
 
-    local space, err = utils.get_space(space_name, vshard_router, opts.timeout)
+    local space, err = utils.get_space(space_name, vshard_router, {
+        timeout = opts.timeout,
+        read_only = opts.mode ~= 'write',
+    })
     if err ~= nil then
         return nil, CountError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end

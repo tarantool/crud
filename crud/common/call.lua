@@ -270,19 +270,39 @@ function call.any(vshard_router, func_name, func_args, opts)
     if replicasets == nil then
         return nil, CallError:new("Failed to get router replicasets: %s", err.err)
     end
-    local replicaset_id, replicaset = next(replicasets)
 
-    local res, err = call_with_retry_and_recovery(vshard_router, replicaset, 'call',
-        func_name, func_args, {timeout = timeout}, false)
-    if err ~= nil then
-        return nil, wrap_vshard_err(vshard_router, err, func_name, replicaset_id)
+    local last_replicaset_id = nil
+    local last_err = nil
+
+    local deadline = fiber_clock() + timeout
+
+    for replicaset_id, replicaset in pairs(replicasets) do
+        local wait_timeout = deadline - fiber_clock()
+
+        local is_timeout = wait_timeout < 0
+        if is_timeout then
+            wait_timeout = 0
+        end
+
+        local res, err = call_with_retry_and_recovery(vshard_router, replicaset, 'callro',
+            func_name, func_args, {timeout = wait_timeout}, false)
+
+        if err == nil then
+            if res == box.NULL then
+                return nil
+            end
+            return res
+        end
+
+        last_replicaset_id = replicaset_id
+        last_err = err
+
+        if is_timeout then
+            break
+        end
     end
 
-    if res == box.NULL then
-        return nil
-    end
-
-    return res
+    return nil, wrap_vshard_err(vshard_router, last_err, func_name, last_replicaset_id)
 end
 
 return call

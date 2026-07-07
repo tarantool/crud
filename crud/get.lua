@@ -82,7 +82,10 @@ local function call_get_on_router(vshard_router, space_name, key, opts)
         fetch_latest_metadata = '?boolean',
     })
 
-    local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router, opts.timeout)
+    local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router, {
+        timeout = opts.timeout,
+        read_only = opts.mode ~= 'write',
+    })
     if err ~= nil then
         return nil, GetError:new("An error occurred during the operation: %s", err), const.NEED_SCHEMA_RELOAD
     end

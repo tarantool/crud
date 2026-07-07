@@ -237,8 +237,11 @@ pgroup.test_any_vshard_call = function(g)
         return call.any(vshard.router.static, 'say_hi_politely', {'dude'}, {})
     ]])
 
-    t.assert_equals(results, 'HI, dude! I am 1')
+    t.assert_str_contains(results, 'HI, dude!')
     t.assert_equals(err, nil)
+
+    local vshard_calls = g.get_vshard_calls()
+    t.assert_equals(vshard_calls, {'callro'})
 end
 
 pgroup.test_any_vshard_call_timeout = function(g)
@@ -263,4 +266,65 @@ pgroup.test_any_vshard_call_timeout = function(g)
     t.assert_equals(results, nil)
     helpers.assert_str_contains_pattern_with_replicaset_id(err.err, "Failed for [replicaset_id]")
     helpers.assert_timeout_error(err.err)
+end
+
+pgroup.before_test('test_any_vshard_call_fallback', function(g)
+    -- Mock callro to fail exactly once per replicaset.
+    -- This guarantees that call.any triggers its fallback loop.
+    g.router:eval([[
+        local vshard = require('vshard')
+        local errors = require('errors')
+
+        local replicasets = vshard.router.static:routeall()
+
+        rawset(_G, '__original_callros', {})
+        local originals = rawget(_G, '__original_callros')
+
+        for replicaset_id, replicaset in pairs(replicasets) do
+            originals[replicaset_id] = replicaset.callro
+
+            local calls_count = 0
+
+            replicaset.callro = function(self, ...)
+                calls_count = calls_count + 1
+                if calls_count == 1 then
+                    return nil, errors.new_class('ClientError'):new('Temporary failure')
+                else
+                    return originals[replicaset_id](self, ...)
+                end
+            end
+        end
+    ]])
+end)
+
+pgroup.after_test('test_any_vshard_call_fallback', function(g)
+    g.router:eval([[
+        local vshard = require('vshard')
+
+        local replicasets = vshard.router.static:routeall()
+        local originals = rawget(_G, '__original_callros')
+
+        for replicaset_id, original_fun in pairs(originals) do
+            if replicasets[replicaset_id] ~= nil then
+                replicasets[replicaset_id].callro = original_fun
+            end
+        end
+        rawset(_G, '__original_callros', nil)
+    ]])
+end)
+
+pgroup.test_any_vshard_call_fallback = function(g)
+    g.clear_vshard_calls()
+
+    local results, err = g.router:eval([[
+        local vshard = require('vshard')
+        local call = require('crud.common.call')
+
+        return call.any(vshard.router.static, 'say_hi_politely', {'survivor'}, {})
+    ]])
+
+    -- Ensure call.any successfully routes around the initial failure
+    -- and uses the available fallback.
+    t.assert_str_contains(results, 'HI, survivor!')
+    t.assert_equals(err, nil)
 end
