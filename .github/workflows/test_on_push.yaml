@@ -46,6 +46,7 @@ jobs:
             vshard-version: "0.1.41"
           - tarantool-version: "master"
             vshard-version: "master"
+            s3-upload: true
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -130,12 +131,30 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run tests
-        if: matrix.coveralls != true # See https://github.com/actions/runner/issues/1173
+        if: >-
+          matrix.coveralls != true &&
+          (matrix.s3-upload != true ||
+            (github.ref_type != 'tag' && github.ref_name != 'master'))
         run: make -C build luatest-no-coverage
 
       - name: Run tests with coverage and send results to coveralls.io
         if: ${{ matrix.coveralls }}
         run: make -C build coveralls
+
+      - name: Run tests with coverage and generate report
+        if: matrix.s3-upload && (github.ref_type == 'tag' || github.ref_name == 'master')
+        run: make -C build coverage
+
+      - name: Upload coverage report to S3
+        if: matrix.s3-upload && (github.ref_type == 'tag' || github.ref_name == 'master')
+        uses: tarantool/actions/s3-upload-file@master
+        with:
+          access-key-id: ${{ secrets.COVERAGE_S3_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.COVERAGE_S3_SECRET_ACCESS_KEY }}
+          endpoint: ${{ secrets.COVERAGE_S3_ENDPOINT_URL }}
+          bucket: tdb-coverage-reports
+          source: luacov.report.out
+          destination: modules/crud/${{ github.ref_type == 'tag' && github.ref_name || 'master' }}/luacov.report.out
 
   run-tests-ee:
     if: github.event_name == 'push'
