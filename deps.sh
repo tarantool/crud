@@ -16,6 +16,7 @@ fi
 # Test dependencies:
 ${TTCTL} rocks install luatest 1.0.1
 ${TTCTL} rocks install luacheck 0.26.0
+${TTCTL} rocks install luacov 0.13.0
 
 if [[ -n "${CARTRIDGE_VERSION}" ]]
 then
