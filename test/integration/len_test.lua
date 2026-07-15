@@ -44,6 +44,30 @@ pgroup.test_len = function(g)
 
     t.assert_equals(err, nil)
     t.assert_equals(result, expected_len)
+
+    local result_replica, err_replica = g.router:call('crud.len', {
+        'customers', {
+            mode = 'read',
+            prefer_replica = true,
+            balance = false,
+            timeout = 4,
+            request_timeout = 2,
+        }
+    })
+
+    t.assert_equals(err_replica, nil)
+    t.assert_equals(result_replica, expected_len)
+
+    local result_balance, err_balance = g.router:call('crud.len', {
+        'customers', {
+            mode = 'read',
+            prefer_replica = false,
+            balance = true,
+        }
+    })
+
+    t.assert_equals(err_balance, nil)
+    t.assert_equals(result_balance, expected_len)
 end
 
 pgroup.test_len_empty_space = function(g)
@@ -54,7 +78,13 @@ pgroup.test_len_empty_space = function(g)
 end
 
 pgroup.test_opts_not_damaged = function(g)
-    local len_opts = {timeout = 1}
+    local len_opts = {
+        timeout = 1,
+        request_timeout = 1,
+        mode = 'read',
+        prefer_replica = true,
+        balance = true,
+    }
     local new_len_opts, err = g.router:eval([[
         local crud = require('crud')
 

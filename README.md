@@ -1405,6 +1405,14 @@ where:
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout and vshard master
     discovery timeout (in seconds), default value is 2
+  * `request_timeout` (`?number`) - `vshard.call` `request_timeout` parameter.
+    Can be specified only with `mode` = `read`, and default value is the same as
+    user-passed `timeout`.
+  * `mode` (`?string`, `read` or `write`) - if `write` is specified then `len` is
+    performed on master, default value is `write`
+  * `prefer_replica` (`?boolean`) - if `true` then the preferred target is one of
+    the replicas
+  * `balance` (`?boolean`) - use replica according to vshard load balancing policy
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
     vshard router instance. Set this parameter if your space is not
     a part of the default vshard cluster
