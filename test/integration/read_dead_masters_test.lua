@@ -40,6 +40,10 @@ pgroup.test_read_operations_when_masters_are_down = function(g)
     end)
     t.assert_equals(#pairs_tuples, 2)
 
+    local len_res, err = g.router:call('crud.len', {'customers', {mode = 'read'}})
+    t.assert_equals(err, nil)
+    t.assert_equals(len_res, 2)
+
     local select_res, err = g.router:call('crud.select', {'customers', {{'<=', 'age', 35}}})
     t.assert_equals(err, nil)
     t.assert_not_equals(select_res, nil)

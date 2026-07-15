@@ -43,6 +43,10 @@ len.storage_api = {[LEN_FUNC_NAME] = len_on_storage}
 function len.call(space_name, opts)
     checks('string', {
         timeout = '?number',
+        request_timeout = '?number',
+        prefer_replica = '?boolean',
+        balance = '?boolean',
+        mode = '?string',
         vshard_router = '?string|table',
     })
 
@@ -53,7 +57,10 @@ function len.call(space_name, opts)
         return nil, LenError:new(err)
     end
 
-    local space, err = utils.get_space(space_name, vshard_router, {timeout = opts.timeout})
+    local space, err = utils.get_space(space_name, vshard_router, {
+        timeout = opts.timeout,
+        read_only = opts.mode == 'read',
+    })
     if err ~= nil then
         return nil, LenError:new("An error occurred during the operation: %s", err)
     end
@@ -61,10 +68,17 @@ function len.call(space_name, opts)
         return nil, LenError:new("Space %q doesn't exist", space_name)
     end
 
-    local results, err = call.map(vshard_router, CRUD_LEN_FUNC_NAME, {space_name}, {
-        mode = 'write',
+    local mode = opts.mode or 'write'
+
+    local call_opts = {
+        mode = mode,
+        prefer_replica = opts.prefer_replica,
+        balance = opts.balance,
         timeout = opts.timeout,
-    })
+        request_timeout = mode == 'read' and opts.request_timeout or nil,
+    }
+
+    local results, err = call.map(vshard_router, CRUD_LEN_FUNC_NAME, {space_name}, call_opts)
 
     if err ~= nil then
         return nil, LenError:new("Failed to call len on storage-side: %s", err)
