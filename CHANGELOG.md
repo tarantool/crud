@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.7.5] - 15-07-26
+
 ### Added
 * Add `_recovery_point` system space introduced in upcoming Tarantool 3.8
   to crud.schema system spaces.
