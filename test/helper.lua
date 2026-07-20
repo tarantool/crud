@@ -983,12 +983,28 @@ function helpers.start_cluster(g, cartridge_cfg, vshard_cfg, tarantool3_cluster_
     end
 
     if g.params and g.params.safe_mode ~= nil then
-        local safe_mod_func = '_crud.rebalance_safe_mode_disable'
+        local safe_mode_func = '_crud.rebalance_safe_mode_disable'
         if g.params.safe_mode then
-            safe_mod_func = '_crud.rebalance_safe_mode_enable'
+            safe_mode_func = '_crud.rebalance_safe_mode_enable'
         end
         helpers.call_on_storages(g.cluster, function(server)
-            server:call(safe_mod_func)
+            server.net_box:eval([[
+                box.schema.space.create('_crud_settings_local', {
+                    engine = 'memtx',
+                    format = {
+                        { name = 'key', type = 'string' },
+                        { name = 'value', type = 'any' },
+                    },
+                    is_local = true,
+                    if_not_exists = true,
+                })
+                box.space._crud_settings_local:create_index('primary', { parts = { 'key' }, if_not_exists = true })
+            ]])
+            t.helpers.retrying(
+                    {timeout = 60, delay = 0.1},
+                    server.call,
+                    server, safe_mode_func
+            )
         end)
     end
 end
