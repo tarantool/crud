@@ -5,8 +5,9 @@
 local is_package, metrics = pcall(require, 'metrics')
 
 local dev_checks = require('crud.common.dev_checks')
-local op_module = require('crud.stats.operation')
 local stash = require('crud.common.stash')
+local atomic_batch = require('crud.stats.atomic_batch')
+local op_module = require('crud.stats.operation')
 local registry_utils = require('crud.stats.registry_utils')
 
 local registry = {}
@@ -20,6 +21,13 @@ local metric_name = {
     -- by summary collector.
     stats_count = 'tnt_crud_stats_count',
     stats_sum = 'tnt_crud_stats_sum',
+
+    -- Summary collector for atomic_batch sub-operation latency.
+    -- `*_count` and `*_sum` are automatically created
+    -- by summary collector.
+    atomic_batch_sub_ops = 'tnt_crud_atomic_batch_sub_ops',
+    atomic_batch_sub_ops_count = 'tnt_crud_atomic_batch_sub_ops_count',
+    atomic_batch_sub_ops_sum = 'tnt_crud_atomic_batch_sub_ops_sum',
 
     -- Counter collectors for select/pairs details.
     details = {
@@ -124,6 +132,12 @@ function registry.init(opts)
         quantile_params,
         age_params)
 
+    internal.registry[metric_name.atomic_batch_sub_ops] = metrics.summary(
+        metric_name.atomic_batch_sub_ops,
+        'CRUD atomic_batch sub-operation execution latency on storages',
+        quantile_params,
+        age_params)
+
     internal.registry[metric_name.details.tuples_fetched] = metrics.counter(
         metric_name.details.tuples_fetched,
         'Tuples fetched from CRUD storages during select/pairs')
@@ -179,17 +193,7 @@ local function compute_aggregates(stats)
             for _, obs in pairs(op_stats) do
                 -- There are no count in `details`.
                 if obs.count ~= nil then
-                    if obs.count == 0 then
-                        obs.latency_average = 0
-                    else
-                        obs.latency_average = obs.time / obs.count
-                    end
-
-                    if obs.latency_quantile_recent ~= nil then
-                        obs.latency = obs.latency_quantile_recent
-                    else
-                        obs.latency = obs.latency_average
-                    end
+                    registry_utils.compute_observation_aggregates(obs)
                 end
             end
         end
@@ -246,7 +250,35 @@ function registry.get(space_name)
         :: stats_continue ::
     end
 
+    -- Fill atomic_batch sub-operation latency statistics.
+    for _, obs in ipairs(internal.registry[metric_name.atomic_batch_sub_ops]:collect()) do
+        local op = obs.label_pairs.operation
+        local status = obs.label_pairs.status
+        local name = obs.label_pairs.name
+
+        if space_name ~= nil and name ~= space_name then
+            goto sub_op_continue
+        end
+
+        atomic_batch.init_collectors_if_required(stats.spaces, name, op)
+        local sub_op = stats.spaces[name][atomic_batch.sub_ops_name][op]
+
+        -- metric_name.atomic_batch_sub_ops presents only if quantiles enabled.
+        if obs.metric_name == metric_name.atomic_batch_sub_ops then
+            if obs.label_pairs.quantile == LATENCY_QUANTILE then
+                sub_op[status].latency_quantile_recent = obs.value
+            end
+        elseif obs.metric_name == metric_name.atomic_batch_sub_ops_sum then
+            sub_op[status].time = obs.value
+        elseif obs.metric_name == metric_name.atomic_batch_sub_ops_count then
+            sub_op[status].count = obs.value
+        end
+
+        :: sub_op_continue ::
+    end
+
     compute_aggregates(stats)
+    atomic_batch.compute_aggregates(stats)
 
     -- Fill select/pairs detail statistics values.
     for stat_name, metric_name in pairs(metric_name.details) do
@@ -300,6 +332,37 @@ function registry.observe(latency, space_name, op, status)
     local label_pairs = { operation = op, name = space_name, status = status }
 
     internal.registry[metric_name.stats]:observe(latency, label_pairs)
+
+    return true
+end
+
+--- Increase requests count and update latency info
+-- for an `atomic_batch` sub-operation.
+--
+-- @function observe_atomic_batch_sub_op
+--
+-- @number latency
+--  Pure execution time of a single sub-operation measured on storage.
+--
+-- @string space_name
+--  Name of space.
+--
+-- @string op
+--  Label of sub-operation collectors.
+--  Use `require('crud.stats').op` to pick one.
+--
+-- @string status
+--  `'ok'` if no errors on execution, `'error'` otherwise.
+--
+-- @treturn boolean Returns `true`.
+--
+function registry.observe_atomic_batch_sub_op(latency, space_name, op, status)
+    dev_checks('number', 'string', 'string', 'string')
+
+    -- Use the same labels as for `metric_name.stats` observations.
+    local label_pairs = { operation = op, name = space_name, status = status }
+
+    internal.registry[metric_name.atomic_batch_sub_ops]:observe(latency, label_pairs)
 
     return true
 end

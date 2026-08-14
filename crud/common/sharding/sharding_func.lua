@@ -102,8 +102,8 @@ local function as_callable_object(sharding_func_def, space_name)
     )
 end
 
-function sharding_func_module.construct_as_callable_obj_cache(vshard_router, metadata_map, specified_space_name)
-    dev_checks('table', 'table', 'string')
+function sharding_func_module.construct_as_callable_obj_cache(vshard_router, metadata_map, space_names)
+    dev_checks('table', 'table', 'table')
 
     local result_err
 
@@ -119,7 +119,7 @@ function sharding_func_module.construct_as_callable_obj_cache(vshard_router, met
             local sharding_func, err = as_callable_object(metadata.sharding_func_def,
                                                           space_name)
             if err ~= nil then
-                if specified_space_name == space_name then
+                if space_names[space_name] == true then
                     result_err = err
                     log.error(err)
                 else

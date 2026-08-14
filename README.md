@@ -31,6 +31,7 @@ It also provides the `crud-storage` and `crud-router` roles for
   - [Replace many](#replace-many)
   - [Upsert](#upsert)
   - [Upsert many](#upsert-many)
+  - [Atomic batch](#atomic-batch)
   - [Select](#select)
     - [Select conditions](#select-conditions)
   - [Pairs](#pairs)
@@ -1116,6 +1117,67 @@ errs[3].operation_data -- {71, 1802, "Oksana", 29}
 errs[4].class_name     -- NotPerformedError
 errs[4].err            -- 'Operation with tuple was rollback'
 errs[4].operation_data -- {92, 2040, "Artur", 29}
+```
+
+### Atomic batch
+
+```lua
+local result, err = crud.atomic_batch(operations, opts)
+```
+
+Runs an ordered list of CRUD operations (`get`, `insert`, `replace`, `update`,
+`upsert`, `delete`) in a single transaction on one replicaset.
+
+where:
+
+* `operations` (`table`) - ordered array of operation descriptors
+* `opts`:
+  * `timeout` (`?number`) - `vshard.call` timeout (seconds), default `2`
+  * `noreturn` (`?boolean`) - suppress successful operation results
+  * `fields` (`?table`) - per-space output projection:
+    `{[space_name] = {field1, field2, ...}}`
+
+Returns `{metadata = {[space_name] = format}, data = {op_results...}}` or
+`nil, err`.
+
+**Example:**
+
+```lua
+local operations = {
+    {
+        type = 'insert',
+        space = 'orders',
+        object = {id = 101, customer_id = 10, status = 'new'}
+    },
+    {
+        type = 'update',
+        space = 'customers',
+        key = {101},
+        operations = {{'+', 'orders_count', 1}}
+    },
+    {
+        type = 'get',
+        space = 'orders',
+        key = {101}
+    },
+}
+
+local res, err = crud.atomic_batch(operations, {
+    timeout = 1.5,
+    fields = {
+        orders = {'id', 'status'},
+        customers = {'id', 'orders_count'},
+    },
+})
+
+if err ~= nil then
+    -- whole batch is rolled back on any failure
+    error(err)
+end
+
+-- res.data[1] -> inserted order tuple (projected by fields.orders)
+-- res.data[2] -> updated customer tuple (projected by fields.customers)
+-- res.data[3] -> get result for order
 ```
 
 ### Select
