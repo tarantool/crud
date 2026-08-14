@@ -101,7 +101,7 @@ end
 -- _fetch_on_router().
 -- metadata_map_name == nil means forced reload.
 local _fetch_on_router = locked(function(vshard_router, space_name, metadata_map_name, timeout)
-    dev_checks('table', 'string', '?string', 'number')
+    dev_checks('table', '?string|table', '?string', 'number')
 
     local cache = router_cache.get_instance(vshard_router)
 
@@ -209,6 +209,17 @@ function sharding_metadata_module.reload_sharding_cache(vshard_router, space_nam
     router_cache.drop_instance(vshard_router)
 
     local err = _fetch_on_router(vshard_router, space_name, nil, const.FETCH_SHARDING_METADATA_TIMEOUT)
+    if err ~= nil then
+        log.warn('Failed to reload sharding cache: %s', err)
+    end
+end
+
+function sharding_metadata_module.reload_sharding_cache_for_spaces(vshard_router, space_names)
+    dev_checks('table', 'table')
+
+    router_cache.drop_instance(vshard_router)
+
+    local err = _fetch_on_router(vshard_router, space_names, nil, const.FETCH_SHARDING_METADATA_TIMEOUT)
     if err ~= nil then
         log.warn('Failed to reload sharding cache: %s', err)
     end

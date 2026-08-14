@@ -413,6 +413,90 @@ function stats.wrap(func, op, opts)
     end
 end
 
+--- Wrap CRUD operation call to collect statistics for batches affecting multiple spaces.
+--
+-- Similar to `stats.wrap`, but accepts an extractor callback that returns
+-- a set/map of space names from call arguments. Each extracted space receives
+-- one observation for the specified operation.
+--
+-- @function wrap_for_spaces
+--
+-- @func func
+--  Function to wrap.
+--
+-- @string op
+--  Label of registry collectors.
+--
+-- @func extract_space_names
+--  Callback with signature `extract_space_names(...) -> table` that should
+--  return map/set like `{[space_name] = true, ...}`.
+--
+-- @return Wrapped function output.
+--
+function stats.wrap_for_spaces(func, op, extract_space_names)
+    dev_checks('function', 'string', 'function')
+
+    return function(...)
+        if not stats.is_enabled() then
+            return func(...)
+        end
+
+        local start_time = clock.monotonic()
+        local ok, res, err = pcall(func, ...)
+        local latency = clock.monotonic() - start_time
+
+        local status = 'ok'
+        if not ok or err ~= nil then
+            status = 'error'
+        end
+
+        local ok_extract, spaces = pcall(extract_space_names, ...)
+        if ok_extract and type(spaces) == 'table' then
+            for space_name in pairs(spaces) do
+                if type(space_name) == 'string' then
+                    stats.observe(latency, space_name, op, status)
+                end
+            end
+        end
+
+        if not ok then
+            error(res, 2)
+        end
+
+        return res, err
+    end
+end
+
+--- Observe a CRUD operation explicitly.
+--
+-- @function observe
+--
+-- @number latency
+--  Operation latency in seconds.
+--
+-- @string space_name
+--  Space name.
+--
+-- @string op
+--  Operation label (see `crud.stats.op`).
+--
+-- @string status
+--  `'ok'` or `'error'`.
+--
+-- @treturn boolean Returns `true`.
+--
+function stats.observe(latency, space_name, op, status)
+    dev_checks('number', 'string', 'string', 'string')
+
+    if not stats.is_enabled() then
+        return true
+    end
+
+    internal:get_registry().observe(latency, space_name, op, status)
+
+    return true
+end
+
 local storage_stats_schema = { tuples_fetched = 'number', tuples_lookup = 'number' }
 --- Callback to collect storage tuples stats (select/pairs).
 --

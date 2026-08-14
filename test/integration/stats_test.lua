@@ -55,6 +55,18 @@ local function get_stats(g, space_name)
     return g.router:eval("return require('crud').stats(...)", { space_name })
 end
 
+-- If there weren't any operations, space stats is {}.
+-- To compute stats diff, this helper return real stats
+-- if they're already present or default stats if
+-- this operation of space hasn't been observed yet.
+local function set_defaults_if_empty(space_stats, op)
+    if space_stats[op] ~= nil then
+        return space_stats[op]
+    else
+        return stats_registry_utils.build_collectors(op)
+    end
+end
+
 local call_cfg = function(g, way, cfg)
     if way == 'call' then
         g.router:eval([[
@@ -158,16 +170,95 @@ local function truncate_space_on_cluster(g)
     helpers.truncate_space_on_cluster(g.cluster, space_name)
 end
 
--- If there weren't any operations, space stats is {}.
--- To compute stats diff, this helper return real stats
--- if they're already present or default stats if
--- this operation of space hasn't been observed yet.
-local function set_defaults_if_empty(space_stats, op)
-    if space_stats[op] ~= nil then
-        return space_stats[op]
-    else
-        return stats_registry_utils.build_collectors(op)
-    end
+local function assert_op_status_increment(before_stats, after_stats, op, status, increment, msg)
+    local before_op = set_defaults_if_empty(before_stats, op)
+    local after_op = set_defaults_if_empty(after_stats, op)
+
+    t.assert_equals(
+        after_op[status].count - before_op[status].count,
+        increment,
+        msg or ('Expected %s.%s to be incremented by %d'):format(op, status, increment)
+    )
+end
+
+pgroup.test_atomic_batch_stats_success = function(g)
+    helpers.truncate_space_on_cluster(g.cluster, space_name)
+
+    local space_stats_before = get_stats(g, space_name)
+
+    local res, err = g.router:call('crud.atomic_batch', {{
+        {
+            type = 'insert',
+            space = space_name,
+            tuple = { 2001, box.NULL, 'John', 'Doe', 33, 'Rome' },
+        },
+        {
+            type = 'get',
+            space = space_name,
+            key = { 2001 },
+        },
+        {
+            type = 'update',
+            space = space_name,
+            key = { 2001 },
+            operations = {{'=', 'city', 'Milan'}},
+        },
+    }})
+
+    t.assert_equals(err, nil)
+    t.assert_type(res, 'table')
+
+    local space_stats_after = get_stats(g, space_name)
+
+    assert_op_status_increment(space_stats_before, space_stats_after, 'atomic_batch', 'ok', 1,
+        'atomic_batch.ok.count should be incremented')
+    assert_op_status_increment(space_stats_before, space_stats_after, 'insert', 'ok', 1,
+        'insert.ok.count should be incremented')
+    assert_op_status_increment(space_stats_before, space_stats_after, 'get', 'ok', 1,
+        'get.ok.count should be incremented')
+    assert_op_status_increment(space_stats_before, space_stats_after, 'update', 'ok', 1,
+        'update.ok.count should be incremented')
+end
+
+pgroup.test_atomic_batch_stats_error = function(g)
+    helpers.truncate_space_on_cluster(g.cluster, space_name)
+    helpers.insert_objects(g, space_name, {{
+        id = 3001,
+        name = 'Alice',
+        last_name = 'Smith',
+        age = 28,
+        city = 'Paris',
+    }})
+
+    local space_stats_before = get_stats(g, space_name)
+
+    local res, err = g.router:call('crud.atomic_batch', {{
+        {
+            type = 'insert',
+            space = space_name,
+            tuple = { 3002, box.NULL, 'Bob', 'Brown', 31, 'Berlin' },
+        },
+        {
+            type = 'insert',
+            space = space_name,
+            tuple = { 3001, box.NULL, 'Alice', 'Smith', 28, 'Paris' },
+        },
+    }})
+
+    t.assert_equals(res, nil)
+    t.assert_not_equals(err, nil)
+
+    local space_stats_after = get_stats(g, space_name)
+
+    assert_op_status_increment(space_stats_before, space_stats_after, 'atomic_batch', 'error', 1,
+        'atomic_batch.error.count should be incremented')
+    -- On transaction rollback, all nested operations are accounted as failed.
+    assert_op_status_increment(space_stats_before, space_stats_after, 'insert', 'error', 2,
+        'insert.error.count should be incremented for each nested insert op')
+
+    local tuple, get_err = g.router:call('crud.get', {space_name, {3002}})
+    t.assert_equals(get_err, nil)
+    t.assert_equals(#tuple.rows, 0, 'Tuple inserted before failure must be rolled back')
 end
 
 local eval = {
@@ -358,6 +449,17 @@ local simple_operation_cases = {
         args = { space_name, {{ '==', 'id_index', 3 }}, {mode = 'write'}, },
         op = 'count',
     },
+    atomic_batch = {
+        func = 'crud.atomic_batch',
+        args = {{
+            {
+                type = 'insert',
+                space = space_name,
+                tuple = { 42, box.NULL, 'Ivan', 'Ivanov', 20, 'Moscow' },
+            },
+        }},
+        op = 'atomic_batch',
+    },
     min = {
         func = 'crud.min',
         args = { space_name, nil, {mode = 'write'}, },
@@ -487,6 +589,12 @@ local simple_operation_cases = {
         func = 'crud.max',
         args = { space_name, 'badindex', {mode = 'write'}, },
         op = 'borders',
+        expect_error = true,
+    },
+    locate_error = {
+        func = 'crud.locate',
+        args = { space_name, 999 },
+        op = 'locate',
         expect_error = true,
     },
 }
@@ -1086,7 +1194,8 @@ local function validate_metrics(g, metrics)
 
 
     local expected_operations = { 'insert', 'insert_many', 'get', 'replace', 'replace_many', 'update',
-        'upsert', 'upsert_many', 'delete', 'select', 'truncate', 'len', 'count', 'borders' }
+        'upsert', 'upsert_many', 'delete', 'select', 'truncate', 'len', 'count', 'borders',
+        'locate', 'atomic_batch' }
 
     if g.params.args.quantiles == true then
         t.assert_items_equals(get_unique_label_values(quantile_stats, 'operation'), expected_operations,

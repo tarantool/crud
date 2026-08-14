@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+* Add `crud.atomic_batch()` method to execute heterogeneous CRUD operations
+  (`get`, `insert`, `replace`, `update`, `upsert`, `delete`) atomically
+  on a single replicaset.
+
 ## [1.7.5] - 15-07-26
 
 ### Added
