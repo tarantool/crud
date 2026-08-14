@@ -28,4 +28,5 @@ return {
     BORDERS = 'borders',
     -- LOCATE identifies `locate` operation via cooler module.
     LOCATE = 'locate',
+    ATOMIC_BATCH = 'atomic_batch',
 }

@@ -18,6 +18,7 @@ local len = require('crud.len')
 local count = require('crud.count')
 local borders = require('crud.borders')
 local locate = require('crud.locate')
+local atomic_batch = require('crud.atomic_batch')
 local utils = require('crud.common.utils')
 local stats = require('crud.stats')
 local readview = require('crud.readview')
@@ -131,6 +132,14 @@ crud.max = stats.wrap(borders.max, stats.op.BORDERS)
 -- @refer locate.call
 -- @function locate
 crud.locate = stats.wrap(locate.call, stats.op.LOCATE)
+
+-- @refer atomic_batch.call
+-- @function atomic_batch
+crud.atomic_batch = stats.wrap_for_spaces(
+    atomic_batch.call,
+    stats.op.ATOMIC_BATCH,
+    atomic_batch.extract_space_names
+)
 
 -- @refer utils.cut_rows
 -- @function cut_rows
