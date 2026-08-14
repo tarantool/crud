@@ -99,8 +99,8 @@ function sharding_key_module.extract_from_pk(vshard_router, space_name, sharding
     return extract_from_index(primary_key, primary_index_parts, sharding_key_as_index_obj)
 end
 
-function sharding_key_module.construct_as_index_obj_cache(vshard_router, metadata_map, specified_space_name)
-    dev_checks('table', 'table', 'string')
+function sharding_key_module.construct_as_index_obj_cache(vshard_router, metadata_map, space_names)
+    dev_checks('table', 'table', 'table')
 
     local result_err
 
@@ -117,7 +117,7 @@ function sharding_key_module.construct_as_index_obj_cache(vshard_router, metadat
                                                                    metadata.space_format,
                                                                    metadata.sharding_key_def)
             if err ~= nil then
-                if specified_space_name == space_name then
+                if space_names[space_name] == true then
                     result_err = err
                     log.error(err)
                 else

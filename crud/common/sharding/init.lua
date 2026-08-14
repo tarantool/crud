@@ -232,6 +232,33 @@ function sharding.wrap_method(vshard_router, method, space_name, ...)
     return res, err, need_reload
 end
 
+function sharding.wrap_method_for_spaces(vshard_router, method, space_names, ...)
+    dev_checks('table', 'function', 'table')
+
+    local i = 0
+
+    local res, err, need_reload
+    while true do
+        res, err, need_reload = method(vshard_router, ...)
+
+        if err == nil or need_reload ~= const.NEED_SHARDING_RELOAD then
+            break
+        end
+
+        if next(space_names) ~= nil then
+            sharding_metadata_module.reload_sharding_cache_for_spaces(vshard_router, space_names)
+        end
+
+        i = i + 1
+
+        if i > const.SHARDING_RELOAD_RETRIES_NUM then
+            break
+        end
+    end
+
+    return res, err, need_reload
+end
+
 -- This wrapper assumes reload is performed inside the method and
 -- expect ShardingHashMismatchError error to be thrown.
 function sharding.wrap_select_method(vshard_router, method, space_name, ...)
