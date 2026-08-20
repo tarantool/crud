@@ -23,6 +23,7 @@ local stats = require('crud.stats')
 local readview = require('crud.readview')
 local schema = require('crud.schema')
 local storage_info = require('crud.storage_info')
+local storage_call = require('crud.storage_call')
 local storage = require('crud.storage')
 local rebalance = require('crud.common.rebalance')
 
@@ -155,6 +156,10 @@ crud.reset_stats = stats.reset
 -- @refer storage_info.call
 -- @function storage_info
 crud.storage_info = storage_info.call
+
+-- @refer storage_call.call
+-- @function storage_call
+crud.storage_call = storage_call.call
 
 -- @refer readview.new
 -- @function readview
