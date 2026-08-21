@@ -57,4 +57,13 @@ function storage_call_errors.timeout_before_send(call_data)
     )
 end
 
+function storage_call_errors.invalid_storage_response(replicaset_id)
+    return storage_call_errors.new(
+        'Storage returned an invalid response',
+        nil,
+        true,
+        replicaset_id
+    )
+end
+
 return storage_call_errors

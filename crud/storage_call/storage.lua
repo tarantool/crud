@@ -5,6 +5,7 @@ local storage_call_errors = require('crud.storage_call.errors')
 local storage = {}
 
 local STORAGE_FUNC_NAME = 'storage_call_on_storage'
+local STORAGE_MANY_FUNC_NAME = 'storage_call_many_on_storage'
 
 local function assert_service_user()
     local service_user = utils.get_this_replica_user() or 'guest'
@@ -22,9 +23,16 @@ local function storage_call_on_storage(run_as_user, call_data)
     return executor.execute(run_as_user, call_data)
 end
 
+local function storage_call_many_on_storage(run_as_user, calls_by_bucket)
+    assert_service_user()
+    return executor.execute_many(run_as_user, calls_by_bucket)
+end
+
 storage.func_name = STORAGE_FUNC_NAME
+storage.func_many_name = STORAGE_MANY_FUNC_NAME
 storage.storage_api = {
     [STORAGE_FUNC_NAME] = storage_call_on_storage,
+    [STORAGE_MANY_FUNC_NAME] = storage_call_many_on_storage,
 }
 
 return storage

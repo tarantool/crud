@@ -116,4 +116,27 @@ function executor.execute(run_as_user, call_data)
     return {returns = returns}
 end
 
+function executor.execute_many(run_as_user, calls_by_bucket)
+    local calls = {}
+
+    for _, bucket_calls in pairs(calls_by_bucket) do
+        for _, call_data in ipairs(bucket_calls) do
+            table.insert(calls, call_data)
+        end
+    end
+
+    table.sort(calls, function(left, right)
+        return left.operation_index < right.operation_index
+    end)
+
+    local results = {}
+    for _, call_data in ipairs(calls) do
+        local result = executor.execute(run_as_user, call_data)
+        result.operation_index = call_data.operation_index
+        table.insert(results, result)
+    end
+
+    return results
+end
+
 return executor

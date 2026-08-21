@@ -161,6 +161,10 @@ crud.storage_info = storage_info.call
 -- @function storage_call
 crud.storage_call = storage_call.call
 
+-- @refer storage_call.call_many
+-- @function storage_call_many
+crud.storage_call_many = storage_call.call_many
+
 -- @refer readview.new
 -- @function readview
 crud.readview = readview.new
