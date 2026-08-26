@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+* Add `crud.storage_call()` and `crud.storage_call_many()` to invoke persistent
+  stored functions on routed vshard storages (TNTP-9261).
+
+### Changed
+* Update test dependencies: metrics to 1.8.1, Cartridge to 2.17.2, and
+  migrations to 1.2.1.
+* Update the Tarantool Enterprise SDK test matrix to current 2.11 and 3.2–3.8
+  builds, and add Tarantool 3.7 and 3.8 to community CI testing.
+
 ## [1.7.6] - 31-08-26
 
 ### Changed
