@@ -228,7 +228,7 @@ local function call_upsert_many_on_router(vshard_router, space_name, original_tu
         return nil, {err}, const.NEED_SCHEMA_RELOAD
     end
 
-    local postprocessor = BatchPostprocessor:new(vshard_router)
+    local postprocessor = BatchPostprocessor:new()
 
     local _, errs, storages_info = call.map(vshard_router, CRUD_UPSERT_MANY_FUNC_NAME, nil, {
         timeout = opts.timeout,
