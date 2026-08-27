@@ -189,14 +189,16 @@ local function install_test_functions()
         'storage_call_test_user', 'execute', 'function',
         'storage_call_test_access_denied_inside', {if_not_exists = true}
     )
-    box.schema.user.grant(
-        'storage_call_test_user', 'execute', 'function',
-        '_crud.storage_call_on_storage', {if_not_exists = true}
-    )
-    box.schema.user.grant(
-        'storage_call_test_user', 'execute', 'function',
-        '_crud.storage_call_many_on_storage', {if_not_exists = true}
-    )
+    box.session.su('admin', function()
+        box.schema.user.grant(
+            'storage_call_test_user', 'execute', 'function',
+            '_crud.storage_call_on_storage', {if_not_exists = true}
+        )
+        box.schema.user.grant(
+            'storage_call_test_user', 'execute', 'function',
+            '_crud.storage_call_many_on_storage', {if_not_exists = true}
+        )
+    end)
 end
 
 local function reset_test_state()
@@ -1078,20 +1080,25 @@ end
 group.test_persistent_function_survives_storage_restart = function(g)
     restart_storage(g, 's1-master')
 
-    local result, err = g.router:call('crud.storage_call_many', {{
-        {
-            func_name = 'storage_call_test_returns',
-            args = {'first replicaset'},
-            bucket_id = g.buckets[1],
-        },
-        {
-            func_name = 'storage_call_test_returns',
-            args = {'second replicaset'},
-            bucket_id = g.buckets[2],
-        },
-    }})
+    -- vshard reconnects the restarted master asynchronously. Retrying is safe
+    -- here because storage_call_test_returns() has no side effects.
+    local result, err
+    t.helpers.retrying({timeout = 60, delay = 0.1}, function()
+        result, err = g.router:call('crud.storage_call_many', {{
+            {
+                func_name = 'storage_call_test_returns',
+                args = {'first replicaset'},
+                bucket_id = g.buckets[1],
+            },
+            {
+                func_name = 'storage_call_test_returns',
+                args = {'second replicaset'},
+                bucket_id = g.buckets[2],
+            },
+        }})
+        t.assert_equals(err, nil)
+    end)
 
-    t.assert_equals(err, nil)
     t.assert_equals(result.results[1].returns[1], 'first replicaset')
     t.assert_equals(result.results[2].returns[1], 'second replicaset')
 end
