@@ -12,35 +12,37 @@ local group = t.group('storage_call', helpers.backend_matrix({{
 
 local function install_test_functions()
     if not box.info.ro and rawget(_G, 'crud') ~= nil then
-        box.schema.user.create('storage_call_test_user', {
-            password = 'secret',
-            if_not_exists = true,
-        })
-        if _TARANTOOL >= '3.0.0' then
-            box.schema.user.grant(
-                'storage_call_test_user', 'execute', 'lua_call',
-                'crud.storage_call', {if_not_exists = true}
-            )
-            box.schema.user.grant(
-                'storage_call_test_user', 'execute', 'lua_call',
-                'crud.storage_call_many', {if_not_exists = true}
-            )
-        else
-            box.schema.func.create('crud.storage_call', {
+        box.session.su('admin', function()
+            box.schema.user.create('storage_call_test_user', {
+                password = 'secret',
                 if_not_exists = true,
             })
-            box.schema.func.create('crud.storage_call_many', {
-                if_not_exists = true,
-            })
-            box.schema.user.grant(
-                'storage_call_test_user', 'execute', 'function',
-                'crud.storage_call', {if_not_exists = true}
-            )
-            box.schema.user.grant(
-                'storage_call_test_user', 'execute', 'function',
-                'crud.storage_call_many', {if_not_exists = true}
-            )
-        end
+            if _TARANTOOL >= '3.0.0' then
+                box.schema.user.grant(
+                    'storage_call_test_user', 'execute', 'lua_call',
+                    'crud.storage_call', {if_not_exists = true}
+                )
+                box.schema.user.grant(
+                    'storage_call_test_user', 'execute', 'lua_call',
+                    'crud.storage_call_many', {if_not_exists = true}
+                )
+            else
+                box.schema.func.create('crud.storage_call', {
+                    if_not_exists = true,
+                })
+                box.schema.func.create('crud.storage_call_many', {
+                    if_not_exists = true,
+                })
+                box.schema.user.grant(
+                    'storage_call_test_user', 'execute', 'function',
+                    'crud.storage_call', {if_not_exists = true}
+                )
+                box.schema.user.grant(
+                    'storage_call_test_user', 'execute', 'function',
+                    'crud.storage_call_many', {if_not_exists = true}
+                )
+            end
+        end)
     end
 
     if box.space._bucket == nil then
@@ -173,23 +175,23 @@ local function install_test_functions()
         if_not_exists = true,
     })
 
-    box.schema.user.create('storage_call_test_user', {
-        password = 'secret',
-        if_not_exists = true,
-    })
-    box.schema.user.grant(
-        'storage_call_test_user', 'execute', 'function',
-        'storage_call_test_returns', {if_not_exists = true}
-    )
-    box.schema.user.grant(
-        'storage_call_test_user', 'execute', 'function',
-        'storage_call_test_effective_user', {if_not_exists = true}
-    )
-    box.schema.user.grant(
-        'storage_call_test_user', 'execute', 'function',
-        'storage_call_test_access_denied_inside', {if_not_exists = true}
-    )
     box.session.su('admin', function()
+        box.schema.user.create('storage_call_test_user', {
+            password = 'secret',
+            if_not_exists = true,
+        })
+        box.schema.user.grant(
+            'storage_call_test_user', 'execute', 'function',
+            'storage_call_test_returns', {if_not_exists = true}
+        )
+        box.schema.user.grant(
+            'storage_call_test_user', 'execute', 'function',
+            'storage_call_test_effective_user', {if_not_exists = true}
+        )
+        box.schema.user.grant(
+            'storage_call_test_user', 'execute', 'function',
+            'storage_call_test_access_denied_inside', {if_not_exists = true}
+        )
         box.schema.user.grant(
             'storage_call_test_user', 'execute', 'function',
             '_crud.storage_call_on_storage', {if_not_exists = true}
