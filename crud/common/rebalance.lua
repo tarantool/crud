@@ -25,10 +25,13 @@ local function safe_mode_bucket_trigger(_, new, space, op)
     if space ~= '_bucket' then
         return
     end
-    -- We are interested only in two operations that indicate the beginning of bucket migration:
-    --  * We are receiving a bucket (new bucket with status RECEIVING)
-    --  * We are sending a bucket to another node (existing bucket status changes to SENDING)
+    -- Rebalancing start markers:
+    --  * INSERT with RECEIVING - the bucket is being received.
+    --  * UPDATE to READONLY - since vshard 0.1.41 a transfer starts in
+    --    READONLY.
+    --  * REPLACE to SENDING - compatibility with older vshard versions.
     if (op == 'INSERT' and new.status == vshard_consts.BUCKET.RECEIVING) or
+       (op == 'UPDATE' and new.status == vshard_consts.BUCKET.READONLY) or
        (op == 'REPLACE' and new.status == vshard_consts.BUCKET.SENDING) then
         local stored_safe_mode = schema.settings_space:get{ SAFE_MODE_STATUS }
         if not stored_safe_mode or not stored_safe_mode.value then
