@@ -16,7 +16,8 @@ pgroup.before_all(function(g)
     end
 
     -- patch vshard.router.call* functions
-    local vshard_call_names = {'callro', 'callbro', 'callre', 'callbre', 'callrw'}
+    local vshard_call_names = {'callro', 'callbro', 'callre', 'callbre', 'callrw',
+                               'update_master'}
     g.router:call('patch_vshard_calls', {vshard_call_names})
 end)
 
@@ -269,7 +270,7 @@ pgroup.test_any_vshard_call_timeout = function(g)
 end
 
 pgroup.before_test('test_any_vshard_call_fallback', function(g)
-    -- Mock callro to fail exactly once per replicaset.
+    -- Mock callro to fail permanently on a single replicaset.
     -- This guarantees that call.any triggers its fallback loop.
     g.router:eval([[
         local vshard = require('vshard')
@@ -280,17 +281,19 @@ pgroup.before_test('test_any_vshard_call_fallback', function(g)
         rawset(_G, '__original_callros', {})
         local originals = rawget(_G, '__original_callros')
 
+        local ids = {}
+        for replicaset_id in pairs(replicasets) do
+            table.insert(ids, replicaset_id)
+        end
+        table.sort(ids)
+        local broken_replicaset_id = ids[1]
+
         for replicaset_id, replicaset in pairs(replicasets) do
             originals[replicaset_id] = replicaset.callro
 
-            local calls_count = 0
-
-            replicaset.callro = function(self, ...)
-                calls_count = calls_count + 1
-                if calls_count == 1 then
+            if replicaset_id == broken_replicaset_id then
+                replicaset.callro = function(self, ...)
                     return nil, errors.new_class('ClientError'):new('Temporary failure')
-                else
-                    return originals[replicaset_id](self, ...)
                 end
             end
         end
@@ -327,4 +330,258 @@ pgroup.test_any_vshard_call_fallback = function(g)
     -- and uses the available fallback.
     t.assert_str_contains(results, 'HI, survivor!')
     t.assert_equals(err, nil)
+end
+
+local function is_vshard_backend(g)
+    return g.params.backend == helpers.backend.VSHARD
+end
+
+local function cfg_router_drop_masters(g)
+    g.router:exec(function(cfg)
+        local vshard = require('vshard')
+
+        for _, rs in pairs(cfg.sharding) do
+            rs.master = nil
+            for _, replica in pairs(rs.replicas) do
+                replica.master = nil
+            end
+        end
+        vshard.router.cfg(cfg)
+    end, {g.cfg})
+end
+
+local function cfg_router_move_masters_to_replicas(g)
+    g.router:exec(function(cfg)
+        local vshard = require('vshard')
+
+        -- The master is marked with 'master' in a static config and with
+        -- 'read_only = false' in the 'master = auto' one (test/vshard_helpers/vtest.lua).
+        for _, rs in pairs(cfg.sharding) do
+            local master_name
+            for replica_name, replica in pairs(rs.replicas) do
+                if replica.master or (replica.read_only ~= nil and not replica.read_only) then
+                    master_name = replica_name
+                    replica.master = nil
+                    break
+                end
+            end
+            for replica_name, replica in pairs(rs.replicas) do
+                if replica_name ~= master_name then
+                    replica.master = true
+                    break
+                end
+            end
+            rs.master = nil
+        end
+        vshard.router.cfg(cfg)
+    end, {g.cfg})
+end
+
+local function cfg_router_restore(g)
+    g.router:exec(function(cfg)
+        local vshard = require('vshard')
+        local fiber = require('fiber')
+
+        vshard.router.cfg(cfg)
+
+        -- The master search is asynchronous, but the next tests need masters.
+        local deadline = fiber.clock() + 10
+        while fiber.clock() < deadline do
+            local is_found = true
+            for _, rs in pairs(vshard.router.routeall()) do
+                if rs.master == nil then
+                    is_found = false
+                end
+            end
+            if is_found then
+                return
+            end
+            vshard.router.master_search_wakeup()
+            fiber.sleep(0.05)
+        end
+        error('masters are not found after the router cfg restore')
+    end, {g.cfg})
+end
+
+
+pgroup.before_test('test_single_retry_on_missing_master', function(g)
+    if not is_vshard_backend(g) then
+        return
+    end
+    -- The router cannot discover a bucket while the masters are gone, so the
+    -- route is cached in advance: router_cfg() keeps the route map.
+    g.router:exec(function()
+        require('vshard').router.static:route(1)
+    end)
+    cfg_router_drop_masters(g)
+    -- locate_master is patched and unpatched for this test only: with the
+    -- master = 'auto' backend config the background master search calls it
+    -- too, which would pollute the calls of other tests.
+    g.router:call('patch_vshard_calls', {{'locate_master'}})
+end)
+
+pgroup.after_test('test_single_retry_on_missing_master', function(g)
+    if not is_vshard_backend(g) then
+        return
+    end
+    g.router:call('unpatch_vshard_calls', {{'locate_master'}})
+    cfg_router_restore(g)
+end)
+
+pgroup.test_single_retry_on_missing_master = function(g)
+    t.skip_if(not is_vshard_backend(g),
+        'the router re-configuration is available on the vshard backend only')
+
+    g.clear_vshard_calls()
+    local results, err = g.router:eval([[
+        local vshard = require('vshard')
+        local call = require('crud.common.call')
+
+        return call.single(vshard.router.static, 1, 'say_hi_politely', {'Jonh'},
+            {mode = 'write'})
+    ]])
+
+    t.assert_equals(results, nil)
+    t.assert(err ~= nil)
+    helpers.assert_str_contains_pattern_with_replicaset_id(err.err, "Failed for [replicaset_id]")
+    t.assert_str_contains(err.err, 'Master is not configured')
+
+    -- The master discovery is performed, but the config has no master at all:
+    -- nothing is found, so the call is not retried.
+    t.assert_equals(g.get_vshard_calls(), {'callrw', 'locate_master'})
+end
+
+pgroup.before_test('test_single_non_master_no_retry', function(g)
+    if not is_vshard_backend(g) then
+        return
+    end
+    -- The router cannot discover a bucket while the masters are gone, so the
+    -- route is cached in advance: router_cfg() keeps the route map.
+    g.router:exec(function()
+        require('vshard').router.static:route(1)
+    end)
+    helpers.set_safe_mode(g.cluster, true)
+    cfg_router_move_masters_to_replicas(g)
+end)
+
+pgroup.after_test('test_single_non_master_no_retry', function(g)
+    if not is_vshard_backend(g) then
+        return
+    end
+    cfg_router_restore(g)
+    helpers.set_safe_mode(g.cluster, g.params.safe_mode)
+end)
+
+pgroup.test_single_non_master_no_retry = function(g)
+    t.skip_if(not is_vshard_backend(g),
+        'the router re-configuration is available on the vshard backend only')
+
+    g.clear_vshard_calls()
+    local results, err = g.router:eval([[
+        local vshard = require('vshard')
+        local call = require('crud.common.call')
+
+        return call.single(vshard.router.static, 1, 'bucket_ref_rw', {1}, {mode = 'write'})
+    ]])
+
+    t.assert_equals(results, nil)
+    t.assert(err ~= nil)
+    helpers.assert_str_contains_pattern_with_replicaset_id(err.err, "Failed for [replicaset_id]")
+    t.assert_str_contains(err.err, 'NON_MASTER')
+
+    -- The master is updated, but the retry makes no sense: the master is
+    -- assigned to a replica until the configuration is changed.
+    t.assert_equals(g.get_vshard_calls(), {'callrw', 'update_master'})
+end
+
+pgroup.before_test('test_single_wrong_bucket_retry_with_reroute', function(g)
+    if not is_vshard_backend(g) then
+        return
+    end
+    helpers.set_safe_mode(g.cluster, true)
+end)
+
+pgroup.after_test('test_single_wrong_bucket_retry_with_reroute', function(g)
+    if not is_vshard_backend(g) then
+        return
+    end
+    helpers.set_safe_mode(g.cluster, g.params.safe_mode)
+end)
+
+pgroup.test_single_wrong_bucket_retry_with_reroute = function(g)
+    t.skip_if(not is_vshard_backend(g),
+        'the router re-configuration is available on the vshard backend only')
+
+    g.clear_vshard_calls()
+    local results, err = g.router:eval([[
+        local vshard = require('vshard')
+        local call = require('crud.common.call')
+
+        local bucket_count = ...
+
+        local router = vshard.router.static
+        local replicaset = router:route(1)
+        local bucket_id
+        for id = 1, bucket_count do
+            if router:route(id) ~= replicaset then
+                bucket_id = id
+                break
+            end
+        end
+        assert(bucket_id ~= nil, 'no bucket on another replicaset')
+
+        -- The call is routed by bucket 1, but the bucket ref is taken for a
+        -- bucket from another replicaset: the route is stale.
+        return call.single(vshard.router.static, 1, 'bucket_ref_rw', {bucket_id},
+            {mode = 'write'})
+    ]], {g.cfg.bucket_count})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(results, true)
+
+    -- The bucket route is reset and the call is retried on the replicaset
+    -- the bucket is routed to now.
+    t.assert_equals(g.get_vshard_calls(), {'callrw', 'callrw'})
+end
+
+pgroup.before_test('test_map_retry_on_missing_master', function(g)
+    if not is_vshard_backend(g) then
+        return
+    end
+    cfg_router_drop_masters(g)
+    -- See the comment in before_test('test_single_retry_on_missing_master').
+    g.router:call('patch_vshard_calls', {{'locate_master'}})
+end)
+
+pgroup.after_test('test_map_retry_on_missing_master', function(g)
+    if not is_vshard_backend(g) then
+        return
+    end
+    g.router:call('unpatch_vshard_calls', {{'locate_master'}})
+    cfg_router_restore(g)
+end)
+
+pgroup.test_map_retry_on_missing_master = function(g)
+    t.skip_if(not is_vshard_backend(g),
+        'the router re-configuration is available on the vshard backend only')
+
+    g.clear_vshard_calls()
+    local results, errs = g.router:eval([[
+        local vshard = require('vshard')
+        local call = require('crud.common.call')
+
+        return call.map(vshard.router.static, 'say_hi_politely', {'Jonh'},
+            {mode = 'write'})
+    ]])
+
+    t.assert_equals(results, nil)
+    t.assert(errs ~= nil)
+    helpers.assert_str_contains_pattern_with_replicaset_id(errs.err, "Failed for [replicaset_id]")
+    t.assert_str_contains(errs.err, 'Master is not configured')
+
+    -- The requests are async, so vshard does not search for a master itself.
+    -- The master discovery is performed by crud, but the config has no master
+    -- at all: the search finds nothing, so the call is not retried.
+    -- The map call exits early on the first failed replicaset.
+    t.assert_equals(g.get_vshard_calls(), {'callrw', 'locate_master'})
 end

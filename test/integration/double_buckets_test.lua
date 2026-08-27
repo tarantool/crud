@@ -28,6 +28,18 @@ local function balance_cluster(g)
     end
 end
 
+-- Returns a replicaset name if it is used as a sharding key, otherwise
+-- returns a replicaset UUID.
+local function get_replicaset_id(server)
+    return server:exec(function()
+        local name = box.info.replicaset.name
+        if name == box.NULL then
+            name = box.info.replicaset.uuid
+        end
+        return name
+    end)
+end
+
 local pgroup_duplicates = t.group('double_buckets_duplicates', helpers.backend_matrix({
     {engine = 'memtx', operation = 'replace'},
     {engine = 'memtx', operation = 'insert'},
@@ -321,4 +333,193 @@ pgroup_not_applied.test_not_applied = function(g)
         not_applied_operations[g.params.operation].check_applied(res.rows, applied_ids)
         not_applied_operations[g.params.operation].check_not_applied(not_applied_ids)
     end
+end
+
+local function restart_storage(g, server)
+    server:stop()
+    server:start()
+    server:wait_for_rw()
+
+    if g.params.backend == helpers.backend.VSHARD then
+        local bootstrap_key = 'uuid'
+        if type(g.params.backend_cfg) == 'table'
+            and g.params.backend_cfg.identification_mode == 'name_as_key' then
+            bootstrap_key = 'name'
+        end
+
+        server:exec(function(cfg, bootstrap_key)
+            require('vshard.storage').cfg(cfg, box.info[bootstrap_key])
+            require('crud').init_storage()
+        end, {g.cfg, bootstrap_key})
+    end
+end
+
+local pgroup_transfers = t.group('double_buckets_transfers', helpers.backend_matrix({
+    {engine = 'memtx', safe_mode = false},
+}, {skip_safe_mode = true}))
+
+pgroup_transfers.before_all(function(g)
+    helpers.start_default_cluster(g, 'srv_simple_operations')
+    wait_balance(g, 1500, 1500)
+end)
+
+pgroup_transfers.after_all(function(g)
+    helpers.stop_cluster(g.cluster, g.params.backend)
+end)
+
+pgroup_transfers.after_each(function(g)
+    helpers.truncate_space_on_cluster(g.cluster, 'customers')
+
+    helpers.set_safe_mode(g.cluster, false)
+end)
+
+--
+-- Once the source became SENDING (READONLY since vshard 0.1.41),
+-- bucket_refrw() reported its destination and CRUD retried there directly.
+-- The destination must not accept that retry before bucket_recv() created
+-- the bucket as READONLY/RECEIVING.
+--
+pgroup_transfers.test_delete_before_bucket_receive = function(g)
+    t.skip_if(not utils.tarantool_version_at_least(3, 1),
+        'test implemented only for 3.1 and greater'
+    )
+
+    local source = g.cluster:server('s1-master')
+    local destination = g.cluster:server('s2-master')
+
+    -- Create the tuple.
+    local tuple_id = 8909
+    local bucket_id = source:exec(function(id)
+        local active = require('vshard.consts').BUCKET.ACTIVE
+        local bucket = box.space._bucket.index.status:min({active})
+        assert(bucket ~= nil)
+        box.space.customers:replace({id, bucket.id, 'A', 42})
+        return bucket.id
+    end, {tuple_id})
+
+    -- Populate the router cache with the source replicaset.
+    local get_result, get_err = g.router:call('crud.get', {
+        'customers', {tuple_id}, {bucket_id = bucket_id, mode = 'write'}})
+    t.assert_equals(get_err, nil)
+    t.assert_equals(#get_result.rows, 1)
+
+    -- Start sending the bucket.
+    destination:exec(function()
+        require('vshard').storage.internal.errinj.ERRINJ_RECEIVE_DELAY = true
+    end)
+    local destination_id = get_replicaset_id(destination)
+    -- Since vshard 0.1.41 a transfer starts in READONLY instead of SENDING,
+    -- but the SENDING is kept for compatibility with older versions.
+    local expected_status = require('vshard.consts').BUCKET.SENDING
+
+    source:exec(function(bucket_id, destination_id, expected_status)
+        local t = require('luatest')
+        local fiber = require('fiber')
+        local vshard = require('vshard')
+        rawset(_G, 'send_fiber', fiber.new(function()
+            return vshard.storage.bucket_send(bucket_id, destination_id)
+        end))
+        _G.send_fiber:set_joinable(true)
+        t.helpers.retrying({timeout = 15}, function()
+            t.assert_equals(box.space._bucket:get({bucket_id}).status,
+                expected_status)
+        end)
+        -- Safe mode is enabled.
+        t.assert(rawget(_G, '_crud').rebalance_safe_mode_status())
+    end, {bucket_id, destination_id, expected_status})
+
+    -- But destination doesn't have it yet.
+    destination:exec(function(bucket_id) local t = require('luatest')
+        t.assert_not(box.space._bucket:get({bucket_id}))
+    end, {bucket_id})
+
+    --
+    -- The sender was in safe mode, it redirected the router to the node,
+    -- which was not in safe mode yet: it hadn't received the bucket yet,
+    -- but the request was done anyway, even without the bucket.
+    --
+    local delete_result, delete_err = g.router:call('crud.delete', {
+        'customers', {tuple_id}, {bucket_id = bucket_id, timeout = 1},
+    })
+
+    -- delete should not succeed.
+    t.assert(delete_err ~= nil, ('delete succeeded with result %s, but ' ..
+        'tuple remained on destination'):format(json.encode(delete_result)))
+    t.assert_str_contains(delete_err.err, "TRANSFER_IS_IN_PROGRESS")
+
+    destination:exec(function()
+        require('vshard').storage.internal.errinj.ERRINJ_RECEIVE_DELAY = false
+    end)
+    source:exec(function()
+        local t = require('luatest')
+        local fiber_ok, status, err = _G.send_fiber:join()
+        t.assert(fiber_ok, status)
+        t.assert(status, err)
+    end)
+
+    destination:exec(function(tuple_id)
+        local t = require('luatest')
+        t.assert(box.space.customers:get({tuple_id}))
+    end, {tuple_id})
+end
+
+--
+-- Safe mode is enabled by an on_replace trigger on _bucket. The
+-- SENDING/RECEIVING rows replicate and fire the trigger on replicas too,
+-- so the replica stays in safe mode as well as the master. It is also
+-- persisted in the local settings space, so it stays enabled after a
+-- restart.
+--
+pgroup_transfers.test_safe_mode_replicates_and_persists = function(g)
+    t.skip_if(not utils.tarantool_version_at_least(3, 1),
+        'test implemented only for 3.1 and greater'
+    )
+    local source = g.cluster:server('s1-master')
+    local source_replica = g.cluster:server('s1-replica')
+    local destination = g.cluster:server('s2-master')
+
+    -- bucket_send requires both masters to be synced with their replicas
+    -- (is_bucket_in_sync is set by a background vshard fiber).
+    for _, server in ipairs({source, destination}) do
+        t.helpers.retrying({timeout = TIMEOUT}, function()
+            t.assert(server:exec(function()
+                return require('vshard').storage.internal.is_bucket_in_sync
+            end))
+        end)
+    end
+
+    -- Insert data into a bucket and explicitly send it to the second
+    -- replicaset.
+    local destination_id = get_replicaset_id(destination)
+
+    source:exec(function(destination_id)
+        local vshard = require('vshard')
+        local consts = require('vshard.consts')
+
+        local bucket = box.space._bucket.index.status:min({consts.BUCKET.ACTIVE})
+        assert(bucket ~= nil)
+
+        box.space.customers:replace({1, bucket.id, 'Danila', 40})
+
+        local ok, err = vshard.storage.bucket_send(bucket.id, destination_id)
+        assert(ok, err)
+    end, {destination_id})
+
+    -- Safe mode is enabled on the master and, via replication, on the
+    -- replica.
+    t.assert(source:exec(function()
+        return rawget(_G, '_crud').rebalance_safe_mode_status()
+    end))
+    t.helpers.retrying({timeout = TIMEOUT}, function()
+        t.assert(source_replica:exec(function()
+            return rawget(_G, '_crud').rebalance_safe_mode_status()
+        end))
+    end)
+
+    -- Safe mode is persisted in the local settings space and stays enabled
+    -- after the source is restarted.
+    restart_storage(g, source)
+    t.assert(source:exec(function()
+        return rawget(_G, '_crud').rebalance_safe_mode_status()
+    end))
 end

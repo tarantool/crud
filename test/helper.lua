@@ -922,6 +922,32 @@ function helpers.start_tarantool3_cluster(g, cfg)
     g.cluster:start()
 end
 
+function helpers.set_safe_mode(cluster, is_enabled)
+    local safe_mode_func = '_crud.rebalance_safe_mode_disable'
+    if is_enabled then
+        safe_mode_func = '_crud.rebalance_safe_mode_enable'
+    end
+    helpers.call_on_storages(cluster, function(server)
+        server.net_box:eval([[
+            box.schema.space.create('_crud_settings_local', {
+                engine = 'memtx',
+                format = {
+                    { name = 'key', type = 'string' },
+                    { name = 'value', type = 'any' },
+                },
+                is_local = true,
+                if_not_exists = true,
+            })
+            box.space._crud_settings_local:create_index('primary', { parts = { 'key' }, if_not_exists = true })
+        ]])
+        t.helpers.retrying(
+                {timeout = 60, delay = 0.1},
+                server.call,
+                server, safe_mode_func
+        )
+    end)
+end
+
 function helpers.start_cluster(g, cartridge_cfg, vshard_cfg, tarantool3_cluster_cfg, opts)
     checks('table', '?table', '?table', '?table', {
         wait_crud_is_ready = '?boolean',
@@ -983,29 +1009,7 @@ function helpers.start_cluster(g, cartridge_cfg, vshard_cfg, tarantool3_cluster_
     end
 
     if g.params and g.params.safe_mode ~= nil then
-        local safe_mode_func = '_crud.rebalance_safe_mode_disable'
-        if g.params.safe_mode then
-            safe_mode_func = '_crud.rebalance_safe_mode_enable'
-        end
-        helpers.call_on_storages(g.cluster, function(server)
-            server.net_box:eval([[
-                box.schema.space.create('_crud_settings_local', {
-                    engine = 'memtx',
-                    format = {
-                        { name = 'key', type = 'string' },
-                        { name = 'value', type = 'any' },
-                    },
-                    is_local = true,
-                    if_not_exists = true,
-                })
-                box.space._crud_settings_local:create_index('primary', { parts = { 'key' }, if_not_exists = true })
-            ]])
-            t.helpers.retrying(
-                    {timeout = 60, delay = 0.1},
-                    server.call,
-                    server, safe_mode_func
-            )
-        end)
+        helpers.set_safe_mode(g.cluster, g.params.safe_mode)
     end
 end
 
@@ -1312,7 +1316,7 @@ function helpers.schema_compatibility(schema)
 end
 
 function helpers.string_replace(base, old_fragment, new_fragment)
-    local i, j = base:find(old_fragment)
+    local i, j = base:find(old_fragment, 1, true)
 
     if i == nil then
         return base
@@ -1332,20 +1336,15 @@ function helpers.string_replace(base, old_fragment, new_fragment)
 end
 
 function helpers.assert_str_contains_pattern_with_replicaset_id(str, pattern)
-    local uuid_pattern = "%w+%-0000%-0000%-0000%-00000000000%d"
-    local name_pattern = "s%-%d" -- All existing test clusters use this pattern, but it may change in the future.
+    -- A replicaset id is either a UUID or a name, depending on the vshard
+    -- identification mode.
+    local id_pattern = "[%w%-_]+"
 
-    local found = false
-    for _, id_pattern in pairs({uuid_pattern, name_pattern}) do
-        -- pattern is expected to be like "Failed for [replicaset_id]".
-        local full_pattern = helpers.string_replace('[replicaset_id]', id_pattern)
-        if str:find(full_pattern) ~= nil then
-            found = true
-            break
-        end
-    end
+    -- pattern is expected to be like "Failed for [replicaset_id]".
+    local full_pattern = helpers.string_replace(pattern, '[replicaset_id]', id_pattern)
 
-    t.assert(found, ("string %q does not contain pattern %q"):format(str, pattern))
+    t.assert(str:find(full_pattern) ~= nil,
+        ("string %q does not contain pattern %q"):format(str, pattern))
 end
 
 function helpers.prepare_ordered_data(g, space, expected_objects, bucket_id, order_condition)
