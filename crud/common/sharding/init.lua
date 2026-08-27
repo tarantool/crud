@@ -18,7 +18,8 @@ function sharding.get_replicasets_by_bucket_id(vshard_router, bucket_id)
         return nil, GetReplicasetsError:new("Failed to get replicaset for bucket_id %s: %s", bucket_id, err.err)
     end
 
-    local replicaset_id = utils.get_replicaset_id(vshard_router, replicaset)
+    local replicaset_id = replicaset.id
+
     if replicaset_id == nil then
         return nil, GetReplicasetsError:new("Failed to get replicaset id for bucket_id %s replicaset", bucket_id)
     end
@@ -314,7 +315,7 @@ function sharding.split_tuples_by_replicaset(vshard_router, tuples, space, opts)
                     sharding_data.bucket_id, err.err)
         end
 
-        local replicaset_id = utils.get_replicaset_id(vshard_router, replicaset)
+        local replicaset_id = replicaset.id
         if replicaset_id == nil then
             return nil, GetReplicasetsError:new(
                     "Failed to get replicaset id for bucket_id %s replicaset",

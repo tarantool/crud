@@ -100,19 +100,6 @@ function vshard_utils.get_self_vshard_replica_id()
     end
 end
 
-function vshard_utils.get_replicaset_id(vshard_router, replicaset)
-    -- https://github.com/tarantool/vshard/issues/460.
-    local known_replicasets = vshard_router:routeall()
-
-    for known_replicaset_id, known_replicaset in pairs(known_replicasets) do
-        if known_replicaset == replicaset then
-            return known_replicaset_id
-        end
-    end
-
-    return nil
-end
-
 function vshard_utils.get_vshard_identification_mode()
     -- https://github.com/tarantool/vshard/issues/460.
     assert(vshard.storage.internal.current_cfg ~= nil, 'available only on vshard storage')

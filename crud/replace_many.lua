@@ -214,7 +214,7 @@ local function call_replace_many_on_router(vshard_router, space_name, original_t
         return nil, {err}, const.NEED_SCHEMA_RELOAD
     end
 
-    local postprocessor = BatchPostprocessor:new(vshard_router)
+    local postprocessor = BatchPostprocessor:new()
 
     local rows, errs, storages_info = call.map(vshard_router, CRUD_REPLACE_MANY_FUNC_NAME, nil, {
         timeout = opts.timeout,

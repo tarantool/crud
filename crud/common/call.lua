@@ -53,27 +53,16 @@ function call.get_vshard_call_name(mode, prefer_replica, balance)
     return 'callbre'
 end
 
-local function wrap_vshard_err(vshard_router, err, func_name, replicaset_id, bucket_id)
+local function wrap_vshard_err(err, func_name, replicaset_id)
     -- Do not rewrite ShardingHashMismatchError class.
     if err.class_name == sharding_utils.ShardingHashMismatchError.name then
         return errors.wrap(err)
     end
 
     if replicaset_id == nil then
-        local replicaset, _ = vshard_router:route(bucket_id)
-        if replicaset == nil then
-            return CallError:new(
-                "Function returned an error, but we couldn't figure out the replicaset: %s", err
-            )
-        end
-
-        replicaset_id = utils.get_replicaset_id(vshard_router, replicaset)
-
-        if replicaset_id == nil then
-            return CallError:new(
-                "Function returned an error, but we couldn't figure out the replicaset id: %s", err
-            )
-        end
+        return CallError:new(
+            "Function returned an error, but we couldn't figure out the replicaset id: %s", err
+        )
     end
 
     err = utils.update_storage_call_error_description(err, func_name, replicaset_id)
@@ -249,7 +238,7 @@ function call.single(vshard_router, bucket_id, func_name, func_args, opts)
     local res, err = call_with_retry_and_recovery(vshard_router, replicaset, vshard_call_name,
         func_name, func_args, {timeout = timeout, request_timeout = request_timeout}, true)
     if err ~= nil then
-        return nil, wrap_vshard_err(vshard_router, err, func_name, nil, bucket_id)
+        return nil, wrap_vshard_err(err, func_name, replicaset.id)
     end
 
     if res == box.NULL then
@@ -302,7 +291,7 @@ function call.any(vshard_router, func_name, func_args, opts)
         end
     end
 
-    return nil, wrap_vshard_err(vshard_router, last_err, func_name, last_replicaset_id)
+    return nil, wrap_vshard_err(last_err, func_name, last_replicaset_id)
 end
 
 return call
