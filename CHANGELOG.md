@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+* Fix consistency violation during rebalancing: a request could be retried on a
+  storage that did not own the bucket yet, so a read returned no data and a
+  write went to the wrong replicaset (#509).
+* Stop retrying requests blindly: a request is retried only if the router has
+  recovered from the error, and a retry never runs past the original timeout —
+  before, a request could take up to twice as long as requested.
+
 ## [1.7.5] - 15-07-26
 
 ### Added

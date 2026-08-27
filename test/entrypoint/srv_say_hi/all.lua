@@ -39,18 +39,63 @@ return {
             local _, replicaset = next(replicasets)
             local replicaset_mt = getmetatable(replicaset)
 
-            for _, vshard_call_name in ipairs(vshard_call_names) do
-                local old_func = replicaset_mt.__index[vshard_call_name]
-                assert(old_func ~= nil, vshard_call_name)
+            if rawget(_G, 'vshard_call_originals') == nil then
+                rawset(_G, 'vshard_call_originals', {})
+            end
+            local originals = rawget(_G, 'vshard_call_originals')
 
-                replicaset_mt.__index[vshard_call_name] = function(...)
-                    local func_name = select(2, ...)
-                    if not string.startswith(func_name, 'vshard.') or func_name == 'vshard.storage.call' then
-                        table.insert(_G.vshard_calls, vshard_call_name)
+            for _, vshard_call_name in ipairs(vshard_call_names) do
+                if originals[vshard_call_name] == nil then
+                    local old_func = replicaset_mt.__index[vshard_call_name]
+                    assert(old_func ~= nil, vshard_call_name)
+
+                    originals[vshard_call_name] = old_func
+
+                    replicaset_mt.__index[vshard_call_name] = function(...)
+                        local func_name = select(2, ...)
+                        if func_name == nil
+                            or not string.startswith(func_name, 'vshard.')
+                            or func_name == 'vshard.storage.call' then
+                            table.insert(_G.vshard_calls, vshard_call_name)
+                        end
+                        return old_func(...)
                     end
-                    return old_func(...)
                 end
             end
+        end)
+
+        rawset(_G, 'unpatch_vshard_calls', function(vshard_call_names)
+            local vshard = require('vshard')
+
+            local replicasets = vshard.router.routeall()
+
+            local _, replicaset = next(replicasets)
+            local replicaset_mt = getmetatable(replicaset)
+
+            local originals = rawget(_G, 'vshard_call_originals')
+            if originals == nil then
+                return
+            end
+
+            for _, vshard_call_name in ipairs(vshard_call_names) do
+                local old_func = originals[vshard_call_name]
+                if old_func ~= nil then
+                    replicaset_mt.__index[vshard_call_name] = old_func
+                    originals[vshard_call_name] = nil
+                end
+            end
+        end)
+
+        rawset(_G, 'bucket_ref_rw', function(bucket_id)
+            local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
+
+            local ref_ok, err, unref = bucket_ref_unref.bucket_refrw(bucket_id)
+            if not ref_ok then
+                return nil, err
+            end
+
+            local res, err = unref(bucket_id)
+            return res, err
         end)
 
         if type(box.cfg) ~= 'table' then
@@ -61,7 +106,9 @@ return {
                 add_storage_execute('clear_vshard_calls')
                 add_storage_execute('say_hi_sleepily')
                 add_storage_execute('say_hi_politely')
+                add_storage_execute('bucket_ref_rw')
                 add_storage_execute('patch_vshard_calls')
+                add_storage_execute('unpatch_vshard_calls')
                 add_storage_execute('non_existent_func')
             end)()
         end

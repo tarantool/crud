@@ -73,47 +73,145 @@ local function wrap_vshard_err(err, func_name, replicaset_id)
     ))
 end
 
---- Executes a vshard call and retries once after performing recovery actions
---- like bucket cache reset, destination redirect (for single calls), or master discovery.
-local function call_with_retry_and_recovery(vshard_router,
-    replicaset, method, func_name, func_args, call_opts, is_single_call)
+--- Executes a CRUD function on a vshard replicaset.
+local function call_on_replicaset(replicaset, method, func_name, func_args, call_opts)
     local func_args_ext = utils.append_array({ box.session.effective_user(), func_name }, func_args)
-
-    -- In case cluster was just bootstrapped with auto master discovery,
-    -- replicaset may miss master.
-    local resp, err = replicaset[method](replicaset, CRUD_CALL_FUNC_NAME, func_args_ext, call_opts)
-
-    if err == nil then
-        return resp, err
-    end
-
-    -- This is a partial copy of error handling from vshard.router.router_call_impl()
-    -- It is much simpler mostly because bucket_set() can't be accessed from outside vshard.
-    if err.class_name == bucket_ref_unref.BucketRefError.name then
-        if is_single_call and #err.bucket_ref_errs == 1 then
-            local single_err = err.bucket_ref_errs[1]
-            local destination = single_err.vshard_err.destination
-            if destination and vshard_router.replicasets[destination] then
-                replicaset = vshard_router.replicasets[destination]
-            end
-        end
-
-        for _, bucket_ref_err in pairs(err.bucket_ref_errs) do
-            local bucket_id = bucket_ref_err.bucket_id
-            local vshard_err = bucket_ref_err.vshard_err
-            if vshard_err.name == 'WRONG_BUCKET' or
-               vshard_err.name == 'BUCKET_IS_LOCKED' or
-               vshard_err.name == 'TRANSFER_IS_IN_PROGRESS' then
-                vshard_router:_bucket_reset(bucket_id)
-            end
-        end
-    elseif err.name == 'MISSING_MASTER' and replicaset.locate_master ~= nil then
-        replicaset:locate_master()
-    end
-
-    -- Retry only once: should be enough for initial discovery,
-    -- otherwise force user fix up cluster bootstrap.
     return replicaset[method](replicaset, CRUD_CALL_FUNC_NAME, func_args_ext, call_opts)
+end
+
+--- The bucket is not on the replicaset it is routed to anymore, so its
+--- route is stale and must be dropped from the router cache.
+local BUCKET_MOVED_ERRS = {
+    WRONG_BUCKET = true,
+    BUCKET_IS_LOCKED = true,
+    TRANSFER_IS_IN_PROGRESS = true,
+}
+
+--- Performs a recovery action for a call error:
+--- * MISSING_MASTER - the replicaset master is not discovered yet, so it
+---   is discovered explicitly;
+--- * NON_MASTER - the cached master is stale, but the bucket did not move,
+---   so the master is updated and the same replicaset can be retried;
+--- * WRONG_BUCKET, BUCKET_IS_LOCKED, TRANSFER_IS_IN_PROGRESS - the bucket
+---   route is stale, so the route cache is reset and the bucket is routed
+---   anew.
+---
+--- The routes of all the moved buckets are reset even when the request itself
+--- cannot be retried: the cache is stale regardless of the retry decision.
+---
+--- Returns:
+--- * replicaset - the replicaset to retry the request on;
+--- * nil - the request cannot be retried;
+--- * nil, err - the recovery itself failed, so the request cannot be retried.
+local function recover_from_err(vshard_router, replicaset, err)
+    local vshard_err = err
+
+    if err.class_name == bucket_ref_unref.BucketRefError.name then
+        for _, bucket_ref_err in ipairs(err.bucket_ref_errs) do
+            if BUCKET_MOVED_ERRS[bucket_ref_err.vshard_err.name] then
+                vshard_router:_bucket_reset(bucket_ref_err.bucket_id)
+            end
+        end
+
+        -- A request that failed on several buckets has no single replicaset
+        -- to be retried on, so only a single-bucket one is recovered further.
+        if #err.bucket_ref_errs ~= 1 then
+            return nil
+        end
+
+        vshard_err = err.bucket_ref_errs[1].vshard_err
+
+        if BUCKET_MOVED_ERRS[vshard_err.name] then
+            -- The stale route has been reset above, so the bucket is routed
+            -- anew.
+            local new_replicaset, route_err = vshard_router:route(err.bucket_ref_errs[1].bucket_id)
+            if route_err ~= nil then
+                return nil, CallError:new(
+                    "Failed to get router replicaset: %s, after an error: %s",
+                    tostring(route_err),
+                    tostring(err)
+                )
+            end
+            return new_replicaset
+        end
+    end
+
+    if vshard_err.name == 'MISSING_MASTER' then
+        replicaset:locate_master()
+        -- The master is not found, so the retry would get the same error.
+        if replicaset.master == nil then
+            return nil
+        end
+        return replicaset
+    elseif vshard_err.name == 'NON_MASTER' then
+        -- If the master update failed, the retry would get the same error.
+        if not replicaset:update_master(vshard_err.replica, vshard_err.master) then
+            return nil
+        end
+        return replicaset
+    end
+
+    return nil
+end
+
+local function call_single_with_recovery(vshard_router,
+    replicaset, method, func_name, func_args, call_opts)
+    local deadline = fiber_clock() + call_opts.timeout
+
+    local resp, err = call_on_replicaset(replicaset, method, func_name, func_args, call_opts)
+    if err == nil then
+        return resp, err, replicaset.id
+    end
+
+    local retry_replicaset, recover_err = recover_from_err(vshard_router, replicaset, err)
+    if retry_replicaset == nil then
+        return resp, recover_err or err, replicaset.id
+    end
+
+    local timeout = deadline - fiber_clock()
+    if timeout <= 0 then
+        return resp, err, replicaset.id
+    end
+
+    replicaset = retry_replicaset
+
+    call_opts.timeout = timeout
+    if call_opts.request_timeout ~= nil and call_opts.request_timeout > timeout then
+        call_opts.request_timeout = timeout
+    end
+
+    resp, err = call_on_replicaset(replicaset, method, func_name, func_args, call_opts)
+    return resp, err, replicaset.id
+end
+
+local function call_map_with_recovery(replicaset, method, func_name, func_args,
+    call_opts, deadline)
+    local future, err = call_on_replicaset(replicaset, method, func_name, func_args, call_opts)
+    if err == nil or err.name ~= 'MISSING_MASTER' then
+        return future, err
+    end
+
+    if fiber_clock() >= deadline then
+        return future, err
+    end
+
+    replicaset:locate_master()
+
+    -- The master is not found, so the retry would get the same error.
+    if replicaset.master == nil then
+        return future, err
+    end
+
+    local timeout = deadline - fiber_clock()
+    if timeout <= 0 then
+        return future, err
+    end
+
+    if call_opts.request_timeout ~= nil and call_opts.request_timeout > timeout then
+        call_opts.request_timeout = timeout
+    end
+
+    return call_on_replicaset(replicaset, method, func_name, func_args, call_opts)
 end
 
 function call.map(vshard_router, func_name, func_args, opts)
@@ -158,11 +256,13 @@ function call.map(vshard_router, func_name, func_args, opts)
         is_async = true,
         request_timeout = opts.mode == 'read' and opts.request_timeout or nil,
     }
+
+    local deadline = fiber_clock() + timeout
     while iter:has_next() do
         local args, replicaset, replicaset_id = iter:get()
 
-        local future, err = call_with_retry_and_recovery(vshard_router, replicaset, vshard_call_name,
-            func_name, args, call_opts, false)
+        local future, err = call_map_with_recovery(replicaset, vshard_call_name,
+            func_name, args, call_opts, deadline)
 
         if err ~= nil then
             local result_info = {
@@ -184,7 +284,6 @@ function call.map(vshard_router, func_name, func_args, opts)
         futures_by_replicasets[replicaset_id] = future
     end
 
-    local deadline = fiber_clock() + timeout
     for replicaset_id, future in pairs(futures_by_replicasets) do
         local wait_timeout = deadline - fiber_clock()
         if wait_timeout < 0 then
@@ -235,10 +334,11 @@ function call.single(vshard_router, bucket_id, func_name, func_args, opts)
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
     local request_timeout = opts.mode == 'read' and opts.request_timeout or nil
 
-    local res, err = call_with_retry_and_recovery(vshard_router, replicaset, vshard_call_name,
-        func_name, func_args, {timeout = timeout, request_timeout = request_timeout}, true)
+    local res, err, replicaset_id = call_single_with_recovery(vshard_router, replicaset, vshard_call_name,
+        func_name, func_args, {timeout = timeout, request_timeout = request_timeout})
+
     if err ~= nil then
-        return nil, wrap_vshard_err(err, func_name, replicaset.id)
+        return nil, wrap_vshard_err(err, func_name, replicaset_id)
     end
 
     if res == box.NULL then
@@ -265,7 +365,7 @@ function call.any(vshard_router, func_name, func_args, opts)
 
     local deadline = fiber_clock() + timeout
 
-    for replicaset_id, replicaset in pairs(replicasets) do
+    for _, replicaset in pairs(replicasets) do
         local wait_timeout = deadline - fiber_clock()
 
         local is_timeout = wait_timeout < 0
@@ -273,8 +373,8 @@ function call.any(vshard_router, func_name, func_args, opts)
             wait_timeout = 0
         end
 
-        local res, err = call_with_retry_and_recovery(vshard_router, replicaset, 'callro',
-            func_name, func_args, {timeout = wait_timeout}, false)
+        local res, err, replicaset_id = call_single_with_recovery(vshard_router, replicaset, 'callro',
+            func_name, func_args, {timeout = wait_timeout})
 
         if err == nil then
             if res == box.NULL then
