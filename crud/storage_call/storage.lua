@@ -1,4 +1,5 @@
 local msgpack = require('msgpack')
+local vshard = require('vshard')
 
 local sharding = require('crud.common.sharding')
 local utils = require('crud.common.utils')
@@ -208,15 +209,85 @@ local function execute(run_as_user, call_data)
     return {returns = returns}
 end
 
+local function append_result(results, result, call_data)
+    result.operation_index = call_data.operation_index
+    table.insert(results, result)
+end
+
+local function execute_bucket_calls(results, run_as_user, bucket_calls)
+    for _, call_data in ipairs(bucket_calls) do
+        append_result(results, execute(run_as_user, call_data), call_data)
+    end
+end
+
+local function unref_bucket(bucket_id)
+    local status, ok, err = pcall(
+        vshard.storage.bucket_unrefrw,
+        bucket_id
+    )
+    if not status then
+        return nil, ok
+    end
+
+    return ok, err
+end
+
+local function append_bucket_ref_errors(results, bucket_calls, ref_err)
+    for _, call_data in ipairs(bucket_calls) do
+        append_result(results, {
+            error = storage_call_errors.new(
+                ('Failed to acquire a write reference for bucket %s: %s')
+                    :format(
+                        call_data.bucket_id,
+                        storage_call_errors.message(ref_err)
+                    ),
+                call_data,
+                false
+            ),
+        }, call_data)
+    end
+end
+
 local function execute_many(run_as_user, calls_by_bucket)
     local results = {}
 
-    for _, bucket_calls in pairs(calls_by_bucket) do
-        for _, call_data in ipairs(bucket_calls) do
-            local result = execute(run_as_user, call_data)
-            result.operation_index = call_data.operation_index
-            table.insert(results, result)
+    for bucket_id, bucket_calls in pairs(calls_by_bucket) do
+        local ref_ok, ref_err = vshard.storage.bucket_refrw(bucket_id)
+        if not ref_ok then
+            append_bucket_ref_errors(results, bucket_calls, ref_err)
+            goto continue
         end
+
+        local execute_ok, execute_err = pcall(
+            execute_bucket_calls,
+            results,
+            run_as_user,
+            bucket_calls
+        )
+        local unref_ok, unref_err = unref_bucket(bucket_id)
+
+        if not execute_ok then
+            local message = storage_call_errors.message(execute_err)
+            if not unref_ok then
+                message = ('%s; failed to release the write reference for '
+                    .. 'bucket %s: %s'):format(
+                        message,
+                        bucket_id,
+                        storage_call_errors.message(unref_err)
+                    )
+            end
+            error(message)
+        end
+
+        if not unref_ok then
+            error(('Failed to release the write reference for bucket %s: %s')
+                :format(
+                    bucket_id,
+                    storage_call_errors.message(unref_err)
+                ))
+        end
+
+        ::continue::
     end
 
     return results

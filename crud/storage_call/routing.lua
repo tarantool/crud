@@ -1,4 +1,5 @@
-local sharding = require('crud.common.sharding')
+local fiber = require('fiber')
+
 local sharding_key = require('crud.common.sharding.sharding_key')
 local sharding_metadata = require(
     'crud.common.sharding.sharding_metadata'
@@ -7,6 +8,25 @@ local utils = require('crud.common.utils')
 local storage_call_errors = require('crud.storage_call.errors')
 
 local routing = {}
+
+local function remaining_timeout(deadline)
+    return math.max(deadline - fiber.clock(), 0)
+end
+
+local function validate_bucket_id(bucket_id, bucket_count, where)
+    if type(bucket_id) ~= 'number'
+    or bucket_id < 1
+    or bucket_id % 1 ~= 0
+    or bucket_id > bucket_count then
+        return storage_call_errors.class:new(
+            ('Invalid bucket_id in %s: expected unsigned Lua number in '
+                .. 'range [1, %d], got %s'),
+            where,
+            bucket_count,
+            type(bucket_id)
+        )
+    end
+end
 
 function routing.array_length(value)
     local count = 0
@@ -99,7 +119,12 @@ local function validate_call(call_data, operation_index)
     return error_call_data
 end
 
-local function by_key(vshard_router, call_data, timeout)
+local function by_key(vshard_router, call_data, deadline, bucket_count)
+    local timeout = remaining_timeout(deadline)
+    if timeout == 0 then
+        return nil, storage_call_errors.timeout_before_send(call_data)
+    end
+
     local space, err = utils.get_space(call_data.space_name, vshard_router, {
         timeout = timeout,
         read_only = false,
@@ -117,6 +142,11 @@ local function by_key(vshard_router, call_data, timeout)
     local key = call_data.key
     if box.tuple.is(key) then
         key = key:totable()
+    end
+
+    timeout = remaining_timeout(deadline)
+    if timeout == 0 then
+        return nil, storage_call_errors.timeout_before_send(call_data)
     end
 
     local sharding_key_data
@@ -141,6 +171,11 @@ local function by_key(vshard_router, call_data, timeout)
         return nil, err
     end
 
+    timeout = remaining_timeout(deadline)
+    if timeout == 0 then
+        return nil, storage_call_errors.timeout_before_send(call_data)
+    end
+
     local sharding_func_data
     sharding_func_data, err = sharding_metadata.fetch_sharding_func_on_router(
         vshard_router,
@@ -160,7 +195,11 @@ local function by_key(vshard_router, call_data, timeout)
         )
     end
 
-    err = sharding.validate_bucket_id(bucket_id, 'sharding function result')
+    err = validate_bucket_id(
+        bucket_id,
+        bucket_count,
+        'sharding function result'
+    )
     if err ~= nil then
         return nil, err
     end
@@ -174,7 +213,8 @@ local function by_key(vshard_router, call_data, timeout)
     }
 end
 
-function routing.call(vshard_router, call_data, operation_index, timeout)
+function routing.call(vshard_router, call_data, operation_index, deadline,
+                      bucket_count)
     local error_call_data, err = validate_call(call_data, operation_index)
     if err ~= nil then
         return nil, err
@@ -183,7 +223,7 @@ function routing.call(vshard_router, call_data, operation_index, timeout)
     local route_data
     if call_data.bucket_id ~= nil then
         local context = ('calls[%d]'):format(operation_index)
-        err = sharding.validate_bucket_id(call_data.bucket_id, context)
+        err = validate_bucket_id(call_data.bucket_id, bucket_count, context)
         if err ~= nil then
             return nil, storage_call_errors.new(
                 storage_call_errors.message(err),
@@ -197,7 +237,12 @@ function routing.call(vshard_router, call_data, operation_index, timeout)
             skip_sharding_hash_check = true,
         }
     else
-        route_data, err = by_key(vshard_router, call_data, timeout)
+        route_data, err = by_key(
+            vshard_router,
+            call_data,
+            deadline,
+            bucket_count
+        )
         if err ~= nil then
             return nil, storage_call_errors.new(
                 storage_call_errors.message(err),
@@ -219,19 +264,21 @@ function routing.call(vshard_router, call_data, operation_index, timeout)
     }
 end
 
-function routing.single(vshard_router, opts, timeout)
+function routing.single(vshard_router, opts, deadline, bucket_count)
     local routed_call, err = routing.call(vshard_router, {
         func_name = '',
         args = {},
         bucket_id = opts.bucket_id,
         space_name = opts.space_name,
         key = opts.key,
-    }, 1, timeout)
+    }, 1, deadline, bucket_count)
     if err ~= nil then
-        return nil, storage_call_errors.class:new(
+        local single_err = storage_call_errors.class:new(
             '%s',
             storage_call_errors.message(err)
         )
+        single_err.may_have_side_effects = false
+        return nil, single_err
     end
 
     return routed_call

@@ -38,8 +38,14 @@ function router.call(func_name, args, opts)
 
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
     local deadline = fiber.clock() + timeout
+    local bucket_count = vshard_router:bucket_count()
     local route_data
-    route_data, err = routing.single(vshard_router, opts, timeout)
+    route_data, err = routing.single(
+        vshard_router,
+        opts,
+        deadline,
+        bucket_count
+    )
     if err ~= nil then
         return nil, err
     end
@@ -98,6 +104,7 @@ function router.call_many(calls, opts)
 
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
     local deadline = fiber.clock() + timeout
+    local bucket_count = vshard_router:bucket_count()
     local results = {}
     local expected_calls = {}
     local calls_by_bucket = {}
@@ -108,7 +115,8 @@ function router.call_many(calls, opts)
             vshard_router,
             calls[operation_index],
             operation_index,
-            remaining_timeout(deadline)
+            deadline,
+            bucket_count
         )
 
         if err ~= nil then

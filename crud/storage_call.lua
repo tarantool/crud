@@ -62,7 +62,7 @@ end
 -- @treturn[2] table Call error.
 function storage_call.call(func_name, args, opts)
     dev_checks('string', '?table', {
-        bucket_id = '?number',
+        bucket_id = '?',
         space_name = '?string',
         key = '?',
         timeout = '?number',
