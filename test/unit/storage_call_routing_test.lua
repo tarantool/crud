@@ -1,8 +1,41 @@
 local t = require('luatest')
+local ffi = require('ffi')
+local fiber = require('fiber')
 
 local routing = require('crud.storage_call.routing')
+local sharding_metadata = require(
+    'crud.common.sharding.sharding_metadata'
+)
+local utils = require('crud.common.utils')
 
 local group = t.group('storage_call_routing')
+local bucket_count = 3000
+
+group.before_each(function(g)
+    g.get_space = utils.get_space
+    g.fetch_sharding_key =
+        sharding_metadata.fetch_sharding_key_on_router
+    g.fetch_sharding_func =
+        sharding_metadata.fetch_sharding_func_on_router
+end)
+
+group.after_each(function(g)
+    utils.get_space = g.get_space
+    sharding_metadata.fetch_sharding_key_on_router =
+        g.fetch_sharding_key
+    sharding_metadata.fetch_sharding_func_on_router =
+        g.fetch_sharding_func
+end)
+
+local function route(call_data)
+    return routing.call(
+        {},
+        call_data,
+        7,
+        fiber.clock() + 1,
+        bucket_count
+    )
+end
 
 group.test_array_length_accepts_empty_and_dense_arrays = function()
     local length, err = routing.array_length({})
@@ -80,11 +113,25 @@ local invalid_call_cases = {
         call_data = {func_name = 'test', bucket_id = 0},
         error = 'expected unsigned',
     },
+    bucket_id_is_cdata = {
+        call_data = {
+            func_name = 'test',
+            bucket_id = ffi.new('uint64_t', 1),
+        },
+        error = 'expected unsigned Lua number',
+    },
+    bucket_id_is_out_of_range = {
+        call_data = {
+            func_name = 'test',
+            bucket_id = bucket_count + 1,
+        },
+        error = 'range [1, 3000]',
+    },
 }
 
 for name, case in pairs(invalid_call_cases) do
     group['test_rejects_' .. name] = function()
-        local routed_call, err = routing.call({}, case.call_data, 7, 1)
+        local routed_call, err = route(case.call_data)
 
         t.assert_equals(routed_call, nil)
         t.assert_str_contains(err.err, case.error)
@@ -95,10 +142,10 @@ for name, case in pairs(invalid_call_cases) do
 end
 
 group.test_direct_bucket_route_defaults_args = function()
-    local routed_call, err = routing.call({}, {
+    local routed_call, err = route({
         func_name = 'test',
         bucket_id = 1,
-    }, 7, 1)
+    })
 
     t.assert_equals(err, nil)
     t.assert_equals(routed_call, {
@@ -108,4 +155,65 @@ group.test_direct_bucket_route_defaults_args = function()
         bucket_id = 1,
         skip_sharding_hash_check = true,
     })
+end
+
+group.test_key_route_passes_remaining_timeout_to_each_stage = function()
+    local timeouts = {}
+    utils.get_space = function(_, _, opts)
+        table.insert(timeouts, opts.timeout)
+        fiber.sleep(0.01)
+        return {index = {[0] = {parts = {}}}}
+    end
+    sharding_metadata.fetch_sharding_key_on_router = function(_, _, timeout)
+        table.insert(timeouts, timeout)
+        fiber.sleep(0.01)
+        return {value = nil, hash = 1}
+    end
+    sharding_metadata.fetch_sharding_func_on_router = function(_, _, timeout)
+        table.insert(timeouts, timeout)
+        return {value = nil, hash = 2}
+    end
+
+    local router = {
+        bucket_id_strcrc32 = function()
+            return 1
+        end,
+    }
+    local routed_call, err = routing.call(router, {
+        func_name = 'test',
+        space_name = 'customers',
+        key = {1},
+    }, 1, fiber.clock() + 1, bucket_count)
+
+    t.assert_equals(err, nil)
+    t.assert_equals(routed_call.bucket_id, 1)
+    t.assert_equals(#timeouts, 3)
+    t.assert(timeouts[1] > timeouts[2])
+    t.assert(timeouts[2] > timeouts[3])
+end
+
+group.test_key_route_stops_when_common_deadline_expires = function()
+    local metadata_fetches = 0
+    utils.get_space = function()
+        fiber.sleep(0.02)
+        return {index = {[0] = {parts = {}}}}
+    end
+    sharding_metadata.fetch_sharding_key_on_router = function()
+        metadata_fetches = metadata_fetches + 1
+        return {value = nil, hash = 1}
+    end
+
+    local routed_call, err = routing.call({}, {
+        func_name = 'test',
+        space_name = 'customers',
+        key = {1},
+    }, 1, fiber.clock() + 0.005, bucket_count)
+
+    t.assert_equals(routed_call, nil)
+    t.assert_str_contains(
+        err.err,
+        'before the operation was sent to storage'
+    )
+    t.assert_equals(err.may_have_side_effects, false)
+    t.assert_equals(metadata_fetches, 0)
 end

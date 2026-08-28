@@ -135,6 +135,23 @@ local function install_test_functions()
                 return value
             end
         ]],
+        storage_call_test_location = [[
+            function(value)
+                _G.storage_call_test_target_calls =
+                    _G.storage_call_test_target_calls + 1
+                return value, box.info.uuid
+            end
+        ]],
+        storage_call_test_wait_for_release = [[
+            function()
+                _G.storage_call_test_wait_started = true
+                while not _G.storage_call_test_wait_release do
+                    require('fiber').sleep(0.001)
+                end
+                _G.storage_call_test_wait_finished = true
+                return true
+            end
+        ]],
         storage_call_test_access_denied_inside = [[
             function()
                 _G.storage_call_test_target_calls =
@@ -211,6 +228,12 @@ local function reset_test_state()
     rawset(_G, 'storage_call_test_values', {})
     rawset(_G, 'storage_call_test_sleep_calls', 0)
     rawset(_G, 'storage_call_test_target_calls', 0)
+    rawset(_G, 'storage_call_test_wait_started', false)
+    rawset(_G, 'storage_call_test_wait_release', false)
+    rawset(_G, 'storage_call_test_wait_finished', false)
+    rawset(_G, 'storage_call_test_bucket_send_started', false)
+    rawset(_G, 'storage_call_test_bucket_send_done', false)
+    rawset(_G, 'storage_call_test_bucket_send_error', nil)
     if not box.info.ro and box.space.storage_call_test_transactions ~= nil then
         box.space.storage_call_test_transactions:truncate()
     end
@@ -300,6 +323,233 @@ local function get_rpc_count(router)
     return router:eval([[
         return _G.storage_call_test_callrw_count or 0
     ]])
+end
+
+local function install_map_callrw_spy(g)
+    g.router:eval([[
+        local utils = require('crud.common.utils')
+        local router = assert(utils.get_vshard_router_instance())
+
+        rawset(_G, 'storage_call_test_original_map_callrw', router.map_callrw)
+        rawset(_G, 'storage_call_test_map_callrw_count', 0)
+        rawset(_G, 'storage_call_test_map_callrw_args', {})
+
+        router.map_callrw = function(self, func_name, args, opts)
+            _G.storage_call_test_map_callrw_count =
+                _G.storage_call_test_map_callrw_count + 1
+
+            local bucket_calls = {}
+            for bucket_id, calls in pairs(opts.bucket_ids) do
+                bucket_calls[bucket_id] = {}
+                for i, call_data in ipairs(calls) do
+                    bucket_calls[bucket_id][i] = call_data.func_name
+                end
+            end
+            rawset(_G, 'storage_call_test_map_callrw_args', {
+                func_name = func_name,
+                bucket_calls = bucket_calls,
+            })
+
+            return _G.storage_call_test_original_map_callrw(
+                self,
+                func_name,
+                args,
+                opts
+            )
+        end
+    ]])
+end
+
+local function remove_map_callrw_spy(g)
+    g.router:eval([[
+        local utils = require('crud.common.utils')
+        local router = assert(utils.get_vshard_router_instance())
+        router.map_callrw = _G.storage_call_test_original_map_callrw
+        rawset(_G, 'storage_call_test_original_map_callrw', nil)
+        rawset(_G, 'storage_call_test_map_callrw_count', nil)
+        rawset(_G, 'storage_call_test_map_callrw_args', nil)
+    ]])
+end
+
+local function get_map_callrw_spy(router)
+    return router:eval([[
+        return {
+            count = _G.storage_call_test_map_callrw_count,
+            args = _G.storage_call_test_map_callrw_args,
+        }
+    ]])
+end
+
+local function get_bucket_count(router)
+    return router:eval([[
+        local utils = require('crud.common.utils')
+        local vshard_router = assert(utils.get_vshard_router_instance())
+        return vshard_router:bucket_count()
+    ]])
+end
+
+local storage_masters = {'s1-master', 's2-master'}
+
+local function wait_storage_masters_synced(g)
+    t.helpers.retrying({timeout = 10, delay = 0.01}, function()
+        helpers.call_on_servers(g.cluster, storage_masters, function(server)
+            local state = server:exec(function()
+                local internal = require('vshard.storage').internal
+                return {
+                    is_master = internal.is_master,
+                    is_bucket_in_sync = internal.is_bucket_in_sync,
+                }
+            end)
+            t.assert(state.is_master)
+            t.assert(state.is_bucket_in_sync)
+        end)
+    end)
+end
+
+local function set_rebalancer(g, enabled)
+    helpers.call_on_servers(g.cluster, storage_masters, function(server)
+        server:exec(function(enable)
+            local storage = require('vshard.storage')
+            if enable then
+                storage.rebalancer_enable()
+            else
+                storage.rebalancer_disable()
+            end
+        end, {enabled})
+    end)
+end
+
+local function set_discovery(router, mode)
+    return router:eval([[
+        local utils = require('crud.common.utils')
+        local vshard_router = assert(utils.get_vshard_router_instance())
+        local previous_mode = vshard_router.discovery_mode
+        vshard_router:discovery_set(...)
+        return previous_mode
+    ]], {mode})
+end
+
+local function bucket_is_writable(server, bucket_id)
+    return server:exec(function(id)
+        local stat = require('vshard.storage').bucket_stat(id)
+        return stat ~= nil
+            and (stat.status == 'active' or stat.status == 'pinned')
+    end, {bucket_id})
+end
+
+local function replicaset_id(server)
+    return server:exec(function()
+        return require('vshard.storage').internal.this_replicaset.id
+    end)
+end
+
+local function find_transfer_endpoints(g, bucket_id)
+    local first = g.cluster:server(storage_masters[1])
+    local second = g.cluster:server(storage_masters[2])
+    if bucket_is_writable(first, bucket_id) then
+        return first, second
+    end
+    t.assert(bucket_is_writable(second, bucket_id))
+    return second, first
+end
+
+local function send_bucket(source, bucket_id, destination_id)
+    source:exec(function(id, destination)
+        local ok, err = require('vshard.storage').bucket_send(
+            id,
+            destination
+        )
+        if not ok then
+            error(tostring(err))
+        end
+    end, {bucket_id, destination_id})
+end
+
+local function drop_sent_bucket(server, bucket_id)
+    server:exec(function(id)
+        local storage = require('vshard.storage')
+        local stat = storage.bucket_stat(id)
+        if stat == nil then
+            return
+        end
+        if stat.status == 'active' or stat.status == 'pinned' then
+            return
+        end
+        if stat.status == 'sent' then
+            box.space._bucket:update({id}, {{'=', 2, 'garbage'}})
+        end
+        storage.bucket_delete_garbage(id, {force = true})
+        storage.bucket_force_drop(id)
+    end, {bucket_id})
+end
+
+local function prepare_bucket_transfer(g, bucket_id)
+    wait_storage_masters_synced(g)
+    set_rebalancer(g, false)
+    g.storage_call_discovery_mode = set_discovery(g.router, 'off')
+
+    -- Keep the old route in the router cache while the bucket is moved.
+    g.router:eval([[
+        local utils = require('crud.common.utils')
+        local router = assert(utils.get_vshard_router_instance())
+        return router:route(...).id
+    ]], {bucket_id})
+
+    local source, destination = find_transfer_endpoints(g, bucket_id)
+    g.storage_call_transfer = {
+        bucket_id = bucket_id,
+        source = source,
+        destination = destination,
+        source_id = replicaset_id(source),
+        destination_id = replicaset_id(destination),
+    }
+    return g.storage_call_transfer
+end
+
+local function cleanup_bucket_transfer(g)
+    local transfer = g.storage_call_transfer
+    if transfer ~= nil then
+        helpers.call_on_servers(g.cluster, storage_masters, function(server)
+            server:exec(function()
+                rawset(_G, 'storage_call_test_wait_release', true)
+            end)
+        end)
+
+        t.helpers.retrying({timeout = 10, delay = 0.01}, function()
+            local send_started = transfer.source:exec(function()
+                return rawget(_G, 'storage_call_test_bucket_send_started')
+                    == true
+            end)
+            local send_done = transfer.source:exec(function()
+                return rawget(_G, 'storage_call_test_bucket_send_done')
+                    == true
+            end)
+            t.assert(not send_started or send_done)
+        end)
+
+        if bucket_is_writable(transfer.destination, transfer.bucket_id) then
+            drop_sent_bucket(transfer.source, transfer.bucket_id)
+            send_bucket(
+                transfer.destination,
+                transfer.bucket_id,
+                transfer.source_id
+            )
+            drop_sent_bucket(transfer.destination, transfer.bucket_id)
+        end
+
+        g.storage_call_transfer = nil
+    end
+
+    if g.storage_call_discovery_mode ~= nil then
+        set_discovery(g.router, g.storage_call_discovery_mode)
+        g.storage_call_discovery_mode = nil
+        g.router:eval([[
+            local utils = require('crud.common.utils')
+            local router = assert(utils.get_vshard_router_instance())
+            router:discovery_wakeup()
+        ]])
+    end
+    set_rebalancer(g, true)
 end
 
 local function get_sleep_calls_count(cluster)
@@ -424,12 +674,12 @@ group.before_each(function(g)
 end)
 
 group.before_test(
-    'test_batch_preserves_order_and_uses_map_callrw',
-    install_rpc_counter
+    'test_batch_preserves_same_bucket_order_and_uses_map_callrw',
+    install_map_callrw_spy
 )
 group.after_test(
-    'test_batch_preserves_order_and_uses_map_callrw',
-    remove_rpc_counter
+    'test_batch_preserves_same_bucket_order_and_uses_map_callrw',
+    remove_map_callrw_spy
 )
 
 group.before_test(
@@ -448,6 +698,46 @@ group.before_test(
 group.after_test(
     'test_batch_timeout_before_rpc_is_not_ambiguous',
     remove_rpc_counter
+)
+
+group.before_test(
+    'test_single_cdata_bucket_is_rejected',
+    install_rpc_counter
+)
+group.after_test(
+    'test_single_cdata_bucket_is_rejected',
+    remove_rpc_counter
+)
+
+group.before_test(
+    'test_single_out_of_range_bucket_is_rejected',
+    install_rpc_counter
+)
+group.after_test(
+    'test_single_out_of_range_bucket_is_rejected',
+    remove_rpc_counter
+)
+
+group.before_test(
+    'test_batch_reroutes_payload_after_bucket_move',
+    function(g)
+        prepare_bucket_transfer(g, g.buckets[1])
+    end
+)
+group.after_test(
+    'test_batch_reroutes_payload_after_bucket_move',
+    cleanup_bucket_transfer
+)
+
+group.before_test(
+    'test_batch_keeps_bucket_locked_after_router_timeout',
+    function(g)
+        prepare_bucket_transfer(g, g.buckets[1])
+    end
+)
+group.after_test(
+    'test_batch_keeps_bucket_locked_after_router_timeout',
+    cleanup_bucket_transfer
 )
 
 group.before_test(
@@ -631,7 +921,7 @@ group.test_unserializable_result_does_not_break_batch = function(g)
     t.assert_equals(result.results[2].returns[1], 'after invalid result')
 end
 
-group.test_batch_preserves_order_and_uses_map_callrw = function(g)
+group.test_batch_preserves_same_bucket_order_and_uses_map_callrw = function(g)
     local calls = {
         {
             func_name = 'storage_call_test_order',
@@ -656,11 +946,22 @@ group.test_batch_preserves_order_and_uses_map_callrw = function(g)
     t.assert_equals(result.results[1].returns[1], 1)
     t.assert_equals(result.results[2].returns[1], 'other replicaset')
     t.assert_equals(result.results[3].returns[1], 2)
-    -- Partial map_callrw performs one Ref and one Map request per replicaset.
-    t.assert_equals(get_rpc_count(g.router), 4)
+    local map_callrw = get_map_callrw_spy(g.router)
+    t.assert_equals(map_callrw.count, 1)
+    t.assert_equals(
+        map_callrw.args.func_name,
+        '_crud.storage_call_many_on_storage'
+    )
+    t.assert_equals(map_callrw.args.bucket_calls[g.buckets[1]], {
+        'storage_call_test_order',
+        'storage_call_test_order',
+    })
+    t.assert_equals(map_callrw.args.bucket_calls[g.buckets[2]], {
+        'storage_call_test_returns',
+    })
 end
 
-group.test_results_for_different_buckets_on_same_storage_preserve_order =
+group.test_results_preserve_input_order_for_buckets_on_same_replicaset =
 function(g)
     local calls = {
         {
@@ -732,6 +1033,194 @@ group.test_invalid_bucket_does_not_start_target = function(g)
     t.assert_equals(result.results[1].error.may_have_side_effects, false)
     t.assert_equals(result.results[2].returns[1], 'valid')
     t.assert_equals(get_target_calls_count(g.cluster), 1)
+end
+
+group.test_single_cdata_bucket_is_rejected = function(g)
+    local response = g.router:eval([[
+        local crud = require('crud')
+        local ffi = require('ffi')
+        local result, err = crud.storage_call(
+            'storage_call_test_counted',
+            {'must not run'},
+            {bucket_id = ffi.new('uint64_t', ...)}
+        )
+        return {result = result, error = err}
+    ]], {g.buckets[1]})
+
+    t.assert_equals(response.result, nil)
+    t.assert_str_contains(
+        response.error.err,
+        'expected unsigned Lua number'
+    )
+    t.assert_equals(response.error.may_have_side_effects, false)
+    t.assert_equals(get_rpc_count(g.router), 0)
+    t.assert_equals(get_target_calls_count(g.cluster), 0)
+end
+
+group.test_single_out_of_range_bucket_is_rejected = function(g)
+    local result, err = g.router:call('crud.storage_call', {
+        'storage_call_test_counted',
+        {'must not run'},
+        {bucket_id = get_bucket_count(g.router) + 1},
+    })
+
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, 'expected unsigned Lua number')
+    t.assert_equals(err.may_have_side_effects, false)
+    t.assert_equals(get_rpc_count(g.router), 0)
+    t.assert_equals(get_target_calls_count(g.cluster), 0)
+end
+
+group.test_batch_invalid_bucket_items_do_not_stop_valid_calls = function(g)
+    local response = g.router:eval([[
+        local crud = require('crud')
+        local ffi = require('ffi')
+        local bucket_id, bucket_count = ...
+        local result, err = crud.storage_call_many({
+            {
+                func_name = 'storage_call_test_counted',
+                args = {'cdata must not run'},
+                bucket_id = ffi.new('uint64_t', bucket_id),
+            },
+            {
+                func_name = 'storage_call_test_counted',
+                args = {'out of range must not run'},
+                bucket_id = bucket_count + 1,
+            },
+            {
+                func_name = 'storage_call_test_counted',
+                args = {'valid'},
+                bucket_id = bucket_id,
+            },
+        })
+        return {result = result, error = err}
+    ]], {g.buckets[1], get_bucket_count(g.router)})
+    local result, err = response.result, response.error
+
+    t.assert_equals(err, nil)
+    t.assert_str_contains(
+        result.results[1].error.err,
+        'expected unsigned Lua number'
+    )
+    t.assert_equals(result.results[1].error.may_have_side_effects, false)
+    t.assert_str_contains(
+        result.results[2].error.err,
+        'expected unsigned Lua number'
+    )
+    t.assert_equals(result.results[2].error.may_have_side_effects, false)
+    t.assert_equals(result.results[3].returns[1], 'valid')
+    t.assert_equals(get_target_calls_count(g.cluster), 1)
+end
+
+group.test_batch_reroutes_payload_after_bucket_move = function(g)
+    local transfer = g.storage_call_transfer
+    send_bucket(
+        transfer.source,
+        transfer.bucket_id,
+        transfer.destination_id
+    )
+
+    local destination_uuid = transfer.destination:exec(function()
+        return box.info.uuid
+    end)
+    local result, err = g.router:call('crud.storage_call_many', {{
+        {
+            func_name = 'storage_call_test_location',
+            args = {'moved bucket'},
+            bucket_id = transfer.bucket_id,
+        },
+        {
+            func_name = 'storage_call_test_location',
+            args = {'destination bucket'},
+            bucket_id = g.buckets[2],
+        },
+    }})
+
+    t.assert_equals(err, nil)
+    t.assert_equals(result.results[1].returns, {
+        'moved bucket',
+        destination_uuid,
+    })
+    t.assert_equals(result.results[2].returns, {
+        'destination bucket',
+        destination_uuid,
+    })
+    t.assert_equals(transfer.source:exec(function()
+        return _G.storage_call_test_target_calls
+    end), 0)
+    t.assert_equals(transfer.destination:exec(function()
+        return _G.storage_call_test_target_calls
+    end), 2)
+end
+
+group.test_batch_keeps_bucket_locked_after_router_timeout = function(g)
+    local transfer = g.storage_call_transfer
+    local result, err = g.router:call('crud.storage_call_many', {{
+        {
+            func_name = 'storage_call_test_wait_for_release',
+            bucket_id = transfer.bucket_id,
+        },
+    }, {
+        timeout = 0.02,
+    }})
+
+    t.assert_equals(result, nil)
+    helpers.assert_timeout_error(err.err)
+    t.assert_equals(err.may_have_side_effects, true)
+    t.helpers.retrying({timeout = 5, delay = 0.01}, function()
+        t.assert(transfer.source:exec(function()
+            return _G.storage_call_test_wait_started
+        end))
+    end)
+
+    transfer.source:exec(function(bucket_id, destination_id)
+        local fiber = require('fiber')
+        local storage = require('vshard.storage')
+        rawset(_G, 'storage_call_test_bucket_send_started', true)
+        fiber.create(function()
+            local ok, send_err = storage.bucket_send(
+                bucket_id,
+                destination_id
+            )
+            if not ok then
+                rawset(
+                    _G,
+                    'storage_call_test_bucket_send_error',
+                    tostring(send_err)
+                )
+            end
+            rawset(_G, 'storage_call_test_bucket_send_done', true)
+        end)
+    end, {transfer.bucket_id, transfer.destination_id})
+
+    t.helpers.retrying({timeout = 5, delay = 0.01}, function()
+        t.assert(transfer.source:exec(function()
+            return _G.storage_call_test_bucket_send_started
+        end))
+    end)
+    fiber.sleep(0.1)
+    t.assert_not(transfer.source:exec(function()
+        return _G.storage_call_test_bucket_send_done
+    end))
+
+    transfer.source:exec(function()
+        rawset(_G, 'storage_call_test_wait_release', true)
+    end)
+    t.helpers.retrying({timeout = 10, delay = 0.01}, function()
+        local state = transfer.source:exec(function()
+            return {
+                target_finished = _G.storage_call_test_wait_finished,
+                send_done = _G.storage_call_test_bucket_send_done,
+                send_error = rawget(
+                    _G,
+                    'storage_call_test_bucket_send_error'
+                ),
+            }
+        end)
+        t.assert(state.target_finished)
+        t.assert(state.send_done)
+        t.assert_equals(state.send_error, nil)
+    end)
 end
 
 group.test_open_transaction_is_rolled_back = function(g)
