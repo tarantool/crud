@@ -90,18 +90,26 @@ executing the target name.
 
 ## Operational notes
 
-- The timeout covers routing, request dispatch and response collection.
+- The timeout covers routing, request dispatch and response collection. CRUD
+  keeps one absolute deadline and passes the remaining time to each blocking
+  metadata lookup and to `callrw()` or `map_callrw()`.
 - Batch calls use the Ref and Map stages of `vshard.router:map_callrw()`; stages
   for different replica sets are sent in parallel.
 - Calls for one replica set are executed sequentially. Calls for the same
   bucket preserve input order; relative execution order between different
   buckets is not guaranteed.
-- Vshard refreshes routes for buckets that moved before the Map stage and pins
-  the affected storages while the dispatchers are running.
-- A client timeout does not cancel a target function. During the Map stage the
-  vshard Ref has no expiration and is released only after the storage dispatcher
-  finishes. A stuck function can therefore delay rebalancing of the entire
-  storage after the client has already received a timeout.
+- Vshard refreshes routes for buckets that moved before the Map stage. On the
+  storage, CRUD also takes a write reference for each declared bucket before
+  running that bucket's calls and releases it after execution and transaction
+  cleanup.
+- A client timeout does not cancel a target function. Vshard may finish its
+  Map cleanup after the timeout, but the per-bucket CRUD reference remains held
+  until the target function returns. A stuck function can therefore delay
+  movement of its declared bucket after the client has already received a
+  timeout.
+- The reference protects only the declared routing bucket. A target function
+  that accesses data from other buckets must provide its own consistency
+  guarantees.
 - CRUD does not enforce a server-side execution timeout. Target functions must
   bound their own execution time and use application-level idempotency.
 - Function arguments and return values must be MessagePack-serializable.

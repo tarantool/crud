@@ -1555,6 +1555,9 @@ local result, err = crud.storage_call(
 
 Exactly one routing form must be specified. Routing values are not added to
 the function arguments: the target receives exactly the values from `args`.
+An explicit bucket id must be a Lua integer in the range from 1 to the bucket
+count configured for the selected vshard router. LuaJIT cdata values are not
+accepted by this API.
 On success, all returned values are preserved in `result.returns`. CRUD does
 not treat the second returned value as an error.
 
@@ -1580,10 +1583,13 @@ local result, err = crud.storage_call_many({
 
 The batch method uses `vshard.router:map_callrw()` with its `bucket_ids`
 option. Vshard resolves and groups the buckets, performs the Ref and Map
-stages in parallel on the affected replica sets, and protects the buckets from
-moving while the storage dispatcher is running. Calls handled by one storage
-run sequentially. Calls for the same bucket preserve input order; relative
-execution order between different buckets is not guaranteed.
+stages in parallel on the affected replica sets, and refreshes stale routes
+before the target functions start. The storage dispatcher additionally holds
+a write reference for each declared bucket while processing its calls. Thus a
+client timeout cannot let that bucket move while a target function is still
+running. Calls handled by one storage run sequentially. Calls for the same
+bucket preserve input order; relative execution order between different
+buckets is not guaranteed.
 
 On success, the method returns `result.results` in input order. Every item
 contains exactly one of `returns` or `error`; a target function error does not
