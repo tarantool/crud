@@ -582,6 +582,42 @@ local function get_cleanup_rollback_calls_count(cluster)
     return count
 end
 
+local function get_transaction_value(g, id)
+    local value
+    helpers.call_on_servers(g.cluster, storage_masters, function(server)
+        local current = server:exec(function(transaction_id)
+            local tuple = box.space.storage_call_test_transactions:get({
+                transaction_id,
+            })
+            return tuple ~= nil and tuple[2] or nil
+        end, {id})
+        if current ~= nil then
+            value = current
+        end
+    end)
+    return value
+end
+
+local function release_waiting_targets(g)
+    helpers.call_on_servers(g.cluster, storage_masters, function(server)
+        server:exec(function()
+            rawset(_G, 'storage_call_test_wait_release', true)
+        end)
+    end)
+
+    t.helpers.retrying({timeout = 10, delay = 0.01}, function()
+        helpers.call_on_servers(g.cluster, storage_masters, function(server)
+            local state = server:exec(function()
+                return {
+                    started = _G.storage_call_test_wait_started,
+                    finished = _G.storage_call_test_wait_finished,
+                }
+            end)
+            t.assert(not state.started or state.finished)
+        end)
+    end)
+end
+
 local function install_cleanup_fault(g)
     helpers.exec_on_cluster(g.cluster, function()
         if box.space._bucket == nil then
@@ -620,6 +656,57 @@ local function remove_cleanup_fault(g)
         rawset(_G, 'storage_call_test_cleanup_rollback_calls', nil)
         rawset(_G, 'storage_call_test_original_rollback', nil)
     end)
+end
+
+local function install_sharding_check_fault(g)
+    helpers.exec_on_cluster(g.cluster, function()
+        if box.space._bucket == nil then
+            return
+        end
+
+        local sharding = require('crud.common.sharding')
+        rawset(
+            _G,
+            'storage_call_test_original_check_sharding_hash',
+            sharding.check_sharding_hash
+        )
+        sharding.check_sharding_hash = function()
+            box.begin()
+            error('simulated unexpected sharding check error')
+        end
+    end)
+end
+
+local function remove_sharding_check_fault(g)
+    helpers.exec_on_cluster(g.cluster, function()
+        if box.space._bucket == nil then
+            return
+        end
+
+        local original = rawget(
+            _G,
+            'storage_call_test_original_check_sharding_hash'
+        )
+        if original ~= nil then
+            require('crud.common.sharding').check_sharding_hash = original
+        end
+        rawset(_G, 'storage_call_test_original_check_sharding_hash', nil)
+    end)
+end
+
+local function get_bucket_for_key(router, space_name, key)
+    return router:eval([[
+        local fiber = require('fiber')
+        local routing = require('crud.storage_call.routing')
+        local utils = require('crud.common.utils')
+        local vshard_router = assert(utils.get_vshard_router_instance())
+        local call = assert(routing.call(vshard_router, {
+            func_name = 'storage_call_test_counted',
+            space_name = ...,
+            key = select(2, ...),
+        }, 1, fiber.clock() + 1, vshard_router:bucket_count()))
+        return call.bucket_id
+    ]], {space_name, key})
 end
 
 local function restart_storage(g, server_name)
@@ -758,6 +845,15 @@ group.after_test(
     remove_cleanup_fault
 )
 
+group.before_test(
+    'test_unexpected_item_error_does_not_stop_batch',
+    install_sharding_check_fault
+)
+group.after_test(
+    'test_unexpected_item_error_does_not_stop_batch',
+    remove_sharding_check_fault
+)
+
 group.before_test('test_transport_error_is_not_retried', function(g)
     g.router:eval([[
         local errors = require('errors')
@@ -816,6 +912,11 @@ group.after_test('test_batch_transport_error_is_global', function(g)
         rawset(_G, 'storage_call_test_original_map_callrw', nil)
     ]])
 end)
+
+group.after_test(
+    'test_batch_map_timeout_hides_committed_result',
+    release_waiting_targets
+)
 
 group.test_single_call_with_bucket_id = function(g)
     local result, err = g.router:call('crud.storage_call', {
@@ -1295,6 +1396,35 @@ group.test_committed_transaction_survives_neighbor_error = function(g)
     t.assert_equals(result.results[3].returns[1], 'committed')
 end
 
+group.test_unexpected_item_error_does_not_stop_batch = function(g)
+    local key = {1}
+    local bucket_id = get_bucket_for_key(g.router, 'customers', key)
+    local calls = {
+        {
+            func_name = 'storage_call_test_counted',
+            args = {'must not run'},
+            space_name = 'customers',
+            key = key,
+        },
+        {
+            func_name = 'storage_call_test_counted',
+            args = {'after unexpected error'},
+            bucket_id = bucket_id,
+        },
+    }
+
+    local result, err = g.router:call('crud.storage_call_many', {calls})
+
+    t.assert_equals(err, nil)
+    t.assert_str_contains(
+        result.results[1].error.err,
+        'simulated unexpected sharding check error'
+    )
+    t.assert_equals(result.results[1].error.may_have_side_effects, true)
+    t.assert_equals(result.results[2].returns[1], 'after unexpected error')
+    t.assert_equals(get_target_calls_count(g.cluster), 1)
+end
+
 group.test_cleanup_continues_after_rollback_error = function(g)
     local calls = {
         {
@@ -1532,6 +1662,46 @@ group.test_batch_timeout_is_reported_as_ambiguous = function(g)
 
     fiber.sleep(0.25)
     t.assert(get_sleep_calls_count(g.cluster) > 0)
+end
+
+group.test_batch_map_timeout_hides_committed_result = function(g)
+    local transaction_id = 101
+    local result, err = g.router:call('crud.storage_call_many', {{
+        {
+            func_name = 'storage_call_test_transaction_commit',
+            args = {transaction_id, 'committed before timeout'},
+            bucket_id = g.buckets[1],
+        },
+        {
+            func_name = 'storage_call_test_wait_for_release',
+            bucket_id = g.buckets[2],
+        },
+    }, {
+        timeout = 0.1,
+    }})
+
+    t.assert_equals(result, nil)
+    helpers.assert_timeout_error(err.err)
+    t.assert_equals(err.may_have_side_effects, true)
+
+    t.helpers.retrying({timeout = 5, delay = 0.01}, function()
+        t.assert_equals(
+            get_transaction_value(g, transaction_id),
+            'committed before timeout'
+        )
+    end)
+
+    local wait_started = false
+    t.helpers.retrying({timeout = 5, delay = 0.01}, function()
+        helpers.call_on_servers(g.cluster, storage_masters, function(server)
+            wait_started = wait_started or server:exec(function()
+                return _G.storage_call_test_wait_started
+            end)
+        end)
+        t.assert(wait_started)
+    end)
+
+    release_waiting_targets(g)
 end
 
 group.test_transport_error_is_not_retried = function(g)

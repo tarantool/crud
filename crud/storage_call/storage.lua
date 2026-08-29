@@ -214,9 +214,44 @@ local function append_result(results, result, call_data)
     table.insert(results, result)
 end
 
+local function execute_safely(run_as_user, call_data)
+    local ok, result = pcall(execute, run_as_user, call_data)
+    if ok then
+        return result
+    end
+
+    local _, rollback_err = try_rollback_open_transaction()
+    local cleanup_errors = {}
+    if rollback_err ~= nil then
+        cleanup_errors.transaction_rollback =
+            storage_call_errors.message(rollback_err)
+    end
+
+    if box.is_in_txn() then
+        error(('%s; failed to clean up the open transaction: %s'):format(
+            storage_call_errors.message(result),
+            storage_call_errors.message(rollback_err)
+        ))
+    end
+
+    return new_execution_error(
+        ('Unexpected error while processing function %q: %s'):format(
+            call_data.func_name,
+            storage_call_errors.message(result)
+        ),
+        call_data,
+        true,
+        cleanup_errors
+    )
+end
+
 local function execute_bucket_calls(results, run_as_user, bucket_calls)
     for _, call_data in ipairs(bucket_calls) do
-        append_result(results, execute(run_as_user, call_data), call_data)
+        append_result(
+            results,
+            execute_safely(run_as_user, call_data),
+            call_data
+        )
     end
 end
 
@@ -295,6 +330,8 @@ end
 
 local function assert_service_user()
     local service_user = utils.get_this_replica_user() or 'guest'
+    -- user() identifies the IPROTO caller and is not changed by su() or
+    -- setuid. effective_user() cannot be used for this trust boundary.
     local caller = box.session.user()
 
     storage_call_errors.class:assert(
