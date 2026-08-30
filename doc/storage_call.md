@@ -102,6 +102,10 @@ executing the target name.
   storage, CRUD also takes a write reference for each declared bucket before
   running that bucket's calls and releases it after execution and transaction
   cleanup.
+- If one Map request fails, vshard releases its Ref-stage references on all
+  affected replica sets. A dispatcher on another replica set may still be
+  running, so its per-bucket CRUD reference remains held until the target
+  function returns.
 - A client timeout does not cancel a target function. Vshard may finish its
   Map cleanup after the timeout, but the per-bucket CRUD reference remains held
   until the target function returns. A stuck function can therefore delay
@@ -110,6 +114,9 @@ executing the target name.
 - The reference protects only the declared routing bucket. A target function
   that accesses data from other buckets must provide its own consistency
   guarantees.
+- A top-level batch error does not mean that every item was rolled back. A
+  target on another replica set may already have committed, while its partial
+  result is not returned. Retrying the whole batch requires idempotency.
 - CRUD does not enforce a server-side execution timeout. Target functions must
   bound their own execution time and use application-level idempotency.
 - Function arguments and return values must be MessagePack-serializable.
