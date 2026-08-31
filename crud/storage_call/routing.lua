@@ -87,37 +87,34 @@ local function validate_call(call_data, operation_index)
         )
     end
 
-    local has_bucket_id = call_data.bucket_id ~= nil
-    local has_space_name = call_data.space_name ~= nil
-    local has_key = call_data.key ~= nil
+    return error_call_data
+end
+
+local function validate_route(route_data, where)
+    local has_bucket_id = route_data.bucket_id ~= nil
+    local has_space_name = route_data.space_name ~= nil
+    local has_key = route_data.key ~= nil
 
     if has_bucket_id and (has_space_name or has_key) then
-        return nil, storage_call_errors.new(
-            ('calls[%d] must specify either bucket_id or space_name and key')
-                :format(operation_index),
-            error_call_data,
-            false
+        return storage_call_errors.class:new(
+            '%s must specify either bucket_id or space_name and key',
+            where
         )
     end
 
     if not has_bucket_id and not (has_space_name and has_key) then
-        return nil, storage_call_errors.new(
-            ('calls[%d] must specify bucket_id or both space_name and key')
-                :format(operation_index),
-            error_call_data,
-            false
+        return storage_call_errors.class:new(
+            '%s must specify bucket_id or both space_name and key',
+            where
         )
     end
 
-    if has_space_name and type(call_data.space_name) ~= 'string' then
-        return nil, storage_call_errors.new(
-            ('calls[%d].space_name must be a string'):format(operation_index),
-            error_call_data,
-            false
+    if has_space_name and type(route_data.space_name) ~= 'string' then
+        return storage_call_errors.class:new(
+            '%s.space_name must be a string',
+            where
         )
     end
-
-    return error_call_data
 end
 
 local function by_key(vshard_router, call_data, deadline, bucket_count)
@@ -214,6 +211,38 @@ local function by_key(vshard_router, call_data, deadline, bucket_count)
     }
 end
 
+--- Validates route options and resolves them to a bucket.
+function routing.route(vshard_router, route_options, deadline, bucket_count,
+                       where)
+    local err = validate_route(route_options, where)
+    if err ~= nil then
+        return nil, err
+    end
+
+    if route_options.bucket_id ~= nil then
+        err = validate_bucket_id(
+            route_options.bucket_id,
+            bucket_count,
+            where
+        )
+        if err ~= nil then
+            return nil, err
+        end
+
+        return {
+            bucket_id = route_options.bucket_id,
+            skip_sharding_hash_check = true,
+        }
+    end
+
+    return by_key(
+        vshard_router,
+        route_options,
+        deadline,
+        bucket_count
+    )
+end
+
 --- Validates and routes one item of a batch call.
 function routing.call(vshard_router, call_data, operation_index, deadline,
                       bucket_count)
@@ -222,36 +251,21 @@ function routing.call(vshard_router, call_data, operation_index, deadline,
         return nil, err
     end
 
+    local context = ('calls[%d]'):format(operation_index)
     local route_data
-    if call_data.bucket_id ~= nil then
-        local context = ('calls[%d]'):format(operation_index)
-        err = validate_bucket_id(call_data.bucket_id, bucket_count, context)
-        if err ~= nil then
-            return nil, storage_call_errors.new(
-                storage_call_errors.message(err),
-                error_call_data,
-                false
-            )
-        end
-
-        route_data = {
-            bucket_id = call_data.bucket_id,
-            skip_sharding_hash_check = true,
-        }
-    else
-        route_data, err = by_key(
-            vshard_router,
-            call_data,
-            deadline,
-            bucket_count
+    route_data, err = routing.route(
+        vshard_router,
+        call_data,
+        deadline,
+        bucket_count,
+        context
+    )
+    if err ~= nil then
+        return nil, storage_call_errors.new(
+            storage_call_errors.message(err),
+            error_call_data,
+            false
         )
-        if err ~= nil then
-            return nil, storage_call_errors.new(
-                storage_call_errors.message(err),
-                error_call_data,
-                false
-            )
-        end
     end
 
     return {
@@ -266,15 +280,15 @@ function routing.call(vshard_router, call_data, operation_index, deadline,
     }
 end
 
---- Routes a single call using the same rules as a batch item.
+--- Routes a single call without validating target function fields.
 function routing.single(vshard_router, opts, deadline, bucket_count)
-    local routed_call, err = routing.call(vshard_router, {
-        func_name = '',
-        args = {},
-        bucket_id = opts.bucket_id,
-        space_name = opts.space_name,
-        key = opts.key,
-    }, 1, deadline, bucket_count)
+    local route_data, err = routing.route(
+        vshard_router,
+        opts,
+        deadline,
+        bucket_count,
+        'opts'
+    )
     if err ~= nil then
         local single_err = storage_call_errors.class:new(
             '%s',
@@ -284,7 +298,7 @@ function routing.single(vshard_router, opts, deadline, bucket_count)
         return nil, single_err
     end
 
-    return routed_call
+    return route_data
 end
 
 return routing

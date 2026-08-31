@@ -157,6 +157,37 @@ group.test_direct_bucket_route_defaults_args = function()
     })
 end
 
+group.test_single_returns_only_route_data = function()
+    local route_data, err = routing.single(
+        {},
+        {bucket_id = 1},
+        fiber.clock() + 1,
+        bucket_count
+    )
+
+    t.assert_equals(err, nil)
+    t.assert_equals(route_data, {
+        bucket_id = 1,
+        skip_sharding_hash_check = true,
+    })
+end
+
+group.test_single_route_error_uses_opts_context = function()
+    local route_data, err = routing.single(
+        {},
+        {},
+        fiber.clock() + 1,
+        bucket_count
+    )
+
+    t.assert_equals(route_data, nil)
+    t.assert_str_contains(
+        err.err,
+        'opts must specify bucket_id or both space_name and key'
+    )
+    t.assert_equals(err.may_have_side_effects, false)
+end
+
 group.test_key_route_passes_remaining_timeout_to_each_stage = function()
     local timeouts = {}
     utils.get_space = function(_, _, opts)
