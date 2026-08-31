@@ -12,8 +12,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   stored functions on routed vshard storages (TNTP-9261).
 
 ### Changed
-* Update test dependencies: metrics to 1.8.1, Cartridge to 2.17.2, and
-  migrations to 1.2.1.
+* Update `metrics` dependency to [1.8.1](https://github.com/tarantool/metrics/releases/tag/1.8.1).
+* Update `cartridge` dependency to [2.17.2](https://github.com/tarantool/cartridge/releases/tag/2.17.2).
+* Update `migrations` dependency to [1.2.1](https://github.com/tarantool/migrations/releases/tag/1.2.1).
 * Update the Tarantool Enterprise SDK test matrix to current 2.11 and 3.2–3.8
   builds, and add Tarantool 3.7 and 3.8 to community CI testing.
 
