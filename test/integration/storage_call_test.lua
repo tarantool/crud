@@ -241,16 +241,12 @@ end
 
 local function get_buckets_from_different_replicasets(router)
     return router:eval([[
-        local utils = require('crud.common.utils')
         local vshard = require('vshard')
 
         local buckets = {}
         for bucket_id = 1, 3000 do
             local replicaset = vshard.router.static:route(bucket_id)
-            local replicaset_id = utils.get_replicaset_id(
-                vshard.router.static,
-                replicaset
-            )
+            local replicaset_id = replicaset.id
             buckets[replicaset_id] = buckets[replicaset_id] or bucket_id
         end
 
@@ -265,16 +261,12 @@ end
 
 local function get_buckets_from_same_replicaset(router)
     return router:eval([[
-        local utils = require('crud.common.utils')
         local vshard = require('vshard')
 
         local buckets = {}
         for bucket_id = 1, 3000 do
             local replicaset = vshard.router.static:route(bucket_id)
-            local replicaset_id = utils.get_replicaset_id(
-                vshard.router.static,
-                replicaset
-            )
+            local replicaset_id = replicaset.id
             local replicaset_buckets = buckets[replicaset_id] or {}
             table.insert(replicaset_buckets, bucket_id)
             buckets[replicaset_id] = replicaset_buckets
