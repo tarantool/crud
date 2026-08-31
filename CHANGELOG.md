@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+* Update `vshard` dependency to [0.1.42](https://github.com/tarantool/vshard/releases/tag/0.1.42).
+
 ### Fixed
 * Fix consistency violation during rebalancing: a request could be retried on a
   storage that did not own the bucket yet, so a read returned no data and a
