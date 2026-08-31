@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.7.6] - 31-08-26
+
 ### Changed
 * Update `vshard` dependency to [0.1.42](https://github.com/tarantool/vshard/releases/tag/0.1.42).
 
