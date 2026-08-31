@@ -32,7 +32,7 @@ else
         echo "Installing vshard from master branch..."
         ${TTCTL} rocks install vshard
     else
-        ${TTCTL} rocks install vshard "${VSHARD_VERSION:-0.1.41}"
+        ${TTCTL} rocks install vshard "${VSHARD_VERSION:-0.1.42}"
     fi
 fi
 
