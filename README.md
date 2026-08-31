@@ -41,6 +41,7 @@ It also provides the `crud-storage` and `crud-router` roles for
   - [Truncate](#truncate)
   - [Len](#len)
   - [Storage info](#storage-info)
+  - [Storage call](#storage-call)
   - [Count](#count)
   - [Call options for crud methods](#call-options-for-crud-methods)
   - [Statistics](#statistics)
@@ -1512,6 +1513,107 @@ crud.storage_info()
     is_master: false
 ...
 ```
+
+### Storage call
+
+`crud.storage_call()` and `crud.storage_call_many()` call named stored
+functions on masters of the replicasets selected by vshard. The target must be
+created with a persistent `body` in `box.func` on every storage where it can be
+called. The caller must have `execute` access to that function. Functions
+without a stored body and functions with `setuid = true` are rejected before
+execution.
+
+This API is designed and tested for Tarantool Enterprise 2.11 and 3.x.
+
+An individual call can be routed by an explicit bucket id:
+
+```lua
+local result, err = crud.storage_call(
+    'app.process_handler',
+    {event, handler_id},
+    {
+        bucket_id = 1205,
+        timeout = 0.05,
+    }
+)
+```
+
+Alternatively, CRUD can calculate the bucket from the primary key of a space,
+including its custom DDL sharding key and function:
+
+```lua
+local result, err = crud.storage_call(
+    'app.process_handler',
+    {event, handler_id},
+    {
+        space_name = 'handlers',
+        key = {handler_id},
+        timeout = 0.05,
+    }
+)
+```
+
+Exactly one routing form must be specified. Routing values are not added to
+the function arguments: the target receives exactly the values from `args`.
+An explicit bucket id must be a Lua integer in the range from 1 to the bucket
+count configured for the selected vshard router. LuaJIT cdata values are not
+accepted by this API.
+On success, all returned values are preserved in `result.returns`. CRUD does
+not treat the second returned value as an error.
+
+The batch method accepts the same call descriptions:
+
+```lua
+local result, err = crud.storage_call_many({
+    {
+        func_name = 'app.process_handler',
+        args = {event, 17},
+        bucket_id = 1205,
+    },
+    {
+        func_name = 'app.process_handler',
+        args = {event, 18},
+        space_name = 'handlers',
+        key = {18},
+    },
+}, {
+    timeout = 0.05,
+})
+```
+
+The batch method uses `vshard.router:map_callrw()` with its `bucket_ids`
+option. Vshard resolves and groups the buckets, performs the Ref and Map
+stages in parallel on the affected replica sets, and refreshes stale routes
+before the target functions start. The storage dispatcher additionally holds
+a write reference for each declared bucket while processing its calls. Thus a
+client timeout cannot let that bucket move while a target function is still
+running. Calls handled by one storage run sequentially. Calls for the same
+bucket preserve input order; relative execution order between different
+buckets is not guaranteed.
+
+On success, the method returns `result.results` in input order. Every item
+contains exactly one of `returns` or `error`; a target function error does not
+stop the remaining calls. An infrastructure error in the Ref or Map stage is
+returned as a top-level `nil, err`; partial results from other replica sets are
+not returned.
+
+Stored functions manage their own local transactions. The batch is not a
+distributed transaction and successful calls are not rolled back when another
+item fails. If a function returns with an open transaction, CRUD rolls it back
+and reports an error for that item.
+
+CRUD does not add retries of a target function. Vshard may refresh a route or
+repeat the Ref stage before a target starts, but it does not repeat the target
+after an ambiguous Map or transport error. Error field
+`may_have_side_effects` is `false` only when CRUD knows that the target did not
+start, for example after argument validation, missing or non-persistent
+registration, or denied access. A value of `true` means that the function may
+already have run. A top-level batch infrastructure error is also marked
+`may_have_side_effects = true`. Retrying such a call requires application-level
+idempotency.
+
+See the [storage call deployment guide](doc/storage_call.md) for function
+registration, privileges and rolling upgrade order.
 
 ### Count
 
