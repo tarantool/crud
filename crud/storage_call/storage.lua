@@ -343,7 +343,7 @@ end
 
 local function storage_call_on_storage(run_as_user, call_data)
     assert_service_user()
-    return execute(run_as_user, call_data)
+    return execute_safely(run_as_user, call_data)
 end
 
 local function storage_call_many_on_storage(run_as_user, calls_by_bucket)

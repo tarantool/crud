@@ -102,6 +102,10 @@ executing the target name.
   storage, CRUD also takes a write reference for each declared bucket before
   running that bucket's calls and releases it after execution and transaction
   cleanup.
+- If the replicaset master changes between the Ref and Map stages, the new
+  master does not have the session-bound Ref. It rejects the Map request before
+  the CRUD dispatcher and target functions are called. The batch returns a
+  top-level error.
 - If one Map request fails, vshard releases its Ref-stage references on all
   affected replica sets. A dispatcher on another replica set may still be
   running, so its per-bucket CRUD reference remains held until the target

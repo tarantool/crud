@@ -582,6 +582,16 @@ local function get_cleanup_rollback_calls_count(cluster)
     return count
 end
 
+local function get_unexpected_error_rollback_calls_count(cluster)
+    local count = 0
+    helpers.call_on_storages(cluster, function(server)
+        count = count + server:eval([[
+            return _G.storage_call_test_unexpected_error_rollback_calls or 0
+        ]])
+    end)
+    return count
+end
+
 local function get_transaction_value(g, id)
     local value
     helpers.call_on_servers(g.cluster, storage_masters, function(server)
@@ -670,6 +680,17 @@ local function install_sharding_check_fault(g)
             'storage_call_test_original_check_sharding_hash',
             sharding.check_sharding_hash
         )
+        rawset(
+            _G,
+            'storage_call_test_unexpected_error_original_rollback',
+            box.rollback
+        )
+        rawset(_G, 'storage_call_test_unexpected_error_rollback_calls', 0)
+        rawset(box, 'rollback', function(...)
+            _G.storage_call_test_unexpected_error_rollback_calls =
+                _G.storage_call_test_unexpected_error_rollback_calls + 1
+            return _G.storage_call_test_unexpected_error_original_rollback(...)
+        end)
         sharding.check_sharding_hash = function()
             box.begin()
             error('simulated unexpected sharding check error')
@@ -690,7 +711,24 @@ local function remove_sharding_check_fault(g)
         if original ~= nil then
             require('crud.common.sharding').check_sharding_hash = original
         end
+        local original_rollback = rawget(
+            _G,
+            'storage_call_test_unexpected_error_original_rollback'
+        )
+        if original_rollback ~= nil then
+            rawset(box, 'rollback', original_rollback)
+        end
         rawset(_G, 'storage_call_test_original_check_sharding_hash', nil)
+        rawset(
+            _G,
+            'storage_call_test_unexpected_error_original_rollback',
+            nil
+        )
+        rawset(
+            _G,
+            'storage_call_test_unexpected_error_rollback_calls',
+            nil
+        )
     end)
 end
 
@@ -843,6 +881,15 @@ group.before_test(
 group.after_test(
     'test_target_and_rollback_errors_are_preserved',
     remove_cleanup_fault
+)
+
+group.before_test(
+    'test_single_unexpected_storage_error_is_wrapped',
+    install_sharding_check_fault
+)
+group.after_test(
+    'test_single_unexpected_storage_error_is_wrapped',
+    remove_sharding_check_fault
 )
 
 group.before_test(
@@ -1394,6 +1441,29 @@ group.test_committed_transaction_survives_neighbor_error = function(g)
     t.assert_equals(result.results[1].returns[1], true)
     t.assert_str_contains(result.results[2].error.err, 'storage call test error')
     t.assert_equals(result.results[3].returns[1], 'committed')
+end
+
+group.test_single_unexpected_storage_error_is_wrapped = function(g)
+    local key = {1}
+    local bucket_id = get_bucket_for_key(g.router, 'customers', key)
+
+    local result, err = g.router:call('crud.storage_call', {
+        'storage_call_test_counted',
+        {'must not run'},
+        {space_name = 'customers', key = key},
+    })
+
+    t.assert_equals(result, nil)
+    t.assert_equals(err.class_name, 'StorageCallError')
+    t.assert_str_contains(err.err, 'simulated unexpected sharding check error')
+    t.assert_equals(err.func_name, 'storage_call_test_counted')
+    t.assert_equals(err.bucket_id, bucket_id)
+    t.assert_equals(err.may_have_side_effects, true)
+    t.assert_equals(get_target_calls_count(g.cluster), 0)
+    t.assert_equals(
+        get_unexpected_error_rollback_calls_count(g.cluster),
+        1
+    )
 end
 
 group.test_unexpected_item_error_does_not_stop_batch = function(g)
