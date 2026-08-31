@@ -5,6 +5,7 @@ local storage_call_errors = require('crud.storage_call.errors')
 
 local batch = {}
 
+--- Adds a routed call to the payload of its bucket.
 function batch.add_call(calls_by_bucket, call_data)
     local bucket_calls = calls_by_bucket[call_data.bucket_id]
     if bucket_calls == nil then
@@ -14,6 +15,7 @@ function batch.add_call(calls_by_bucket, call_data)
     table.insert(bucket_calls, call_data)
 end
 
+--- Marks routed calls as not started when the deadline expires before Map.
 function batch.mark_not_sent(results, expected_calls, original_calls)
     for operation_index, call_data in pairs(expected_calls) do
         results[operation_index] = {
@@ -29,6 +31,7 @@ function batch.mark_not_sent(results, expected_calls, original_calls)
     return {results = results}
 end
 
+--- Validates Map responses and restores results to their input positions.
 function batch.collect(vshard_router, map_results, original_calls, results,
                        expected_calls)
     for replicaset_id, response in pairs(map_results) do

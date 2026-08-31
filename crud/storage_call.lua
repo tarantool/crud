@@ -24,7 +24,7 @@ local storage_call = {
 --
 -- @tab calls Ordered array of call descriptions.
 -- @tab[opt] opts
--- @number[opt] opts.timeout Common timeout for routing, sending and waiting.
+-- @number[opt=2] opts.timeout Common timeout for routing, sending and waiting.
 -- @param[opt] opts.vshard_router Cartridge vshard group name or vshard router
 --  instance.
 --
@@ -52,7 +52,7 @@ end
 -- @number[opt] opts.bucket_id Explicit bucket id.
 -- @string[opt] opts.space_name Space used to calculate a bucket id.
 -- @param[opt] opts.key Primary key used to calculate a bucket id.
--- @number[opt] opts.timeout Common operation timeout.
+-- @number[opt=2] opts.timeout Common operation timeout.
 -- @param[opt] opts.vshard_router Cartridge vshard group name or vshard router
 --  instance.
 --

@@ -82,6 +82,7 @@ local function is_target_execute_access_denied(err, func_name)
     return message:sub(1, #expected) == expected
 end
 
+--- Validates and executes one persistent function as the original user.
 local function execute(run_as_user, call_data)
     local func = box.func[call_data.func_name]
     if func == nil then
@@ -214,6 +215,8 @@ local function append_result(results, result, call_data)
     table.insert(results, result)
 end
 
+--- Converts unexpected executor failures to item errors and cleans up a
+--- transaction left open by the target function.
 local function execute_safely(run_as_user, call_data)
     local ok, result = pcall(execute, run_as_user, call_data)
     if ok then
@@ -283,6 +286,10 @@ local function append_bucket_ref_errors(results, bucket_calls, ref_err)
     end
 end
 
+--- Executes calls bucket by bucket while holding write references.
+---
+--- A reference acquired for a bucket is released after all its calls, even
+--- when execution raises an error.
 local function execute_many(run_as_user, calls_by_bucket)
     local results = {}
 
@@ -328,6 +335,7 @@ local function execute_many(run_as_user, calls_by_bucket)
     return results
 end
 
+--- Allows internal dispatchers to be called only by the vshard service user.
 local function assert_service_user()
     local service_user = utils.get_this_replica_user() or 'guest'
     -- user() identifies the IPROTO caller and is not changed by su() or

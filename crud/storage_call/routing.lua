@@ -28,6 +28,7 @@ local function validate_bucket_id(bucket_id, bucket_count, where)
     end
 end
 
+--- Validates that a value is an array without gaps and returns its length.
 function routing.array_length(value)
     local count = 0
     local max_index = 0
@@ -213,6 +214,7 @@ local function by_key(vshard_router, call_data, deadline, bucket_count)
     }
 end
 
+--- Validates and routes one item of a batch call.
 function routing.call(vshard_router, call_data, operation_index, deadline,
                       bucket_count)
     local error_call_data, err = validate_call(call_data, operation_index)
@@ -264,6 +266,7 @@ function routing.call(vshard_router, call_data, operation_index, deadline,
     }
 end
 
+--- Routes a single call using the same rules as a batch item.
 function routing.single(vshard_router, opts, deadline, bucket_count)
     local routed_call, err = routing.call(vshard_router, {
         func_name = '',

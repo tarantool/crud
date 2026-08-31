@@ -8,6 +8,7 @@ local storage_call_errors = {
     class = StorageCallError,
 }
 
+--- Safely reads a field from a plain error or an error object.
 function storage_call_errors.get_field(err, field)
     if err == nil then
         return nil
@@ -23,6 +24,7 @@ function storage_call_errors.get_field(err, field)
     return nil
 end
 
+--- Extracts a printable message from supported error representations.
 function storage_call_errors.message(err)
     return storage_call_errors.get_field(err, 'err')
         or storage_call_errors.get_field(err, 'str')
@@ -30,6 +32,7 @@ function storage_call_errors.message(err)
         or tostring(err)
 end
 
+--- Creates an error with routing context and retry-safety information.
 function storage_call_errors.new(message, call_data, may_have_side_effects,
                                  replicaset_id)
     local err = StorageCallError:new('%s', message)

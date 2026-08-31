@@ -30,6 +30,7 @@ local function get_router(router_option)
     return vshard_router
 end
 
+--- Routes and executes one persistent function on a storage.
 function router.call(func_name, args, opts)
     local vshard_router, err = get_router(opts.vshard_router)
     if err ~= nil then
@@ -87,6 +88,7 @@ function router.call(func_name, args, opts)
     return result
 end
 
+--- Routes calls and sends one Map request to all affected replicasets.
 function router.call_many(calls, opts)
     local calls_count, err = routing.array_length(calls)
     if err ~= nil then
