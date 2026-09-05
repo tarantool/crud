@@ -219,7 +219,7 @@ end
 --- transaction left open by the target function.
 local function execute_safely(run_as_user, call_data)
     local ok, result = pcall(execute, run_as_user, call_data)
-    if ok then
+    if ok and not box.is_in_txn() then
         return result
     end
 
@@ -231,10 +231,25 @@ local function execute_safely(run_as_user, call_data)
     end
 
     if box.is_in_txn() then
+        local execution_err = ok and result.error or result
         error(('%s; failed to clean up the open transaction: %s'):format(
-            storage_call_errors.message(result),
+            storage_call_errors.message(execution_err),
             storage_call_errors.message(rollback_err)
         ))
+    end
+
+    if ok then
+        if result.error ~= nil then
+            return result
+        end
+        -- A result serialization hook may also leave a transaction open.
+        return new_execution_error(
+            ('Function %q left an open transaction during result processing')
+                :format(call_data.func_name),
+            call_data,
+            true,
+            cleanup_errors
+        )
     end
 
     return new_execution_error(
