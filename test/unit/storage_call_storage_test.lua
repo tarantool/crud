@@ -1,4 +1,5 @@
 local t = require('luatest')
+local msgpack = require('msgpack')
 local helpers = require('test.helper')
 local utils = require('crud.common.utils')
 local vshard = require('vshard')
@@ -14,6 +15,21 @@ local functions = {
     storage_call_unit_commit = [[function()
         box.commit()
         return true
+    end]],
+    storage_call_unit_shared = [[function()
+        rawset(_G, 'storage_call_unit_shared_value', {'original'})
+        return _G.storage_call_unit_shared_value, nil, false, nil
+    end]],
+    storage_call_unit_mutate = [[function()
+        _G.storage_call_unit_shared_value[1] = function() end
+        return true
+    end]],
+    storage_call_unit_serialize_txn = [[function()
+        return setmetatable({}, {__serialize = function()
+            box.begin()
+            box.space.storage_call_unit:replace{1, 'uncommitted'}
+            return {'value'}
+        end})
     end]],
 }
 
@@ -102,5 +118,22 @@ g.test_transient_rollback_failure_is_cleaned_before_next_item = function(cg)
     t.assert_equals(box.space.storage_call_unit:get{1}, nil)
     t.assert_not(box.is_in_txn())
     t.assert_equals(cg.refs, 0)
+end
+
+g.test_return_values_are_snapshots = function()
+    local results = api.storage_call_many_on_storage('admin', {[1] = {
+        call('storage_call_unit_shared', 1),
+        call('storage_call_unit_mutate', 2),
+    }})
+    t.assert_equals(results[1].returns, {{'original'}, box.NULL, false, box.NULL})
+    t.assert_equals(results[2].returns, {true})
+    t.assert_equals(msgpack.decode(msgpack.encode(results)), results)
+end
+
+g.test_serialization_transaction_is_rolled_back = function()
+    local result = api.storage_call_on_storage('admin', call('storage_call_unit_serialize_txn'))
+    t.assert_str_contains(result.error.err, 'open transaction during result processing')
+    t.assert_not(box.is_in_txn())
+    t.assert_equals(box.space.storage_call_unit:get{1}, nil)
 end
 

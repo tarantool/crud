@@ -78,6 +78,18 @@ local function install_test_functions()
                 return function() end
             end
         ]],
+        storage_call_test_shared_result = [[
+            function()
+                rawset(_G, 'storage_call_test_shared_table', {'original'})
+                return _G.storage_call_test_shared_table
+            end
+        ]],
+        storage_call_test_mutate_result = [[
+            function()
+                _G.storage_call_test_shared_table[1] = function() end
+                return true
+            end
+        ]],
         storage_call_test_order = [[
             function(value)
                 table.insert(_G.storage_call_test_values, value)
@@ -1825,3 +1837,14 @@ group.test_persistent_function_survives_storage_restart = function(g)
     t.assert_equals(result.results[1].returns[1], 'first replicaset')
     t.assert_equals(result.results[2].returns[1], 'second replicaset')
 end
+
+group.test_later_item_cannot_mutate_an_earlier_result = function(g)
+    local result, err = g.router:call('crud.storage_call_many', {{
+        {func_name = 'storage_call_test_shared_result', bucket_id = g.buckets[1]},
+        {func_name = 'storage_call_test_mutate_result', bucket_id = g.buckets[1]},
+    }})
+    t.assert_equals(err, nil)
+    t.assert_equals(result.results[1].returns, {{'original'}})
+    t.assert_equals(result.results[2].returns, {true})
+end
+

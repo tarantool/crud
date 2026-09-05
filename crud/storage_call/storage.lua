@@ -82,6 +82,13 @@ local function is_target_execute_access_denied(err, func_name)
     return message:sub(1, #expected) == expected
 end
 
+local function snapshot_returns(returns)
+    -- Keep the checked representation: later calls (or other fibers) may
+    -- mutate tables returned by the target. Decoding also removes Lua
+    -- serialization hooks so they are not executed again by IPROTO.
+    return msgpack.decode(msgpack.encode(returns))
+end
+
 --- Validates and executes one persistent function as the original user.
 local function execute(run_as_user, call_data)
     local func = box.func[call_data.func_name]
@@ -192,14 +199,14 @@ local function execute(run_as_user, call_data)
         )
     end
 
-    local serializable, serialization_err = pcall(msgpack.encode, returns)
+    local serializable, snapshot = pcall(snapshot_returns, returns)
     if not serializable then
         return {
             error = storage_call_errors.new(
                 ('Function %q returned values that cannot be serialized to '
                     .. 'MessagePack: %s'):format(
                         call_data.func_name,
-                        storage_call_errors.message(serialization_err)
+                        storage_call_errors.message(snapshot)
                     ),
                 call_data,
                 true
@@ -207,7 +214,7 @@ local function execute(run_as_user, call_data)
         }
     end
 
-    return {returns = returns}
+    return {returns = snapshot}
 end
 
 local function append_result(results, result, call_data)
