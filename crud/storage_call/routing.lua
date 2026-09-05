@@ -252,15 +252,19 @@ function routing.call(vshard_router, call_data, operation_index, deadline,
     end
 
     local context = ('calls[%d]'):format(operation_index)
-    local route_data
-    route_data, err = routing.route(
+    local ok, route_data
+    ok, route_data, err = pcall(
+        routing.route,
         vshard_router,
         call_data,
         deadline,
         bucket_count,
         context
     )
-    if err ~= nil then
+    if not ok then
+        err = route_data
+    end
+    if not ok or err ~= nil then
         return nil, storage_call_errors.new(
             storage_call_errors.message(err),
             error_call_data,
@@ -282,14 +286,18 @@ end
 
 --- Routes a single call without validating target function fields.
 function routing.single(vshard_router, opts, deadline, bucket_count)
-    local route_data, err = routing.route(
+    local ok, route_data, err = pcall(
+        routing.route,
         vshard_router,
         opts,
         deadline,
         bucket_count,
         'opts'
     )
-    if err ~= nil then
+    if not ok then
+        err = route_data
+    end
+    if not ok or err ~= nil then
         local single_err = storage_call_errors.class:new(
             '%s',
             storage_call_errors.message(err)

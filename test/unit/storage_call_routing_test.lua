@@ -248,3 +248,30 @@ group.test_key_route_stops_when_common_deadline_expires = function()
     t.assert_equals(err.may_have_side_effects, false)
     t.assert_equals(metadata_fetches, 0)
 end
+
+group.test_sharding_function_exception_is_a_routing_error = function()
+    utils.get_space = function()
+        return {index = {[0] = {parts = {}}}}
+    end
+    sharding_metadata.fetch_sharding_key_on_router = function()
+        return {hash = 1}
+    end
+    sharding_metadata.fetch_sharding_func_on_router = function()
+        return {value = function() error('invalid custom key') end}
+    end
+
+    local call_data = {
+        func_name = 'test', space_name = 'customers', key = {1},
+    }
+    local result, err = route(call_data)
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, 'invalid custom key')
+    t.assert_equals(err.operation_index, 7)
+    t.assert_equals(err.operation_data, call_data)
+    t.assert_equals(err.may_have_side_effects, false)
+
+    result, err = routing.single({}, call_data, fiber.clock() + 1, bucket_count)
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, 'invalid custom key')
+    t.assert_equals(err.may_have_side_effects, false)
+end
