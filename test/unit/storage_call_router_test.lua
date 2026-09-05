@@ -53,3 +53,14 @@ g.test_routing_exception_does_not_prevent_valid_batch_item = function(cg)
     t.assert_equals(result.results[2].returns, {'valid'})
 end
 
+
+g.test_single_mismatch_invalidates_cache_without_fetching = function(cg)
+    local cached = cache.get_instance(cg.vshard_router)
+    cg.vshard_router.callrw = function()
+        return {error = {sharding_hash_mismatch = true}}
+    end
+    local result, err = router.call('test', {}, {bucket_id = 1})
+    t.assert_equals(result, nil)
+    t.assert_equals(err.sharding_hash_mismatch, true)
+    t.assert_not_equals(cache.get_instance(cg.vshard_router), cached)
+end

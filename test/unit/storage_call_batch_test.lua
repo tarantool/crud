@@ -1,8 +1,8 @@
 local t = require('luatest')
 
 local batch = require('crud.storage_call.batch')
-local sharding_metadata = require(
-    'crud.common.sharding.sharding_metadata'
+local router_cache = require(
+    'crud.common.sharding.router_metadata_cache'
 )
 
 local group = t.group('storage_call_batch')
@@ -38,13 +38,11 @@ local function collect(map_results, count, results, router)
 end
 
 group.before_each(function(g)
-    g.original_reload_sharding_cache =
-        sharding_metadata.reload_sharding_cache
+    g.original_drop_instance = router_cache.drop_instance
 end)
 
 group.after_each(function(g)
-    sharding_metadata.reload_sharding_cache =
-        g.original_reload_sharding_cache
+    router_cache.drop_instance = g.original_drop_instance
 end)
 
 local invalid_response_cases = {
@@ -130,12 +128,11 @@ group.test_adds_operation_and_replicaset_to_storage_error = function()
     t.assert_equals(result.results[1].error.replicaset_id, 'replicaset')
 end
 
-group.test_reloads_sharding_cache_after_hash_mismatch = function()
+group.test_invalidates_sharding_cache_after_hash_mismatch = function()
     local router = {}
-    local reload_calls = {}
-    sharding_metadata.reload_sharding_cache = function(actual_router,
-                                                       space_name)
-        table.insert(reload_calls, {actual_router, space_name})
+    local drop_calls = {}
+    router_cache.drop_instance = function(actual_router)
+        table.insert(drop_calls, actual_router)
     end
 
     local result, err = collect({
@@ -150,7 +147,7 @@ group.test_reloads_sharding_cache_after_hash_mismatch = function()
 
     t.assert_equals(err, nil)
     t.assert_equals(result.results[1].error.err, 'sharding hash mismatch')
-    t.assert_equals(reload_calls, {{router, 'customers'}})
+    t.assert_equals(drop_calls, {router})
 end
 
 group.test_mark_not_sent_preserves_existing_routing_errors = function()

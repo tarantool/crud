@@ -1849,3 +1849,29 @@ group.test_later_item_cannot_mutate_an_earlier_result = function(g)
     t.assert_equals(result.results[2].returns, {true})
 end
 
+
+group.test_single_mismatch_refreshes_metadata_on_next_request = function(g)
+    local result = g.router:exec(function()
+        local crud = require('crud')
+        local metadata = require('crud.common.sharding.sharding_metadata')
+        local cache = require('crud.common.sharding.router_metadata_cache')
+        local router = require('crud.common.utils').get_vshard_router_instance()
+        assert(metadata.fetch_sharding_key_on_router(router, 'customers'))
+        local instance = cache.get_instance(router)
+        instance[cache.META_HASH_MAP_NAME][cache.SHARDING_KEY_MAP_NAME].customers = 'stale checksum'
+        local first, first_err = crud.storage_call('storage_call_test_returns', {}, {
+            space_name = 'customers', key = {1},
+        })
+        local second, second_err = crud.storage_call('storage_call_test_returns', {'fresh'}, {
+            space_name = 'customers', key = {1},
+        })
+        cache.drop_instance(router)
+        return {first = first, first_err = first_err, second = second, second_err = second_err}
+    end)
+    t.assert_equals(result.first, nil)
+    t.assert_equals(result.first_err.sharding_hash_mismatch, true)
+    t.assert_equals(result.first_err.may_have_side_effects, false)
+    t.assert_equals(result.second_err, nil)
+    t.assert_equals(result.second.returns[1], 'fresh')
+end
+

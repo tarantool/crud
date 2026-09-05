@@ -6,6 +6,7 @@ local batch = require('crud.storage_call.batch')
 local routing = require('crud.storage_call.routing')
 local storage_call_errors = require('crud.storage_call.errors')
 local storage = require('crud.storage_call.storage')
+local router_cache = require('crud.common.sharding.router_metadata_cache')
 
 local router = {}
 
@@ -82,6 +83,11 @@ function router.call(func_name, args, opts)
     end
 
     if result.error ~= nil then
+        if storage_call_errors.get_field(
+            result.error, 'sharding_hash_mismatch'
+        ) == true then
+            router_cache.drop_instance(vshard_router)
+        end
         return nil, result.error
     end
 

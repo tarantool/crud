@@ -1,5 +1,5 @@
-local sharding_metadata = require(
-    'crud.common.sharding.sharding_metadata'
+local router_cache = require(
+    'crud.common.sharding.router_metadata_cache'
 )
 local storage_call_errors = require('crud.storage_call.errors')
 
@@ -63,10 +63,9 @@ function batch.collect(vshard_router, map_results, original_calls, results,
                     storage_result.error,
                     'sharding_hash_mismatch'
                 ) == true then
-                    sharding_metadata.reload_sharding_cache(
-                        vshard_router,
-                        original_calls[operation_index].space_name
-                    )
+                    -- The next request fetches fresh metadata within its own
+                    -- deadline. Never add blocking RPCs while collecting.
+                    router_cache.drop_instance(vshard_router)
                 end
             else
                 results[operation_index] = {
