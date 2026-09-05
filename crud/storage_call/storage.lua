@@ -69,19 +69,6 @@ local function new_execution_error(message, call_data,
     return {error = err}
 end
 
-local function is_target_execute_access_denied(err, func_name)
-    local error_type = storage_call_errors.get_field(err, 'type')
-    if error_type ~= 'AccessDeniedError' and error_type ~= 'ClientError' then
-        return false
-    end
-
-    local expected = ("Execute access to function '%s' is denied"):format(
-        func_name
-    )
-    local message = storage_call_errors.message(err)
-    return message:sub(1, #expected) == expected
-end
-
 local function snapshot_returns(returns)
     -- Keep the checked representation: later calls (or other fibers) may
     -- mutate tables returned by the target. Decoding also removes Lua
@@ -159,17 +146,15 @@ local function execute(run_as_user, call_data)
     end
 
     if call_err ~= nil then
-        local may_have_side_effects = not is_target_execute_access_denied(
-            call_err,
-            call_data.func_name
-        )
         return new_execution_error(
             ('Failed to execute function %q: %s'):format(
                 call_data.func_name,
                 storage_call_errors.message(call_err)
             ),
             call_data,
-            may_have_side_effects,
+            -- Even an execute-access error can come from a nested call
+            -- after the target has committed changes.
+            true,
             cleanup_errors
         )
     end

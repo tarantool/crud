@@ -31,6 +31,13 @@ local functions = {
             return {'value'}
         end})
     end]],
+    storage_call_unit_access_error = [[function()
+        box.space.storage_call_unit:replace{1, 'committed'}
+        box.error(box.error.new{
+            code = box.error.ACCESS_DENIED,
+            reason = "Execute access to function 'storage_call_unit_access_error' is denied",
+        })
+    end]],
 }
 
 g.before_all(function()
@@ -137,3 +144,9 @@ g.test_serialization_transaction_is_rolled_back = function()
     t.assert_equals(box.space.storage_call_unit:get{1}, nil)
 end
 
+g.test_error_text_does_not_prove_absence_of_side_effects = function()
+    local result = api.storage_call_on_storage('admin', call('storage_call_unit_access_error'))
+    t.assert_str_contains(result.error.err, 'Execute access')
+    t.assert_equals(result.error.may_have_side_effects, true)
+    t.assert_equals(box.space.storage_call_unit:get{1}:totable(), {1, 'committed'})
+end

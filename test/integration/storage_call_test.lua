@@ -1603,7 +1603,8 @@ group.test_target_function_acl = function(g)
     })
     t.assert_equals(result, nil)
     t.assert_str_contains(err.err, 'Execute access')
-    t.assert_equals(err.may_have_side_effects, false)
+    -- The dispatcher cannot distinguish this from a nested access error.
+    t.assert_equals(err.may_have_side_effects, true)
 
     result, err = connection:call('crud.storage_call', {
         'storage_call_test_access_denied_inside',
