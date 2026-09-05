@@ -1559,7 +1559,9 @@ An explicit bucket id must be a Lua integer in the range from 1 to the bucket
 count configured for the selected vshard router. LuaJIT cdata values are not
 accepted by this API.
 On success, all returned values are preserved in `result.returns`. CRUD does
-not treat the second returned value as an error.
+not treat the second returned value as an error. `nil` values, including
+trailing ones, are represented by `box.NULL`; `false` is preserved. Each
+result is a MessagePack snapshot, so later calls cannot change its tables.
 
 The batch method accepts the same call descriptions:
 
@@ -1586,10 +1588,11 @@ option. Vshard resolves and groups the buckets, performs the Ref and Map
 stages in parallel on the affected replica sets, and refreshes stale routes
 before the target functions start. The storage dispatcher additionally holds
 a write reference for each declared bucket while processing its calls. Thus a
-client timeout cannot let that bucket move while a target function is still
-running. Calls handled by one storage run sequentially. Calls for the same
-bucket preserve input order; relative execution order between different
-buckets is not guaranteed.
+client timeout cannot let that bucket move on that storage while a target
+function is still running. This local reference is not transferred to a new
+master during failover. Calls handled by one storage run sequentially. Calls
+for the same bucket preserve input order; relative execution order between
+different buckets is not guaranteed.
 
 On success, the method returns `result.results` in input order. Every item
 contains exactly one of `returns` or `error`; a target function error does not
@@ -1600,15 +1603,18 @@ not returned.
 Stored functions manage their own local transactions. The batch is not a
 distributed transaction and successful calls are not rolled back when another
 item fails. If a function returns with an open transaction, CRUD rolls it back
-and reports an error for that item.
+and reports an error for that item. If transaction cleanup fails and a
+transaction remains open, the dispatcher stops before the next item.
 
 CRUD does not add retries of a target function. Vshard may refresh a route or
 repeat the Ref stage before a target starts, but it does not repeat the target
 after an ambiguous Map or transport error. Error field
 `may_have_side_effects` is `false` only when CRUD knows that the target did not
 start, for example after argument validation, missing or non-persistent
-registration, or denied access. A value of `true` means that the function may
-already have run. A top-level batch infrastructure error is also marked
+registration, or rejected routing metadata. Exceptions from invoking the
+target, including access errors, are conservatively marked `true`: an error
+may originate in a nested call after a commit. A value of `true` means that
+the function may already have run. A top-level batch infrastructure error is also marked
 `may_have_side_effects = true`. Retrying such a call requires application-level
 idempotency.
 
