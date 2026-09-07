@@ -164,6 +164,18 @@ local function install_test_functions()
                 return true
             end
         ]],
+        storage_call_test_serializer_context = [[
+            function(leave_transaction)
+                assert(not box.is_in_txn())
+                local caller = box.session.effective_user()
+                return setmetatable({}, {__serialize = function()
+                    if leave_transaction then
+                        box.begin()
+                    end
+                    return {caller, box.session.effective_user()}
+                end})
+            end
+        ]],
         storage_call_test_access_denied_inside = [[
             function()
                 _G.storage_call_test_target_calls =
@@ -209,6 +221,10 @@ local function install_test_functions()
             password = 'secret',
             if_not_exists = true,
         })
+        box.schema.user.grant(
+            'storage_call_test_user', 'execute', 'function',
+            'storage_call_test_serializer_context', {if_not_exists = true}
+        )
         box.schema.user.grant(
             'storage_call_test_user', 'execute', 'function',
             'storage_call_test_returns', {if_not_exists = true}
@@ -1875,3 +1891,30 @@ group.test_single_mismatch_refreshes_metadata_on_next_request = function(g)
     t.assert_equals(result.second.returns[1], 'fresh')
 end
 
+group.test_serializer_keeps_caller_privileges = function(g)
+    local connection = net_box.connect(g.router.net_box_uri, {
+        user = 'storage_call_test_user', password = 'secret',
+    })
+    t.assert(connection:wait_connected())
+    local result, err = connection:call('crud.storage_call', {
+        'storage_call_test_serializer_context', {}, {bucket_id = g.buckets[1]},
+    })
+    local batch_result, batch_err = connection:call('crud.storage_call_many', {{
+        {func_name = 'storage_call_test_serializer_context', bucket_id = g.buckets[1]},
+        {
+            func_name = 'storage_call_test_serializer_context',
+            bucket_id = g.buckets[1], args = {true},
+        },
+        {func_name = 'storage_call_test_serializer_context', bucket_id = g.buckets[1]},
+    }})
+    connection:close()
+
+    local expected = {{'storage_call_test_user', 'storage_call_test_user'}}
+    t.assert_equals(err, nil)
+    t.assert_equals(result.returns, expected)
+    t.assert_equals(batch_err, nil)
+    t.assert_equals(batch_result.results[1].returns, expected)
+    t.assert_str_contains(batch_result.results[2].error.err, 'open transaction during result processing')
+    t.assert_equals(batch_result.results[2].error.may_have_side_effects, true)
+    t.assert_equals(batch_result.results[3].returns, expected)
+end

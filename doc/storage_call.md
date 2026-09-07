@@ -145,7 +145,9 @@ storage returns an error. Do not enable the API until every storage is ready.
 - Function arguments and return values must be MessagePack-serializable.
   CRUD freezes each successful result by encoding and decoding it before
   processing the next item. Later changes to shared Lua tables cannot corrupt
-  an earlier result. `nil` return values use `box.NULL`, including trailing
+  an earlier result. Result serialization hooks run with the original caller's
+  privileges; any transaction they leave open is also rolled back and reported
+  as an item error. `nil` return values use `box.NULL`, including trailing
   ones; an arbitrary second return value is not an error.
 - An unserializable argument passed by a local Lua caller is discovered when
   vshard serializes Map arguments. This is a top-level Map error, not an item

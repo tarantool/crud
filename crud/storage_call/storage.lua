@@ -184,7 +184,10 @@ local function execute(run_as_user, call_data)
         )
     end
 
-    local serializable, snapshot = pcall(snapshot_returns, returns)
+    -- Serialization hooks belong to the target and must keep its privileges.
+    local serializable, snapshot = pcall(
+        box.session.su, run_as_user, snapshot_returns, returns
+    )
     if not serializable then
         return {
             error = storage_call_errors.new(
