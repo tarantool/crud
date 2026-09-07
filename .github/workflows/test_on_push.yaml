@@ -14,16 +14,16 @@ jobs:
       matrix:
         tarantool-version: [ "2.11" ]
         metrics-version: [ "" ]
-        cartridge-version: [ "2.16.5" ]
+        cartridge-version: [ "2.17.2" ]
         external-tuple-merger-version: [ "" ]
         external-tuple-keydef-version: [ "" ]
         include:
           - tarantool-version: "2.11"
             coveralls: true
-            metrics-version: "1.1.0"
-            cartridge-version: "2.16.5"
+            metrics-version: "1.8.1"
+            cartridge-version: "2.17.2"
           - tarantool-version: "2.11"
-            metrics-version: "1.1.0"
+            metrics-version: "1.8.1"
             vshard-version: "0.1.42"
           - tarantool-version: "2.11"
             external-tuple-merger-version: "0.0.5"
@@ -41,6 +41,10 @@ jobs:
           - tarantool-version: "3.5"
             vshard-version: "0.1.42"
           - tarantool-version: "3.6"
+            vshard-version: "0.1.42"
+          - tarantool-version: "3.7"
+            vshard-version: "0.1.42"
+          - tarantool-version: "3.8"
             vshard-version: "0.1.42"
           - tarantool-version: "master"
             vshard-version: "0.1.42"
@@ -144,25 +148,31 @@ jobs:
       matrix:
         tarantool-version:
           - folder: "2.11"
-            bundle: "tarantool-enterprise-sdk-gc64-2.11.7-0-r691.linux.x86_64"
-        metrics-version: [ "", "1.5.0" ]
-        cartridge-version: [ "2.16.5" ]
+            bundle: "tarantool-enterprise-sdk-gc64-2.11.9-0-r710.linux.x86_64"
+        metrics-version: [ "", "1.8.1" ]
+        cartridge-version: [ "2.17.2" ]
         include:
           - tarantool-version:
               folder: "3.2"
-              bundle: "tarantool-enterprise-sdk-gc64-3.2.3-0-r82.linux.x86_64"
+              bundle: "tarantool-enterprise-sdk-gc64-3.2.4-0-r91.linux.x86_64"
           - tarantool-version:
               folder: "3.3"
-              bundle: "tarantool-enterprise-sdk-gc64-3.3.4-0-r85.linux.x86_64"
+              bundle: "tarantool-enterprise-sdk-gc64-3.3.5-0-r91.linux.x86_64"
           - tarantool-version:
               folder: "3.4"
-              bundle: "tarantool-enterprise-sdk-gc64-3.4.2-0-r85.linux.x86_64"
+              bundle: "tarantool-enterprise-sdk-gc64-3.4.2-0-r90.linux.x86_64"
           - tarantool-version:
               folder: "3.5"
-              bundle: "tarantool-enterprise-sdk-gc64-3.5.1-0-r85.linux.x86_64"
+              bundle: "tarantool-enterprise-sdk-gc64-3.5.2-0-r91.linux.x86_64"
           - tarantool-version:
               folder: "3.6"
-              bundle: "tarantool-enterprise-sdk-gc64-3.6.0-0-r85.linux.x86_64"
+              bundle: "tarantool-enterprise-sdk-gc64-3.6.4-0-r91.linux.x86_64"
+          - tarantool-version:
+              folder: "3.7"
+              bundle: "tarantool-enterprise-sdk-gc64-3.7.1-0-r91.linux.x86_64"
+          - tarantool-version:
+              folder: "3.8"
+              bundle: "tarantool-enterprise-sdk-gc64-3.8.0-0-r91.linux.x86_64"
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -203,8 +213,8 @@ jobs:
     strategy:
       matrix:
         tarantool-version: [ "2.11" ]
-        metrics-version: [ "1.1.0" ]
-        cartridge-version: [ "2.16.5" ]
+        metrics-version: [ "1.8.1" ]
+        cartridge-version: [ "2.17.2" ]
         include:
           - tarantool-version: "3.0"
             vshard-version: "0.1.42"
@@ -219,6 +229,10 @@ jobs:
           - tarantool-version: "3.5"
             vshard-version: "0.1.42"
           - tarantool-version: "3.6"
+            vshard-version: "0.1.42"
+          - tarantool-version: "3.7"
+            vshard-version: "0.1.42"
+          - tarantool-version: "3.8"
             vshard-version: "0.1.42"
           - tarantool-version: "master"
             vshard-version: "0.1.42"

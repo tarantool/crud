@@ -41,6 +41,7 @@ It also provides the `crud-storage` and `crud-router` roles for
   - [Truncate](#truncate)
   - [Len](#len)
   - [Storage info](#storage-info)
+  - [Storage call](#storage-call)
   - [Count](#count)
   - [Call options for crud methods](#call-options-for-crud-methods)
   - [Statistics](#statistics)
@@ -1512,6 +1513,107 @@ crud.storage_info()
     is_master: false
 ...
 ```
+
+### Storage call
+
+`crud.storage_call()` and `crud.storage_call_many()` call named stored
+functions on the storage masters selected by the supplied bucket or key. The
+target must be created with a persistent `body` in `box.func` on every storage
+where it can be called. The caller must have `execute` access to that function.
+Functions without a stored body and functions with `setuid = true` are rejected
+before execution.
+
+This API is designed and tested for Tarantool Enterprise 2.11 and 3.x.
+
+An individual call can be routed by an explicit bucket id:
+
+```lua
+local result, err = crud.storage_call(
+    'app.process_handler',
+    {event, handler_id},
+    {
+        bucket_id = 1205,
+        timeout = 0.05,
+    }
+)
+```
+
+Alternatively, CRUD can calculate the bucket from the primary key of a space,
+including its custom DDL sharding key and function:
+
+```lua
+local result, err = crud.storage_call(
+    'app.process_handler',
+    {event, handler_id},
+    {
+        space_name = 'handlers',
+        key = {handler_id},
+        timeout = 0.05,
+    }
+)
+```
+
+Exactly one routing form must be specified. Routing values are not added to
+the function arguments: the target receives exactly the values from `args`.
+An explicit bucket id must be a Lua integer in the range from 1 to the bucket
+count configured for the selected vshard router. LuaJIT cdata values are not
+accepted by this API.
+On success, all returned values are preserved in `result.returns`. CRUD does
+not treat the second returned value as an error. `nil` values, including
+trailing ones, are represented by `box.NULL`; `false` is preserved. Each
+result captures the returned values, so later calls cannot change its tables.
+
+The batch method accepts the same call descriptions:
+
+```lua
+local result, err = crud.storage_call_many({
+    {
+        func_name = 'app.process_handler',
+        args = {event, 17},
+        bucket_id = 1205,
+    },
+    {
+        func_name = 'app.process_handler',
+        args = {event, 18},
+        space_name = 'handlers',
+        key = {18},
+    },
+}, {
+    timeout = 0.05,
+})
+```
+
+Batch calls are sent concurrently to the affected replica sets. Calls handled
+by one storage run sequentially. Calls for the same bucket preserve input
+order; relative execution order between different buckets is not guaranteed.
+A client timeout does not cancel a running function. A function that keeps
+running can delay movement of its declared bucket on that storage.
+
+On success, the method returns `result.results` in input order. Every item
+contains exactly one of `returns` or `error`; a target function error does not
+stop the remaining calls. An infrastructure error while dispatching calls or
+collecting responses is returned as a top-level `nil, err`; partial results
+from other replica sets are not returned.
+
+Stored functions manage their own local transactions. The batch is not a
+distributed transaction and successful calls are not rolled back when another
+item fails. If a function returns with an open transaction, CRUD rolls it back
+and reports an error for that item. If transaction cleanup fails and a
+transaction remains open, execution on that storage stops before the next item.
+
+CRUD does not automatically retry a target function after an ambiguous
+completion or transport error. Error field
+`may_have_side_effects` is `false` only when CRUD knows that the target did not
+start, for example after argument validation, missing or non-persistent
+registration, or rejected routing metadata. Exceptions from invoking the
+target, including access errors, are conservatively marked `true`: an error
+may originate in a nested call after a commit. A value of `true` means that
+the function may already have run. A top-level batch infrastructure error is also marked
+`may_have_side_effects = true`. Retrying such a call requires application-level
+idempotency.
+
+See the [storage call deployment guide](doc/storage_call.md) for function
+registration, privileges and rolling upgrade order.
 
 ### Count
 
