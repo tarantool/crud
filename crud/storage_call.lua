@@ -1,7 +1,7 @@
---- Calls persistent stored functions on vshard storages.
+--- Calls persistent stored functions on storage masters.
 --
 -- The module routes calls by bucket id or by a space primary key. Batch calls
--- are grouped by vshard and sent to affected replica sets in parallel.
+-- are sent to affected replica sets in parallel.
 --
 -- @module crud.storage_call
 

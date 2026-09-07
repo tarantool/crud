@@ -1517,11 +1517,11 @@ crud.storage_info()
 ### Storage call
 
 `crud.storage_call()` and `crud.storage_call_many()` call named stored
-functions on masters of the replicasets selected by vshard. The target must be
-created with a persistent `body` in `box.func` on every storage where it can be
-called. The caller must have `execute` access to that function. Functions
-without a stored body and functions with `setuid = true` are rejected before
-execution.
+functions on the storage masters selected by the supplied bucket or key. The
+target must be created with a persistent `body` in `box.func` on every storage
+where it can be called. The caller must have `execute` access to that function.
+Functions without a stored body and functions with `setuid = true` are rejected
+before execution.
 
 This API is designed and tested for Tarantool Enterprise 2.11 and 3.x.
 
@@ -1561,7 +1561,7 @@ accepted by this API.
 On success, all returned values are preserved in `result.returns`. CRUD does
 not treat the second returned value as an error. `nil` values, including
 trailing ones, are represented by `box.NULL`; `false` is preserved. Each
-result is a MessagePack snapshot, so later calls cannot change its tables.
+result captures the returned values, so later calls cannot change its tables.
 
 The batch method accepts the same call descriptions:
 
@@ -1583,32 +1583,26 @@ local result, err = crud.storage_call_many({
 })
 ```
 
-The batch method uses `vshard.router:map_callrw()` with its `bucket_ids`
-option. Vshard resolves and groups the buckets, performs the Ref and Map
-stages in parallel on the affected replica sets, and refreshes stale routes
-before the target functions start. The storage dispatcher additionally holds
-a write reference for each declared bucket while processing its calls. Thus a
-client timeout cannot let that bucket move on that storage while a target
-function is still running. This local reference is not transferred to a new
-master during failover. Calls handled by one storage run sequentially. Calls
-for the same bucket preserve input order; relative execution order between
-different buckets is not guaranteed.
+Batch calls are sent concurrently to the affected replica sets. Calls handled
+by one storage run sequentially. Calls for the same bucket preserve input
+order; relative execution order between different buckets is not guaranteed.
+A client timeout does not cancel a running function. A function that keeps
+running can delay movement of its declared bucket on that storage.
 
 On success, the method returns `result.results` in input order. Every item
 contains exactly one of `returns` or `error`; a target function error does not
-stop the remaining calls. An infrastructure error in the Ref or Map stage is
-returned as a top-level `nil, err`; partial results from other replica sets are
-not returned.
+stop the remaining calls. An infrastructure error while dispatching calls or
+collecting responses is returned as a top-level `nil, err`; partial results
+from other replica sets are not returned.
 
 Stored functions manage their own local transactions. The batch is not a
 distributed transaction and successful calls are not rolled back when another
 item fails. If a function returns with an open transaction, CRUD rolls it back
 and reports an error for that item. If transaction cleanup fails and a
-transaction remains open, the dispatcher stops before the next item.
+transaction remains open, execution on that storage stops before the next item.
 
-CRUD does not add retries of a target function. Vshard may refresh a route or
-repeat the Ref stage before a target starts, but it does not repeat the target
-after an ambiguous Map or transport error. Error field
+CRUD does not automatically retry a target function after an ambiguous
+completion or transport error. Error field
 `may_have_side_effects` is `false` only when CRUD knows that the target did not
 start, for example after argument validation, missing or non-persistent
 registration, or rejected routing metadata. Exceptions from invoking the
