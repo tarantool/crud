@@ -2043,3 +2043,132 @@ group.test_master_changes_between_ref_and_map = function(g)
         end
     end)
 end
+
+local function remove_storage_call_dispatchers(g)
+    local storage = find_transfer_endpoints(g, g.buckets[1])
+    g.storage_call_old_storage = storage
+    storage:exec(function()
+        box.session.su('admin', function()
+            -- Model a storage before this API existed: neither registration
+            -- nor Lua implementation of the new dispatchers is available.
+            for _, name in ipairs({'storage_call_on_storage', 'storage_call_many_on_storage'}) do
+                box.schema.func.drop('_crud.' .. name)
+                rawset(_G._crud, name, nil)
+            end
+        end)
+    end)
+end
+
+local function restore_storage_call_dispatchers(g)
+    g.router:exec(function()
+        local state = rawget(_G, 'storage_call_test_upgrade')
+        if state ~= nil then
+            state.release:put(true, 0)
+            require('luatest').helpers.retrying({timeout = 35}, function()
+                require('luatest').assert(state.done)
+            end)
+            for rs, original in pairs(state.originals) do rs.callrw = original end
+            rawset(_G, 'storage_call_test_upgrade', nil)
+        end
+    end)
+    if g.storage_call_old_storage ~= nil then
+        g.storage_call_old_storage:exec(function()
+            box.session.su('admin', function()
+                require('crud').init_storage({async = false})
+                for _, name in ipairs({'storage_call_on_storage', 'storage_call_many_on_storage'}) do
+                    box.schema.user.grant('storage_call_test_user', 'execute', 'function', '_crud.' .. name,
+                                          {if_not_exists = true})
+                end
+            end)
+        end)
+        g.storage_call_old_storage = nil
+    end
+end
+
+for _, name in ipairs({
+    'test_single_call_without_storage_dispatcher',
+    'test_mixed_storage_versions_keep_committed_calls',
+}) do
+    group.before_test(name, remove_storage_call_dispatchers)
+    group.after_test(name, restore_storage_call_dispatchers)
+end
+
+group.before_test('test_single_call_without_storage_dispatcher', install_rpc_counter)
+group.after_test('test_single_call_without_storage_dispatcher', remove_rpc_counter)
+
+group.test_single_call_without_storage_dispatcher = function(g)
+    local result, err = g.router:call('crud.storage_call', {
+        'storage_call_test_counted', {'must not run'}, {bucket_id = g.buckets[1]},
+    })
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, 'storage_call_on_storage')
+    t.assert_equals(err.may_have_side_effects, true)
+    t.assert_equals(get_rpc_count(g.router), 1)
+    t.assert_equals(get_target_calls_count(g.cluster), 0)
+end
+
+group.test_mixed_storage_versions_keep_committed_calls = function(g)
+    local transaction_id = 202
+    g.router:exec(function(buckets, id)
+        local fiber = require('fiber')
+        local router = assert(require('crud.common.utils').get_vshard_router_instance())
+        local old_rs = assert(router:route(buckets[1]))
+        local new_rs = assert(router:route(buckets[2]))
+        local state = {originals = {}, map_calls = {}, release = fiber.channel(1)}
+        rawset(_G, 'storage_call_test_upgrade', state)
+        for _, rs in ipairs({old_rs, new_rs}) do
+            state.originals[rs] = rs.callrw
+            rs.callrw = function(self, name, args, opts)
+                local future, err = state.originals[self](self, name, args, opts)
+                if name ~= 'vshard.storage._call' or args[1] ~= 'storage_map' then
+                    return future, err
+                end
+                state.map_calls[self.id] = (state.map_calls[self.id] or 0) + 1
+                if self ~= old_rs or future == nil then return future, err end
+                -- Send both real Maps. Delay collecting the old storage's
+                -- response until the other storage has committed; otherwise
+                -- early Ref cleanup can race with its Map starting.
+                return {
+                    wait_result = function(_, timeout)
+                        local start = fiber.clock()
+                        assert(state.release:get(timeout), 'Old storage response was not released')
+                        return future:wait_result(math.max(timeout - (fiber.clock() - start), 0))
+                    end,
+                    discard = function() return future:discard() end,
+                }
+            end
+        end
+        state.worker = fiber.new(function()
+            state.ok, state.result, state.err = pcall(require('crud').storage_call_many, {
+                {func_name = 'storage_call_test_counted', args = {'must not run'}, bucket_id = buckets[1]},
+                {
+                    func_name = 'storage_call_test_transaction_commit',
+                    args = {id, 'committed in mixed cluster'}, bucket_id = buckets[2],
+                },
+            }, {timeout = 30})
+            state.done = true
+        end)
+    end, {g.buckets, transaction_id})
+    t.helpers.retrying({timeout = 10}, function()
+        t.assert_equals(get_transaction_value(g, transaction_id), 'committed in mixed cluster')
+    end)
+    g.router:exec(function() _G.storage_call_test_upgrade.release:put(true, 0) end)
+    local response
+    t.helpers.retrying({timeout = 10}, function()
+        response = g.router:exec(function()
+            local state = _G.storage_call_test_upgrade
+            return {done = state.done, ok = state.ok, result = state.result,
+                    err = state.err, map_calls = state.map_calls}
+        end)
+        t.assert(response.done)
+    end)
+    t.assert(response.ok)
+    t.assert_equals(response.result, nil)
+    t.assert_str_contains(response.err.err, 'storage_call_many_on_storage')
+    t.assert_equals(response.err.may_have_side_effects, true)
+    t.assert_equals(response.err.replicaset_id, replicaset_id(g.storage_call_old_storage))
+    t.assert_equals(#helpers.table_keys(response.map_calls), 2)
+    for _, count in pairs(response.map_calls) do t.assert_equals(count, 1) end
+    t.assert_equals(get_target_calls_count(g.cluster), 0)
+    t.assert_equals(get_transaction_value(g, transaction_id), 'committed in mixed cluster')
+end
