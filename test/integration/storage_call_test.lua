@@ -1918,3 +1918,128 @@ group.test_serializer_keeps_caller_privileges = function(g)
     t.assert_equals(batch_result.results[2].error.may_have_side_effects, true)
     t.assert_equals(batch_result.results[3].returns, expected)
 end
+
+-- Pause after successful Ref, before sending Map. Keep vshard's real RPC,
+-- master discovery and session-bound reference checks in the request path.
+local function pause_storage_call_map(g, bucket_id)
+    g.router:exec(function(id)
+        local fiber = require('fiber')
+        local router = assert(require('crud.common.utils').get_vshard_router_instance())
+        local rs = assert(router:route(id))
+        local state = {rs = rs, original = rs.callrw, release = fiber.channel(1), map_calls = 0}
+        rawset(_G, 'storage_call_test_map_pause', state)
+        rs.callrw = function(self, name, args, opts)
+            if name == 'vshard.storage._call' and args[1] == 'storage_map' then
+                state.map_calls = state.map_calls + 1
+                state.waiting = true
+                assert(state.release:get(30), 'Map was not released')
+                state.map_master = self.master.id
+            end
+            return state.original(self, name, args, opts)
+        end
+        state.worker = fiber.new(function()
+            state.ok, state.result, state.err = pcall(require('crud').storage_call_many, {{
+                func_name = 'storage_call_test_counted', args = {'must not run'}, bucket_id = id,
+            }}, {timeout = 30})
+            state.done = true
+        end)
+    end, {bucket_id})
+end
+
+local function release_storage_call_map(g)
+    g.router:exec(function()
+        local state = rawget(_G, 'storage_call_test_map_pause')
+        if state ~= nil then
+            state.release:put(true, 0)
+        end
+    end)
+end
+
+group.after_test('test_master_changes_between_ref_and_map', function(g)
+    if g.storage_call_old_master == nil then
+        return
+    end
+    release_storage_call_map(g)
+    g.router:exec(function()
+        local t = require('luatest')
+        local state = rawget(_G, 'storage_call_test_map_pause')
+        if state ~= nil then
+            t.helpers.retrying({timeout = 35}, function() t.assert(state.done) end)
+            state.rs.callrw = state.original
+            rawset(_G, 'storage_call_test_map_pause', nil)
+        end
+    end)
+    g.storage_call_new_master:exec(function() box.cfg{read_only = true} end)
+    g.storage_call_old_master:exec(function() box.cfg{read_only = false} end)
+    wait_storage_masters_synced(g)
+    g.router:exec(function()
+        local router = assert(require('crud.common.utils').get_vshard_router_instance())
+        for _, rs in pairs(router:routeall()) do rs:locate_master() end
+    end)
+    set_rebalancer(g, true)
+    g.storage_call_old_master = nil
+    g.storage_call_new_master = nil
+end)
+
+group.test_master_changes_between_ref_and_map = function(g)
+    t.skip_if(g.params.backend ~= helpers.backend.VSHARD
+        or type(g.params.backend_cfg) ~= 'table'
+        or g.params.backend_cfg.master ~= 'auto', 'Requires automatic vshard master discovery')
+    wait_storage_masters_synced(g)
+    set_rebalancer(g, false)
+    local bucket_id = g.buckets[1]
+    local prefix = bucket_is_writable(g.cluster:server('s1-master'), bucket_id) and 's1' or 's2'
+    local old_master = g.cluster:server(prefix .. '-master')
+    local new_master = g.cluster:server(prefix .. '-replica')
+    g.storage_call_old_master = old_master
+    g.storage_call_new_master = new_master
+    t.helpers.retrying({timeout = 10}, function()
+        t.assert(new_master:exec(function() return box.func.storage_call_test_counted ~= nil end))
+    end)
+
+    pause_storage_call_map(g, bucket_id)
+    t.helpers.retrying({timeout = 10}, function()
+        t.assert(g.router:exec(function() return _G.storage_call_test_map_pause.waiting end))
+    end)
+    old_master:exec(function() box.cfg{read_only = true} end)
+    new_master:exec(function() box.cfg{read_only = false} end)
+    t.helpers.retrying({timeout = 10}, function()
+        t.assert_not(old_master:exec(function() return require('vshard.storage').internal.is_master end))
+        t.assert(new_master:exec(function()
+            local internal = require('vshard.storage').internal
+            return internal.is_master and internal.is_bucket_in_sync
+        end))
+    end)
+    local new_master_id = new_master:exec(function()
+        return require('vshard.storage').internal.this_replica.id
+    end)
+    t.helpers.retrying({timeout = 10}, function()
+        local master_id = g.router:exec(function()
+            local rs = _G.storage_call_test_map_pause.rs
+            rs:locate_master()
+            return rs.master and rs.master.id
+        end)
+        t.assert_equals(master_id, new_master_id)
+    end)
+    release_storage_call_map(g)
+    local response
+    t.helpers.retrying({timeout = 10}, function()
+        response = g.router:exec(function()
+            local state = _G.storage_call_test_map_pause
+            return {done = state.done, ok = state.ok, result = state.result, err = state.err,
+                    map_calls = state.map_calls, map_master = state.map_master}
+        end)
+        t.assert(response.done)
+    end)
+    t.assert(response.ok)
+    t.assert_equals(response.result, nil)
+    t.assert_str_contains(response.err.err, 'Can not use a storage ref')
+    t.assert_equals(response.err.may_have_side_effects, true)
+    t.assert_equals(response.map_calls, 1)
+    t.assert_equals(response.map_master, new_master_id)
+    helpers.exec_on_cluster(g.cluster, function()
+        if box.space._bucket ~= nil then
+            require('luatest').assert_equals(_G.storage_call_test_target_calls, 0)
+        end
+    end)
+end
