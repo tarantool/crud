@@ -47,11 +47,11 @@ run with the original caller's privileges.
 
 Each target function owns its local transaction. Prefer `box.atomic()` or make
 sure that every explicit `box.begin()` is followed by `box.commit()` or
-`box.rollback()` before returning. If a function leaves a transaction open,
-CRUD rolls it back and reports an item error.
-If rollback fails, CRUD checks the transaction state again before continuing.
-If the transaction cannot be closed, execution on that storage stops.
-No subsequent item runs inside that transaction.
+`box.rollback()` on both success and error paths. CRUD does not check for open
+transactions or roll them back. Batch functions on one storage share a fiber:
+a transaction left open by one function can affect subsequent functions.
+Rejecting a nested `box.begin()` does not close the original transaction;
+a later function can commit its writes.
 
 A batch is not a distributed transaction. Calls that already committed remain
 committed when another item fails.
@@ -121,10 +121,10 @@ the API until every storage is ready.
 - Function arguments and return values must be MessagePack-serializable.
   Each successful result captures the values returned by that call. Later
   changes to shared Lua tables cannot corrupt an earlier result. Result
-  serialization hooks run with the original caller's privileges; any
-  transaction they leave open is also rolled back and reported as an item
-  error. `nil` return values use `box.NULL`, including trailing ones; an
-  arbitrary second return value is not an error.
+  serialization hooks run with the original caller's privileges and must close
+  any transactions they open, including on error paths. `nil` return values use
+  `box.NULL`, including trailing ones; an arbitrary second return value is not
+  an error.
 - An unserializable argument passed by a local Lua caller can cause a top-level
   batch error while sending requests, rather than an item validation error.
   Calls on other replica sets may already have been sent.

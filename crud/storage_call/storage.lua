@@ -31,48 +31,8 @@ local function invoke_box_func(func, args)
     return func:call(args)
 end
 
-local function try_rollback_open_transaction()
-    if not box.is_in_txn() then
-        return false
-    end
-
-    local ok, err = pcall(box.rollback)
-    if not ok then
-        return true, err
-    end
-
-    return true
-end
-
-local function append_cleanup_errors(message, cleanup_errors)
-    if cleanup_errors.transaction_rollback == nil then
-        return message
-    end
-
-    return ('%s; cleanup errors: transaction rollback: %s'):format(
-        message,
-        cleanup_errors.transaction_rollback
-    )
-end
-
-local function new_execution_error(message, call_data,
-                                   may_have_side_effects, cleanup_errors)
-    local err = storage_call_errors.new(
-        append_cleanup_errors(message, cleanup_errors),
-        call_data,
-        may_have_side_effects
-    )
-    if next(cleanup_errors) ~= nil then
-        err.cleanup_errors = cleanup_errors
-    end
-
-    return {error = err}
-end
-
 local function snapshot_returns(returns)
-    -- Keep the checked representation: later calls (or other fibers) may
-    -- mutate tables returned by the target. Decoding also removes Lua
-    -- serialization hooks so they are not executed again by IPROTO.
+    -- Keep a separate representation before executing the next function.
     return msgpack.decode(msgpack.encode(returns))
 end
 
@@ -136,52 +96,18 @@ local function execute(run_as_user, call_data)
         func,
         call_data.args
     ))
-    local transaction_left_open, rollback_err =
-        try_rollback_open_transaction()
-
-    local cleanup_errors = {}
-    if rollback_err ~= nil then
-        cleanup_errors.transaction_rollback =
-            storage_call_errors.message(rollback_err)
-    end
-
     if call_err ~= nil then
-        return new_execution_error(
-            ('Failed to execute function %q: %s'):format(
-                call_data.func_name,
-                storage_call_errors.message(call_err)
+        return {
+            error = storage_call_errors.new(
+                ('Failed to execute function %q: %s'):format(
+                    call_data.func_name,
+                    storage_call_errors.message(call_err)
+                ),
+                call_data,
+                -- The target may have committed changes before failing.
+                true
             ),
-            call_data,
-            -- Even an execute-access error can come from a nested call
-            -- after the target has committed changes.
-            true,
-            cleanup_errors
-        )
-    end
-
-    if transaction_left_open then
-        local message = ('Function %q returned with an open transaction')
-            :format(call_data.func_name)
-        if rollback_err == nil then
-            message = message .. '; the transaction was rolled back'
-        end
-        return new_execution_error(
-            message,
-            call_data,
-            true,
-            cleanup_errors
-        )
-    end
-
-    if next(cleanup_errors) ~= nil then
-        return new_execution_error(
-            ('Function %q completed, but cleanup failed'):format(
-                call_data.func_name
-            ),
-            call_data,
-            true,
-            cleanup_errors
-        )
+        }
     end
 
     -- Serialization hooks belong to the target and must keep its privileges.
@@ -210,52 +136,22 @@ local function append_result(results, result, call_data)
     table.insert(results, result)
 end
 
---- Converts unexpected executor failures to item errors and cleans up a
---- transaction left open by the target function.
+--- Converts unexpected executor failures to item errors.
 local function execute_safely(run_as_user, call_data)
     local ok, result = pcall(execute, run_as_user, call_data)
-    if ok and not box.is_in_txn() then
+    if ok then
         return result
     end
-
-    local _, rollback_err = try_rollback_open_transaction()
-    local cleanup_errors = {}
-    if rollback_err ~= nil then
-        cleanup_errors.transaction_rollback =
-            storage_call_errors.message(rollback_err)
-    end
-
-    if box.is_in_txn() then
-        local execution_err = ok and result.error or result
-        error(('%s; failed to clean up the open transaction: %s'):format(
-            storage_call_errors.message(execution_err),
-            storage_call_errors.message(rollback_err)
-        ))
-    end
-
-    if ok then
-        if result.error ~= nil then
-            return result
-        end
-        -- A result serialization hook may also leave a transaction open.
-        return new_execution_error(
-            ('Function %q left an open transaction during result processing')
-                :format(call_data.func_name),
+    return {
+        error = storage_call_errors.new(
+            ('Unexpected error while processing function %q: %s'):format(
+                call_data.func_name,
+                storage_call_errors.message(result)
+            ),
             call_data,
-            true,
-            cleanup_errors
-        )
-    end
-
-    return new_execution_error(
-        ('Unexpected error while processing function %q: %s'):format(
-            call_data.func_name,
-            storage_call_errors.message(result)
+            true
         ),
-        call_data,
-        true,
-        cleanup_errors
-    )
+    }
 end
 
 local function execute_bucket_calls(results, run_as_user, bucket_calls)

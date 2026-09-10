@@ -1597,9 +1597,11 @@ from other replica sets are not returned.
 
 Stored functions manage their own local transactions. The batch is not a
 distributed transaction and successful calls are not rolled back when another
-item fails. If a function returns with an open transaction, CRUD rolls it back
-and reports an error for that item. If transaction cleanup fails and a
-transaction remains open, execution on that storage stops before the next item.
+item fails. CRUD does not check for open transactions or roll them back.
+Use `box.atomic()` or close explicit transactions on both success and error
+paths. A transaction left open can affect subsequent batch calls on the same
+storage: a failed nested `box.begin()` does not close it, and a later function
+can commit its writes.
 
 CRUD does not automatically retry a target function after an ambiguous
 completion or transport error. Error field

@@ -105,18 +105,24 @@ local function install_test_functions()
             end
         ]],
         storage_call_test_open_transaction = [[
-            function()
+            function(id, value)
                 box.begin()
+                box.space.storage_call_test_transactions:replace({id, value})
+                return true
+            end
+        ]],
+        storage_call_test_commit_open_transaction = [[
+            function()
+                box.commit()
                 return true
             end
         ]],
         storage_call_test_transaction_write_and_error = [[
             function(id, value)
-                box.begin()
-                box.space.storage_call_test_transactions:replace({
-                    id, value,
-                })
-                error('storage call transaction error')
+                box.atomic(function()
+                    box.space.storage_call_test_transactions:replace({id, value})
+                    error('storage call transaction error')
+                end)
             end
         ]],
         storage_call_test_transaction_commit = [[
@@ -165,13 +171,10 @@ local function install_test_functions()
             end
         ]],
         storage_call_test_serializer_context = [[
-            function(leave_transaction)
+            function()
                 assert(not box.is_in_txn())
                 local caller = box.session.effective_user()
                 return setmetatable({}, {__serialize = function()
-                    if leave_transaction then
-                        box.begin()
-                    end
                     return {caller, box.session.effective_user()}
                 end})
             end
@@ -592,26 +595,6 @@ local function get_target_calls_count(cluster)
     return count
 end
 
-local function get_cleanup_rollback_calls_count(cluster)
-    local count = 0
-    helpers.call_on_storages(cluster, function(server)
-        count = count + server:eval([[
-            return _G.storage_call_test_cleanup_rollback_calls or 0
-        ]])
-    end)
-    return count
-end
-
-local function get_unexpected_error_rollback_calls_count(cluster)
-    local count = 0
-    helpers.call_on_storages(cluster, function(server)
-        count = count + server:eval([[
-            return _G.storage_call_test_unexpected_error_rollback_calls or 0
-        ]])
-    end)
-    return count
-end
-
 local function get_transaction_value(g, id)
     local value
     helpers.call_on_servers(g.cluster, storage_masters, function(server)
@@ -648,46 +631,6 @@ local function release_waiting_targets(g)
     end)
 end
 
-local function install_cleanup_fault(g)
-    helpers.exec_on_cluster(g.cluster, function()
-        if box.space._bucket == nil then
-            return
-        end
-
-        rawset(_G, 'storage_call_test_cleanup_rollback_calls', 0)
-        rawset(
-            _G,
-            'storage_call_test_original_rollback',
-            box.rollback
-        )
-
-        rawset(box, 'rollback', function(...)
-            _G.storage_call_test_cleanup_rollback_calls =
-                _G.storage_call_test_cleanup_rollback_calls + 1
-            _G.storage_call_test_original_rollback(...)
-            error('simulated transaction rollback error')
-        end)
-    end)
-end
-
-local function remove_cleanup_fault(g)
-    helpers.exec_on_cluster(g.cluster, function()
-        if box.space._bucket == nil then
-            return
-        end
-
-        if _G.storage_call_test_original_rollback ~= nil then
-            rawset(
-                box,
-                'rollback',
-                _G.storage_call_test_original_rollback
-            )
-        end
-        rawset(_G, 'storage_call_test_cleanup_rollback_calls', nil)
-        rawset(_G, 'storage_call_test_original_rollback', nil)
-    end)
-end
-
 local function install_sharding_check_fault(g)
     helpers.exec_on_cluster(g.cluster, function()
         if box.space._bucket == nil then
@@ -700,19 +643,7 @@ local function install_sharding_check_fault(g)
             'storage_call_test_original_check_sharding_hash',
             sharding.check_sharding_hash
         )
-        rawset(
-            _G,
-            'storage_call_test_unexpected_error_original_rollback',
-            box.rollback
-        )
-        rawset(_G, 'storage_call_test_unexpected_error_rollback_calls', 0)
-        rawset(box, 'rollback', function(...)
-            _G.storage_call_test_unexpected_error_rollback_calls =
-                _G.storage_call_test_unexpected_error_rollback_calls + 1
-            return _G.storage_call_test_unexpected_error_original_rollback(...)
-        end)
         sharding.check_sharding_hash = function()
-            box.begin()
             error('simulated unexpected sharding check error')
         end
     end)
@@ -731,24 +662,7 @@ local function remove_sharding_check_fault(g)
         if original ~= nil then
             require('crud.common.sharding').check_sharding_hash = original
         end
-        local original_rollback = rawget(
-            _G,
-            'storage_call_test_unexpected_error_original_rollback'
-        )
-        if original_rollback ~= nil then
-            rawset(box, 'rollback', original_rollback)
-        end
         rawset(_G, 'storage_call_test_original_check_sharding_hash', nil)
-        rawset(
-            _G,
-            'storage_call_test_unexpected_error_original_rollback',
-            nil
-        )
-        rawset(
-            _G,
-            'storage_call_test_unexpected_error_rollback_calls',
-            nil
-        )
     end)
 end
 
@@ -883,24 +797,6 @@ group.before_test(
 group.after_test(
     'test_batch_keeps_bucket_locked_after_router_timeout',
     cleanup_bucket_transfer
-)
-
-group.before_test(
-    'test_cleanup_continues_after_rollback_error',
-    install_cleanup_fault
-)
-group.after_test(
-    'test_cleanup_continues_after_rollback_error',
-    remove_cleanup_fault
-)
-
-group.before_test(
-    'test_target_and_rollback_errors_are_preserved',
-    install_cleanup_fault
-)
-group.after_test(
-    'test_target_and_rollback_errors_are_preserved',
-    remove_cleanup_fault
 )
 
 group.before_test(
@@ -1067,6 +963,7 @@ group.test_target_error_does_not_stop_batch = function(g)
     t.assert_equals(result.results[1].error.may_have_side_effects, true)
     t.assert_equals(result.results[2].returns[1], 'after error')
 end
+
 
 group.test_unserializable_result_does_not_break_batch = function(g)
     local calls = {
@@ -1391,28 +1288,30 @@ group.test_batch_keeps_bucket_locked_after_router_timeout = function(g)
     end)
 end
 
-group.test_open_transaction_is_rolled_back = function(g)
-    local calls = {
+group.test_open_transaction_can_be_committed_by_next_item = function(g)
+    local result, err = g.router:call('crud.storage_call_many', {{
         {
             func_name = 'storage_call_test_open_transaction',
-            bucket_id = g.buckets[1],
+            args = {1, 'committed by next item'}, bucket_id = g.buckets[1],
         },
         {
-            func_name = 'storage_call_test_returns',
-            args = {'after transaction'},
+            func_name = 'storage_call_test_open_transaction',
+            args = {2, 'nested begin fails'}, bucket_id = g.buckets[1],
+        },
+        {
+            func_name = 'storage_call_test_commit_open_transaction',
             bucket_id = g.buckets[1],
         },
-    }
-
-    local result, err = g.router:call('crud.storage_call_many', {calls})
-
+    }})
     t.assert_equals(err, nil)
-    t.assert_str_contains(result.results[1].error.err, 'open transaction')
-    t.assert_equals(result.results[1].error.may_have_side_effects, true)
-    t.assert_equals(result.results[2].returns[1], 'after transaction')
+    t.assert_equals(result.results[1].returns, {true})
+    t.assert_not_equals(result.results[2].error, nil)
+    t.assert_equals(result.results[3].returns, {true})
+    t.assert_equals(get_transaction_value(g, 1), 'committed by next item')
+    t.assert_equals(get_transaction_value(g, 2), nil)
 end
 
-group.test_transaction_is_rolled_back_after_target_error = function(g)
+group.test_target_rolls_back_its_transaction_after_error = function(g)
     local calls = {
         {
             func_name = 'storage_call_test_transaction_write_and_error',
@@ -1480,10 +1379,6 @@ group.test_single_unexpected_storage_error_is_wrapped = function(g)
     t.assert_equals(err.bucket_id, bucket_id)
     t.assert_equals(err.may_have_side_effects, true)
     t.assert_equals(get_target_calls_count(g.cluster), 0)
-    t.assert_equals(
-        get_unexpected_error_rollback_calls_count(g.cluster),
-        1
-    )
 end
 
 group.test_unexpected_item_error_does_not_stop_batch = function(g)
@@ -1513,64 +1408,6 @@ group.test_unexpected_item_error_does_not_stop_batch = function(g)
     t.assert_equals(result.results[1].error.may_have_side_effects, true)
     t.assert_equals(result.results[2].returns[1], 'after unexpected error')
     t.assert_equals(get_target_calls_count(g.cluster), 1)
-end
-
-group.test_cleanup_continues_after_rollback_error = function(g)
-    local calls = {
-        {
-            func_name = 'storage_call_test_open_transaction',
-            bucket_id = g.buckets[1],
-        },
-        {
-            func_name = 'storage_call_test_returns',
-            args = {'after rollback error'},
-            bucket_id = g.buckets[1],
-        },
-    }
-
-    local result, err = g.router:call('crud.storage_call_many', {calls})
-
-    t.assert_equals(err, nil)
-    local first_error = result.results[1].error
-    t.assert_str_contains(first_error.err, 'open transaction')
-    t.assert_equals(get_cleanup_rollback_calls_count(g.cluster), 1)
-    t.assert_str_contains(
-        first_error.cleanup_errors.transaction_rollback,
-        'simulated transaction rollback error'
-    )
-    t.assert_equals(first_error.may_have_side_effects, true)
-    t.assert_equals(result.results[2].returns[1], 'after rollback error')
-end
-
-group.test_target_and_rollback_errors_are_preserved = function(g)
-    local calls = {
-        {
-            func_name = 'storage_call_test_transaction_write_and_error',
-            args = {1, 'must be rolled back'},
-            bucket_id = g.buckets[1],
-        },
-        {
-            func_name = 'storage_call_test_transaction_get',
-            args = {1},
-            bucket_id = g.buckets[1],
-        },
-    }
-
-    local result, err = g.router:call('crud.storage_call_many', {calls})
-
-    t.assert_equals(err, nil)
-    local first_error = result.results[1].error
-    t.assert_str_contains(first_error.err, 'storage call transaction error')
-    t.assert_str_contains(
-        first_error.err,
-        'cleanup errors: transaction rollback'
-    )
-    t.assert_str_contains(
-        first_error.cleanup_errors.transaction_rollback,
-        'simulated transaction rollback error'
-    )
-    t.assert_equals(first_error.may_have_side_effects, true)
-    t.assert_equals(result.results[2].returns[1], box.NULL)
 end
 
 group.test_target_function_acl = function(g)
@@ -1901,10 +1738,6 @@ group.test_serializer_keeps_caller_privileges = function(g)
     })
     local batch_result, batch_err = connection:call('crud.storage_call_many', {{
         {func_name = 'storage_call_test_serializer_context', bucket_id = g.buckets[1]},
-        {
-            func_name = 'storage_call_test_serializer_context',
-            bucket_id = g.buckets[1], args = {true},
-        },
         {func_name = 'storage_call_test_serializer_context', bucket_id = g.buckets[1]},
     }})
     connection:close()
@@ -1914,9 +1747,7 @@ group.test_serializer_keeps_caller_privileges = function(g)
     t.assert_equals(result.returns, expected)
     t.assert_equals(batch_err, nil)
     t.assert_equals(batch_result.results[1].returns, expected)
-    t.assert_str_contains(batch_result.results[2].error.err, 'open transaction during result processing')
-    t.assert_equals(batch_result.results[2].error.may_have_side_effects, true)
-    t.assert_equals(batch_result.results[3].returns, expected)
+    t.assert_equals(batch_result.results[2].returns, expected)
 end
 
 -- Pause after successful Ref, before sending Map. Keep vshard's real RPC,

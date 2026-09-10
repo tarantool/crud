@@ -91,40 +91,21 @@ local function call(name, index)
     }
 end
 
-g.test_failed_rollback_stops_batch_and_releases_bucket = function(cg)
-    box.rollback = function() error('rollback failed before cleanup') end
-    t.assert_error_msg_contains('failed to clean up the open transaction', function()
-        api.storage_call_many_on_storage('admin', {[1] = {
-            call('storage_call_unit_open', 1),
-            call('storage_call_unit_commit', 2),
-        }})
-    end)
-    -- If the second item ran it would have committed the first item's write.
-    t.assert(box.is_in_txn())
-    cg.rollback()
-    t.assert_equals(box.space.storage_call_unit:get{1}, nil)
-    t.assert_equals(cg.refs, 0)
-    t.assert_equals(cg.unrefs, 1)
-end
-
-g.test_transient_rollback_failure_is_cleaned_before_next_item = function(cg)
-    local attempts = 0
-    box.rollback = function()
-        attempts = attempts + 1
-        if attempts == 1 then
-            error('temporary rollback failure')
-        end
-        return cg.rollback()
-    end
+g.test_open_transaction_can_be_committed_by_next_item = function(cg)
+    box.rollback = function() error('CRUD must not roll back transactions') end
     local results = api.storage_call_many_on_storage('admin', {[1] = {
         call('storage_call_unit_open', 1),
-        call('storage_call_unit_commit', 2),
+        call('storage_call_unit_open', 2),
+        call('storage_call_unit_commit', 3),
     }})
-    t.assert_str_contains(results[1].error.err, 'temporary rollback failure')
-    t.assert_equals(results[2].returns, {true})
-    t.assert_equals(box.space.storage_call_unit:get{1}, nil)
+    t.assert_equals(results[1].returns, {true})
+    -- A rejected nested begin does not close the first transaction.
+    t.assert_not_equals(results[2].error, nil)
+    t.assert_equals(results[3].returns, {true})
     t.assert_not(box.is_in_txn())
+    t.assert_equals(box.space.storage_call_unit:get{1}:totable(), {1, 'uncommitted'})
     t.assert_equals(cg.refs, 0)
+    t.assert_equals(cg.unrefs, 1)
 end
 
 g.test_return_values_are_snapshots = function()
@@ -137,11 +118,11 @@ g.test_return_values_are_snapshots = function()
     t.assert_equals(msgpack.decode(msgpack.encode(results)), results)
 end
 
-g.test_serialization_transaction_is_rolled_back = function()
+g.test_serialization_transaction_is_not_rolled_back = function()
     local result = api.storage_call_on_storage('admin', call('storage_call_unit_serialize_txn'))
-    t.assert_str_contains(result.error.err, 'open transaction during result processing')
-    t.assert_not(box.is_in_txn())
-    t.assert_equals(box.space.storage_call_unit:get{1}, nil)
+    t.assert_equals(result.returns, {{'value'}})
+    t.assert(box.is_in_txn())
+    t.assert_equals(box.space.storage_call_unit:get{1}:totable(), {1, 'uncommitted'})
 end
 
 g.test_error_text_does_not_prove_absence_of_side_effects = function()
