@@ -964,15 +964,23 @@ group.test_target_error_does_not_stop_batch = function(g)
     t.assert_equals(result.results[2].returns[1], 'after error')
 end
 
+group.test_single_unserializable_result_is_an_error = function(g)
+    local result, err = g.router:call('crud.storage_call', {
+        'storage_call_test_unserializable', {}, {bucket_id = g.buckets[1]},
+    })
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, "unsupported Lua type 'function'")
+    t.assert_equals(err.may_have_side_effects, true)
+end
 
-group.test_unserializable_result_does_not_break_batch = function(g)
+group.test_unserializable_result_is_a_global_error = function(g)
     local calls = {
         {
             func_name = 'storage_call_test_unserializable',
             bucket_id = g.buckets[1],
         },
         {
-            func_name = 'storage_call_test_returns',
+            func_name = 'storage_call_test_counted',
             args = {'after invalid result'},
             bucket_id = g.buckets[1],
         },
@@ -980,11 +988,13 @@ group.test_unserializable_result_does_not_break_batch = function(g)
 
     local result, err = g.router:call('crud.storage_call_many', {calls})
 
-    t.assert_equals(err, nil)
-    t.assert_str_contains(result.results[1].error.err, 'cannot be serialized')
-    t.assert_equals(result.results[1].error.may_have_side_effects, true)
-    t.assert_equals(result.results[2].returns[1], 'after invalid result')
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, "unsupported Lua type 'function'")
+    t.assert_equals(err.may_have_side_effects, true)
+    -- Results are serialized after all targets on this storage have run.
+    t.assert_equals(get_target_calls_count(g.cluster), 1)
 end
+
 
 group.test_batch_preserves_same_bucket_order_and_uses_map_callrw = function(g)
     local calls = {
@@ -1692,14 +1702,14 @@ group.test_persistent_function_survives_storage_restart = function(g)
     t.assert_equals(result.results[2].returns[1], 'second replicaset')
 end
 
-group.test_later_item_cannot_mutate_an_earlier_result = function(g)
+group.test_later_item_can_make_an_earlier_result_unserializable = function(g)
     local result, err = g.router:call('crud.storage_call_many', {{
         {func_name = 'storage_call_test_shared_result', bucket_id = g.buckets[1]},
         {func_name = 'storage_call_test_mutate_result', bucket_id = g.buckets[1]},
     }})
-    t.assert_equals(err, nil)
-    t.assert_equals(result.results[1].returns, {{'original'}})
-    t.assert_equals(result.results[2].returns, {true})
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, "unsupported Lua type 'function'")
+    t.assert_equals(err.may_have_side_effects, true)
 end
 
 

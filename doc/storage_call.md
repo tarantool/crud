@@ -119,12 +119,16 @@ the API until every storage is ready.
 - CRUD does not enforce a server-side execution timeout. Target functions must
   bound their own execution time and use application-level idempotency.
 - Function arguments and return values must be MessagePack-serializable.
-  Each successful result captures the values returned by that call. Later
-  changes to shared Lua tables cannot corrupt an earlier result. Result
-  serialization hooks run with the original caller's privileges and must close
-  any transactions they open, including on error paths. `nil` return values use
-  `box.NULL`, including trailing ones; an arbitrary second return value is not
-  an error.
+  Results are serialized when the storage sends its response. CRUD does not
+  validate or copy each returned value beforehand. Do not modify shared tables
+  returned by earlier batch calls; return an application-owned copy when needed.
+  A result serialization failure produces a top-level error for the whole call
+  or batch, with `may_have_side_effects = true` and no partial results. Other
+  items may already have run, and committed writes are not undone.
+- Result serialization hooks run with the original caller's privileges. They
+  must also close any transactions they open, including when they raise errors.
+  `nil` return values use `box.NULL`, including trailing ones; an arbitrary
+  second return value is not an error.
 - An unserializable argument passed by a local Lua caller can cause a top-level
   batch error while sending requests, rather than an item validation error.
   Calls on other replica sets may already have been sent.

@@ -31,9 +31,25 @@ local function invoke_box_func(func, args)
     return func:call(args)
 end
 
-local function snapshot_returns(returns)
-    -- Keep a separate representation before executing the next function.
-    return msgpack.decode(msgpack.encode(returns))
+-- Serialize only when the RPC response is sent. Keep user serialization hooks
+-- under the caller's privileges without checking or copying individual results.
+local function prepare_response(run_as_user, response)
+    return setmetatable(response, {
+        __serialize = function(value)
+            -- Do not pass this envelope's own hook back to the serializer.
+            local payload = {}
+            for key, item in pairs(value) do
+                payload[key] = item
+            end
+            local ok, result = pcall(box.session.su, run_as_user, msgpack.object, payload)
+            if not ok then
+                -- Preserve the message when propagating a native serializer
+                -- error through another __serialize callback.
+                error(storage_call_errors.message(result), 0)
+            end
+            return result
+        end,
+    })
 end
 
 --- Validates and executes one persistent function as the original user.
@@ -110,25 +126,7 @@ local function execute(run_as_user, call_data)
         }
     end
 
-    -- Serialization hooks belong to the target and must keep its privileges.
-    local serializable, snapshot = pcall(
-        box.session.su, run_as_user, snapshot_returns, returns
-    )
-    if not serializable then
-        return {
-            error = storage_call_errors.new(
-                ('Function %q returned values that cannot be serialized to '
-                    .. 'MessagePack: %s'):format(
-                        call_data.func_name,
-                        storage_call_errors.message(snapshot)
-                    ),
-                call_data,
-                true
-            ),
-        }
-    end
-
-    return {returns = snapshot}
+    return {returns = returns}
 end
 
 local function append_result(results, result, call_data)
@@ -257,12 +255,12 @@ end
 
 local function storage_call_on_storage(run_as_user, call_data)
     assert_service_user()
-    return execute_safely(run_as_user, call_data)
+    return prepare_response(run_as_user, execute_safely(run_as_user, call_data))
 end
 
 local function storage_call_many_on_storage(run_as_user, calls_by_bucket)
     assert_service_user()
-    return execute_many(run_as_user, calls_by_bucket)
+    return prepare_response(run_as_user, execute_many(run_as_user, calls_by_bucket))
 end
 
 storage.func_name = STORAGE_FUNC_NAME

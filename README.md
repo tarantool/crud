@@ -1560,8 +1560,12 @@ count configured for the selected vshard router. LuaJIT cdata values are not
 accepted by this API.
 On success, all returned values are preserved in `result.returns`. CRUD does
 not treat the second returned value as an error. `nil` values, including
-trailing ones, are represented by `box.NULL`; `false` is preserved. Each
-result captures the returned values, so later calls cannot change its tables.
+trailing ones, are represented by `box.NULL`; `false` is preserved. Returned
+tables are not copied: batch functions must not modify tables returned by
+previous calls. Results are serialized when the storage sends its response,
+with serialization hooks running under the original caller's privileges.
+A serialization failure returns a top-level `nil, err` for the whole call or
+batch, without partial results. Other calls may already have executed.
 
 The batch method accepts the same call descriptions:
 

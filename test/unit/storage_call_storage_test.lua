@@ -108,19 +108,25 @@ g.test_open_transaction_can_be_committed_by_next_item = function(cg)
     t.assert_equals(cg.unrefs, 1)
 end
 
-g.test_return_values_are_snapshots = function()
+g.test_return_values_are_not_snapshots = function()
     local results = api.storage_call_many_on_storage('admin', {[1] = {
         call('storage_call_unit_shared', 1),
         call('storage_call_unit_mutate', 2),
     }})
-    t.assert_equals(results[1].returns, {{'original'}, box.NULL, false, box.NULL})
+    t.assert_is(results[1].returns[1], _G.storage_call_unit_shared_value)
+    t.assert_equals(results[1].returns[2], box.NULL)
+    t.assert_equals(results[1].returns[3], false)
+    t.assert_equals(results[1].returns[4], box.NULL)
     t.assert_equals(results[2].returns, {true})
-    t.assert_equals(msgpack.decode(msgpack.encode(results)), results)
+    t.assert_error_msg_contains("unsupported Lua type 'function'", msgpack.encode, results)
 end
 
-g.test_serialization_transaction_is_not_rolled_back = function()
+g.test_serialization_is_deferred_and_does_not_clean_transactions = function()
     local result = api.storage_call_on_storage('admin', call('storage_call_unit_serialize_txn'))
-    t.assert_equals(result.returns, {{'value'}})
+    t.assert_not(box.is_in_txn())
+    t.assert_equals(box.space.storage_call_unit:get{1}, nil)
+    local decoded = msgpack.decode(msgpack.encode(result))
+    t.assert_equals(decoded.returns, {{'value'}})
     t.assert(box.is_in_txn())
     t.assert_equals(box.space.storage_call_unit:get{1}:totable(), {1, 'uncommitted'})
 end
