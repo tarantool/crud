@@ -9,7 +9,7 @@ local luatest = require('luatest')
 local path = require('test.path')
 local vclock_utils = require('test.vshard_helpers.vclock')
 
-local WAIT_TIMEOUT = 60
+local WAIT_TIMEOUT = tonumber(os.getenv('LUATEST_SERVER_WAIT_TIMEOUT')) or 60
 local WAIT_DELAY = 0.1
 
 -- Join paths in an intuitive way.
