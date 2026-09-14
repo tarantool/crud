@@ -17,7 +17,7 @@ ffi.cdef([[
 
 local Server = luatest.Server:inherit({})
 
-local WAIT_TIMEOUT = 60
+local WAIT_TIMEOUT = tonumber(os.getenv('LUATEST_SERVER_WAIT_TIMEOUT')) or 60
 local WAIT_DELAY = 0.1
 
 -- Differences from luatest.Server:

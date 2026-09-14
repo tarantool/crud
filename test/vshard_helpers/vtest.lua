@@ -16,7 +16,7 @@ local function instance_uri(alias, instance_id)
     return ('%s/%s%s.iproto'):format(SOCKET_DIR, alias, instance_id);
 end
 
-local wait_timeout = 50
+local wait_timeout = tonumber(os.getenv('LUATEST_SERVER_WAIT_TIMEOUT')) or 50
 -- Use it in busy-loops like `while !cond do fiber.sleep(busy_step) end`.
 local busy_step = 0.005
 local uuid_idx = 1

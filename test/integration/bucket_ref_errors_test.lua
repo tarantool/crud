@@ -110,7 +110,7 @@ pgroup_many.test_errors = function(g)
 
     local _, errs
     local start_id = 1
-    t.helpers.retrying({timeout=60}, function()
+    t.helpers.retrying({timeout = tonumber(os.getenv('LUATEST_SERVER_WAIT_TIMEOUT')) or 60}, function()
         _, errs = duplicate_operations[g.params.operation](g, start_id, 100)
         if g.params.operation == 'insert_many' then
             start_id = start_id + 100
