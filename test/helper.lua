@@ -436,10 +436,15 @@ function helpers.assert_ge(actual, expected, message)
 end
 
 function helpers.get_other_storage_bucket_id(cluster, bucket_id)
+    local timeout = tonumber(os.getenv('LUATEST_SERVER_WAIT_TIMEOUT')) or 60
+
     return cluster:server('router'):eval([[
         local vshard = require('vshard')
+        local clock = require('clock')
+        local fiber = require('fiber')
+        local json = require('json')
 
-        local bucket_id = ...
+        local bucket_id, timeout = ...
 
         local replicasets = vshard.router.routeall()
 
@@ -455,7 +460,7 @@ function helpers.get_other_storage_bucket_id(cluster, bucket_id)
             if err ~= nil then
                 return nil, string.format(
                     'vshard.storage.bucket_stat returned unexpected error: %s',
-                    require('json').encode(err)
+                    json.encode(err)
                 )
             end
         end
@@ -464,11 +469,24 @@ function helpers.get_other_storage_bucket_id(cluster, bucket_id)
             return nil, 'Other replicaset is not found'
         end
 
-        local buckets_info = other_replicaset:callrw('vshard.storage.buckets_info')
-        local res_bucket_id = next(buckets_info)
+        -- Storage may be slow under coverage, so retry buckets_info until it
+        -- responds instead of doing next() on a nil result after a timeout.
+        local buckets_info, err
+        local deadline = clock.time() + timeout
+        repeat
+            buckets_info, err = other_replicaset:callrw('vshard.storage.buckets_info')
+            if err == nil then
+                local res_bucket_id = next(buckets_info)
+                return res_bucket_id
+            end
+            fiber.sleep(1)
+        until clock.time() >= deadline
 
-        return res_bucket_id
-    ]], {bucket_id})
+        return nil, string.format(
+            'vshard.storage.buckets_info returned error: %s',
+            json.encode(err)
+        )
+    ]], {bucket_id, timeout})
 end
 
 helpers.tarantool_version_at_least = crud_utils.tarantool_version_at_least
@@ -1572,7 +1590,7 @@ function helpers.reset_call_cache(cluster)
 end
 
 function helpers.wait_active_bucket_count(server, expected_count)
-    t.helpers.retrying({timeout = 60}, function()
+    t.helpers.retrying({timeout = tonumber(os.getenv('LUATEST_SERVER_WAIT_TIMEOUT')) or 60}, function()
         server:exec(function(count)
             local vshard = require('vshard')
 

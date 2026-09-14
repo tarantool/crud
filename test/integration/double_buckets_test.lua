@@ -6,7 +6,7 @@ local utils = require('crud.common.utils')
 
 local helpers = require('test.helper')
 
-local TIMEOUT = 60
+local TIMEOUT = tonumber(os.getenv('LUATEST_SERVER_WAIT_TIMEOUT')) or 60
 
 local function wait_balance(g, buckets_s1, buckets_s2)
     helpers.wait_active_bucket_count(g.cluster:server('s1-master'), buckets_s1)
