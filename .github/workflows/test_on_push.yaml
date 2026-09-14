@@ -46,6 +46,7 @@ jobs:
             vshard-version: "0.1.42"
           - tarantool-version: "master"
             vshard-version: "master"
+            s3-upload: true
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -130,12 +131,136 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run tests
-        if: matrix.coveralls != true # See https://github.com/actions/runner/issues/1173
+        if: >-
+          matrix.coveralls != true &&
+          (matrix.s3-upload != true ||
+            (github.ref_type != 'tag' && github.ref_name != 'master'))
         run: make -C build luatest-no-coverage
 
       - name: Run tests with coverage and send results to coveralls.io
         if: ${{ matrix.coveralls }}
         run: make -C build coveralls
+        env:
+          LUATEST_SERVER_WAIT_TIMEOUT: 180
+
+  run-coverage-ce:
+    if: github.event_name == 'push' && (github.ref_type == 'tag' || github.ref_name == 'master')
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup tt
+        run: |
+          curl -L https://tarantool.io/release/2/installer.sh | sudo bash
+          sudo apt install -y tt
+          tt version
+
+      - name: Get Tarantool master latest commit
+        run: |
+          commit_hash=$(git ls-remote https://github.com/tarantool/tarantool.git --branch master | head -c 8)
+          echo "LATEST_COMMIT=${commit_hash}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Cache Tarantool master
+        id: cache-latest
+        uses: actions/cache@v4
+        with:
+          path: "${GITHUB_WORKSPACE}/bin"
+          key: cache-latest-${{ env.LATEST_COMMIT }}
+
+      - name: Setup Tarantool CE (master)
+        if: steps.cache-latest.outputs.cache-hit != 'true'
+        run: |
+          tt init
+          tt install tarantool master
+
+      - name: Add tt Tarantool to PATH
+        run: echo "${GITHUB_WORKSPACE}/bin" >> $GITHUB_PATH
+
+      - name: Install requirements for community
+        run: |
+          tarantool --version
+          ./deps.sh
+        env:
+          VSHARD_VERSION: master
+
+      # This server starts and listen on 8084 port that is used for tests
+      - name: Stop Mono server
+        run: sudo kill -9 $(sudo lsof -t -i tcp:8084) || true
+
+      - name: Run coverage tests (shard ${{ matrix.shard }})
+        env:
+          CI_NODE_INDEX: ${{ matrix.shard }}
+          LUATEST_SERVER_WAIT_TIMEOUT: 180
+        run: |
+          files=($(find test -name '*_test.lua' | sort))
+          selected=()
+          i=0
+          for f in "${files[@]}"; do
+            if [ $((i % 6)) -eq "${{ matrix.shard }}" ]; then
+              selected+=("$f")
+            fi
+            i=$((i + 1))
+          done
+          echo "Running ${#selected[@]} test files: ${selected[*]}"
+          .rocks/bin/luatest -v --coverage "${selected[@]}"
+
+      - name: Upload coverage stats
+        uses: actions/upload-artifact@v4
+        with:
+          name: luacov-stats-${{ matrix.shard }}
+          path: luacov.stats${{ matrix.shard }}.out
+          retention-days: 7
+          if-no-files-found: error
+
+  upload-coverage-s3:
+    if: github.event_name == 'push' && (github.ref_type == 'tag' || github.ref_name == 'master')
+    needs: run-coverage-ce
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup tt
+        run: |
+          curl -L https://tarantool.io/release/2/installer.sh | sudo bash
+          sudo apt install -y tt
+          tt version
+
+      - name: Setup Tarantool CE
+        uses: tarantool/setup-tarantool@v4
+        with:
+          tarantool-version: '2.11'
+
+      - name: Install luacov
+        run: tt rocks install luacov 0.13.0
+
+      - name: Download coverage stats
+        uses: actions/download-artifact@v4
+        with:
+          pattern: luacov-stats-*
+          path: coverage-stats
+
+      - name: Merge coverage stats
+        run: tarantool test/luacov-merger.lua luacov.stats.out coverage-stats/luacov-stats-*/luacov.stats*.out
+
+      - name: Generate coverage report
+        run: .rocks/bin/luacov .
+
+      - name: Upload coverage report to S3
+        uses: tarantool/actions/s3-upload-file@master
+        with:
+          access-key-id: ${{ secrets.COVERAGE_S3_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.COVERAGE_S3_SECRET_ACCESS_KEY }}
+          bucket: packages
+          source: luacov.report.out
+          destination: >-
+            tarantooldb/dev/coverage-reports/modules/crud/${{
+            github.ref_type == 'tag' && github.ref_name || 'master'
+            }}/luacov.report.out
 
   run-tests-ee:
     if: github.event_name == 'push'
