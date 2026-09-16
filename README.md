@@ -42,6 +42,7 @@ It also provides the `crud-storage` and `crud-router` roles for
   - [Len](#len)
   - [Storage info](#storage-info)
   - [Storage call](#storage-call)
+  - [Storage call many](#storage-call-many)
   - [Count](#count)
   - [Call options for crud methods](#call-options-for-crud-methods)
   - [Statistics](#statistics)
@@ -1516,16 +1517,70 @@ crud.storage_info()
 
 ### Storage call
 
-`crud.storage_call()` and `crud.storage_call_many()` call named stored
-functions on the storage masters selected by the supplied bucket or key. The
-target must be created with a persistent `body` in `box.func` on every storage
-where it can be called. The caller must have `execute` access to that function.
-Functions without a stored body and functions with `setuid = true` are rejected
-before execution.
+```lua
+-- Call a stored function on the master that owns the bucket
+local result, err = crud.storage_call(func_name, args, opts)
+```
+
+where:
+
+* `func_name` (`string`) - exact name of the target function in `box.func`
+* `args` (`?table`) - array of function arguments, default is `{}`
+* `opts`:
+  * `bucket_id` (`?number`) - explicit bucket ID. Must be a Lua integer from
+    1 to the bucket count configured for the selected router; LuaJIT cdata
+    values are not accepted
+  * `space_name` (`?string`) - name of the space used to calculate the bucket
+    from its primary key; required together with `key` if `bucket_id` is omitted
+  * `key` (`any`) - primary key value for `space_name`; required if `bucket_id`
+    is omitted. Accepts a scalar, an array of key parts or a tuple
+  * `timeout` (`?number`) - common time budget for routing, sending the call
+    and waiting for its response (in seconds), default value is 2
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
+
+Specify exactly one routing form: `bucket_id` or both `space_name` and `key`.
+Routing by key respects custom DDL sharding keys and functions. The sharding
+key must be part of the primary key; otherwise, specify `bucket_id` explicitly.
+Routing values are not added to the function arguments: the target receives
+exactly the values from `args`.
+
+Returns a table with a `returns` array, or `nil` with an error.
+All values returned by the function are preserved: `nil` values, including
+trailing ones, are represented by `box.NULL`; `false` is preserved. The second
+returned value is treated as data, not as an error.
+
+The target must be created with a persistent `body` in `box.func` on every
+storage where it can be called. The caller must have `execute` access to that
+function. Functions without a stored body and functions with `setuid = true`
+are rejected before execution. Execution and result serialization preserve
+the original caller's privileges.
+
+The stored function must close its local transaction on both success and
+error paths. CRUD does not check for open transactions or roll them back.
+Use `box.atomic()` or explicitly commit or roll back within the function.
+A result serialization error returns `nil, err`; committed changes remain
+committed.
+
+CRUD does not automatically retry a target function. Error field
+`may_have_side_effects` is `false` only when CRUD knows that the target did not
+start, for example after argument validation, missing or non-persistent
+registration, or rejected routing metadata. Exceptions from invoking the
+target, including access errors, are conservatively marked `true`: an error
+may originate in a nested call after a commit. Retrying a call with
+`may_have_side_effects = true` requires application-level idempotency.
+
+A client timeout does not cancel a running function. A function that keeps
+running can delay movement of its declared bucket on that storage.
 
 This API is designed and tested for Tarantool Enterprise 2.11 and 3.x.
+See the [storage call deployment guide](doc/storage_call.md) for function
+registration, privileges and rolling upgrade order.
 
-An individual call can be routed by an explicit bucket id:
+**Example:**
+
+Route by an explicit bucket ID:
 
 ```lua
 local result, err = crud.storage_call(
@@ -1538,8 +1593,7 @@ local result, err = crud.storage_call(
 )
 ```
 
-Alternatively, CRUD can calculate the bucket from the primary key of a space,
-including its custom DDL sharding key and function:
+Route by a space primary key:
 
 ```lua
 local result, err = crud.storage_call(
@@ -1553,21 +1607,67 @@ local result, err = crud.storage_call(
 )
 ```
 
-Exactly one routing form must be specified. Routing values are not added to
-the function arguments: the target receives exactly the values from `args`.
-An explicit bucket id must be a Lua integer in the range from 1 to the bucket
-count configured for the selected vshard router. LuaJIT cdata values are not
-accepted by this API.
-On success, all returned values are preserved in `result.returns`. CRUD does
-not treat the second returned value as an error. `nil` values, including
-trailing ones, are represented by `box.NULL`; `false` is preserved. Returned
-tables are not copied: batch functions must not modify tables returned by
-previous calls. Results are serialized when the storage sends its response,
-with serialization hooks running under the original caller's privileges.
-A serialization failure returns a top-level `nil, err` for the whole call or
-batch, without partial results. Other calls may already have executed.
+### Storage call many
 
-The batch method accepts the same call descriptions:
+```lua
+-- Call a batch of stored functions on storage masters
+local result, err = crud.storage_call_many(calls, opts)
+```
+
+where:
+
+* `calls` (`table`) - array of call descriptions without gaps. Each item has:
+  * `func_name` (`string`) - exact name of the target function in `box.func`
+  * `args` (`?table`) - array of function arguments, default is `{}`
+  * `bucket_id` (`?number`) - explicit bucket ID, with the same range and type
+    restrictions as in [storage_call](#storage-call)
+  * `space_name` (`?string`) - name of the space used to calculate the bucket;
+    required together with `key` if `bucket_id` is omitted
+  * `key` (`any`) - primary key value for `space_name`; required if `bucket_id`
+    is omitted. Accepts a scalar, an array of key parts or a tuple
+* `opts` (`?table`):
+  * `timeout` (`?number`) - common time budget for routing, sending calls and
+    waiting for responses for the whole batch (in seconds), default value is 2
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or
+    vshard router instance. Set this parameter if your space is not
+    a part of the default vshard cluster
+
+Each item must specify exactly one routing form: `bucket_id` or both
+`space_name` and `key`. Routing and target function requirements are the same
+as for [storage_call](#storage-call).
+
+Returns a table with a `results` array in input order, or `nil` with a
+top-level error. Every item in `results` contains exactly one of:
+
+* `returns` (`table`) - array of values returned by the function, with the
+  same representation as in `storage_call`
+* `error` (`table`) - error for this item. Includes `operation_index` and
+  `operation_data` to identify the original call
+
+An empty `calls` array returns `{results = {}}`. A target function error does
+not stop the remaining calls. An infrastructure error while dispatching calls
+or collecting responses, or a result serialization error, returns a top-level
+`nil, err` with `may_have_side_effects = true`. Partial results from other
+replica sets are not returned. Other calls may already have executed. CRUD
+does not automatically retry target functions.
+
+Batch calls are sent concurrently to the affected replica sets. Calls handled
+by one storage run sequentially. Calls for the same bucket preserve input
+order; relative execution order between different buckets is not guaranteed.
+
+Returned tables are not copied: batch functions must not modify tables
+returned by previous calls. Results are serialized when the storage sends
+its response, with serialization hooks running under the original caller's
+privileges.
+
+The batch is not a distributed transaction. Stored functions manage their own
+local transactions; successful calls are not rolled back when another item
+fails. CRUD does not check for open transactions or roll them back. A
+transaction left open can affect subsequent calls on the same storage: a
+failed nested `box.begin()` does not close it, and a later function can commit
+its writes. The timeout and retry rules of `storage_call` also apply to batches.
+
+**Example:**
 
 ```lua
 local result, err = crud.storage_call_many({
@@ -1586,40 +1686,6 @@ local result, err = crud.storage_call_many({
     timeout = 0.05,
 })
 ```
-
-Batch calls are sent concurrently to the affected replica sets. Calls handled
-by one storage run sequentially. Calls for the same bucket preserve input
-order; relative execution order between different buckets is not guaranteed.
-A client timeout does not cancel a running function. A function that keeps
-running can delay movement of its declared bucket on that storage.
-
-On success, the method returns `result.results` in input order. Every item
-contains exactly one of `returns` or `error`; a target function error does not
-stop the remaining calls. An infrastructure error while dispatching calls or
-collecting responses is returned as a top-level `nil, err`; partial results
-from other replica sets are not returned.
-
-Stored functions manage their own local transactions. The batch is not a
-distributed transaction and successful calls are not rolled back when another
-item fails. CRUD does not check for open transactions or roll them back.
-Use `box.atomic()` or close explicit transactions on both success and error
-paths. A transaction left open can affect subsequent batch calls on the same
-storage: a failed nested `box.begin()` does not close it, and a later function
-can commit its writes.
-
-CRUD does not automatically retry a target function after an ambiguous
-completion or transport error. Error field
-`may_have_side_effects` is `false` only when CRUD knows that the target did not
-start, for example after argument validation, missing or non-persistent
-registration, or rejected routing metadata. Exceptions from invoking the
-target, including access errors, are conservatively marked `true`: an error
-may originate in a nested call after a commit. A value of `true` means that
-the function may already have run. A top-level batch infrastructure error is also marked
-`may_have_side_effects = true`. Retrying such a call requires application-level
-idempotency.
-
-See the [storage call deployment guide](doc/storage_call.md) for function
-registration, privileges and rolling upgrade order.
 
 ### Count
 
