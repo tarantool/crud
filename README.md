@@ -1579,31 +1579,42 @@ registration, privileges and rolling upgrade order.
 
 **Example:**
 
+Assume the registered function `app.process_handler(event, handler_id)` returns
+`handler_id` after processing the event.
+
 Route by an explicit bucket ID:
 
 ```lua
-local result, err = crud.storage_call(
+crud.storage_call(
     'app.process_handler',
-    {event, handler_id},
+    {event, 17},
     {
         bucket_id = 1205,
         timeout = 0.05,
     }
 )
+---
+- returns:
+  - 17
+...
 ```
 
 Route by a space primary key:
 
 ```lua
-local result, err = crud.storage_call(
+crud.storage_call(
     'app.process_handler',
-    {event, handler_id},
+    {event, 17},
     {
         space_name = 'handlers',
-        key = {handler_id},
+        key = {17},
         timeout = 0.05,
     }
 )
+---
+- returns:
+  - 17
+...
 ```
 
 ### Storage call many
@@ -1668,8 +1679,10 @@ its writes. The timeout and retry rules of `storage_call` also apply to batches.
 
 **Example:**
 
+Using the same function, which returns `handler_id`:
+
 ```lua
-local result, err = crud.storage_call_many({
+crud.storage_call_many({
     {
         func_name = 'app.process_handler',
         args = {event, 17},
@@ -1684,6 +1697,13 @@ local result, err = crud.storage_call_many({
 }, {
     timeout = 0.05,
 })
+---
+- results:
+  - returns:
+    - 17
+  - returns:
+    - 18
+...
 ```
 
 ### Count
