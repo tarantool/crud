@@ -1574,7 +1574,6 @@ may originate in a nested call after a commit. Retrying a call with
 A client timeout does not cancel a running function. A function that keeps
 running can delay movement of its declared bucket on that storage.
 
-This API is designed and tested for Tarantool Enterprise 2.11 and 3.x.
 See the [storage call deployment guide](doc/storage_call.md) for function
 registration, privileges and rolling upgrade order.
 
