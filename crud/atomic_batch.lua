@@ -12,7 +12,7 @@ local atomic_batch = {}
 
 local AtomicBatchExecutionError = common.AtomicBatchExecutionError
 
---- Execute a batch of CRUD operations atomically on a single replicaset.
+--- Execute a batch of CRUD operations atomically on a single bucket.
 --
 -- @function call
 --

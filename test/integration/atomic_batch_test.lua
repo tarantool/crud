@@ -80,63 +80,20 @@ local function assert_absent_by_id(g, space_name, id)
     t.assert_equals(#res.rows, 0)
 end
 
-local function scan_ids_by_replicaset(g)
-    local ids_by_uuid = g.router:eval([[
+local function find_two_ids_different_buckets(g)
+    local ids = g.router:eval([[
         local vshard = require('vshard')
 
-        local by_uuid = {}
-        for id = 1, ... do
-            local bucket_id = vshard.router.bucket_id_strcrc32(id)
-            local rs, err = vshard.router.route(bucket_id)
-            if err == nil and rs ~= nil then
-                local uuid = rs.uuid or rs.id or tostring(rs)
-                by_uuid[uuid] = by_uuid[uuid] or {}
-                table.insert(by_uuid[uuid], {id = id, bucket_id = bucket_id})
+        local first_bucket = vshard.router.bucket_id_strcrc32(1)
+        for id = 2, ... do
+            if vshard.router.bucket_id_strcrc32(id) ~= first_bucket then
+                return {1, id}
             end
         end
-
-        return by_uuid
     ]], {ID_SCAN_LIMIT})
 
-    t.assert_type(ids_by_uuid, 'table')
-    return ids_by_uuid
-end
-local function find_ids_same_replicaset(g, count)
-    local ids_by_uuid = scan_ids_by_replicaset(g)
-
-    for _, ids in pairs(ids_by_uuid) do
-        if #ids >= count then
-            local result = {}
-            for i = 1, count do
-                result[i] = ids[i].id
-            end
-            return result
-        end
-    end
-
-    t.fail(('failed to find %d ids on same replicaset within first %d ids'):format(count, ID_SCAN_LIMIT))
-end
-
-local function find_two_ids_same_replicaset(g)
-    local ids = find_ids_same_replicaset(g, 2)
+    t.assert_type(ids, 'table')
     return ids[1], ids[2]
-end
-
-local function find_two_ids_different_replicasets(g)
-    local ids_by_uuid = scan_ids_by_replicaset(g)
-
-    local first_id = nil
-    for _, ids in pairs(ids_by_uuid) do
-        if #ids > 0 then
-            if first_id == nil then
-                first_id = ids[1].id
-            else
-                return first_id, ids[1].id
-            end
-        end
-    end
-
-    t.fail(('failed to find ids on different replicasets within first %d ids'):format(ID_SCAN_LIMIT))
 end
 
 local function call_mixed_engine_atomic_batch(g, id1, id2)
@@ -258,24 +215,23 @@ pgroup.test_read_your_own_writes_in_single_batch = function(g)
 end
 
 pgroup.test_preserves_result_slots_for_no_result_ops = function(g)
-    local ids = find_ids_same_replicaset(g, 3)
-    local missing_id, insert_id, upsert_id = ids[1], ids[2], ids[3]
+    local id = 7001
 
     local res, err = g.router:call('crud.atomic_batch', {{
         {
             type = 'get',
             space = 'customers',
-            key = {missing_id},
+            key = {id},
         },
         {
             type = 'insert',
             space = 'customers',
-            tuple = {insert_id, box.NULL, 'slot_insert_customer', 33},
+            tuple = {id, box.NULL, 'slot_insert_customer', 33},
         },
         {
             type = 'upsert',
             space = 'customers',
-            tuple = {upsert_id, box.NULL, 'slot_upsert_customer', 34},
+            tuple = {id, box.NULL, 'slot_upsert_customer', 34},
             operations = {{'+', 'age', 1}},
         },
     }})
@@ -284,67 +240,67 @@ pgroup.test_preserves_result_slots_for_no_result_ops = function(g)
     t.assert_type(res, 'table')
     t.assert_equals(#res.data, 3)
     t.assert_equals(res.data[1], box.NULL)
-    t.assert_equals(res.data[2][1], insert_id)
+    t.assert_equals(res.data[2][1], id)
     t.assert_equals(res.data[2][3], 'slot_insert_customer')
     t.assert_equals(res.data[3], box.NULL)
 end
 
 pgroup.test_all_operation_types_in_single_batch = function(g)
-    local ids = find_ids_same_replicaset(g, 3)
-    local id1, id2, id3 = ids[1], ids[2], ids[3]
-
-    helpers.insert_objects(g, 'customers', {{
-        id = id1,
-        name = 'seed_customer',
-        age = 20,
-    }})
+    local id = 7002
 
     local res, err = g.router:call('crud.atomic_batch', {{
         {
             type = 'get',
             space = 'customers',
-            key = {id1},
+            key = {id},
         },
         {
             type = 'insert',
             space = 'customers',
-            tuple = {id2, box.NULL, 'inserted_customer', 31},
+            tuple = {id, box.NULL, 'inserted_customer', 31},
         },
         {
             type = 'replace',
             space = 'customers',
-            tuple = {id2, box.NULL, 'replaced_customer', 32},
+            tuple = {id, box.NULL, 'replaced_customer', 32},
         },
         {
             type = 'update',
             space = 'customers',
-            key = {id1},
+            key = {id},
             operations = {{'+', 'age', 2}},
         },
         {
             type = 'upsert',
             space = 'customers',
-            tuple = {id3, box.NULL, 'upserted_customer', 40},
+            tuple = {id, box.NULL, 'upserted_customer', 40},
             operations = {{'=', 'name', 'upserted_customer_updated'}},
         },
         {
             type = 'delete',
             space = 'customers',
-            key = {id3},
+            key = {id},
         },
     }})
 
     t.assert_equals(err, nil)
     t.assert_type(res, 'table')
+    t.assert_equals(#res.data, 6)
 
-    local customer_1 = get_single_object(g, 'customers', id1)
-    t.assert_equals(customer_1.age, 22)
+    t.assert_equals(res.data[1], box.NULL)
+    t.assert_equals(res.data[2][1], id)
+    t.assert_equals(res.data[2][3], 'inserted_customer')
+    t.assert_equals(res.data[3][3], 'replaced_customer')
+    t.assert_equals(res.data[4][3], 'replaced_customer')
+    t.assert_equals(res.data[4][4], 34)
+    t.assert_equals(res.data[5], box.NULL)
+    if g.params.engine == 'memtx' then
+        t.assert_equals(res.data[6][3], 'upserted_customer_updated')
+    else
+        t.assert_equals(res.data[6], box.NULL)
+    end
 
-    local customer_2 = get_single_object(g, 'customers', id2)
-    t.assert_equals(customer_2.name, 'replaced_customer')
-    t.assert_equals(customer_2.age, 32)
-
-    assert_absent_by_id(g, 'customers', id3)
+    assert_absent_by_id(g, 'customers', id)
 end
 
 -- -----------------------------------------------------------------------------
@@ -417,27 +373,29 @@ end
 -- -----------------------------------------------------------------------------
 
 pgroup.test_rollback_on_mid_batch_error = function(g)
+    local id = 7003
+
     helpers.insert_objects(g, 'developers', {{
-        id = 2001,
+        id = id,
         name = 'existing_developer',
-        login = 'duplicate_login',
+        login = 'existing_login',
     }})
 
     local res, err = g.router:call('crud.atomic_batch', {{
         {
             type = 'insert',
             space = 'customers',
-            tuple = {2001, box.NULL, 'rollback_customer', 18},
+            tuple = {id, box.NULL, 'rollback_customer', 18},
         },
         {
             type = 'insert',
             space = 'developers',
-            tuple = {3001, box.NULL, 'conflicting_developer', 'duplicate_login'},
+            tuple = {id, box.NULL, 'conflicting_developer', 'conflicting_login'},
         },
         {
             type = 'update',
             space = 'customers',
-            key = {2001},
+            key = {id},
             operations = {{'+', 'age', 1}},
         },
     }})
@@ -448,24 +406,25 @@ pgroup.test_rollback_on_mid_batch_error = function(g)
     t.assert_equals(err.operation_data.type, 'insert')
     t.assert_equals(err.operation_data.space, 'developers')
 
-    assert_absent_by_id(g, 'customers', 2001)
-    assert_absent_by_id(g, 'developers', 3001)
+    assert_absent_by_id(g, 'customers', id)
 
-    local existing_dev = get_single_object(g, 'developers', 2001)
-    t.assert_equals(existing_dev.login, 'duplicate_login')
+    local existing_dev = get_single_object(g, 'developers', id)
+    t.assert_equals(existing_dev.login, 'existing_login')
 end
 
 pgroup.test_invalid_tuple_causes_rollback = function(g)
+    local id = 7004
+
     local res, err = g.router:call('crud.atomic_batch', {{
         {
             type = 'insert',
             space = 'customers',
-            tuple = {8001, box.NULL, 'will_rollback', 23},
+            tuple = {id, box.NULL, 'will_rollback', 23},
         },
         {
             type = 'insert',
             space = 'customers',
-            tuple = {8002, box.NULL, 'wrong_type', 'not_a_number'},
+            tuple = {id, box.NULL, 'wrong_type', 'not_a_number'},
         },
     }})
 
@@ -473,26 +432,25 @@ pgroup.test_invalid_tuple_causes_rollback = function(g)
     t.assert_not_equals(err, nil)
     t.assert_equals(err.operation_index, 2)
 
-    assert_absent_by_id(g, 'customers', 8001)
-    assert_absent_by_id(g, 'customers', 8002)
+    assert_absent_by_id(g, 'customers', id)
 end
 
-pgroup.test_unrefs_buckets_on_commit_failure = function(g)
+pgroup.test_unrefs_bucket_on_commit_failure = function(g)
     local res = g.cluster:server('s1-master'):exec(function()
         local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
 
         local orig_begin = box.begin
         local orig_commit = box.commit
         local orig_rollback = box.rollback
-        local orig_bucket_refrw_batch = bucket_ref_unref.bucket_refrw_batch
+        local orig_bucket_refrw = bucket_ref_unref.bucket_refrw
 
         local unref_called = false
 
-        -- Force commit to fail to assert buckets are still unref'd.
+        -- Force commit to fail to assert the bucket is still unref'd.
         box.begin = function() end
         box.rollback = function() end
         box.commit = function() error('simulated commit failure') end
-        bucket_ref_unref.bucket_refrw_batch = function()
+        bucket_ref_unref.bucket_refrw = function()
             return true, nil, function()
                 unref_called = true
                 return true
@@ -510,7 +468,7 @@ pgroup.test_unrefs_buckets_on_commit_failure = function(g)
         box.begin = orig_begin
         box.commit = orig_commit
         box.rollback = orig_rollback
-        bucket_ref_unref.bucket_refrw_batch = orig_bucket_refrw_batch
+        bucket_ref_unref.bucket_refrw = orig_bucket_refrw
 
         return {
             unref_called = unref_called,
@@ -552,49 +510,24 @@ end
 -- Sharding/routing behavior
 -- -----------------------------------------------------------------------------
 
-pgroup.test_multiple_bucket_ids_on_same_replicaset = function(g)
-    local id1, id2 = find_two_ids_same_replicaset(g)
+pgroup.test_rejects_cross_bucket_batch = function(g)
+    local id1, id2 = find_two_ids_different_buckets(g)
 
     local res, err = g.router:call('crud.atomic_batch', {{
         {
             type = 'insert',
             space = 'customers',
-            tuple = {id1, box.NULL, 'same_replicaset_1', 31},
+            tuple = {id1, box.NULL, 'cross_bucket_1', 19},
         },
         {
             type = 'insert',
             space = 'customers',
-            tuple = {id2, box.NULL, 'same_replicaset_2', 32},
-        },
-    }})
-
-    t.assert_equals(err, nil)
-    t.assert_type(res, 'table')
-
-    local obj1 = get_single_object(g, 'customers', id1)
-    local obj2 = get_single_object(g, 'customers', id2)
-
-    t.assert_not_equals(obj1.bucket_id, obj2.bucket_id)
-end
-
-pgroup.test_rejects_cross_replicaset_batch = function(g)
-    local id1, id2 = find_two_ids_different_replicasets(g)
-
-    local res, err = g.router:call('crud.atomic_batch', {{
-        {
-            type = 'insert',
-            space = 'customers',
-            tuple = {id1, box.NULL, 'cross_replicaset_1', 19},
-        },
-        {
-            type = 'insert',
-            space = 'customers',
-            tuple = {id2, box.NULL, 'cross_replicaset_2', 20},
+            tuple = {id2, box.NULL, 'cross_bucket_2', 20},
         },
     }})
 
     t.assert_equals(res, nil)
-    assert_error_contains(err, 'must target the same replicaset')
+    assert_error_contains(err, 'must target the same bucket')
     t.assert_equals(err.operation_index, 2)
     t.assert_equals(err.operation_data.type, 'insert')
     t.assert_equals(err.operation_data.space, 'customers')
@@ -602,7 +535,7 @@ pgroup.test_rejects_cross_replicaset_batch = function(g)
     local tuple = err.operation_data.tuple
     t.assert_type(tuple, 'table')
     t.assert_equals(tuple[1], id2)
-    t.assert_equals(tuple[3], 'cross_replicaset_2')
+    t.assert_equals(tuple[3], 'cross_bucket_2')
     t.assert_equals(tuple[4], 20)
     t.assert_type(tuple[2], 'number')
 
@@ -731,8 +664,8 @@ end
 -- -----------------------------------------------------------------------------
 
 mvcc_group.test_mixed_memtx_vinyl_requires_mvcc = function(g)
-    local id1, id2 = find_two_ids_same_replicaset(g)
+    local id = 7005
 
-    local res, err = call_mixed_engine_atomic_batch(g, id1, id2)
-    assert_mixed_mvcc_result(g, id1, id2, res, err)
+    local res, err = call_mixed_engine_atomic_batch(g, id, id)
+    assert_mixed_mvcc_result(g, id, id, res, err)
 end

@@ -180,48 +180,12 @@ end
 local function load_prepare_context(vshard_router, timeout)
     local spaces, spaces_err = utils.get_spaces(vshard_router, {timeout = timeout})
     if spaces_err ~= nil then
-        return nil, nil,
+        return nil,
             AtomicBatchExecutionError:new("Failed to load spaces metadata: %s", spaces_err),
             const.NEED_SCHEMA_RELOAD
     end
 
-    local known_replicasets, routeall_err = vshard_router:routeall()
-    if known_replicasets == nil then
-        return nil, nil,
-            AtomicBatchExecutionError:new("Failed to get router replicasets: %s", tostring(routeall_err)),
-            const.NEED_SHARDING_RELOAD
-    end
-
-    local replicaset_id_by_obj = {}
-    for replicaset_id, replicaset in pairs(known_replicasets) do
-        replicaset_id_by_obj[replicaset] = replicaset_id
-    end
-
-    return spaces, replicaset_id_by_obj
-end
-
-local function resolve_replicaset_id(vshard_router, bucket_id, replicaset_id_by_obj, i, op)
-    local replicaset, route_err = vshard_router:route(bucket_id)
-    if route_err ~= nil or replicaset == nil then
-        return nil,
-            AtomicBatchExecutionError:new(
-                "Op #%d (%s on %q): failed to route bucket_id %d: %s",
-                i, op.type, op.space, bucket_id, tostring(route_err)
-            ),
-            const.NEED_SHARDING_RELOAD
-    end
-
-    local replicaset_id = replicaset_id_by_obj[replicaset]
-    if replicaset_id == nil then
-        return nil,
-            AtomicBatchExecutionError:new(
-                "Op #%d (%s on %q): failed to determine replicaset id for bucket_id %d",
-                i, op.type, op.space, bucket_id
-            ),
-            const.NEED_SHARDING_RELOAD
-    end
-
-    return replicaset_id
+    return spaces
 end
 
 local function merge_sharding_meta(meta_by_space, space_name, sharding_data)
@@ -270,11 +234,9 @@ end
 local function prepare_operations_on_router(vshard_router, operations, opts)
     local prepared_ops = {}
     local single_bucket_id = nil
-    local target_replicaset_id = nil
     local sharding_meta_by_space = {}
 
-    local spaces_cache, replicaset_id_by_obj, ctx_err, need_reload =
-        load_prepare_context(vshard_router, opts.timeout)
+    local spaces_cache, ctx_err, need_reload = load_prepare_context(vshard_router, opts.timeout)
     if ctx_err ~= nil then
         return nil, ctx_err, need_reload
     end
@@ -304,30 +266,18 @@ local function prepare_operations_on_router(vshard_router, operations, opts)
                 const.NEED_SHARDING_RELOAD
         end
 
-        local replicaset_id
-        replicaset_id, err = resolve_replicaset_id(vshard_router, bucket_id, replicaset_id_by_obj, i, op)
-        if err ~= nil then
-            return nil, err, const.NEED_SHARDING_RELOAD
-        end
-
-        if target_replicaset_id == nil then
-            target_replicaset_id = replicaset_id
-        elseif target_replicaset_id ~= replicaset_id then
+        if single_bucket_id == nil then
+            single_bucket_id = bucket_id
+        elseif single_bucket_id ~= bucket_id then
             local err = AtomicBatchExecutionError:new(
-                "Op #%d (%s on %q): bucket_id %d belongs to replicaset %s, " ..
-                "while previous operations target replicaset %s. " ..
-                "All ops in atomic_batch must target the same replicaset.",
-                i, op.type, op.space, bucket_id,
-                tostring(replicaset_id), tostring(target_replicaset_id)
+                "Op #%d (%s on %q): bucket_id %d does not match bucket_id %d " ..
+                "of previous operations. All ops in atomic_batch must target the same bucket.",
+                i, op.type, op.space, bucket_id, single_bucket_id
             )
             err.operation_index = i
             err.operation_data = op
 
             return nil, err
-        end
-
-        if single_bucket_id == nil then
-            single_bucket_id = bucket_id
         end
 
         merge_sharding_meta(sharding_meta_by_space, op.space, sharding_data)

@@ -16,23 +16,6 @@ local storage = {}
 local AtomicBatchExecutionError = common.AtomicBatchExecutionError
 local CROSS_ENGINE_TXNS_SUPPORTED = common.CROSS_ENGINE_TXNS_SUPPORTED
 
-local function unref_buckets(unref_fn)
-    if unref_fn == nil then
-        return true
-    end
-
-    local ok, unref_ok, unref_err = pcall(unref_fn)
-    if not ok then
-        return nil, AtomicBatchExecutionError:new('Failed to unref buckets: %s', tostring(unref_ok))
-    end
-
-    if not unref_ok then
-        return nil, AtomicBatchExecutionError:new('Failed to unref buckets: %s', tostring(unref_err))
-    end
-
-    return true
-end
-
 -- Execute a single CRUD operation inside an open box transaction.
 local function execute_single_op_on_storage(op, noreturn, space_fields)
     local space = box.space[op.space]
@@ -63,16 +46,16 @@ local function execute_single_op_on_storage(op, noreturn, space_fields)
     return nil, AtomicBatchExecutionError:new("Unsupported operation type: %s", op.type)
 end
 
--- Build bucket_id -> engine map; operations must already carry .bucket_id.
-local function get_bucket_ids_engine(operations)
-    local bucket_ids_engine = {}
+-- Get engine of the single bucket to ref: vinyl if any operation touches
+-- a vinyl space, memtx otherwise.
+local function get_batch_engine(operations)
     for _, op in ipairs(operations) do
         local space = box.space[op.space]
-        if space ~= nil and op.bucket_id ~= nil then
-            bucket_ids_engine[op.bucket_id] = space.engine
+        if space ~= nil and space.engine == 'vinyl' then
+            return 'vinyl'
         end
     end
-    return bucket_ids_engine
+    return 'memtx'
 end
 
 -- Return error if mixed memtx/vinyl spaces are not supported, nil otherwise.
@@ -146,8 +129,9 @@ local function atomic_batch_on_storage(operations, opts)
         return { err = err }
     end
 
-    local bucket_ids_engine = get_bucket_ids_engine(operations)
-    local ref_ok, ref_err, unref_fn = bucket_ref_unref.bucket_refrw_batch(bucket_ids_engine)
+    local bucket_id = operations[1].bucket_id
+    local engine = get_batch_engine(operations)
+    local ref_ok, ref_err, unref_fn = bucket_ref_unref.bucket_refrw(bucket_id, engine)
     if not ref_ok then
         return nil, ref_err
     end
@@ -175,7 +159,7 @@ local function atomic_batch_on_storage(operations, opts)
 
     if execution_err ~= nil then
         box.rollback()
-        local _, unref_err = unref_buckets(unref_fn)
+        local _, unref_err = unref_fn(bucket_id, engine)
 
         local err = AtomicBatchExecutionError:new(
             "Operation #%d (%s on %q) failed: %s",
@@ -190,7 +174,7 @@ local function atomic_batch_on_storage(operations, opts)
 
     local commit_ok, commit_err = pcall(box.commit)
 
-    local unref_ok, unref_err = unref_buckets(unref_fn)
+    local unref_ok, unref_err = unref_fn(bucket_id, engine)
 
     if not commit_ok then
         local err = AtomicBatchExecutionError:new(
