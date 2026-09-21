@@ -31,4 +31,19 @@ function utils.compute_hash(val)
     return digest.murmur(msgpack.encode(val))
 end
 
+function utils.combine_errors(ErrorClass, errs)
+    if #errs == 0 then
+        return nil
+    end
+    if #errs == 1 then
+        return errs[1]
+    end
+
+    local messages = {}
+    for _, err in ipairs(errs) do
+        table.insert(messages, err.err)
+    end
+    return ErrorClass:new('%s', table.concat(messages, '; '))
+end
+
 return utils
