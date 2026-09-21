@@ -143,65 +143,86 @@ jobs:
         env:
           LUATEST_SERVER_WAIT_TIMEOUT: 180
 
-  run-coverage-ce:
+  run-coverage:
     if: github.event_name == 'push' && (github.ref_type == 'tag' || github.ref_name == 'master')
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5]
+        edition: [ce, ee]
+        shard: [0, 1, 2]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup tt
+      # CE: Tarantool master
+      - name: Setup tt (CE)
+        if: matrix.edition == 'ce'
         run: |
           curl -L https://tarantool.io/release/2/installer.sh | sudo bash
           sudo apt install -y tt
           tt version
 
-      - name: Get Tarantool master latest commit
+      - name: Get Tarantool master latest commit (CE)
+        if: matrix.edition == 'ce'
         run: |
           commit_hash=$(git ls-remote https://github.com/tarantool/tarantool.git --branch master | head -c 8)
           echo "LATEST_COMMIT=${commit_hash}" >> $GITHUB_ENV
         shell: bash
 
-      - name: Cache Tarantool master
+      - name: Cache Tarantool master (CE)
+        if: matrix.edition == 'ce'
         id: cache-latest
         uses: actions/cache@v4
         with:
           path: "${GITHUB_WORKSPACE}/bin"
           key: cache-latest-${{ env.LATEST_COMMIT }}
 
-      - name: Setup Tarantool CE (master)
-        if: steps.cache-latest.outputs.cache-hit != 'true'
+      - name: Setup Tarantool CE master
+        if: matrix.edition == 'ce' && steps.cache-latest.outputs.cache-hit != 'true'
         run: |
           tt init
           tt install tarantool master
 
-      - name: Add tt Tarantool to PATH
+      - name: Add tt Tarantool to PATH (CE)
+        if: matrix.edition == 'ce'
         run: echo "${GITHUB_WORKSPACE}/bin" >> $GITHUB_PATH
 
-      - name: Install requirements for community
+      - name: Install requirements for community (CE)
+        if: matrix.edition == 'ce'
         run: |
           tarantool --version
           ./deps.sh
         env:
           VSHARD_VERSION: master
 
+      # EE: Tarantool Enterprise 3.6
+      - name: Install requirements for enterprise (EE)
+        if: matrix.edition == 'ee'
+        run: |
+          curl -O -L https://tarantool:${{ secrets.DOWNLOAD_TOKEN }}@download.tarantool.io/enterprise/release/linux/x86_64/3.6/tarantool-enterprise-sdk-gc64-3.6.0-0-r85.linux.x86_64.tar.gz
+          tar -xzf tarantool-enterprise-sdk-gc64-3.6.0-0-r85.linux.x86_64.tar.gz
+          rm -f tarantool-enterprise-sdk-gc64-3.6.0-0-r85.linux.x86_64.tar.gz
+          sudo cp tarantool-enterprise/tarantool /usr/bin/tarantool
+          source tarantool-enterprise/env.sh
+          tarantool --version
+          ./deps.sh
+        env:
+          VSHARD_VERSION: 0.1.42
+
       # This server starts and listen on 8084 port that is used for tests
       - name: Stop Mono server
         run: sudo kill -9 $(sudo lsof -t -i tcp:8084) || true
 
-      - name: Run coverage tests (shard ${{ matrix.shard }})
+      - name: Run coverage tests (${{ matrix.edition }} shard ${{ matrix.shard }})
         env:
-          CI_NODE_INDEX: ${{ matrix.shard }}
+          CI_NODE_INDEX: ${{ matrix.edition == 'ee' && format('ee{0}', matrix.shard) || matrix.shard }}
           LUATEST_SERVER_WAIT_TIMEOUT: 180
         run: |
           files=($(find test -name '*_test.lua' | sort))
           selected=()
           i=0
           for f in "${files[@]}"; do
-            if [ $((i % 6)) -eq "${{ matrix.shard }}" ]; then
+            if [ $((i % 3)) -eq "${{ matrix.shard }}" ]; then
               selected+=("$f")
             fi
             i=$((i + 1))
@@ -212,14 +233,14 @@ jobs:
       - name: Upload coverage stats
         uses: actions/upload-artifact@v4
         with:
-          name: luacov-stats-${{ matrix.shard }}
-          path: luacov.stats${{ matrix.shard }}.out
+          name: luacov-stats-${{ matrix.edition == 'ee' && format('ee{0}', matrix.shard) || matrix.shard }}
+          path: luacov.stats${{ matrix.edition == 'ee' && format('ee{0}', matrix.shard) || matrix.shard }}.out
           retention-days: 7
           if-no-files-found: error
 
   upload-coverage-s3:
     if: github.event_name == 'push' && (github.ref_type == 'tag' || github.ref_name == 'master')
-    needs: run-coverage-ce
+    needs: run-coverage
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
