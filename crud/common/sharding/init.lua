@@ -6,6 +6,7 @@ local GetReplicasetsError = errors.new_class('GetReplicasetsError', {capture_sta
 local const = require('crud.common.const')
 local utils = require('crud.common.utils')
 local dev_checks = require('crud.common.dev_checks')
+local sharding_key_module = require('crud.common.sharding.sharding_key')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 local storage_metadata_cache = require('crud.common.sharding.storage_metadata_cache')
 local sharding_utils = require('crud.common.sharding.utils')
@@ -89,6 +90,60 @@ function sharding.fill_bucket_id_pk(space, key, bucket_id)
     if first_key_part == nil or first_key_part == box.NULL then
         key[1] = bucket_id
     end
+end
+
+-- Compute bucket_id for a primary-key based operation and fill it into the key
+-- when the sharding index is the primary index. Returns sharding data or
+-- nil, err, need_reload:
+--  * `const.NEED_SCHEMA_RELOAD` when the primary index is unavailable
+--    (stale net.box schema).
+function sharding.key_set_and_return_bucket_id(vshard_router, space, key, specified_bucket_id)
+    dev_checks('table', 'table', '?', '?')
+
+    local space_name = space.name
+
+    local sharding_key = key
+    local sharding_key_hash = nil
+    local skip_sharding_hash_check = nil
+
+    if specified_bucket_id == nil then
+        local primary_index = space.index[0]
+        if primary_index == nil then
+            return nil, BucketIDError:new("Cannot fetch primary index parts for space %q", space_name),
+                const.NEED_SCHEMA_RELOAD
+        end
+
+        local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(vshard_router, space_name)
+        if err ~= nil then
+            return nil, err
+        end
+
+        sharding_key, err = sharding_key_module.extract_from_pk(
+            vshard_router, space_name, sharding_key_data.value, primary_index.parts, key)
+        if err ~= nil then
+            return nil, err
+        end
+
+        sharding_key_hash = sharding_key_data.hash
+    else
+        skip_sharding_hash_check = true
+    end
+
+    local bucket_id_data, err = sharding.key_get_bucket_id(vshard_router, space_name, sharding_key, specified_bucket_id)
+    if err ~= nil then
+        return nil, err
+    end
+
+    -- When the sharding index (bucket_id) is the primary index, bucket_id can be
+    -- part of the key.
+    sharding.fill_bucket_id_pk(space, key, bucket_id_data.bucket_id)
+
+    return {
+        bucket_id = bucket_id_data.bucket_id,
+        sharding_func_hash = bucket_id_data.sharding_func_hash,
+        sharding_key_hash = sharding_key_hash,
+        skip_sharding_hash_check = skip_sharding_hash_check,
+    }, nil
 end
 
 function sharding.tuple_get_bucket_id(vshard_router, tuple, space, specified_bucket_id)
