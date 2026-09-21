@@ -143,7 +143,7 @@ pgroup.test_empty_batch = function(g)
     local res, err = g.router:call('crud.atomic_batch', { { } })
 
     t.assert_equals(err, nil)
-    t.assert_equals(res, {metadata = {}, data = {}})
+    t.assert_equals(res, {metadata = {}, data = {}, ops = {}})
 end
 
 pgroup.test_success_heterogeneous_batch = function(g)
@@ -366,6 +366,11 @@ pgroup.test_fields_projection = function(g)
 
     t.assert_equals(res.data[1], {5001, 'bob'})
     t.assert_equals(res.data[2], {5001, 'bob_login'})
+
+    t.assert_equals(res.ops, {
+        {type = 'insert', space = 'customers'},
+        {type = 'insert', space = 'developers'},
+    })
 end
 
 -- -----------------------------------------------------------------------------
@@ -490,6 +495,7 @@ pgroup.test_validation_unsupported_operation_type = function(g)
     }})
 
     t.assert_equals(res, nil)
+    t.assert_equals(err.class_name, 'AtomicBatchError')
     assert_error_contains(err, 'unsupported type')
 end
 
@@ -527,6 +533,7 @@ pgroup.test_rejects_cross_bucket_batch = function(g)
     }})
 
     t.assert_equals(res, nil)
+    t.assert_equals(err.class_name, 'AtomicBatchError')
     assert_error_contains(err, 'must target the same bucket')
     t.assert_equals(err.operation_index, 2)
     t.assert_equals(err.operation_data.type, 'insert')
