@@ -8,19 +8,25 @@ local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
 local sharding = require('crud.common.sharding')
+local utils = require('crud.common.utils')
 
 local common = require('crud.atomic_batch.common')
 
 local storage = {}
 
-local AtomicBatchExecutionError = common.AtomicBatchExecutionError
-local CROSS_ENGINE_TXNS_SUPPORTED = common.CROSS_ENGINE_TXNS_SUPPORTED
+local AtomicBatchError = common.AtomicBatchError
+
+local ATOMIC_BATCH_FUNC_NAME = 'atomic_batch_on_storage'
+
+-- Cross-engine transactions (mixing memtx and vinyl spaces in a single
+-- transaction) are supported only since Tarantool 3.4.0.
+local CROSS_ENGINE_TXNS_SUPPORTED = utils.tarantool_version_at_least(3, 4, 0)
 
 -- Execute a single CRUD operation inside an open box transaction.
 local function execute_single_op_on_storage(op, noreturn, space_fields)
     local space = box.space[op.space]
     if space == nil then
-        return nil, AtomicBatchExecutionError:new("Space %q doesn't exist", op.space)
+        return nil, AtomicBatchError:new("Space %q doesn't exist", op.space)
     end
 
     local field_names = space_fields and space_fields[op.space] or nil
@@ -43,7 +49,7 @@ local function execute_single_op_on_storage(op, noreturn, space_fields)
     elseif op.type == 'get' then
         return schema.wrap_func_result(space, space.get, wrap_opts, space, op.key)
     end
-    return nil, AtomicBatchExecutionError:new("Unsupported operation type: %s", op.type)
+    return nil, AtomicBatchError:new("Unsupported operation type: %s", op.type)
 end
 
 -- Get engine of the single bucket to ref: vinyl if any operation touches
@@ -78,13 +84,13 @@ local function check_mvcc_for_mixed_engines(operations)
     end
 
     if not box.cfg.memtx_use_mvcc_engine then
-        return AtomicBatchExecutionError:new(
+        return AtomicBatchError:new(
             "atomic_batch over mixed memtx and vinyl spaces requires MVCC " ..
             "(box.cfg.memtx_use_mvcc_engine = true)")
     end
 
     if not CROSS_ENGINE_TXNS_SUPPORTED then
-        return AtomicBatchExecutionError:new(
+        return AtomicBatchError:new(
             "atomic_batch over mixed memtx and vinyl spaces requires " ..
             "Tarantool 3.4.0 or newer (cross-engine transactions)")
     end
@@ -137,7 +143,7 @@ local function atomic_batch_on_storage(operations, opts)
     end
 
     local results = {}
-    local execution_err, failed_index, failed_op
+    local execution_err, failed_index, failed_op, failed_space_schema_hash
 
     box.begin()
 
@@ -147,9 +153,10 @@ local function atomic_batch_on_storage(operations, opts)
         op_latencies[i] = clock.monotonic() - op_started_at
 
         if op_err ~= nil or (res ~= nil and res.err ~= nil) then
-            execution_err = op_err or AtomicBatchExecutionError:new('%s', res.err)
+            execution_err = op_err or AtomicBatchError:new('%s', res.err)
             failed_index = i
             failed_op = op
+            failed_space_schema_hash = res ~= nil and res.space_schema_hash or nil
             break
         end
         if opts.noreturn ~= true then
@@ -161,7 +168,7 @@ local function atomic_batch_on_storage(operations, opts)
         box.rollback()
         local _, unref_err = unref_fn(bucket_id, engine)
 
-        local err = AtomicBatchExecutionError:new(
+        local err = AtomicBatchError:new(
             "Operation #%d (%s on %q) failed: %s",
             failed_index, failed_op.type, failed_op.space, execution_err
         )
@@ -169,7 +176,11 @@ local function atomic_batch_on_storage(operations, opts)
         err.operation_data = failed_op
         err.unref_error = unref_err
 
-        return { err = err, op_latencies = op_latencies }
+        return {
+            err = err,
+            op_latencies = op_latencies,
+            space_schema_hash = failed_space_schema_hash,
+        }
     end
 
     local commit_ok, commit_err = pcall(box.commit)
@@ -177,7 +188,7 @@ local function atomic_batch_on_storage(operations, opts)
     local unref_ok, unref_err = unref_fn(bucket_id, engine)
 
     if not commit_ok then
-        local err = AtomicBatchExecutionError:new(
+        local err = AtomicBatchError:new(
             "Failed to commit atomic_batch: %s", tostring(commit_err))
         err.unref_error = unref_err
         return { err = err, op_latencies = op_latencies }
@@ -190,6 +201,6 @@ local function atomic_batch_on_storage(operations, opts)
     return { data = results, op_latencies = op_latencies }
 end
 
-storage.storage_api = { [common.ATOMIC_BATCH_FUNC_NAME] = atomic_batch_on_storage }
+storage.storage_api = { [ATOMIC_BATCH_FUNC_NAME] = atomic_batch_on_storage }
 
 return storage

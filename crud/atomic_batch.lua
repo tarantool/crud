@@ -10,7 +10,7 @@ local storage = require('crud.atomic_batch.storage')
 
 local atomic_batch = {}
 
-local AtomicBatchExecutionError = common.AtomicBatchExecutionError
+local AtomicBatchError = common.AtomicBatchError
 
 --- Execute a batch of CRUD operations atomically on a single bucket.
 --
@@ -34,8 +34,8 @@ local AtomicBatchExecutionError = common.AtomicBatchExecutionError
 --  Output field names by space, same format as `{[space_name] = {field1, field2, ...}}`.
 --
 -- @return[1] table
---  `{metadata = {[space_name] = format}, data = {op_results...}}`.
---  `data[i]` matches the i-th operation in `operations` when `opts.noreturn ~= true`.
+--  `{metadata = {[space_name] = format}, ops = {{type, space}, ...}, data = {op_results...}}`.
+--  `ops[i]` and `data[i]` match the i-th operation in `operations` when `opts.noreturn ~= true`.
 -- @treturn[2] nil
 -- @treturn[2] table Error
 --
@@ -50,7 +50,7 @@ function atomic_batch.call(operations, opts)
 
     local vshard_router, err = utils.get_vshard_router_instance()
     if err ~= nil then
-        return nil, AtomicBatchExecutionError:new(err)
+        return nil, AtomicBatchError:new(err)
     end
 
     local unique_spaces = router.collect_unique_spaces(operations)

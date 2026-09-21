@@ -1126,11 +1126,23 @@ local result, err = crud.atomic_batch(operations, opts)
 ```
 
 Runs an ordered list of CRUD operations (`get`, `insert`, `replace`, `update`,
-`upsert`, `delete`) in a single transaction on one replicaset.
+`upsert`, `delete`) in a single transaction on one bucket.
 
 where:
 
-* `operations` (`table`) - ordered array of operation descriptors
+* `operations` (`table`) - ordered array of operation descriptors. Each
+  descriptor must contain `type` (one of `'get'`, `'insert'`, `'replace'`,
+  `'update'`, `'upsert'`, `'delete'`) and `space` (space name). The remaining
+  fields depend on `type`:
+
+  | Operation | Fields                            | See            |
+  | --------- | --------------------------------- | -------------- |
+  | `get`     | `key`                             | `crud.get`     |
+  | `insert`  | `tuple` or `object`               | `crud.insert`  |
+  | `replace` | `tuple` or `object`               | `crud.replace` |
+  | `update`  | `key`, `operations`               | `crud.update`  |
+  | `upsert`  | `tuple` or `object`, `operations` | `crud.upsert`  |
+  | `delete`  | `key`                             | `crud.delete`  |
 * `opts`:
   * `timeout` (`?number`) - `vshard.call` timeout (seconds), default `2`
   * `noreturn` (`?boolean`) - suppress successful operation results
@@ -1139,6 +1151,9 @@ where:
 
 Returns `{metadata = {[space_name] = format}, data = {op_results...}}` or
 `nil, err`.
+
+`crud.atomic_batch` always uses the default `vshard.router` and does not
+support a custom `vshard_router` (Cartridge vshard group).
 
 **Example:**
 
