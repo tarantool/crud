@@ -54,7 +54,7 @@ local function write_merged_data_to_file(coverage_data, output_filename)
 
     for file_path, counts in pairs(coverage_data) do
         file:write(#counts .. ":" .. file_path .. "\n")
-        file:write(table.concat(counts, " ") .. "\n")
+        file:write(table.concat(counts, " ") .. " \n")
     end
 
     file:close()
