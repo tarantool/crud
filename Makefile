@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
-S3_TARANTOOL_SDK_3_PATH := s3://packages/enterprise/release/linux/x86_64/3.6/tarantool-enterprise-sdk-gc64-3.6.0-0-r85.linux.x86_64.tar.gz
-S3_TARANTOOL_SDK_2_PATH := s3://packages/enterprise/release/linux/x86_64/2.11/tarantool-enterprise-sdk-gc64-2.11.8-0-r706.linux.x86_64.tar.gz
+S3_TARANTOOL_SDK_3_PATH := s3://packages/enterprise/release/linux/x86_64/3.8/tarantool-enterprise-sdk-gc64-3.8.0-0-r91.linux.x86_64.tar.gz
+S3_TARANTOOL_SDK_2_PATH := s3://packages/enterprise/release/linux/x86_64/2.11/tarantool-enterprise-sdk-gc64-2.11.9-0-r710.linux.x86_64.tar.gz
 S3_ENDPOINT_URL := $(if $(S3_ENDPOINT_URL),$(S3_ENDPOINT_URL),https://hb.vkcs.cloud)
 
 .rocks: sdk
@@ -9,9 +9,9 @@ S3_ENDPOINT_URL := $(if $(S3_ENDPOINT_URL),$(S3_ENDPOINT_URL),https://hb.vkcs.cl
 	tt rocks install luacheck 0.26.0 --only-server=sdk-2/rocks && \
 	tt rocks install luacov 0.13.0 --only-server=sdk-2/rocks && \
 	tt rocks install luacov-reporters 0.1.0 --only-server=sdk-2/rocks && \
-	tt rocks install metrics  1.5.0 && \
-	tt rocks install cartridge 2.16.3 && \
-	tt rocks install migrations 1.2.0 && \
+	tt rocks install metrics  1.8.1 && \
+	tt rocks install cartridge 2.17.2 && \
+	tt rocks install migrations 1.2.1 && \
 	tt rocks make
 
 sdk-2:
