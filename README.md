@@ -31,6 +31,7 @@ It also provides the `crud-storage` and `crud-router` roles for
   - [Replace many](#replace-many)
   - [Upsert](#upsert)
   - [Upsert many](#upsert-many)
+  - [Atomic batch](#atomic-batch)
   - [Select](#select)
     - [Select conditions](#select-conditions)
   - [Pairs](#pairs)
@@ -1116,6 +1117,119 @@ errs[3].operation_data -- {71, 1802, "Oksana", 29}
 errs[4].class_name     -- NotPerformedError
 errs[4].err            -- 'Operation with tuple was rollback'
 errs[4].operation_data -- {92, 2040, "Artur", 29}
+```
+
+### Atomic batch
+
+```lua
+local result, err = crud.atomic_batch(operations, opts)
+```
+
+Runs an ordered list of CRUD operations (`get`, `insert`, `replace`, `update`,
+`upsert`, `delete`) in a single transaction on one bucket.
+
+where:
+
+* `operations` (`table`) - ordered array of operation descriptors. Each
+  descriptor must contain `type` (one of `'get'`, `'insert'`, `'replace'`,
+  `'update'`, `'upsert'`, `'delete'`) and `space` (space name). The remaining
+  fields depend on `type`:
+
+  | Operation | Fields                            |
+  | --------- | --------------------------------- |
+  | `get`     | `key`                             |
+  | `insert`  | `tuple` or `object`               |
+  | `replace` | `tuple` or `object`               |
+  | `update`  | `key`, `operations`               |
+  | `upsert`  | `tuple` or `object`, `operations` |
+  | `delete`  | `key`                             |
+* `opts`:
+  * `timeout` (`?number`) - `vshard.call` timeout (seconds), default `2`
+  * `noreturn` (`?boolean`) - suppress successful operation results
+  * `fields` (`?table`) - per-space output projection:
+    `{[space_name] = {field1, field2, ...}}`
+
+Returns `{metadata = {[space_name] = format}, ops = {{type, space}, ...},
+data = {op_results...}}` or `nil, err`. `ops[i]` and `data[i]` correspond to
+the i-th operation in `operations`. On error, `err` is an `AtomicBatchError`
+with `operation_index` and `operation_data` pointing to the failed operation.
+`err.unref_error` is set only if releasing the bucket read-write reference also
+failed.
+
+`crud.atomic_batch` always uses the default `vshard.router` and does not
+support a custom `vshard_router` (Cartridge vshard group).
+
+`crud.atomic_batch` always executes on the master: it routes the batch with
+`mode = 'write'` and takes a read-write bucket reference on the storage, even
+when the batch consists only of `get` operations. A read-only path (routing to
+a replica, as `crud.get` provides via `mode`, `prefer_replica` and `balance`)
+is not supported yet.
+
+**Example:**
+
+```lua
+local operations = {
+    {
+        type = 'insert',
+        space = 'orders',
+        object = {id = 101, customer_id = 10, status = 'new'}
+    },
+    {
+        type = 'update',
+        space = 'customers',
+        key = {101},
+        operations = {{'+', 'orders_count', 1}}
+    },
+    {
+        type = 'get',
+        space = 'orders',
+        key = {101}
+    },
+}
+
+crud.atomic_batch(operations, {
+    fields = {
+        orders = {'id', 'status'},
+        customers = {'id', 'orders_count'},
+    },
+})
+---
+- metadata:
+    orders:
+    - {'name': 'id', 'type': 'unsigned'}
+    - {'name': 'status', 'type': 'string'}
+    customers:
+    - {'name': 'id', 'type': 'unsigned'}
+    - {'name': 'orders_count', 'type': 'number'}
+  ops:
+  - {'type': 'insert', 'space': 'orders'}
+  - {'type': 'update', 'space': 'customers'}
+  - {'type': 'get', 'space': 'orders'}
+  data:
+  - [101, 'new']
+  - [101, 1]
+  - [101, 'new']
+...
+```
+
+If any operation fails, the whole batch is rolled back and the method returns
+`nil, err`:
+
+```lua
+-- Any operation failure rolls back the whole batch
+local res, err = crud.atomic_batch({
+    {type = 'insert', space = 'orders', object = {id = 101, customer_id = 10, status = 'new'}},
+    {type = 'insert', space = 'customers', tuple = {10, box.NULL, 'Alex', 30}},
+})
+---
+res                     -- nil
+err.class_name          -- AtomicBatchError
+err.err                 -- 'Operation #2 (insert on "customers") failed: Duplicate key exists <...>'
+err.operation_index     -- 2
+err.operation_data.type -- insert
+err.operation_data.space -- customers
+err.operation_data.tuple -- {10, box.NULL, 'Alex', 30}
+...
 ```
 
 ### Select

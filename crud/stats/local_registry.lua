@@ -6,6 +6,7 @@ local errors = require('errors')
 
 local dev_checks = require('crud.common.dev_checks')
 local stash = require('crud.common.stash')
+local atomic_batch = require('crud.stats.atomic_batch')
 local op_module = require('crud.stats.operation')
 local registry_utils = require('crud.stats.registry_utils')
 
@@ -94,6 +95,14 @@ function registry.get(space_name)
     return table.deepcopy(internal.registry)
 end
 
+-- Increase count and latency info of a single observation.
+local function update_obs(latency, obs)
+    obs.count = obs.count + 1
+    obs.time = obs.time + latency
+    obs.latency_average = obs.time / obs.count
+    obs.latency = obs.latency_average
+end
+
 --- Increase requests count and update latency info.
 --
 -- @function observe
@@ -117,12 +126,40 @@ function registry.observe(latency, space_name, op, status)
     dev_checks('number', 'string', 'string', 'string')
 
     registry_utils.init_collectors_if_required(internal.registry.spaces, space_name, op)
-    local collectors = internal.registry.spaces[space_name][op][status]
+    local obs = internal.registry.spaces[space_name][op][status]
 
-    collectors.count = collectors.count + 1
-    collectors.time = collectors.time + latency
-    collectors.latency_average = collectors.time / collectors.count
-    collectors.latency = collectors.latency_average
+    update_obs(latency, obs)
+
+    return true
+end
+
+--- Increase requests count and update latency info
+-- for an `atomic_batch` sub-operation.
+--
+-- @function observe_atomic_batch_sub_op
+--
+-- @number latency
+--  Pure execution time of a single sub-operation measured on storage.
+--
+-- @string space_name
+--  Name of space.
+--
+-- @string op
+--  Label of sub-operation collectors.
+--  Use `require('crud.stats').op` to pick one.
+--
+-- @string status
+--  `'ok'` if no errors on execution, `'error'` otherwise.
+--
+-- @treturn boolean Returns `true`.
+--
+function registry.observe_atomic_batch_sub_op(latency, space_name, op, status)
+    dev_checks('number', 'string', 'string', 'string')
+
+    atomic_batch.init_collectors_if_required(internal.registry.spaces, space_name, op)
+    local obs = internal.registry.spaces[space_name][atomic_batch.sub_ops_name][op][status]
+
+    update_obs(latency, obs)
 
     return true
 end
