@@ -3,6 +3,7 @@ local log = require('log')
 
 local dev_checks = require('crud.common.dev_checks')
 local router_cache = require('crud.common.sharding.router_metadata_cache')
+local sharding_utils = require('crud.common.sharding.utils')
 local utils = require('crud.common.utils')
 
 local ShardingKeyError = errors.new_class("ShardingKeyError", {capture_stack = false})
@@ -99,10 +100,10 @@ function sharding_key_module.extract_from_pk(vshard_router, space_name, sharding
     return extract_from_index(primary_key, primary_index_parts, sharding_key_as_index_obj)
 end
 
-function sharding_key_module.construct_as_index_obj_cache(vshard_router, metadata_map, specified_space_name)
-    dev_checks('table', 'table', 'string')
+function sharding_key_module.construct_as_index_obj_cache(vshard_router, metadata_map, space_names)
+    dev_checks('table', 'table', 'table')
 
-    local result_err
+    local result_errs = {}
 
     local cache = router_cache.get_instance(vshard_router)
     cache[router_cache.SHARDING_KEY_MAP_NAME] = {}
@@ -117,8 +118,8 @@ function sharding_key_module.construct_as_index_obj_cache(vshard_router, metadat
                                                                    metadata.space_format,
                                                                    metadata.sharding_key_def)
             if err ~= nil then
-                if specified_space_name == space_name then
-                    result_err = err
+                if space_names[space_name] == true then
+                    table.insert(result_errs, err)
                     log.error(err)
                 else
                     log.warn(err)
@@ -130,7 +131,7 @@ function sharding_key_module.construct_as_index_obj_cache(vshard_router, metadat
         end
     end
 
-    return result_err
+    return sharding_utils.combine_errors(WrongShardingConfigurationError, result_errs)
 end
 
 sharding_key_module.internal = {

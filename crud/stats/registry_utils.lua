@@ -82,4 +82,29 @@ function registry_utils.init_collectors_if_required(spaces, space_name, op)
     end
 end
 
+--- Compute `latency_average` and set `latency` field of an observation.
+--
+--  `latency` is `latency_average` if quantiles are disabled
+--  and `latency_quantile_recent` otherwise.
+--
+-- @function compute_observation_aggregates
+--
+-- @tab obs
+--  Observation with `count`, `time` and, optionally,
+--  `latency_quantile_recent` fields.
+--
+function registry_utils.compute_observation_aggregates(obs)
+    if obs.count == 0 then
+        obs.latency_average = 0
+    else
+        obs.latency_average = obs.time / obs.count
+    end
+
+    if obs.latency_quantile_recent ~= nil then
+        obs.latency = obs.latency_quantile_recent
+    else
+        obs.latency = obs.latency_average
+    end
+end
+
 return registry_utils

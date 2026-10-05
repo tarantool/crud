@@ -219,6 +219,10 @@ end
 local function start_router(g, cfg, opts)
     local cfg = table.deepcopy(cfg)
     cfg.engine = nil
+    -- This option is used for storage bootstrap only. Keeping it in router cfg
+    -- leads to a dynamic box.cfg update attempt inside router setup, which is
+    -- forbidden by Tarantool for this non-dynamic option.
+    cfg.memtx_use_mvcc_engine = nil
 
     local router = router_new(g, 'router', cfg)
     if opts.router_entrypoint ~= nil then

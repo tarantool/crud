@@ -55,6 +55,18 @@ local function get_stats(g, space_name)
     return g.router:eval("return require('crud').stats(...)", { space_name })
 end
 
+-- If there weren't any operations, space stats is {}.
+-- To compute stats diff, this helper return real stats
+-- if they're already present or default stats if
+-- this operation of space hasn't been observed yet.
+local function set_defaults_if_empty(space_stats, op)
+    if space_stats[op] ~= nil then
+        return space_stats[op]
+    else
+        return stats_registry_utils.build_collectors(op)
+    end
+end
+
 local call_cfg = function(g, way, cfg)
     if way == 'call' then
         g.router:eval([[
@@ -158,16 +170,124 @@ local function truncate_space_on_cluster(g)
     helpers.truncate_space_on_cluster(g.cluster, space_name)
 end
 
--- If there weren't any operations, space stats is {}.
--- To compute stats diff, this helper return real stats
--- if they're already present or default stats if
--- this operation of space hasn't been observed yet.
-local function set_defaults_if_empty(space_stats, op)
-    if space_stats[op] ~= nil then
-        return space_stats[op]
-    else
-        return stats_registry_utils.build_collectors(op)
+local function assert_op_status_increment(before_stats, after_stats, op, status, increment, msg)
+    local before_op = set_defaults_if_empty(before_stats, op)
+    local after_op = set_defaults_if_empty(after_stats, op)
+
+    t.assert_equals(
+        after_op[status].count - before_op[status].count,
+        increment,
+        msg or ('Expected %s.%s to be incremented by %d'):format(op, status, increment)
+    )
+end
+
+local function get_sub_op_status_stats(space_stats, op, status)
+    local sub_ops = space_stats.atomic_batch_sub_ops
+    if sub_ops == nil or sub_ops[op] == nil then
+        return stats_registry_utils.build_collectors(op)[status]
     end
+
+    return sub_ops[op][status]
+end
+
+local function assert_sub_op_status_increment(before_stats, after_stats, op, status, increment, msg)
+    local before = get_sub_op_status_stats(before_stats, op, status)
+    local after = get_sub_op_status_stats(after_stats, op, status)
+
+    t.assert_equals(
+        after.count - before.count,
+        increment,
+        msg or ('Expected atomic_batch_sub_ops.%s.%s.count to be incremented by %d'):format(op, status, increment)
+    )
+
+    return before, after
+end
+
+
+pgroup.test_atomic_batch_stats_success = function(g)
+    helpers.truncate_space_on_cluster(g.cluster, space_name)
+
+    local space_stats_before = get_stats(g, space_name)
+
+    local res, err = g.router:call('crud.atomic_batch', {{
+        {
+            type = 'insert',
+            space = space_name,
+            tuple = { 2001, box.NULL, 'John', 'Doe', 33, 'Rome' },
+        },
+        {
+            type = 'get',
+            space = space_name,
+            key = { 2001 },
+        },
+        {
+            type = 'update',
+            space = space_name,
+            key = { 2001 },
+            operations = {{'=', 'city', 'Milan'}},
+        },
+    }})
+
+    t.assert_equals(err, nil)
+    t.assert_type(res, 'table')
+
+    local space_stats_after = get_stats(g, space_name)
+
+    assert_op_status_increment(space_stats_before, space_stats_after, 'atomic_batch', 'ok', 1,
+        'atomic_batch.ok.count should be incremented')
+    assert_sub_op_status_increment(space_stats_before, space_stats_after, 'insert', 'ok', 1,
+        'atomic_batch_sub_ops.insert.ok.count should be incremented')
+    assert_sub_op_status_increment(space_stats_before, space_stats_after, 'get', 'ok', 1,
+        'atomic_batch_sub_ops.get.ok.count should be incremented')
+    assert_sub_op_status_increment(space_stats_before, space_stats_after, 'update', 'ok', 1,
+        'atomic_batch_sub_ops.update.ok.count should be incremented')
+
+    local insert_ok_before = get_sub_op_status_stats(space_stats_before, 'insert', 'ok')
+    local insert_ok_after = get_sub_op_status_stats(space_stats_after, 'insert', 'ok')
+    t.assert_gt(insert_ok_after.time - insert_ok_before.time, 0,
+        'atomic_batch_sub_ops.insert.ok.time should record sub-op latency')
+end
+
+pgroup.test_atomic_batch_stats_error = function(g)
+    helpers.truncate_space_on_cluster(g.cluster, space_name)
+
+    local space_stats_before = get_stats(g, space_name)
+
+    -- Both inserts target the same bucket_id, so the batch is executed on
+    -- storage. The second insert fails with a duplicate-key error and the
+    -- whole transaction is rolled back.
+    local res, err = g.router:call('crud.atomic_batch', {{
+        {
+            type = 'insert',
+            space = space_name,
+            tuple = { 3001, box.NULL, 'Alice', 'Smith', 28, 'Paris' },
+        },
+        {
+            type = 'insert',
+            space = space_name,
+            tuple = { 3001, box.NULL, 'Bob', 'Brown', 31, 'Berlin' },
+        },
+    }})
+
+    t.assert_equals(res, nil)
+    t.assert_not_equals(err, nil)
+
+    local space_stats_after = get_stats(g, space_name)
+
+    assert_op_status_increment(space_stats_before, space_stats_after, 'atomic_batch', 'error', 1,
+        'atomic_batch.error.count should be incremented')
+    -- On transaction rollback, all executed sub-operations are accounted as failed.
+    assert_sub_op_status_increment(space_stats_before, space_stats_after, 'insert', 'error', 2,
+        'atomic_batch_sub_ops.insert.error.count should be incremented for each executed sub-op')
+
+    local insert_err_before = get_sub_op_status_stats(space_stats_before, 'insert', 'error')
+    local insert_err_after = get_sub_op_status_stats(space_stats_after, 'insert', 'error')
+    t.assert_gt(insert_err_after.time - insert_err_before.time, 0,
+        'atomic_batch_sub_ops.insert.error.time should record sub-op latency')
+
+    local tuple, get_err = g.router:call('crud.get', {space_name, {3001}})
+    t.assert_equals(get_err, nil)
+    t.assert_equals(#tuple.rows, 0, 'Tuple inserted before failure must be rolled back')
 end
 
 local eval = {
@@ -358,6 +478,17 @@ local simple_operation_cases = {
         args = { space_name, {{ '==', 'id_index', 3 }}, {mode = 'write'}, },
         op = 'count',
     },
+    atomic_batch = {
+        func = 'crud.atomic_batch',
+        args = {{
+            {
+                type = 'insert',
+                space = space_name,
+                tuple = { 42, box.NULL, 'Ivan', 'Ivanov', 20, 'Moscow' },
+            },
+        }},
+        op = 'atomic_batch',
+    },
     min = {
         func = 'crud.min',
         args = { space_name, nil, {mode = 'write'}, },
@@ -487,6 +618,12 @@ local simple_operation_cases = {
         func = 'crud.max',
         args = { space_name, 'badindex', {mode = 'write'}, },
         op = 'borders',
+        expect_error = true,
+    },
+    locate_error = {
+        func = 'crud.locate',
+        args = { space_name, 999 },
+        op = 'locate',
         expect_error = true,
     },
 }
@@ -1086,7 +1223,8 @@ local function validate_metrics(g, metrics)
 
 
     local expected_operations = { 'insert', 'insert_many', 'get', 'replace', 'replace_many', 'update',
-        'upsert', 'upsert_many', 'delete', 'select', 'truncate', 'len', 'count', 'borders' }
+        'upsert', 'upsert_many', 'delete', 'select', 'truncate', 'len', 'count', 'borders',
+        'locate', 'atomic_batch' }
 
     if g.params.args.quantiles == true then
         t.assert_items_equals(get_unique_label_values(quantile_stats, 'operation'), expected_operations,
@@ -1133,6 +1271,47 @@ local function validate_metrics(g, metrics)
         get_unique_label_values(stats_sum, 'name'),
         expected_names,
         'Metrics are labelled with space name')
+
+    local expected_sub_ops = { 'insert' }
+    local expected_sub_op_statuses = { 'ok' }
+
+    local sub_ops_count = find_metric('tnt_crud_atomic_batch_sub_ops_count', metrics)
+    t.assert_type(sub_ops_count, 'table', '`tnt_crud_atomic_batch_sub_ops_count` metrics found')
+
+    local sub_ops_sum = find_metric('tnt_crud_atomic_batch_sub_ops_sum', metrics)
+    t.assert_type(sub_ops_sum, 'table', '`tnt_crud_atomic_batch_sub_ops_sum` metrics found')
+
+    if g.params.args.quantiles == true then
+        local sub_ops = find_metric('tnt_crud_atomic_batch_sub_ops', metrics)
+        t.assert_type(sub_ops, 'table', '`tnt_crud_atomic_batch_sub_ops` summary metrics found')
+
+        t.assert_items_equals(get_unique_label_values(sub_ops, 'operation'), expected_sub_ops,
+            'Atomic batch sub-ops metrics are labelled with operation')
+
+        t.assert_items_equals(get_unique_label_values(sub_ops, 'status'), expected_sub_op_statuses,
+            'Atomic batch sub-ops metrics are labelled with status')
+
+        t.assert_items_equals(get_unique_label_values(sub_ops, 'name'), expected_names,
+            'Atomic batch sub-ops metrics are labelled with space name')
+    end
+
+    t.assert_items_equals(get_unique_label_values(sub_ops_count, 'operation'), expected_sub_ops,
+        'Atomic batch sub-ops metrics are labelled with operation')
+
+    t.assert_items_equals(get_unique_label_values(sub_ops_count, 'status'), expected_sub_op_statuses,
+        'Atomic batch sub-ops metrics are labelled with status')
+
+    t.assert_items_equals(get_unique_label_values(sub_ops_count, 'name'), expected_names,
+        'Atomic batch sub-ops metrics are labelled with space name')
+
+    t.assert_items_equals(get_unique_label_values(sub_ops_sum, 'operation'), expected_sub_ops,
+        'Atomic batch sub-ops metrics are labelled with operation')
+
+    t.assert_items_equals(get_unique_label_values(sub_ops_sum, 'status'), expected_sub_op_statuses,
+        'Atomic batch sub-ops metrics are labelled with status')
+
+    t.assert_items_equals(get_unique_label_values(sub_ops_sum, 'name'), expected_names,
+        'Atomic batch sub-ops metrics are labelled with space name')
 
     if g.params.args.quantiles == true then
         local expected_quantiles = { 0.99 }
@@ -1204,6 +1383,69 @@ local function check_updated_per_call(g)
     t.assert_ge(map_reduces_after.value - map_reduces_before.value, case.tuples_lookup,
         '`select` map reduces expected change')
 end
+
+
+local function check_atomic_batch_sub_ops_updated_per_call(g)
+    helpers.truncate_space_on_cluster(g.cluster, space_name)
+
+    local metrics_before = get_metrics(g)
+    local insert_ok_labels = { operation = 'insert', status = 'ok', name = space_name }
+    local insert_err_labels = { operation = 'insert', status = 'error', name = space_name }
+    local get_ok_labels = { operation = 'get', status = 'ok', name = space_name }
+
+    local insert_ok_count_before = find_obs('tnt_crud_atomic_batch_sub_ops_count', insert_ok_labels, metrics_before)
+    local insert_ok_sum_before = find_obs('tnt_crud_atomic_batch_sub_ops_sum', insert_ok_labels, metrics_before)
+    local get_ok_count_before = find_obs('tnt_crud_atomic_batch_sub_ops_count', get_ok_labels, metrics_before)
+    local insert_err_count_before = find_obs('tnt_crud_atomic_batch_sub_ops_count', insert_err_labels, metrics_before)
+
+    local _, err = g.router:call('crud.atomic_batch', {{
+        {
+            type = 'insert',
+            space = space_name,
+            tuple = { 5001, box.NULL, 'John', 'Doe', 33, 'Rome' },
+        },
+        {
+            type = 'get',
+            space = space_name,
+            key = { 5001 },
+        },
+    }})
+    t.assert_equals(err, nil)
+
+    local _, err = g.router:call('crud.atomic_batch', {{
+        {
+            type = 'insert',
+            space = space_name,
+            tuple = { 5002, box.NULL, 'Jane', 'Roe', 25, 'Berlin' },
+        },
+        {
+            type = 'insert',
+            space = space_name,
+            tuple = { 5002, box.NULL, 'Jane', 'Roe', 25, 'Berlin' },
+        },
+    }})
+    t.assert_not_equals(err, nil)
+
+    local metrics_after = get_metrics(g)
+
+    local insert_ok_count_after = find_obs('tnt_crud_atomic_batch_sub_ops_count', insert_ok_labels, metrics_after)
+    local insert_ok_sum_after = find_obs('tnt_crud_atomic_batch_sub_ops_sum', insert_ok_labels, metrics_after)
+    local get_ok_count_after = find_obs('tnt_crud_atomic_batch_sub_ops_count', get_ok_labels, metrics_after)
+    local insert_err_count_after = find_obs('tnt_crud_atomic_batch_sub_ops_count', insert_err_labels, metrics_after)
+
+    t.assert_equals(insert_ok_count_after.value - insert_ok_count_before.value, 1,
+        '`atomic_batch_sub_ops` insert ok count increased')
+    t.assert_equals(get_ok_count_after.value - get_ok_count_before.value, 1,
+        '`atomic_batch_sub_ops` get ok count increased')
+    t.assert_equals(insert_err_count_after.value - insert_err_count_before.value, 2,
+        '`atomic_batch_sub_ops` insert error count increased for each executed sub-op')
+    t.assert_gt(insert_ok_sum_after.value - insert_ok_sum_before.value, 0,
+        '`atomic_batch_sub_ops` insert ok sum increased')
+end
+
+group_metrics.before_test('test_atomic_batch_sub_ops_metrics_updated_per_call', generate_stats)
+
+group_metrics.test_atomic_batch_sub_ops_metrics_updated_per_call = check_atomic_batch_sub_ops_updated_per_call
 
 
 group_metrics.before_test(
