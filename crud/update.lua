@@ -6,8 +6,6 @@ local compat_warn = require('crud.common.compat_warn')
 local const = require('crud.common.const')
 local utils = require('crud.common.utils')
 local sharding = require('crud.common.sharding')
-local sharding_key_module = require('crud.common.sharding.sharding_key')
-local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
 local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
@@ -120,31 +118,6 @@ local function call_update_on_router(vshard_router, space_name, key, user_operat
         key = key:totable()
     end
 
-    local sharding_key = key
-    local sharding_key_hash = nil
-    local skip_sharding_hash_check = nil
-
-    if opts.bucket_id == nil then
-        local primary_index_parts = space.index[0].parts
-
-        local sharding_key_data, err = sharding_metadata_module.fetch_sharding_key_on_router(vshard_router, space_name)
-        if err ~= nil then
-            return nil, err
-        end
-
-        sharding_key, err = sharding_key_module.extract_from_pk(vshard_router,
-                                                                space_name,
-                                                                sharding_key_data.value,
-                                                                primary_index_parts, key)
-        if err ~= nil then
-            return nil, err
-        end
-
-        sharding_key_hash = sharding_key_data.hash
-    else
-        skip_sharding_hash_check = true
-    end
-
     local operations = user_operations
     if not utils.tarantool_supports_fieldpaths() then
         operations, err = utils.convert_operations(user_operations, space_format)
@@ -153,19 +126,17 @@ local function call_update_on_router(vshard_router, space_name, key, user_operat
         end
     end
 
-    local bucket_id_data, err = sharding.key_get_bucket_id(vshard_router, space_name, sharding_key, opts.bucket_id)
+    local sharding_data, err, need_reload = sharding.key_set_and_return_bucket_id(
+        vshard_router, space, key, opts.bucket_id)
     if err ~= nil then
-        return nil, err
+        return nil, err, need_reload
     end
 
-    -- When the sharding index (bucket_id) is the primary index, bucket_id can be passed as box.NULL.
-    sharding.fill_bucket_id_pk(space, key, bucket_id_data.bucket_id)
-
     local update_on_storage_opts = {
-        bucket_id = bucket_id_data.bucket_id,
-        sharding_func_hash = bucket_id_data.sharding_func_hash,
-        sharding_key_hash = sharding_key_hash,
-        skip_sharding_hash_check = skip_sharding_hash_check,
+        bucket_id = sharding_data.bucket_id,
+        sharding_func_hash = sharding_data.sharding_func_hash,
+        sharding_key_hash = sharding_data.sharding_key_hash,
+        skip_sharding_hash_check = sharding_data.skip_sharding_hash_check,
         noreturn = opts.noreturn,
         fetch_latest_metadata = opts.fetch_latest_metadata,
     }
@@ -176,7 +147,7 @@ local function call_update_on_router(vshard_router, space_name, key, user_operat
     }
 
     local storage_result, err = call.single(vshard_router,
-        bucket_id_data.bucket_id, CRUD_UPDATE_FUNC_NAME,
+        sharding_data.bucket_id, CRUD_UPDATE_FUNC_NAME,
         {space_name, key, operations, opts.fields, update_on_storage_opts},
         call_opts
     )
