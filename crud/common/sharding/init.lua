@@ -30,8 +30,8 @@ function sharding.get_replicasets_by_bucket_id(vshard_router, bucket_id)
     }
 end
 
-function sharding.key_get_bucket_id(vshard_router, space_name, key, specified_bucket_id)
-    dev_checks('table', 'string', '?', '?')
+function sharding.key_get_bucket_id(vshard_router, space_name, key, specified_bucket_id, timeout)
+    dev_checks('table', 'string', '?', '?', '?number')
 
     if specified_bucket_id ~= nil then
         local err = sharding.validate_bucket_id(specified_bucket_id)
@@ -42,7 +42,8 @@ function sharding.key_get_bucket_id(vshard_router, space_name, key, specified_bu
         return { bucket_id = specified_bucket_id }
     end
 
-    local sharding_func_data, err = sharding_metadata_module.fetch_sharding_func_on_router(vshard_router, space_name)
+    local sharding_func_data, err = sharding_metadata_module.fetch_sharding_func_on_router(
+        vshard_router, space_name, timeout)
     if err ~= nil then
         return nil, err
     end

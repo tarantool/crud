@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Add `crud.atomic_batch()` method to execute heterogeneous CRUD operations
   (`get`, `insert`, `replace`, `update`, `upsert`, `delete`) atomically
   on a single bucket.
+* Add `crud.storage_call()` and `crud.storage_call_many()` to invoke persistent
+  stored functions on routed vshard storages (TNTP-9261).
+
+### Changed
+* Update `metrics` dependency to [1.8.3](https://github.com/tarantool/metrics/releases/tag/1.8.3).
+* Update `cartridge` dependency to [2.18.1](https://github.com/tarantool/cartridge/releases/tag/2.18.1).
+* Update `migrations` dependency to [1.2.1](https://github.com/tarantool/migrations/releases/tag/1.2.1).
+* Update the Tarantool Enterprise SDK test matrix to current 2.11 and 3.2–3.8
+  builds, and add Tarantool 3.7 and 3.8 to community CI testing.
 
 ## [1.7.6] - 31-08-26
 
