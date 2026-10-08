@@ -25,6 +25,7 @@ local borders = require('crud.borders')
 local locate = require('crud.locate')
 local readview = require('crud.readview')
 local atomic_batch = require('crud.atomic_batch')
+local storage_call = require('crud.storage_call')
 local storage_info = require('crud.storage_info')
 
 local storage = {}
@@ -86,6 +87,7 @@ local modules_with_storage_api = {
     locate,
     readview,
     atomic_batch,
+    storage_call,
     -- Must be initialized last: properly working storage info is the flag
     -- of initialization success.
     storage_info,

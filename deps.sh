@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Call this script to install test dependencies
 # Usage examples:
-#   CARTRIDGE_VERSION=2.16.3 ./deps.sh
+#   CARTRIDGE_VERSION=2.18.1 ./deps.sh
 #   VSHARD_VERSION=0.1.36 ./deps.sh
 
 set -e
@@ -27,7 +27,7 @@ then
     ${TTCTL} rocks install luacov-coveralls --only-server=https://luarocks.org/
 
     ${TTCTL} rocks install cartridge "${CARTRIDGE_VERSION}"
-    ${TTCTL} rocks install migrations 1.2.0
+    ${TTCTL} rocks install migrations 1.2.1
 else
     if [[ "${VSHARD_VERSION}" == "master" ]]; then
         echo "Installing vshard from master branch..."

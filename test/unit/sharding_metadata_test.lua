@@ -1,5 +1,6 @@
 local t = require('luatest')
 local ffi = require('ffi')
+local call = require('crud.common.call')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
 local sharding_key_module = require('crud.common.sharding.sharding_key')
 local sharding_func_module = require('crud.common.sharding.sharding_func')
@@ -12,7 +13,8 @@ local helpers = require('test.helper')
 
 local g = t.group('sharding_metadata')
 
-g.before_each(function()
+g.before_each(function(cg)
+    cg.call_any = call.any
     local sharding_key_format = {
         {name = 'space_name', type = 'string', is_nullable = false},
         {name = 'sharding_key', type = 'array', is_nullable = false}
@@ -58,7 +60,8 @@ local function drop_ddl_space(space)
     space:drop()
 end
 
-g.after_each(function()
+g.after_each(function(cg)
+    call.any = cg.call_any
     -- Cleanup.
     if box.space._ddl_sharding_key ~= nil then
         drop_ddl_space(box.space._ddl_sharding_key)
@@ -72,6 +75,39 @@ g.after_each(function()
     router_cache.drop_caches()
     storage_cache.drop_caches()
 end)
+
+g.test_reload_for_spaces_updates_all_spaces = function()
+    local vshard_router = {name = 'reload_all_spaces'}
+    local metadata_map = {
+        first = {
+            sharding_key_def = {'id'},
+            sharding_key_hash = 'first hash',
+            space_format = {{name = 'id', type = 'unsigned'}},
+        },
+        second = {
+            sharding_key_def = {'id'},
+            sharding_key_hash = 'second hash',
+            space_format = {{name = 'id', type = 'unsigned'}},
+        },
+    }
+    call.any = function()
+        return metadata_map
+    end
+
+    sharding_metadata_module.reload_sharding_cache_for_spaces(vshard_router, {
+        first = true,
+        second = true,
+    })
+
+    local first = sharding_metadata_module.fetch_sharding_key_on_router(
+        vshard_router, 'first')
+    local second = sharding_metadata_module.fetch_sharding_key_on_router(
+        vshard_router, 'second')
+    t.assert_equals(first.hash, 'first hash')
+    t.assert_equals(second.hash, 'second hash')
+    t.assert_equals(first.value.parts, {{fieldno = 1}})
+    t.assert_equals(second.value.parts, {{fieldno = 1}})
+end
 
 g.test_as_index_object_positive = function()
     local space_name = 'as_index_object'
