@@ -171,9 +171,9 @@ end
 -- @tparam ?number opts.timeout
 --  Function call timeout
 --
--- @tparam ?number opts.bucket_id
---  Bucket ID
---  (by default, it's vshard.router.bucket_id_strcrc32 of primary key)
+-- @tparam ?number|cdata opts.bucket_id
+--  Bucket ID. If omitted, calculated from the primary key using the space's
+--  configured sharding key and function.
 --
 -- @tparam ?string|table opts.vshard_router
 --  Cartridge vshard group name or vshard router instance.

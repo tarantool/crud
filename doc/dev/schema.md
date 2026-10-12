@@ -194,12 +194,15 @@ Sharding schema is used
   If there is no sharding schema specified, we use defaults: sharding key
   is primary key, sharding function is ``vshard.router.bucket_id_strcrc32``.
 
-[^1]: It includes all ``insert_*``, ``replace_*``, ``update_*``,
-      ``delete_*``, ``upsert_*``, ``get_*`` requests. ``*_many`` requests
-      also use sharding schema to find a storage for each tuple. ``select``,
-      ``count`` and ``pairs`` requests use sharding info if user conditions
-      have equal condition for a sharding key. (User still can force map-reduce
-      with `force_map_call`. In this case sharding schema won't be used.)
+[^1]: It includes ``insert_*``, ``replace_*``, ``update``, ``delete``,
+      ``upsert_*``, ``get``, and ``locate`` requests. ``*_many`` writes and
+      ``atomic_batch`` resolve a bucket for each tuple or operation.
+      ``storage_call`` and ``storage_call_many`` use the sharding schema for
+      routes specified by ``space_name`` and ``key``, but not for an explicit
+      ``bucket_id``. ``select``, ``count`` and ``pairs`` use sharding info when
+      conditions identify a sharding key; read-view ``select`` and ``pairs``
+      follow the same rules. (User can still force map-reduce with
+      `force_map_call`. In this case sharding schema won't be used.)
 
 ### How schema is reloaded
 
@@ -229,9 +232,11 @@ Each request that uses sharding info passes sharding hashes from
 a router with a request. If hashes mismatch with storage ones, we return
 a specific error. The request retries if it receives a hash mismatch
 error from the storage. If it didn't help after ``N`` retries (now ``N``
-is ``1``), the error is passed to the user. For ``*_many`` methods,
-reload and retry happens only if all tuples had failed with hash
-mismatch; otherwise, errors are passed to the user.
+is ``1``), the error is passed to the user. For ``*_many`` write methods,
+reload and retry happens only if all tuples had failed with hash mismatch;
+otherwise, errors are passed to the user. ``storage_call`` retries only when
+the target has not started; ``storage_call_many`` retries only when no target
+function in the batch has run. A batch with partial success is not retried.
 
 Retries with reload are processed by wrappers that wraps "pure" crud
 operations, same as in space schema reload. Since there is only one

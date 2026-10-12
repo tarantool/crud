@@ -227,6 +227,63 @@ local function build_select_iterator(vshard_router, space_name, user_conditions,
     return iter
 end
 
+--- Iterate over tuples selected from a distributed space.
+--
+-- @function pairs
+--
+-- @param string space_name
+--  Space name.
+--
+-- @param ?table user_conditions
+--  Array of select conditions.
+--
+-- @param ?table opts
+--  Options.
+--
+-- @tparam ?table opts.after
+--  Resume after this tuple.
+--
+-- @tparam ?number opts.first
+--  Maximum number of tuples; must be non-negative.
+--
+-- @tparam ?number opts.batch_size
+--  Tuples fetched per storage request (default: 100).
+--
+-- @tparam ?number|cdata opts.bucket_id
+--  Route to its replicaset, unless `force_map_call` is true.
+--
+-- @tparam ?boolean opts.force_map_call
+--  Force a map-reduce request.
+--
+-- @tparam ?table opts.fields
+--  Fields to return.
+--
+-- @tparam ?boolean opts.use_tomap
+--  Return objects instead of tuples (default: false).
+--
+-- @tparam ?number opts.timeout
+--  VShard call timeout.
+--
+-- @tparam ?string opts.mode
+--  VShard call mode: 'read' (default) or 'write' (master).
+--
+-- @tparam ?boolean opts.prefer_replica
+--  Prefer a replica in read mode.
+--
+-- @tparam ?boolean opts.balance
+--  Use VShard load balancing in read mode.
+--
+-- @tparam ?string|table opts.vshard_router
+--  VShard router or Cartridge group name.
+--
+-- @tparam ?number opts.yield_every
+--  Tuples processed between yields (default: 1000).
+--
+-- @tparam ?boolean opts.fetch_latest_metadata
+--  Fetch current space metadata.
+--
+-- @return Iterator generator, parameter and state.
+--
 function select_module.pairs(space_name, user_conditions, opts)
     checks('string', '?table', {
         after = '?table',
@@ -430,6 +487,68 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
     }
 end
 
+--- Select tuples from a distributed space.
+--
+-- @function call
+--
+-- @param string space_name
+--  Space name.
+--
+-- @param ?table user_conditions
+--  Array of select conditions.
+--
+-- @param ?table opts
+--  Options.
+--
+-- @tparam ?table opts.after
+--  Resume after this tuple.
+--
+-- @tparam ?number opts.first
+--  Maximum number of tuples; a negative value requires `after`.
+--
+-- @tparam ?number opts.batch_size
+--  Tuples fetched per storage request (default: 100).
+--
+-- @tparam ?number|cdata opts.bucket_id
+--  Route to its replicaset, unless `force_map_call` is true.
+--
+-- @tparam ?boolean opts.force_map_call
+--  Force a map-reduce request.
+--
+-- @tparam ?table opts.fields
+--  Fields to return.
+--
+-- @tparam ?boolean opts.fullscan
+--  Suppress the potentially long select warning.
+--
+-- @tparam ?number opts.timeout
+--  VShard call timeout.
+--
+-- @tparam ?number opts.request_timeout
+--  VShard request timeout in read mode; defaults to `timeout`.
+--
+-- @tparam ?string opts.mode
+--  VShard call mode: 'read' (default) or 'write' (master).
+--
+-- @tparam ?boolean opts.prefer_replica
+--  Prefer a replica in read mode.
+--
+-- @tparam ?boolean opts.balance
+--  Use VShard load balancing in read mode.
+--
+-- @tparam ?string|table opts.vshard_router
+--  VShard router or Cartridge group name.
+--
+-- @tparam ?number opts.yield_every
+--  Tuples processed between yields (default: 1000).
+--
+-- @tparam ?boolean opts.fetch_latest_metadata
+--  Fetch current space metadata.
+--
+-- @return[1] Table with `metadata` and `rows`.
+-- @treturn[2] nil
+-- @treturn[2] table Error.
+--
 function select_module.call(space_name, user_conditions, opts)
     checks('string', '?table', {
         after = '?table',

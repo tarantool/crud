@@ -184,9 +184,12 @@ end
 --  vshard call request_timeout
 --  default is the same as opts.timeout
 --
--- @tparam ?number opts.bucket_id
---  Bucket ID
---  (by default, it's vshard.router.bucket_id_strcrc32 of primary key)
+-- @tparam ?number|cdata opts.bucket_id
+--  Bucket ID. If omitted, calculated from the primary key using the space's
+--  configured sharding key and function.
+--
+-- @tparam ?string opts.mode
+--  VShard call mode: 'read' (default) or 'write'. Write mode calls the master.
 --
 -- @tparam ?boolean opts.prefer_replica
 --  Call on replica if it's possible
