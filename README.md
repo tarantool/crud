@@ -284,8 +284,10 @@ schema](https://github.com/tarantool/ddl#input-data-format) or insert manually
 to the space `_ddl_sharding_key` (for both cases consider a DDL module
 documentation). As soon as sharding key for a certain space is available in
 `_ddl_sharding_key` space CRUD will use it for bucket ID calculation
-automatically. Note that CRUD methods `delete()`, `get()` and `update()`
-requires that sharding key must be a part of primary key.
+automatically. When routing by a primary key without an explicit `bucket_id`,
+the custom sharding key must be part of the primary index. This applies to
+`get()`, `update()`, `delete()`, `locate()`, key-routed `storage_call()` and
+`storage_call_many()` items, and key-based operations in `atomic_batch()`.
 
 Starting from 0.11.0 you can specify sharding function to calculate bucket_id
 with sharding func definition as a part of
@@ -312,28 +314,40 @@ due to backward compatibility concerns, but please consider
 using better alternatives for sharding function.
 `mpcrc32` is one of them.
 
-Table below describe what operations supports custom sharding key:
+The table below shows which methods use a custom sharding key when calculating
+`bucket_id`. An explicitly supplied `bucket_id` in options or input data,
+where supported, bypasses key calculation. Without an explicit `bucket_id`,
+`select()`, `pairs()` and `count()` can route to one bucket when equality
+conditions cover the sharding key; otherwise they use map-reduce.
 
-| CRUD method                      | Sharding key support       |
-| -------------------------------- | -------------------------- |
-| `get()`                          | Yes                        |
-| `insert()` / `insert_object()`   | Yes                        |
-| `delete()`                       | Yes                        |
-| `replace()` / `replace_object()` | Yes                        |
-| `upsert()` / `upsert_object()`   | Yes                        |
-| `select()` / `pairs()`           | Yes                        |
-| `count()`                        | Yes                        |
-| `update()`                       | Yes                        |
-| `min()` / `max()`                | No (not required)          |
-| `cut_rows()` / `cut_objects()`   | No (not required)          |
-| `truncate()`                     | No (not required)          |
-| `len()`                          | No (not required)          |
+| CRUD method                                  | Sharding key support                     |
+| -------------------------------------------- | ---------------------------------------- |
+| `get()`                                      | Yes                                      |
+| `insert()` / `insert_object()`               | Yes                                      |
+| `insert_many()` / `insert_object_many()`     | Yes, for each tuple or object            |
+| `delete()`                                   | Yes                                      |
+| `replace()` / `replace_object()`             | Yes                                      |
+| `replace_many()` / `replace_object_many()`   | Yes, for each tuple or object            |
+| `upsert()` / `upsert_object()`               | Yes                                      |
+| `upsert_many()` / `upsert_object_many()`     | Yes, for each tuple or object            |
+| `select()` / `pairs()`                       | Yes                                      |
+| Read-view `select()` / `pairs()`             | Yes, the same as regular reads           |
+| `count()`                                    | Yes                                      |
+| `update()`                                   | Yes                                      |
+| `locate()`                                   | Yes, if `bucket_id` is not specified     |
+| `atomic_batch()`                             | Yes, for each operation (one bucket)     |
+| `storage_call()` / `storage_call_many()`     | Yes, with `space_name` and `key`         |
+| `min()` / `max()`                            | No (not required)                        |
+| `cut_rows()` / `cut_objects()`               | No (not required)                        |
+| `truncate()`                                 | No (not required)                        |
+| `len()`                                      | No (not required)                        |
 
 Current limitations for using custom sharding key:
 
-- No support of JSON path for sharding key, see
+- JSON paths in sharding key definitions and index parts are not supported, see
   [#219](https://github.com/tarantool/crud/issues/219).
-- `primary_index_fieldno_map` is not cached, see
+- The primary-index field map used to extract a custom sharding key from a
+  primary key is rebuilt for each request rather than cached, see
   [#243](https://github.com/tarantool/crud/issues/243).
 
 ### Package info
@@ -1129,6 +1143,9 @@ local result, err = crud.atomic_batch(operations, opts)
 
 Runs an ordered list of CRUD operations (`get`, `insert`, `replace`, `update`,
 `upsert`, `delete`) in a single transaction on one bucket.
+CRUD determines the bucket for each operation using its space's sharding key
+and function unless the input tuple or object already contains `bucket_id`.
+All operations must resolve to the same bucket.
 
 where:
 
@@ -1365,8 +1382,8 @@ where:
     Can be specified only with `mode` = `read`, and default value is the same as
     user-passed `timeout`.
   * `fields` (`?table`) - field names for getting only a subset of fields
-  * `mode` (`?string`, `read` or `write`) - if `write` is specified then `select` is
-    performed on master, default value is `read`
+  * `mode` (`?string`, `read` or `write`) - if `write` is specified, `min`/`max`
+    runs on the master; default value is `read`
   * `vshard_router` (`?string|table`) - Cartridge vshard group name or
     vshard router instance. Set this parameter if your space is not
     a part of the default vshard cluster
@@ -1413,7 +1430,8 @@ where:
 * `space_name` (`string`) - name of the space
 * `key` (`any`) - primary key value
 * `opts`:
-  * `bucket_id` (`?number|cdata`) - bucket ID
+  * `bucket_id` (`?number|cdata`) - bucket ID. If omitted, CRUD calculates it
+    from the primary key using the space's configured sharding key and function
   * `timeout` (`?number`) - `vshard.call` timeout and vshard master
     discovery timeout (in seconds), default value is 2
   * `request_timeout` (`?number`) - `vshard.call` `request_timeout` parameter.
@@ -1424,6 +1442,9 @@ where:
   * `prefer_replica` (`?boolean`) - if `true` then the preferred target is one of
     the replicas
   * `balance` (`?boolean`) - use replica according to vshard load balancing policy
+  * `vshard_router` (`?string|table`) - Cartridge vshard group name or vshard
+    router instance. Set this parameter if your space is not a part of the
+    default vshard cluster
 
 Returns string ('memtx' or 'vinyl') if the tuple is found, nil if the tuple is missing
 on the target storage, or nil with error if something went wrong.
@@ -1657,8 +1678,9 @@ where:
     a part of the default vshard cluster
 
 Specify either `bucket_id` to call on that bucket, or `space_name` and `key`
-to calculate the bucket as in other CRUD methods. Routing values are not
-added to `args`.
+to calculate the bucket using the space's configured sharding key and function.
+For key-based routing, the sharding key must be part of the primary index.
+Routing values are not added to `args`.
 
 Returns a table with a `returns` array, or `nil` with an error.
 All values returned by the function are preserved: `nil` values, including
@@ -1895,9 +1917,9 @@ where:
     user-passed `timeout`.
   * `yield_every` (`?number`) - number of tuples processed to yield after,
     `yield_every` should be > 0, default value is 1000
-  * `timeout` (`?number`) - `vshard.call` timeout and vshard master
-    discovery timeout (in seconds), default value is 2
-  * `bucket_id` (`?number|cdata`) - bucket ID
+  * `bucket_id` (`?number|cdata`) - bucket ID used to select one replicaset,
+    unless `force_map_call` is `true`. If omitted, CRUD may derive it from
+    equality conditions and the configured sharding rules
   * `force_map_call` (`?boolean`) - if `true`
     then the map call is performed without any optimizations even,
     default value is `false`

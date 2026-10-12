@@ -207,6 +207,9 @@ end
 -- @tparam ?table opts.fields
 --  Field names for getting only a subset of fields
 --
+-- @tparam ?string opts.mode
+--  VShard call mode: 'read' (default) or 'write'. Write mode calls the master.
+--
 -- @tparam ?string|table opts.vshard_router
 --  Cartridge vshard group name or vshard router instance.
 --  Set this parameter if your space is not a part of the
@@ -238,6 +241,9 @@ end
 --
 -- @tparam ?table opts.fields
 --  Field names for getting only a subset of fields
+--
+-- @tparam ?string opts.mode
+--  VShard call mode: 'read' (default) or 'write'. Write mode calls the master.
 --
 -- @tparam ?string|table opts.vshard_router
 --  Cartridge vshard group name or vshard router instance.

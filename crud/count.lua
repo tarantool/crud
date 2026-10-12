@@ -293,9 +293,10 @@ end
 --  vshard call request_timeout,
 --  default is the same as opts.timeout
 --
--- @tparam ?number opts.bucket_id
---  Bucket ID
---  default is vshard.router.bucket_id_strcrc32 of primary key
+-- @tparam ?number|cdata opts.bucket_id
+--  Bucket ID used to select one replicaset, unless `force_map_call` is true.
+--  If omitted, CRUD may calculate it from equality conditions and the
+--  configured sharding key and function; otherwise it uses map-reduce.
 --
 -- @tparam ?boolean opts.force_map_call
 --  Call is performed without any optimizations
@@ -314,7 +315,7 @@ end
 --  default value is `nil`, which works as with `false`
 --
 -- @tparam ?string opts.mode
---  vshard call mode, default value is `read`
+--  VShard call mode: 'read' (default) or 'write'. Write mode calls the master.
 --
 -- @tparam ?string|table opts.vshard_router
 --  Cartridge vshard group name or vshard router instance.

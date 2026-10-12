@@ -31,6 +31,9 @@ len.storage_api = {[LEN_FUNC_NAME] = len_on_storage}
 -- @tparam ?number opts.timeout
 --  Function call timeout
 --
+-- @tparam ?string opts.mode
+--  VShard call mode: 'write' (default) or 'read'. Write mode calls the master.
+--
 -- @tparam ?string|table opts.vshard_router
 --  Cartridge vshard group name or vshard router instance.
 --  Set this parameter if your space is not a part of the
