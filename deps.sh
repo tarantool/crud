@@ -2,7 +2,7 @@
 # Call this script to install test dependencies
 # Usage examples:
 #   CARTRIDGE_VERSION=2.18.1 ./deps.sh
-#   VSHARD_VERSION=0.1.36 ./deps.sh
+#   VSHARD_VERSION=1.0.0 ./deps.sh
 
 set -e
 
@@ -33,7 +33,7 @@ else
         echo "Installing vshard from master branch..."
         ${TTCTL} rocks install vshard
     else
-        ${TTCTL} rocks install vshard "${VSHARD_VERSION:-0.1.42}"
+        ${TTCTL} rocks install vshard "${VSHARD_VERSION:-1.0.0}"
     fi
 fi
 
