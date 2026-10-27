@@ -77,6 +77,46 @@ pgroup.test_not_valid_value_type = function(g)
     t.assert_str_contains(err.err, "Supplied key type of part 0 does not match index part type: expected unsigned")
 end
 
+pgroup.test_select_timeout_0_returns_error = function(g)
+    t.skip_if(
+        not crud_utils.tarantool_supports_external_merger(),
+        'External merger is unsupported on this Tarantool version'
+    )
+    local has_tuple_merger = g.router:eval([[
+        local ok = pcall(require, 'tuple.merger')
+        return ok
+    ]])
+    t.skip_if(not has_tuple_merger, 'tuple.merger module is unavailable')
+
+    local res, err = g.router:call('crud.select', {
+        'customers', nil, {mode = 'read', timeout = 0},
+    })
+
+    t.assert_equals(res, nil)
+    t.assert(err ~= nil)
+    t.assert_equals(err.message, 'Timeout exceeded')
+end
+
+pgroup.test_select_request_timeout_0_returns_error = function(g)
+    t.skip_if(
+        not crud_utils.tarantool_supports_external_merger(),
+        'External merger is unsupported on this Tarantool version'
+    )
+    local has_tuple_merger = g.router:eval([[
+        local ok = pcall(require, 'tuple.merger')
+        return ok
+    ]])
+    t.skip_if(not has_tuple_merger, 'tuple.merger module is unavailable')
+
+    local res, err = g.router:call('crud.select', {
+        'customers', nil, {mode = 'read', timeout = 1, request_timeout = 0},
+    })
+
+    t.assert_equals(res, nil)
+    t.assert(err ~= nil)
+    t.assert_equals(err.message, 'Timeout exceeded')
+end
+
 local select_safety_cases = {
     nil_and_nil_opts = {
         has_crit = true,
@@ -1957,6 +1997,24 @@ pgroup.test_opts_not_damaged = function(g)
 
     t.assert_equals(err, nil)
     t.assert_equals(new_select_opts, select_opts)
+end
+
+pgroup.test_select_validates_request_timeout = function(g)
+    local res, err = g.router:call('crud.select', {
+        'customers', nil, {
+            mode = 'read',
+            fullscan = true,
+            force_map_call = true,
+            timeout = 45,
+            request_timeout = 90,
+        }
+    })
+
+    t.assert_equals(res, nil)
+    t.assert(err ~= nil)
+    t.assert_str_contains(err.err or err.str,
+        'request_timeout (90) must be <= timeout (45)'
+    )
 end
 
 -- gh-220: bucket_id argument is ignored when it cannot be deduced

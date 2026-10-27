@@ -123,6 +123,41 @@ pgroup.test_timeout = function(g)
     helpers.assert_timeout_error(err.err)
 end
 
+pgroup.test_map_read_request_timeout_gt_64_does_not_fail = function(g)
+    local results, err = g.router:eval([[
+        local vshard = require('vshard')
+        local call = require('crud.common.call')
+
+        return call.map(vshard.router.static, 'say_hi_politely', {'Jonh'}, {
+            mode = 'read',
+            timeout = 90,
+            request_timeout = 90,
+        })
+    ]])
+
+    t.assert_equals(err, nil)
+    t.assert(results ~= nil)
+    local list = helpers.get_results_list(results)
+    t.assert(#list > 0)
+end
+
+pgroup.test_map_validates_request_timeout_le_timeout = function(g)
+    local results, err = g.router:eval([[
+        local vshard = require('vshard')
+        local call = require('crud.common.call')
+
+        return call.map(vshard.router.static, 'say_hi_politely', {'Jonh'}, {
+            mode = 'read',
+            timeout = 45,
+            request_timeout = 90,
+        })
+    ]])
+
+    t.assert_equals(results, nil)
+    t.assert(err ~= nil)
+    t.assert_str_contains(err.err, 'request_timeout (90) must be <= timeout (45)')
+end
+
 local function check_single_vshard_call(g, exp_vshard_call, opts)
     g.clear_vshard_calls()
     local _, err = g.router:eval([[
