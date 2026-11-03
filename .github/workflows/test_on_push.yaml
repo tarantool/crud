@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+env:
+  TT_VERSION: "2.*"
+
 jobs:
   run-tests-ce:
     if: |
@@ -64,7 +67,7 @@ jobs:
       - name: Setup tt
         run: |
           curl -L https://tarantool.io/release/2/installer.sh | sudo bash
-          sudo apt install -y tt
+          sudo apt install -y "tt=${TT_VERSION}"
           tt version
 
       - name: Cache Tarantool 3.x
@@ -163,7 +166,7 @@ jobs:
         if: matrix.edition == 'ce'
         run: |
           curl -L https://tarantool.io/release/2/installer.sh | sudo bash
-          sudo apt install -y tt
+          sudo apt install -y "tt=${TT_VERSION}"
           tt version
 
       - name: Get Tarantool master latest commit (CE)
@@ -252,7 +255,7 @@ jobs:
       - name: Setup tt
         run: |
           curl -L https://tarantool.io/release/2/installer.sh | sudo bash
-          sudo apt install -y tt
+          sudo apt install -y "tt=${TT_VERSION}"
           tt version
 
       - name: Setup Tarantool CE
@@ -398,7 +401,7 @@ jobs:
       - name: Setup tt
         run: |
           curl -L https://tarantool.io/release/2/installer.sh | sudo bash
-          sudo apt install -y tt
+          sudo apt install -y "tt=${TT_VERSION}"
           tt version
 
       - name: Cache Tarantool 3.x
