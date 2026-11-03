@@ -378,3 +378,22 @@ for name, case in pairs(is_uint_cases) do
         t.assert_equals(actual, case.expected)
     end
 end
+
+g.test_update_storage_call_error_description_dispatcher = function()
+    local messages = {
+        "Procedure '_crud.call_on_storage' is not defined",
+        "Execute access to function '_crud.call_on_storage' is denied for user 'storage_user'",
+        "Procedure '_crud.call_on_storage_no_su' is not defined",
+        "Execute access to function '_crud.call_on_storage_no_su' is denied for user 'storage_user'",
+    }
+
+    for _, message in ipairs(messages) do
+        local err = utils.update_storage_call_error_description({
+            type = 'ClientError',
+            message = message,
+        }, '_crud.get_on_storage', 'replicaset-1')
+
+        t.assert_equals(err.class_name, 'NotInitialized')
+        t.assert_str_contains(err.err, 'crud module versions mismatch')
+    end
+end

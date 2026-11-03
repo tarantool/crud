@@ -1,4 +1,5 @@
 local bit = require('bit')
+local checks = require('checks')
 local errors = require('errors')
 local fiber = require('fiber')
 local ffi = require('ffi')
@@ -29,6 +30,10 @@ local utils = {}
 
 utils.STORAGE_NAMESPACE = '_crud'
 
+local RUN_AS_USER_SESSION_KEY = 'crud.run_as_user'
+local CALL_DISPATCHER = 'call_on_storage'
+local CALL_NO_SU_DISPATCHER = 'call_on_storage_no_su'
+
 --- Returns a full call string for a storage function name.
 --
 --  @param string name a base name of the storage function.
@@ -38,6 +43,32 @@ function utils.get_storage_call(name)
     dev_checks('string')
 
     return ('%s.%s'):format(utils.STORAGE_NAMESPACE, name)
+end
+
+--- Switches run_as_user for the current router session.
+function utils.set_run_as_user(enabled)
+    checks('boolean')
+
+    if enabled then
+        box.session.storage[RUN_AS_USER_SESSION_KEY] = nil
+    else
+        box.session.storage[RUN_AS_USER_SESSION_KEY] = false
+    end
+end
+
+function utils.is_run_as_user_enabled()
+    return box.session.storage[RUN_AS_USER_SESSION_KEY] ~= false
+end
+
+--- Returns the storage dispatcher name and its arguments for the current session.
+function utils.prepare_storage_call(func_name, func_args)
+    if not utils.is_run_as_user_enabled() then
+        return utils.get_storage_call(CALL_NO_SU_DISPATCHER),
+            utils.append_array({func_name}, func_args)
+    end
+
+    return utils.get_storage_call(CALL_DISPATCHER),
+        utils.append_array({box.session.effective_user(), func_name}, func_args)
 end
 
 local space_format_cache = setmetatable({}, {__mode = 'k'})
@@ -1237,6 +1268,22 @@ function utils.check_name_isident(name)
     return true
 end
 
+local STORAGE_CALL_DISPATCHERS = {
+    utils.get_storage_call(CALL_DISPATCHER),
+    utils.get_storage_call(CALL_NO_SU_DISPATCHER),
+}
+
+local function is_dispatcher_error(message)
+    for _, dispatcher in ipairs(STORAGE_CALL_DISPATCHERS) do
+        local not_defined = ("Procedure '%s' is not defined"):format(dispatcher)
+        local access_denied = ("Execute access to function '%s' is denied"):format(dispatcher)
+        if message == not_defined or message:startswith(access_denied) then
+            return true
+        end
+    end
+    return false
+end
+
 function utils.update_storage_call_error_description(err, func_name, replicaset_id)
     if err == nil then
         return nil
@@ -1249,8 +1296,7 @@ function utils.update_storage_call_error_description(err, func_name, replicaset_
         local access_denied_str = string.format("Execute access to function '%s' is denied", func_name)
         if err.message == not_defined_str or err.message:startswith(access_denied_str)
                 or err.message:find(not_registered_str)
-                or err.message == "Procedure '_crud.call_on_storage' is not defined"
-                or err.message:startswith("Execute access to function '_crud.call_on_storage' is denied") then
+                or is_dispatcher_error(err.message) then
             if func_name:startswith('_crud.') then
                 err = NotInitializedError:new("Function '%s' is not registered: " ..
                     "crud isn't initialized on replicaset %q or crud module versions mismatch " ..

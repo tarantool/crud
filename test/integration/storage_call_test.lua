@@ -236,6 +236,14 @@ local function install_test_functions()
             'storage_call_test_user', 'execute', 'function',
             '_crud.storage_call_many_on_storage', {if_not_exists = true}
         )
+        box.schema.user.grant(
+            'storage_call_test_user', 'execute', 'function',
+            '_crud.storage_call_on_storage_no_su', {if_not_exists = true}
+        )
+        box.schema.user.grant(
+            'storage_call_test_user', 'execute', 'function',
+            '_crud.storage_call_many_on_storage_no_su', {if_not_exists = true}
+        )
     end)
 end
 
@@ -1704,6 +1712,92 @@ group.test_target_function_acl = function(g)
     connection:close()
 end
 
+group.test_set_run_as_user_disables_storage_su = function(g)
+    g.router:exec(function()
+        rawset(_G, 'test_set_run_as_user', function(enabled)
+            require('crud.common.utils').set_run_as_user(enabled)
+        end)
+
+        box.session.su('admin', function()
+            box.schema.user.create('storage_call_router_user', {
+                password = 'secret',
+                if_not_exists = true,
+            })
+
+            if _TARANTOOL >= '3.0.0' then
+                box.schema.user.grant('storage_call_router_user', 'execute',
+                    'lua_call', 'test_set_run_as_user', {if_not_exists = true})
+                box.schema.user.grant('storage_call_router_user', 'execute',
+                    'lua_call', 'crud.storage_call', {if_not_exists = true})
+                box.schema.user.grant('storage_call_router_user', 'execute',
+                    'lua_call', 'crud.storage_call_many', {if_not_exists = true})
+            else
+                box.schema.func.create('test_set_run_as_user', {if_not_exists = true})
+                box.schema.func.create('crud.storage_call', {if_not_exists = true})
+                box.schema.func.create('crud.storage_call_many', {if_not_exists = true})
+                box.schema.user.grant('storage_call_router_user', 'execute',
+                    'function', 'test_set_run_as_user', {if_not_exists = true})
+                box.schema.user.grant('storage_call_router_user', 'execute',
+                    'function', 'crud.storage_call', {if_not_exists = true})
+                box.schema.user.grant('storage_call_router_user', 'execute',
+                    'function', 'crud.storage_call_many', {if_not_exists = true})
+            end
+        end)
+    end)
+
+    local connection = net_box.connect(g.router.net_box_uri, {
+        user = 'storage_call_router_user',
+        password = 'secret',
+    })
+    t.assert(connection:wait_connected())
+
+    local result, err = connection:call('crud.storage_call', {
+        'storage_call_test_returns',
+        {'with run_as_user'},
+        {bucket_id = g.buckets[1]},
+    })
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, "User 'storage_call_router_user' is not found")
+
+    result, err = connection:call('test_set_run_as_user', {false})
+    t.assert_equals(result, nil)
+    t.assert_equals(err, nil)
+
+    result, err = connection:call('crud.storage_call', {
+        'storage_call_test_returns',
+        {'without run_as_user'},
+        {bucket_id = g.buckets[1]},
+    })
+    t.assert_equals(err, nil)
+    t.assert_equals(result.returns[1], 'without run_as_user')
+    t.assert_not_equals(result.returns[5], 'storage_call_router_user')
+
+    result, err = connection:call('crud.storage_call_many', {{
+        {
+            func_name = 'storage_call_test_returns',
+            args = {'many without run_as_user'},
+            bucket_id = g.buckets[1],
+        },
+    }})
+    t.assert_equals(err, nil)
+    t.assert_equals(#result.results, 1)
+    t.assert_equals(result.results[1].returns[1], 'many without run_as_user')
+
+    result, err = connection:call('test_set_run_as_user', {true})
+    t.assert_equals(result, nil)
+    t.assert_equals(err, nil)
+
+    result, err = connection:call('crud.storage_call', {
+        'storage_call_test_returns',
+        {'with run_as_user again'},
+        {bucket_id = g.buckets[1]},
+    })
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, "User 'storage_call_router_user' is not found")
+
+    connection:close()
+end
+
 group.test_internal_dispatcher_rejects_untrusted_user = function(g)
     local storage = g.cluster:server('s1-master')
     local connection = net_box.connect(storage.net_box_uri, {
@@ -1715,6 +1809,8 @@ group.test_internal_dispatcher_rejects_untrusted_user = function(g)
     local dispatcher_names = {
         '_crud.storage_call_on_storage',
         '_crud.storage_call_many_on_storage',
+        '_crud.storage_call_on_storage_no_su',
+        '_crud.storage_call_many_on_storage_no_su',
     }
     for _, dispatcher_name in ipairs(dispatcher_names) do
         local ok, result, err = pcall(
@@ -2085,7 +2181,12 @@ local function remove_storage_call_dispatchers(g)
         box.session.su('admin', function()
             -- Model a storage before this API existed: neither registration
             -- nor Lua implementation of the new dispatchers is available.
-            for _, name in ipairs({'storage_call_on_storage', 'storage_call_many_on_storage'}) do
+            for _, name in ipairs({
+                'storage_call_on_storage',
+                'storage_call_many_on_storage',
+                'storage_call_on_storage_no_su',
+                'storage_call_many_on_storage_no_su',
+            }) do
                 box.schema.func.drop('_crud.' .. name)
                 rawset(_G._crud, name, nil)
             end
@@ -2109,7 +2210,12 @@ local function restore_storage_call_dispatchers(g)
         g.storage_call_old_storage:exec(function()
             box.session.su('admin', function()
                 require('crud').init_storage({async = false})
-                for _, name in ipairs({'storage_call_on_storage', 'storage_call_many_on_storage'}) do
+                for _, name in ipairs({
+                    'storage_call_on_storage',
+                    'storage_call_many_on_storage',
+                    'storage_call_on_storage_no_su',
+                    'storage_call_many_on_storage_no_su',
+                }) do
                     box.schema.user.grant('storage_call_test_user', 'execute', 'function', '_crud.' .. name,
                                           {if_not_exists = true})
                 end
@@ -2121,6 +2227,7 @@ end
 
 for _, name in ipairs({
     'test_single_call_without_storage_dispatcher',
+    'test_storage_call_without_dispatcher_no_su',
     'test_mixed_storage_versions_keep_committed_calls',
 }) do
     group.before_test(name, remove_storage_call_dispatchers)
@@ -2139,6 +2246,43 @@ group.test_single_call_without_storage_dispatcher = function(g)
     t.assert_equals(err.may_have_side_effects, true)
     t.assert_equals(get_rpc_count(g.router), 1)
     t.assert_equals(get_target_calls_count(g.cluster), 0)
+end
+
+group.test_storage_call_without_dispatcher_no_su = function(g)
+    local response = g.router:exec(function(bucket_id)
+        local crud = require('crud')
+        local utils = require('crud.common.utils')
+        utils.set_run_as_user(false)
+        local single, single_err = crud.storage_call(
+            'storage_call_test_counted', {'must not run'}, {bucket_id = bucket_id})
+        local many, many_err = crud.storage_call_many({{
+            func_name = 'storage_call_test_counted', args = {'must not run'},
+            bucket_id = bucket_id,
+        }})
+        utils.set_run_as_user(true)
+        return {
+            single = single,
+            many = many,
+            single_err = single_err and {
+                message = single_err.err,
+                may_have_side_effects = single_err.may_have_side_effects,
+            },
+            many_err = many_err and {
+                message = many_err.err,
+                may_have_side_effects = many_err.may_have_side_effects,
+            },
+        }
+    end, {g.buckets[1]})
+
+    t.assert_equals(response.single, nil)
+    t.assert_str_contains(response.single_err.message, 'storage_call_on_storage_no_su')
+    t.assert_str_contains(response.single_err.message, 'versions mismatch')
+    t.assert_equals(response.single_err.may_have_side_effects, true)
+
+    t.assert_equals(response.many, nil)
+    t.assert_str_contains(response.many_err.message, 'storage_call_many_on_storage_no_su')
+    t.assert_str_contains(response.many_err.message, 'versions mismatch')
+    t.assert_equals(response.many_err.may_have_side_effects, true)
 end
 
 group.test_mixed_storage_versions_keep_committed_calls = function(g)

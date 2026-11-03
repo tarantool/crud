@@ -16,7 +16,7 @@ local BasePostprocessor = require('crud.common.map_call_cases.base_postprocessor
 local CallError = errors.new_class('CallError')
 
 local CALL_FUNC_NAME = 'call_on_storage'
-local CRUD_CALL_FUNC_NAME = utils.get_storage_call(CALL_FUNC_NAME)
+local CALL_NO_SU_FUNC_NAME = 'call_on_storage_no_su'
 
 local call = {}
 
@@ -24,7 +24,14 @@ local function call_on_storage(run_as_user, func_name, ...)
     return yield_checks.guard(box.session.su, run_as_user, call_cache.func_name_to_func(func_name), ...)
 end
 
-call.storage_api = {[CALL_FUNC_NAME] = call_on_storage}
+local function call_on_storage_no_su(func_name, ...)
+    return yield_checks.guard(call_cache.func_name_to_func(func_name), ...)
+end
+
+call.storage_api = {
+    [CALL_FUNC_NAME] = call_on_storage,
+    [CALL_NO_SU_FUNC_NAME] = call_on_storage_no_su,
+}
 
 function call.get_vshard_call_name(mode, prefer_replica, balance)
     dev_checks('string', '?boolean', '?boolean')
@@ -75,8 +82,8 @@ end
 
 --- Executes a CRUD function on a vshard replicaset.
 local function call_on_replicaset(replicaset, method, func_name, func_args, call_opts)
-    local func_args_ext = utils.append_array({ box.session.effective_user(), func_name }, func_args)
-    return replicaset[method](replicaset, CRUD_CALL_FUNC_NAME, func_args_ext, call_opts)
+    local storage_func_name, func_args_ext = utils.prepare_storage_call(func_name, func_args)
+    return replicaset[method](replicaset, storage_func_name, func_args_ext, call_opts)
 end
 
 --- The bucket is not on the replicaset it is routed to anymore, so its

@@ -32,6 +32,20 @@ function storage_call_errors.message(err)
         or tostring(err)
 end
 
+--- Explains a missing dispatcher as an initialization or version problem.
+function storage_call_errors.dispatcher_error_message(dispatcher_name, err)
+    local message = storage_call_errors.message(err)
+    local not_defined = ("Procedure '%s' is not defined"):format(dispatcher_name)
+
+    if message == not_defined then
+        return ("Function '%s' is not registered: crud isn't initialized on "
+            .. 'the storage or crud module versions mismatch')
+            :format(dispatcher_name)
+    end
+
+    return message
+end
+
 --- Creates an error with routing context and retry-safety information.
 function storage_call_errors.new(message, call_data, may_have_side_effects,
                                  replicaset_id)

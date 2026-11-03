@@ -6,6 +6,8 @@ local storage = {}
 
 local STORAGE_FUNC_NAME = 'storage_call_on_storage'
 local STORAGE_MANY_FUNC_NAME = 'storage_call_many_on_storage'
+local STORAGE_NO_SU_FUNC_NAME = 'storage_call_on_storage_no_su'
+local STORAGE_MANY_NO_SU_FUNC_NAME = 'storage_call_many_on_storage_no_su'
 
 -- This function runs under the caller's identity. Both comparisons and error
 -- formatting can invoke metamethods on values returned by a target function.
@@ -195,11 +197,25 @@ local function storage_call_many_on_storage(run_as_user, calls_by_bucket)
     return box.session.su(run_as_user, execute_many, calls_by_bucket)
 end
 
+local function storage_call_on_storage_no_su(call_data)
+    assert_service_user()
+    return execute_safely(call_data)
+end
+
+local function storage_call_many_on_storage_no_su(calls_by_bucket)
+    assert_service_user()
+    return execute_many(calls_by_bucket)
+end
+
 storage.func_name = STORAGE_FUNC_NAME
 storage.func_many_name = STORAGE_MANY_FUNC_NAME
+storage.func_no_su_name = STORAGE_NO_SU_FUNC_NAME
+storage.func_many_no_su_name = STORAGE_MANY_NO_SU_FUNC_NAME
 storage.storage_api = {
     [STORAGE_FUNC_NAME] = storage_call_on_storage,
     [STORAGE_MANY_FUNC_NAME] = storage_call_many_on_storage,
+    [STORAGE_NO_SU_FUNC_NAME] = storage_call_on_storage_no_su,
+    [STORAGE_MANY_NO_SU_FUNC_NAME] = storage_call_many_on_storage_no_su,
 }
 
 return storage
