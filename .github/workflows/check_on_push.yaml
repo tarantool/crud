@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+env:
+  TT_VERSION: "2.*"
+
 jobs:
   run-static-analysis:
     if: |
@@ -21,7 +24,7 @@ jobs:
     - name: Setup tt
       run: |
         curl -L https://tarantool.io/release/2/installer.sh | sudo bash
-        sudo apt install -y tt
+        sudo apt install -y "tt=${TT_VERSION}"
         tt version
 
     - name: Setup luacheck

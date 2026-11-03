@@ -9,6 +9,9 @@ on:
         required: false
         type: string
 
+env:
+  TT_VERSION: "2.*"
+
 jobs:
   run_tests:
     runs-on: ubuntu-24.04
@@ -34,7 +37,7 @@ jobs:
       - name: Setup tt
         run: |
           curl -L https://tarantool.io/release/2/installer.sh | sudo bash
-          sudo apt install -y tt
+          sudo apt install -y "tt=${TT_VERSION}"
           tt version
 
       - name: Install requirements
