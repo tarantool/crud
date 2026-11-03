@@ -44,6 +44,7 @@ It also provides the `crud-storage` and `crud-router` roles for
   - [Storage info](#storage-info)
   - [Storage call](#storage-call)
   - [Storage call many](#storage-call-many)
+  - [Run as user](#run-as-user)
   - [Count](#count)
   - [Call options for crud methods](#call-options-for-crud-methods)
   - [Statistics](#statistics)
@@ -1890,6 +1891,49 @@ local result, err = crud.storage_call_many(calls)
 If the method instead returns `nil, err`, no per-item results are available;
 other replica sets may already have committed their calls. Retrying the whole
 batch requires idempotent target functions.
+
+### Run as user
+
+By default, a storage executes an operation as the router session user with
+`box.session.su()`. The user must exist on the storage.
+
+`require('crud.common.utils').set_run_as_user(false)` turns `run_as_user` off
+for the current router session:
+
+```lua
+local utils = require('crud.common.utils')
+
+utils.set_run_as_user(false) -- the current session works without run_as_user
+utils.set_run_as_user(true)  -- the default mode is back
+```
+
+The toggle is not a remote API: crud exports it from an internal module only,
+so remote calls cannot reach it. Do not wrap it into functions granted to
+clients. The decision belongs to the router-side code.
+
+Without `run_as_user`, an operation runs on the storage under the owner of the
+crud storage functions (the user that called `crud.init_storage()`). The
+session user is not checked on the storage, so their grants do not apply there.
+In this mode authorization is the router's responsibility.
+
+Set the toggle in the authentication trigger (`box.session.on_auth`): keep
+`run_as_user` for native Tarantool users and disable it for users that exist
+only on the router (LDAP, CIAM):
+
+```lua
+local utils = require('crud.common.utils')
+
+box.session.on_auth(function(user, is_authenticated)
+    -- The trigger also fires for failed attempts.
+    if not is_authenticated then
+        return
+    end
+    -- user_is_on_storages() is application logic
+    utils.set_run_as_user(user_is_on_storages(user))
+end)
+```
+
+The mode is per router session and is reset when the session ends.
 
 ### Count
 

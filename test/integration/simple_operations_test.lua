@@ -1,4 +1,5 @@
 local t = require('luatest')
+local net_box = require('net.box')
 local crud = require('crud')
 
 local helpers = require('test.helper')
@@ -161,6 +162,77 @@ pgroup.test_insert_get = function(g)
 
     t.assert_equals(err, nil)
     t.assert_equals(#result.rows, 0)
+end
+
+pgroup.test_set_run_as_user_disables_storage_su = function(g)
+    g.router:exec(function()
+        rawset(_G, 'test_set_run_as_user', function(enabled)
+            require('crud.common.utils').set_run_as_user(enabled)
+        end)
+
+        box.session.su('admin', function()
+            box.schema.user.create('simple_operations_router_user', {
+                password = 'secret',
+                if_not_exists = true,
+            })
+
+            if _TARANTOOL >= '3.0.0' then
+                box.schema.user.grant('simple_operations_router_user', 'execute',
+                    'lua_call', 'test_set_run_as_user', {if_not_exists = true})
+                box.schema.user.grant('simple_operations_router_user', 'execute',
+                    'lua_call', 'crud.insert', {if_not_exists = true})
+                box.schema.user.grant('simple_operations_router_user', 'execute',
+                    'lua_call', 'crud.get', {if_not_exists = true})
+                box.schema.user.grant('simple_operations_router_user', 'execute',
+                    'lua_call', 'crud.select', {if_not_exists = true})
+            else
+                box.schema.func.create('test_set_run_as_user', {if_not_exists = true})
+                box.schema.func.create('crud.insert', {if_not_exists = true})
+                box.schema.func.create('crud.get', {if_not_exists = true})
+                box.schema.func.create('crud.select', {if_not_exists = true})
+                box.schema.user.grant('simple_operations_router_user', 'execute',
+                    'function', 'test_set_run_as_user', {if_not_exists = true})
+                box.schema.user.grant('simple_operations_router_user', 'execute',
+                    'function', 'crud.insert', {if_not_exists = true})
+                box.schema.user.grant('simple_operations_router_user', 'execute',
+                    'function', 'crud.get', {if_not_exists = true})
+                box.schema.user.grant('simple_operations_router_user', 'execute',
+                    'function', 'crud.select', {if_not_exists = true})
+            end
+        end)
+    end)
+
+    local connection = net_box.connect(g.router.net_box_uri, {
+        user = 'simple_operations_router_user',
+        password = 'secret',
+    })
+    t.assert(connection:wait_connected())
+
+    local result, err = connection:call('crud.insert', {
+        'customers', {3, box.NULL, 'Oleg', 30},
+    })
+    t.assert_equals(result, nil)
+    t.assert_str_contains(err.err, "User 'simple_operations_router_user' is not found")
+
+    result, err = connection:call('test_set_run_as_user', {false})
+    t.assert_equals(result, nil)
+    t.assert_equals(err, nil)
+
+    result, err = connection:call('crud.insert', {
+        'customers', {3, box.NULL, 'Oleg', 30},
+    })
+    t.assert_equals(err, nil)
+    t.assert_equals(result.rows[1][1], 3)
+
+    result, err = connection:call('crud.get', {'customers', 3})
+    t.assert_equals(err, nil)
+    t.assert_equals(result.rows[1][3], 'Oleg')
+
+    result, err = connection:call('crud.select', {'customers', {{'=', 'id', 3}}})
+    t.assert_equals(err, nil)
+    t.assert_equals(result.rows[1][3], 'Oleg')
+
+    connection:close()
 end
 
 pgroup.test_update = function(g)

@@ -16,6 +16,12 @@ local CRUD_STORAGE_FUNC_NAME = utils.get_storage_call(storage.func_name)
 local CRUD_STORAGE_MANY_FUNC_NAME = utils.get_storage_call(
     storage.func_many_name
 )
+local CRUD_STORAGE_NO_SU_FUNC_NAME = utils.get_storage_call(
+    storage.func_no_su_name
+)
+local CRUD_STORAGE_MANY_NO_SU_FUNC_NAME = utils.get_storage_call(
+    storage.func_many_no_su_name
+)
 
 local function remaining_timeout(deadline)
     return math.max(deadline - fiber.clock(), 0)
@@ -232,16 +238,23 @@ local function call_once(vshard_router, func_name, args, opts, deadline,
         return nil, storage_call_errors.timeout_before_send(call_data)
     end
 
+    local storage_func_name = CRUD_STORAGE_FUNC_NAME
+    local storage_args = {box.session.effective_user(), call_data}
+    if not utils.is_run_as_user_enabled() then
+        storage_func_name = CRUD_STORAGE_NO_SU_FUNC_NAME
+        storage_args = {call_data}
+    end
+
     local result
     result, err = vshard_router:callrw(
         call_data.bucket_id,
-        CRUD_STORAGE_FUNC_NAME,
-        {box.session.effective_user(), call_data},
+        storage_func_name,
+        storage_args,
         {timeout = call_timeout}
     )
     if err ~= nil then
         return nil, storage_call_errors.new(
-            storage_call_errors.message(err),
+            storage_call_errors.dispatcher_error_message(storage_func_name, err),
             call_data,
             true
         )
@@ -375,9 +388,16 @@ local function call_many_once(vshard_router, calls, calls_count, deadline,
         return mark_not_sent(results, expected_calls, calls)
     end
 
+    local storage_func_name = CRUD_STORAGE_MANY_FUNC_NAME
+    local storage_args = {box.session.effective_user()}
+    if not utils.is_run_as_user_enabled() then
+        storage_func_name = CRUD_STORAGE_MANY_NO_SU_FUNC_NAME
+        storage_args = {}
+    end
+
     local map_results, map_err, replicaset_id = vshard_router:map_callrw(
-        CRUD_STORAGE_MANY_FUNC_NAME,
-        {box.session.effective_user()},
+        storage_func_name,
+        storage_args,
         {
             timeout = map_timeout,
             bucket_ids = calls_by_bucket,
@@ -385,7 +405,7 @@ local function call_many_once(vshard_router, calls, calls_count, deadline,
     )
     if map_err ~= nil then
         return nil, storage_call_errors.new(
-            storage_call_errors.message(map_err),
+            storage_call_errors.dispatcher_error_message(storage_func_name, map_err),
             nil,
             true,
             replicaset_id
