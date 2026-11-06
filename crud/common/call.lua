@@ -240,6 +240,14 @@ function call.map(vshard_router, func_name, func_args, opts)
     end
 
     local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
+    local request_timeout = opts.mode == 'read' and opts.request_timeout or nil
+
+    if request_timeout ~= nil and request_timeout > timeout then
+        return nil, CallError:new(
+            "request_timeout (%g) must be <= timeout (%g)",
+            request_timeout, timeout
+        )
+    end
 
     local iter = opts.iter
     if iter == nil then
@@ -261,7 +269,8 @@ function call.map(vshard_router, func_name, func_args, opts)
     local futures_by_replicasets = {}
     local call_opts = {
         is_async = true,
-        request_timeout = opts.mode == 'read' and opts.request_timeout or nil,
+        timeout = timeout,
+        request_timeout = request_timeout,
     }
 
     local deadline = fiber_clock() + timeout
@@ -333,13 +342,20 @@ function call.single(vshard_router, bucket_id, func_name, func_args, opts)
         return nil, err
     end
 
+    local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
+    local request_timeout = opts.mode == 'read' and opts.request_timeout or nil
+
+    if request_timeout ~= nil and request_timeout > timeout then
+        return nil, CallError:new(
+            "request_timeout (%g) must be <= timeout (%g)",
+            request_timeout, timeout
+        )
+    end
+
     local replicaset, err = vshard_router:route(bucket_id)
     if err ~= nil then
         return nil, CallError:new("Failed to get router replicaset: %s", tostring(err))
     end
-
-    local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
-    local request_timeout = opts.mode == 'read' and opts.request_timeout or nil
 
     local res, err, replicaset_id = call_single_with_recovery(vshard_router, replicaset, vshard_call_name,
         func_name, func_args, {timeout = timeout, request_timeout = request_timeout})

@@ -316,6 +316,15 @@ function select_module.pairs(space_name, user_conditions, opts)
         end
     end
 
+    local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
+    local request_timeout = (opts.mode == nil or opts.mode == 'read') and opts.request_timeout or nil
+    if request_timeout ~= nil and request_timeout > timeout then
+        return nil, SelectError:new(
+            "request_timeout (%g) must be <= timeout (%g)",
+            request_timeout, timeout
+        )
+    end
+
     if opts.first ~= nil and opts.first < 0 then
         error(string.format("Negative first isn't allowed for pairs"))
     end
@@ -436,6 +445,15 @@ local function select_module_call_xc(vshard_router, space_name, user_conditions,
         if opts.request_timeout ~= nil then
             return nil, SelectError:new("Readview does not support 'request_timeout' option")
         end
+    end
+
+    local timeout = opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
+    local request_timeout = (opts.mode == nil or opts.mode == 'read') and opts.request_timeout or nil
+    if request_timeout ~= nil and request_timeout > timeout then
+        return nil, SelectError:new(
+            "request_timeout (%g) must be <= timeout (%g)",
+            request_timeout, timeout
+        )
     end
 
     if opts.first ~= nil and opts.first < 0 then
