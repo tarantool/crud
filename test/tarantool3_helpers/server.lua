@@ -6,6 +6,8 @@ local urilib = require('uri')
 local fio = require('fio')
 local luatest = require('luatest')
 
+local crud_utils = require('crud.common.utils')
+
 local path = require('test.path')
 local vclock_utils = require('test.vshard_helpers.vclock')
 
@@ -236,7 +238,50 @@ function Server:connect_net_box()
             expr = "return require('config'):info().status == 'ready' or " ..
                           "require('config'):info().status == 'check_warnings'"
         end
+        if opts then
+            -- The call_thread option is internal. It's used for disabling
+            -- evaluation of the given expression on an application thread,
+            -- see override_eval_to_call_thread. We must never forward this
+            -- option to net.box.
+            opts.call_thread = nil
+        end
         return saved_eval(self, expr, args, opts)
+    end
+end
+
+-- Some tests use eval/exec to execute code on a crud router. If the router is
+-- configured to run on an application thread, we must forward such requests to
+-- that thread. To achieve that, we override Server.net_box.eval so that it
+-- executes the given expression by calling the special function thread_eval
+-- exported only by router threads. This behavior may be disabled by passing
+-- call_thread = false in eval/exec options, which is used for reconfiguration
+-- and checking the instance state at startup.
+function Server:override_eval_to_call_thread()
+    self:exec(function()
+        local config = require('config')
+        local threads = require('threads')
+        local tg = config:get('sharding.router_thread_group')
+        threads.eval(tg, [[
+            box.iproto.export('thread_eval', function(expr, args)
+                return dostring(expr, unpack(args or {}))
+            end)
+        ]])
+    end)
+    local saved_eval = self.net_box.eval
+    self.net_box.eval = function(conn, expr, args, opts)
+        if opts and opts.call_thread == false then
+            return saved_eval(conn, expr, args, opts)
+        else
+            return conn:call('thread_eval', {expr, args}, opts)
+        end
+    end
+end
+
+function Server:wait_until_ready()
+    getmetatable(getmetatable(self)).wait_until_ready(self)
+
+    if crud_utils.tarantool_supports_threads() and self:is_router() then
+        self:override_eval_to_call_thread()
     end
 end
 
@@ -244,7 +289,7 @@ function Server:wait_for_rw()
     luatest.helpers.retrying({timeout = WAIT_TIMEOUT, delay = WAIT_DELAY}, function()
         local ro, err = self:exec(function()
             return box.info.ro
-        end)
+        end, {}, {call_thread = false})
 
         luatest.assert_equals(err, nil)
         luatest.assert_equals(ro, false)

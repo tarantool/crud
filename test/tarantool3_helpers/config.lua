@@ -124,6 +124,20 @@ local function set_modules_to_groups(groups)
     return groups
 end
 
+local function set_threads_to_groups(groups)
+    for _, group in pairs(groups) do
+        group.app = group.app or {}
+        group.sharding = group.sharding or {}
+
+        if utils.is_group_a_sharding_router(group) then
+            group.app.thread_group = 'sharding'
+            group.sharding.router_thread_group = 'sharding'
+        end
+    end
+
+    return groups
+end
+
 -- Do not deepcopy anything here.
 local function new(cfg)
     checks({
@@ -132,6 +146,7 @@ local function new(cfg)
         storage_entrypoint = '?string',
         router_entrypoint = '?string',
         all_entrypoint = '?string',
+        use_threads = '?boolean',
         env = '?table',
     })
 
@@ -172,9 +187,35 @@ local function new(cfg)
         bucket_count = cfg.bucket_count,
     }
 
+    local threads = nil
+    if cfg.use_threads then
+        -- Define a thread group that will be used for running routers,
+        -- see set_threads_to_groups()
+        threads = {
+            groups = {
+                {
+                    name = 'sharding',
+                    size = 1,
+                },
+            },
+        }
+        -- Grant the guest user a privilege to call Lua functions defined
+        -- in application threads.
+        credentials.users.guest.privileges = {
+            {
+                permissions = {'execute'},
+                lua_call = {'all'},
+            },
+        }
+    end
+
     local groups = cfg.groups
     groups = set_listen_uris_to_instances(groups)
     groups = set_modules_to_groups(groups)
+
+    if cfg.use_threads then
+        groups = set_threads_to_groups(groups)
+    end
 
     local replication = {
         failover = 'manual',
@@ -186,6 +227,7 @@ local function new(cfg)
         credentials = credentials,
         iproto = iproto,
         sharding = sharding,
+        threads = threads,
         groups = groups,
         replication = replication,
     }

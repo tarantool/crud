@@ -189,12 +189,21 @@ crud.rebalance = {}
 crud.rebalance.router_cache_clear = rebalance.router_api.cache_clear
 
 function crud.init_router()
+    if rawget(_G, 'crud') ~= nil then return end
     rawset(_G, 'crud', crud)
-
+    if utils.tarantool_supports_threads() then
+        -- Adding a function to _G has no effect in an application thread.
+        -- Functions should be exported using box.iproto.export().
+        box.iproto.export({crud = crud})
+    end
     rebalance.init_router_metrics()
 end
 
 function crud.stop_router()
+    if rawget(_G, 'crud') == nil then return end
+    if utils.tarantool_supports_threads() then
+        box.iproto.unexport({crud = crud})
+    end
     rawset(_G, 'crud', nil)
 end
 

@@ -20,6 +20,7 @@ package.path = package.path .. root .. "/?.lua;" .. root .. "/?/init.lua;"
 package.preload['customers-storage'] = function()
     return {
         role_name = 'customers-storage',
+        init = require('storage').init,
     }
 end
 

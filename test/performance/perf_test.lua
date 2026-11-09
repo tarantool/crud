@@ -155,7 +155,7 @@ local tarantool3_cluster_cfg_template = {
         },
     },
     bucket_count = 3000,
-    router_entrypoint = helpers.entrypoint_vshard_storage('srv_ddl'),
+    router_entrypoint = helpers.entrypoint_vshard_router('srv_ddl'),
     storage_entrypoint = helpers.entrypoint_vshard_storage('srv_ddl'),
 }
 
@@ -582,7 +582,7 @@ local vshard_prepare = function(g)
         rawset(_G, '_vshard_select_customer_by_name_and_age', _vshard_select_customer_by_name_and_age)
     ]])
 
-    for _, server in ipairs(g.cluster.servers) do
+    helpers.call_on_storages(g.cluster, function(server)
         server.net_box:eval([[
             local function add_storage_execute(func_name)
                 if box.cfg.read_only == false and box.schema.user.exists('storage') then
@@ -638,7 +638,7 @@ local vshard_prepare = function(g)
                 _vshard_select_customer_by_name_and_age_storage)
             add_storage_execute('_vshard_select_customer_by_name_and_age_storage')
         ]])
-    end
+    end)
 end
 
 local insert_params = function()

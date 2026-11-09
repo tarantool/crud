@@ -187,7 +187,7 @@ function helpers.drop_space_on_cluster(cluster, space_name)
     for _, server in ipairs(cluster.servers) do
         server.net_box:eval([[
             local space_name = ...
-            local space = box.space[space_name]
+            local space = box.space and box.space[space_name]
             if space ~= nil and not box.cfg.read_only then
                 space:drop()
             end
@@ -200,7 +200,7 @@ function helpers.truncate_space_on_cluster(cluster, space_name)
     for _, server in ipairs(cluster.servers) do
         server.net_box:eval([[
             local space_name = ...
-            local space = box.space[space_name]
+            local space = box.space and box.space[space_name]
             if space ~= nil and not box.cfg.read_only then
                 space:truncate()
             end
@@ -213,7 +213,7 @@ function helpers.reset_sequence_on_cluster(cluster, sequence_name)
     for _, server in ipairs(cluster.servers) do
         server.net_box:eval([[
             local sequence_name = ...
-            local sequence = box.sequence[sequence_name]
+            local sequence = box.sequence and box.sequence[sequence_name]
             if sequence ~= nil and not box.cfg.read_only then
                 sequence:reset()
             end
@@ -930,6 +930,8 @@ end
 
 function helpers.start_tarantool3_cluster(g, cfg)
     local cfg = table.deepcopy(cfg)
+    cfg.use_threads = (g.params and g.params.backend_cfg and
+                       g.params.backend_cfg.use_threads)
     cfg.env = {
         ['ENGINE'] = (g.params and g.params.engine),
     }
@@ -1289,12 +1291,27 @@ function helpers.backend_matrix(base_matrix, opts)
     end
 
     if helpers.is_tarantool3_crud_roles_supported() then
-        table.insert(backend_params,
-            {
-                backend = helpers.backend.CONFIG,
-                backend_cfg = nil,
-            }
-        )
+        if crud_utils.tarantool_supports_threads() then
+            table.insert(backend_params,
+                {
+                    backend = helpers.backend.CONFIG,
+                    backend_cfg = {use_threads = false},
+                }
+            )
+            table.insert(backend_params,
+                {
+                    backend = helpers.backend.CONFIG,
+                    backend_cfg = {use_threads = true},
+                }
+            )
+        else
+            table.insert(backend_params,
+                {
+                    backend = helpers.backend.CONFIG,
+                    backend_cfg = nil,
+                }
+            )
+        end
     end
 
     local matrix = {}

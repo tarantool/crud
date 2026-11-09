@@ -10,7 +10,7 @@ local group = t.group('storage_call', helpers.backend_matrix({{
     skip_safe_mode = true,
 }))
 
-local function install_test_functions()
+local function create_test_user()
     if not box.info.ro and rawget(_G, 'crud') ~= nil then
         box.session.su('admin', function()
             box.schema.user.create('storage_call_test_user', {
@@ -44,8 +44,10 @@ local function install_test_functions()
             end
         end)
     end
+end
 
-    if box.space._bucket == nil then
+local function install_test_functions()
+    if box.space == nil or box.space._bucket == nil then
         return
     end
 
@@ -248,7 +250,7 @@ local function install_test_functions()
 end
 
 local function reset_test_state()
-    if box.space._bucket == nil then
+    if box.space == nil or box.space._bucket == nil then
         return
     end
 
@@ -629,7 +631,7 @@ end
 
 local function install_sharding_check_fault(g)
     helpers.exec_on_cluster(g.cluster, function()
-        if box.space._bucket == nil then
+        if box.space == nil or box.space._bucket == nil then
             return
         end
 
@@ -652,7 +654,7 @@ end
 
 local function remove_sharding_check_fault(g)
     helpers.exec_on_cluster(g.cluster, function()
-        if box.space._bucket == nil then
+        if box.space == nil or box.space._bucket == nil then
             return
         end
 
@@ -717,6 +719,29 @@ end
 
 group.before_all(function(g)
     helpers.start_default_cluster(g, 'srv_simple_operations')
+    if g.params.backend == helpers.backend.CONFIG and
+            g.params.backend_cfg ~= nil and
+            g.params.backend_cfg.use_threads then
+        -- The only way to grant a user access to a function defined in
+        -- an application thread is via the config so we define the test
+        -- user in the config if application threads are used.
+        local cfg = g.cluster:cfg()
+        cfg.credentials.users.storage_call_test_user = {
+            password = 'secret',
+            privileges = {
+                {
+                    permissions = {'execute'},
+                    lua_call = {
+                        'crud.storage_call',
+                        'crud.storage_call_many',
+                    },
+                },
+            },
+        }
+        g.cluster:cfg(cfg)
+    else
+        helpers.exec_on_cluster(g.cluster, create_test_user)
+    end
     helpers.exec_on_cluster(g.cluster, install_test_functions)
 
     g.buckets = get_buckets_from_different_replicasets(g.router)
@@ -1713,6 +1738,9 @@ group.test_target_function_acl = function(g)
 end
 
 group.test_set_run_as_user_disables_storage_su = function(g)
+    t.skip_if(g.params.backend == helpers.backend.CONFIG and
+              g.params.backend_cfg ~= nil and g.params.backend_cfg.use_threads,
+              'set_run_as_user is unsupported when router threads are enabled')
     g.router:exec(function()
         rawset(_G, 'test_set_run_as_user', function(enabled)
             require('crud.common.utils').set_run_as_user(enabled)
@@ -2168,7 +2196,7 @@ group.test_master_changes_between_ref_and_map = function(g)
     t.assert_equals(response.map_calls, 1)
     t.assert_equals(response.map_master, new_master_id)
     helpers.exec_on_cluster(g.cluster, function()
-        if box.space._bucket ~= nil then
+        if box.space ~= nil and box.space._bucket ~= nil then
             require('luatest').assert_equals(_G.storage_call_test_target_calls, 0)
         end
     end)
@@ -2249,6 +2277,9 @@ group.test_single_call_without_storage_dispatcher = function(g)
 end
 
 group.test_storage_call_without_dispatcher_no_su = function(g)
+    t.skip_if(g.params.backend == helpers.backend.CONFIG and
+              g.params.backend_cfg ~= nil and g.params.backend_cfg.use_threads,
+              'set_run_as_user is unsupported when router threads are enabled')
     local response = g.router:exec(function(bucket_id)
         local crud = require('crud')
         local utils = require('crud.common.utils')

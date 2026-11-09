@@ -165,6 +165,9 @@ pgroup.test_insert_get = function(g)
 end
 
 pgroup.test_set_run_as_user_disables_storage_su = function(g)
+    t.skip_if(g.params.backend == helpers.backend.CONFIG and
+              g.params.backend_cfg ~= nil and g.params.backend_cfg.use_threads,
+              'set_run_as_user is unsupported when router threads are enabled')
     g.router:exec(function()
         rawset(_G, 'test_set_run_as_user', function(enabled)
             require('crud.common.utils').set_run_as_user(enabled)
