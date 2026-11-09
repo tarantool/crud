@@ -735,6 +735,72 @@ pgroup.test_pairs_force_map_call = function(g)
     t.assert_equals(objects, customers)
 end
 
+pgroup.test_pairs_timeout_0_raises_error = function(g)
+    t.skip_if(
+        not crud_utils.tarantool_supports_external_merger(),
+        'External merger is unsupported on this Tarantool version'
+    )
+    local has_tuple_merger = g.router:eval([[
+        local ok = pcall(require, 'tuple.merger')
+        return ok
+    ]])
+    t.skip_if(not has_tuple_merger, 'tuple.merger module is unavailable')
+
+    local ok, err = g.router:eval([[
+        local crud = require('crud')
+
+        local ok, resp = pcall(function()
+            local gen, param, state = crud.pairs(
+                'customers',
+		nil,
+		{mode = 'read', timeout = 0}
+            )
+            gen(param, state)
+        end)
+
+        if ok then
+            return true, nil
+        end
+        return false, tostring(resp)
+    ]])
+
+    t.assert_equals(ok, false)
+    t.assert_str_contains(err:lower(), 'timeout')
+end
+
+pgroup.test_pairs_request_timeout_0_raises_error = function(g)
+    t.skip_if(
+        not crud_utils.tarantool_supports_external_merger(),
+        'External merger is unsupported on this Tarantool version'
+    )
+    local has_tuple_merger = g.router:eval([[
+        local ok = pcall(require, 'tuple.merger')
+        return ok
+    ]])
+    t.skip_if(not has_tuple_merger, 'tuple.merger module is unavailable')
+
+    local ok, err = g.router:eval([[
+        local crud = require('crud')
+
+        local ok, resp = pcall(function()
+            local gen, param, state = crud.pairs('customers', nil, {
+                mode = 'read',
+                timeout = 1,
+                request_timeout = 0,
+            })
+            gen(param, state)
+        end)
+
+        if ok then
+            return true, nil
+        end
+        return false, tostring(resp)
+    ]])
+
+    t.assert_equals(ok, false)
+    t.assert_str_contains(err:lower(), 'timeout')
+end
+
 pgroup.test_pairs_timeout = function(g)
     local customers = helpers.insert_objects(g, 'customers', {
         {
@@ -772,6 +838,43 @@ pgroup.test_pairs_timeout = function(g)
         return objects
     ]])
     t.assert_equals(objects, raw_rows)
+end
+
+pgroup.test_pairs_validates_request_timeout = function(g)
+    t.skip_if(
+        not crud_utils.tarantool_supports_external_merger(),
+        'External merger is unsupported on this Tarantool version'
+    )
+    local has_tuple_merger = g.router:eval([[
+        local ok = pcall(require, 'tuple.merger')
+        return ok
+    ]])
+    t.skip_if(not has_tuple_merger, 'tuple.merger module is unavailable')
+
+    local ok, err = g.router:eval([[
+        local crud = require('crud')
+
+        local ok, resp = pcall(function()
+            local gen, param, state = crud.pairs('customers', nil, {
+                mode = 'read',
+                force_map_call = true,
+                timeout = 45,
+                request_timeout = 90,
+            })
+            gen(param, state)
+        end)
+
+        if ok then
+            return true, nil
+        end
+        return false, tostring(resp)
+    ]])
+
+    t.assert_equals(ok, false)
+    t.assert(err ~= nil)
+    t.assert_str_contains(err,
+        'request_timeout (90) must be <= timeout (45)'
+    )
 end
 
 pgroup.test_opts_not_damaged = function(g)
