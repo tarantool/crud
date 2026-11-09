@@ -3,6 +3,7 @@ local errors = require('errors')
 local msgpack = require('msgpack')
 local ffi = require('ffi')
 local call = require('crud.common.call')
+local const = require('crud.common.const')
 local fiber = require('fiber')
 local sharding = require('crud.common.sharding')
 local sharding_metadata_module = require('crud.common.sharding.sharding_metadata')
@@ -109,7 +110,7 @@ local function fetch_chunk(context, state)
     local func_args = context.func_args
     local replicaset = context.replicaset
     local vshard_call_name = context.vshard_call_name
-    local timeout = context.timeout or call.DEFAULT_VSHARD_CALL_TIMEOUT
+    local timeout = context.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
     local space_name = context.space_name
     local vshard_router = context.vshard_router
     local future = state.future
@@ -173,15 +174,21 @@ local function fetch_chunk(context, state)
     next_func_args[4].after_tuple = cursor.after_tuple
     local storage_func_name, func_args_ext = utils.prepare_storage_call(func_name, next_func_args)
 
+    local next_future, err
     if context.readview then
-        next_state = {future = context.future_replica.conn:call(storage_func_name,
-                func_args_ext, net_box_opts)}
+        next_future, err = context.future_replica.conn:call(
+            storage_func_name, func_args_ext, net_box_opts
+        )
     else
-        local next_future = replicaset[vshard_call_name](replicaset, storage_func_name,
-                func_args_ext, net_box_opts)
-        next_state = {future = next_future}
+        next_future, err = replicaset[vshard_call_name](
+            replicaset, storage_func_name, func_args_ext, net_box_opts
+        )
     end
-    return next_state, buf
+
+    if next_future == nil and err ~= nil then
+        error(errors.wrap(err))
+    end
+    return {future = next_future}, buf
 end
 
 local reverse_tarantool_iters = {
@@ -195,6 +202,7 @@ local function new(vshard_router, replicasets, space, index_id, func_name, func_
     local call_opts = opts.call_opts
     local mode = call_opts.mode or 'read'
     local vshard_call_name = call.get_vshard_call_name(mode, call_opts.prefer_replica, call_opts.balance)
+    local timeout = call_opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
 
     -- Request a first data chunk and create merger sources.
     local merger_sources = {}
@@ -202,10 +210,14 @@ local function new(vshard_router, replicasets, space, index_id, func_name, func_
         -- Perform a request.
         local buf = buffer.ibuf()
         local net_box_opts = {is_async = true, buffer = buf,
-                              skip_header = utils.tarantool_supports_netbox_skip_header_option() or nil}
+                              skip_header = utils.tarantool_supports_netbox_skip_header_option() or nil,
+                              timeout = timeout, request_timeout = call_opts.request_timeout}
         local storage_func_name, func_args_ext = utils.prepare_storage_call(func_name, func_args)
-        local future = replicaset[vshard_call_name](replicaset, storage_func_name,
+        local future, err = replicaset[vshard_call_name](replicaset, storage_func_name,
                 func_args_ext, net_box_opts)
+        if future == nil and err ~= nil then
+            error(errors.wrap(err))
+        end
 
         -- Create a source.
         local context = {
@@ -215,7 +227,7 @@ local function new(vshard_router, replicasets, space, index_id, func_name, func_
             func_args = func_args,
             replicaset = replicaset,
             vshard_call_name = vshard_call_name,
-            timeout = call_opts.timeout,
+            timeout = timeout,
             fetch_latest_metadata = call_opts.fetch_latest_metadata,
             space_name = space.name,
             vshard_router = vshard_router,
@@ -251,6 +263,7 @@ end
 local function new_readview(vshard_router, replicasets, readview_info, space, index_id, func_name, func_args, opts)
     opts = opts or {}
     local call_opts = opts.call_opts
+    local timeout = call_opts.timeout or const.DEFAULT_VSHARD_CALL_TIMEOUT
 
     -- Request a first data chunk and create merger sources.
     local merger_sources = {}
@@ -280,7 +293,10 @@ local function new_readview(vshard_router, replicasets, readview_info, space, in
                                   skip_header = utils.tarantool_supports_netbox_skip_header_option() or nil}
             func_args[4].readview_id = replicaset_info.id
             local storage_func_name, func_args_ext = utils.prepare_storage_call(func_name, func_args)
-            local future = replica.conn:call(storage_func_name, func_args_ext, net_box_opts)
+            local future, err = replica.conn:call(storage_func_name, func_args_ext, net_box_opts)
+            if future == nil and err ~= nil then
+                error(errors.wrap(err))
+            end
 
             -- Create a source.
             local context = {
@@ -290,7 +306,7 @@ local function new_readview(vshard_router, replicasets, readview_info, space, in
                 func_args = func_args,
                 replicaset = replicaset,
                 vshard_call_name = nil,
-                timeout = call_opts.timeout,
+                timeout = timeout,
                 fetch_latest_metadata = call_opts.fetch_latest_metadata,
                 space_name = space.name,
                 vshard_router = vshard_router,
