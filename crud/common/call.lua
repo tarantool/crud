@@ -94,6 +94,19 @@ local BUCKET_MOVED_ERRS = {
     TRANSFER_IS_IN_PROGRESS = true,
 }
 
+local function reset_moved_bucket_routes(vshard_router, err)
+    if type(err) ~= 'table' or
+       err.class_name ~= bucket_ref_unref.BucketRefError.name then
+        return
+    end
+
+    for _, bucket_ref_err in ipairs(err.bucket_ref_errs) do
+        if BUCKET_MOVED_ERRS[bucket_ref_err.vshard_err.name] then
+            vshard_router:_bucket_reset(bucket_ref_err.bucket_id)
+        end
+    end
+end
+
 --- Performs a recovery action for a call error:
 --- * MISSING_MASTER - the replicaset master is not discovered yet, so it
 ---   is discovered explicitly;
@@ -114,11 +127,7 @@ local function recover_from_err(vshard_router, replicaset, err)
     local vshard_err = err
 
     if err.class_name == bucket_ref_unref.BucketRefError.name then
-        for _, bucket_ref_err in ipairs(err.bucket_ref_errs) do
-            if BUCKET_MOVED_ERRS[bucket_ref_err.vshard_err.name] then
-                vshard_router:_bucket_reset(bucket_ref_err.bucket_id)
-            end
-        end
+        reset_moved_bucket_routes(vshard_router, err)
 
         -- A request that failed on several buckets has no single replicaset
         -- to be retried on, so only a single-bucket one is recovered further.
@@ -307,6 +316,18 @@ function call.map(vshard_router, func_name, func_args, opts)
         end
 
         local result, err = future:wait_result(wait_timeout)
+
+        -- Batch storage API returns errors as the 2nd return value of the called
+        -- function, so in async mode they appear in result[2] while err is nil.
+        if result ~= nil and type(result[2]) == 'table' then
+            for _, perr in ipairs(result[2]) do
+                if type(perr) == 'table' and
+                   perr.class_name ~= bucket_ref_unref.BucketRefError.name then
+                    perr = perr.err
+                end
+                reset_moved_bucket_routes(vshard_router, perr)
+            end
+        end
 
         local result_info = {
             key = replicaset_id,

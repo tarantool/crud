@@ -618,6 +618,34 @@ function helpers.is_space_exist(router, space_name)
     return res
 end
 
+function helpers.wait_storage_masters_synced(cluster, masters, opts)
+    opts = opts or {timeout = 10, delay = 0.01}
+    t.helpers.retrying(opts, function()
+        helpers.call_on_servers(cluster, masters, function(server)
+            local state = server:exec(function()
+                local internal = require('vshard.storage').internal
+                return {
+                    is_master = internal.is_master,
+                    is_bucket_in_sync = internal.is_bucket_in_sync,
+                }
+            end)
+            t.assert(state.is_master)
+            t.assert(state.is_bucket_in_sync)
+        end)
+    end)
+end
+
+function helpers.set_router_discovery(router_server, mode)
+    checks('table', 'string')
+    return router_server:eval([[
+        local utils = require('crud.common.utils')
+        local vshard_router = assert(utils.get_vshard_router_instance())
+        local previous_mode = vshard_router.discovery_mode
+        vshard_router:discovery_set(...)
+        return previous_mode
+    ]], {mode})
+end
+
 function helpers.reload_package(srv)
     srv.net_box:eval([[
         local function startswith(text, prefix)

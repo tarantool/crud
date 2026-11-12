@@ -409,22 +409,6 @@ end
 
 local storage_masters = {'s1-master', 's2-master'}
 
-local function wait_storage_masters_synced(g)
-    t.helpers.retrying({timeout = 10, delay = 0.01}, function()
-        helpers.call_on_servers(g.cluster, storage_masters, function(server)
-            local state = server:exec(function()
-                local internal = require('vshard.storage').internal
-                return {
-                    is_master = internal.is_master,
-                    is_bucket_in_sync = internal.is_bucket_in_sync,
-                }
-            end)
-            t.assert(state.is_master)
-            t.assert(state.is_bucket_in_sync)
-        end)
-    end)
-end
-
 local function set_rebalancer(g, enabled)
     helpers.call_on_servers(g.cluster, storage_masters, function(server)
         server:exec(function(enable)
@@ -436,16 +420,6 @@ local function set_rebalancer(g, enabled)
             end
         end, {enabled})
     end)
-end
-
-local function set_discovery(router, mode)
-    return router:eval([[
-        local utils = require('crud.common.utils')
-        local vshard_router = assert(utils.get_vshard_router_instance())
-        local previous_mode = vshard_router.discovery_mode
-        vshard_router:discovery_set(...)
-        return previous_mode
-    ]], {mode})
 end
 
 local function bucket_is_writable(server, bucket_id)
@@ -503,9 +477,9 @@ local function drop_sent_bucket(server, bucket_id)
 end
 
 local function prepare_bucket_transfer(g, bucket_id)
-    wait_storage_masters_synced(g)
+    helpers.wait_storage_masters_synced(g.cluster, {'s1-master', 's2-master'})
     set_rebalancer(g, false)
-    g.storage_call_discovery_mode = set_discovery(g.router, 'off')
+    g.storage_call_discovery_mode = helpers.set_router_discovery(g.router, 'off')
 
     -- Keep the old route in the router cache while the bucket is moved.
     g.router:eval([[
@@ -560,7 +534,7 @@ local function cleanup_bucket_transfer(g)
     end
 
     if g.storage_call_discovery_mode ~= nil then
-        set_discovery(g.router, g.storage_call_discovery_mode)
+        helpers.set_router_discovery(g.router, g.storage_call_discovery_mode)
         g.storage_call_discovery_mode = nil
         g.router:eval([[
             local utils = require('crud.common.utils')
@@ -2101,7 +2075,7 @@ group.after_test('test_master_changes_between_ref_and_map', function(g)
     end)
     g.storage_call_new_master:exec(function() box.cfg{read_only = true} end)
     g.storage_call_old_master:exec(function() box.cfg{read_only = false} end)
-    wait_storage_masters_synced(g)
+    helpers.wait_storage_masters_synced(g.cluster, {'s1-master', 's2-master'})
     g.router:exec(function()
         local router = assert(require('crud.common.utils').get_vshard_router_instance())
         for _, rs in pairs(router:routeall()) do rs:locate_master() end
@@ -2115,7 +2089,7 @@ group.test_master_changes_between_ref_and_map = function(g)
     t.skip_if(g.params.backend ~= helpers.backend.VSHARD
         or type(g.params.backend_cfg) ~= 'table'
         or g.params.backend_cfg.master ~= 'auto', 'Requires automatic vshard master discovery')
-    wait_storage_masters_synced(g)
+    helpers.wait_storage_masters_synced(g.cluster, {'s1-master', 's2-master'})
     set_rebalancer(g, false)
     local bucket_id = g.buckets[1]
     local prefix = bucket_is_writable(g.cluster:server('s1-master'), bucket_id) and 's1' or 's2'
