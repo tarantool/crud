@@ -94,6 +94,16 @@ local BUCKET_MOVED_ERRS = {
     TRANSFER_IS_IN_PROGRESS = true,
 }
 
+-- Apply recovery side-effects that must happen regardless of retry decision.
+-- Currently: reset stale routes for moved buckets.
+local function apply_recovery_actions(vshard_router, err)
+    for _, bucket_ref_err in ipairs(err.bucket_ref_errs) do
+        if BUCKET_MOVED_ERRS[bucket_ref_err.vshard_err.name] then
+            vshard_router:_bucket_reset(bucket_ref_err.bucket_id)
+        end
+    end
+end
+
 --- Performs a recovery action for a call error:
 --- * MISSING_MASTER - the replicaset master is not discovered yet, so it
 ---   is discovered explicitly;
@@ -114,11 +124,7 @@ local function recover_from_err(vshard_router, replicaset, err)
     local vshard_err = err
 
     if err.class_name == bucket_ref_unref.BucketRefError.name then
-        for _, bucket_ref_err in ipairs(err.bucket_ref_errs) do
-            if BUCKET_MOVED_ERRS[bucket_ref_err.vshard_err.name] then
-                vshard_router:_bucket_reset(bucket_ref_err.bucket_id)
-            end
-        end
+	apply_recovery_actions(vshard_router, err)
 
         -- A request that failed on several buckets has no single replicaset
         -- to be retried on, so only a single-bucket one is recovered further.
@@ -307,6 +313,25 @@ function call.map(vshard_router, func_name, func_args, opts)
         end
 
         local result, err = future:wait_result(wait_timeout)
+
+        -- Batch storage API returns errors as the 2nd return value of the called
+        -- function, so in async mode they appear in result[2] while err is nil.
+        local payload_errs = result ~= nil and result[2]
+        if type(payload_errs) == 'table' then
+            for _, perr in ipairs(payload_errs) do
+                if type(perr) == 'table' then
+                    if perr.class_name == bucket_ref_unref.BucketRefError.name then
+                        apply_recovery_actions(vshard_router, perr)
+                    else
+                        local inner = perr.err
+                        if type(inner) == 'table'
+                            and inner.class_name == bucket_ref_unref.BucketRefError.name then
+                            apply_recovery_actions(vshard_router, inner)
+                        end
+                    end
+                end
+            end
+        end
 
         local result_info = {
             key = replicaset_id,
