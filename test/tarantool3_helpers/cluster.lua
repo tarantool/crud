@@ -52,8 +52,8 @@ function Cluster:initialize()
 
     for _, group in pairs(self.config.groups) do
         for _, replicaset in pairs(group.replicasets) do
-            local is_router = utils.is_replicaset_a_crud_router(group, replicaset)
-            local is_storage = utils.is_replicaset_a_crud_storage(group, replicaset)
+            local is_router = utils.is_replicaset_a_sharding_router(group, replicaset)
+            local is_storage = utils.is_replicaset_a_sharding_storage(group, replicaset)
 
             for alias, _ in pairs(replicaset.instances) do
                 local dir = treegen.prepare_directory(self.treegen, {}, {})
@@ -323,7 +323,7 @@ function Cluster:reload_config(new_config)
     for _, server in ipairs(self.servers) do
         server:exec(function()
             require('config'):reload()
-        end)
+        end, {}, {call_thread = false})
     end
 
     self.config = new_config

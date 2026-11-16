@@ -16,7 +16,7 @@ local pgroup = t.group('ddl_sharding_key', helpers.backend_matrix({
 pgroup.before_all(function(g)
     helpers.start_default_cluster(g, 'srv_ddl')
 
-    local result, err = g.router:eval([[
+    local result, err = g.cluster:server('s1-master'):eval([[
         local ddl = require('ddl')
 
         local ok, err = ddl.get_schema()

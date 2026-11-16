@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 * Add `set_run_as_user()` to `crud.common.utils` to disable `run_as_user`
   for a router session (TNTP-9700).
+* Support for the `sharding.router_thread_group` configuration option
+  introduced in Tarantool 3.10 (#525).
 
 ### Changed
 * Update `vshard` dependency to [1.0.0](https://github.com/tarantool/vshard/releases/tag/1.0.0).
