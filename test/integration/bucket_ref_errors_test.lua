@@ -233,3 +233,73 @@ pgroup_many.test_insert_many_resets_stale_route_cache = function(g)
     local cr = cached_route(g, bucket_id)
     t.assert(cr == nil or cr == destination_id)
 end
+
+pgroup_many.test_bucket_refrw_many_aggregates_bucket_ref_errs = function(g)
+    t.skip_if(g.params.operation ~= 'insert_many', 'run only for insert_many')
+
+    t.skip_if(
+        not (utils.tarantool_version_at_least(3, 1) and g.params.backend == "config"),
+        'test implemented only for config backend on 3.1+'
+    )
+
+    local source = g.cluster:server('s1-master')
+    local destination = g.cluster:server('s2-master')
+    local destination_id = replicaset_id_of(destination)
+    local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
+
+    local bucket_ids = source:exec(function()
+        local active = require('vshard.consts').BUCKET.ACTIVE
+        local idx = box.space._bucket.index.status
+        local res = {}
+        for _, b in idx:pairs({active}) do
+            res[#res + 1] = b.id
+            if #res == 2 then
+                break
+            end
+        end
+        assert(#res == 2)
+        return res
+    end)
+    local b1, b2 = bucket_ids[1], bucket_ids[2]
+
+    helpers.wait_storage_masters_synced(g.cluster, {'s1-master', 's2-master'})
+
+    -- Move buckets to destination.
+    source:exec(function(bid1, bid2, dst)
+        local vshard = require('vshard')
+        assert(vshard.storage.bucket_send(bid1, dst))
+        assert(vshard.storage.bucket_send(bid2, dst))
+    end, {b1, b2, destination_id})
+
+    -- Wait until destination sees both as active.
+    helpers.retrying({timeout = 10}, function()
+        local st = destination:exec(function(bid1, bid2)
+            local b1 = box.space._bucket:get{bid1}
+            local b2 = box.space._bucket:get{bid2}
+            return {b1 and b1.status or nil, b2 and b2.status or nil}
+        end, {b1, b2})
+
+        t.assert_equals(st[1], 'active')
+        t.assert_equals(st[2], 'active')
+    end)
+
+    -- Call internal aggregation directly on source and check how many errors it collected.
+    local res = source:exec(function(bid1, bid2)
+        local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
+
+        local ok, err = bucket_ref_unref._bucket_refrw_many({[bid1] = true, [bid2] = true})
+        if ok then
+            return {ok = true}
+        end
+
+        return {
+            ok = false,
+            class_name = err.class_name,
+            n = #err.bucket_ref_errs,
+        }
+    end, {b1, b2})
+
+    t.assert_equals(res.ok, false)
+    t.assert_equals(res.class_name, bucket_ref_unref.BucketRefError.name)
+    t.assert_equals(res.n, 2)
+end

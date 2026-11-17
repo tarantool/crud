@@ -76,9 +76,9 @@ function bucket_ref_unref._bucket_refrw_many(bucket_ids)
         local ref_ok, bucket_refrw_err = safe_methods.bucket_refrw(bucket_id)
         if not ref_ok then
             table.insert(bucket_ref_errs, bucket_refrw_err.bucket_ref_errs[1])
-            break
+        else
+            reffed_bucket_ids[bucket_id] = true
         end
-        reffed_bucket_ids[bucket_id] = true
     end
 
     if next(bucket_ref_errs) ~= nil then
