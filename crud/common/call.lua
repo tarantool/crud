@@ -5,8 +5,9 @@ local dev_checks = require('crud.common.dev_checks')
 local yield_checks = require('crud.common.yield_checks')
 local utils = require('crud.common.utils')
 local sharding_utils = require('crud.common.sharding.utils')
-local fiber = require('fiber')
-local fiber_clock = fiber.clock
+require('fiber') -- Declare fiber_clock() for the FFI namespace.
+-- Keep clock calls traceable even if the Lua fiber.clock wrapper is blacklisted.
+local C = require('ffi').C
 local const = require('crud.common.const')
 local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
 
@@ -163,7 +164,7 @@ end
 
 local function call_single_with_recovery(vshard_router,
     replicaset, method, func_name, func_args, call_opts)
-    local deadline = fiber_clock() + call_opts.timeout
+    local deadline = C.fiber_clock() + call_opts.timeout
 
     local resp, err = call_on_replicaset(replicaset, method, func_name, func_args, call_opts)
     if err == nil then
@@ -175,7 +176,7 @@ local function call_single_with_recovery(vshard_router,
         return resp, recover_err or err, replicaset.id
     end
 
-    local timeout = deadline - fiber_clock()
+    local timeout = deadline - C.fiber_clock()
     if timeout <= 0 then
         return resp, err, replicaset.id
     end
@@ -198,7 +199,7 @@ local function call_map_with_recovery(replicaset, method, func_name, func_args,
         return future, err
     end
 
-    if fiber_clock() >= deadline then
+    if C.fiber_clock() >= deadline then
         return future, err
     end
 
@@ -209,7 +210,7 @@ local function call_map_with_recovery(replicaset, method, func_name, func_args,
         return future, err
     end
 
-    local timeout = deadline - fiber_clock()
+    local timeout = deadline - C.fiber_clock()
     if timeout <= 0 then
         return future, err
     end
@@ -273,7 +274,7 @@ function call.map(vshard_router, func_name, func_args, opts)
         request_timeout = request_timeout,
     }
 
-    local deadline = fiber_clock() + timeout
+    local deadline = C.fiber_clock() + timeout
     while iter:has_next() do
         local args, replicaset, replicaset_id = iter:get()
 
@@ -301,7 +302,7 @@ function call.map(vshard_router, func_name, func_args, opts)
     end
 
     for replicaset_id, future in pairs(futures_by_replicasets) do
-        local wait_timeout = deadline - fiber_clock()
+        local wait_timeout = deadline - C.fiber_clock()
         if wait_timeout < 0 then
             wait_timeout = 0
         end
@@ -386,10 +387,10 @@ function call.any(vshard_router, func_name, func_args, opts)
     local last_replicaset_id = nil
     local last_err = nil
 
-    local deadline = fiber_clock() + timeout
+    local deadline = C.fiber_clock() + timeout
 
     for _, replicaset in pairs(replicasets) do
-        local wait_timeout = deadline - fiber_clock()
+        local wait_timeout = deadline - C.fiber_clock()
 
         local is_timeout = wait_timeout < 0
         if is_timeout then
