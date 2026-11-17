@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 * Update `vshard` dependency to [1.0.0](https://github.com/tarantool/vshard/releases/tag/1.0.0).
 
+### Fixed
+* Fix a `crud.get()` performance regression after write-heavy workloads
+  (TNTP-10326).
+
 ## [1.8.0] - 14-10-26
 
 ### Added
