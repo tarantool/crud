@@ -8,6 +8,11 @@ on:
         default: ubuntu-focal
         required: false
         type: string
+      luatest_args:
+        description: Extra luatest arguments, for example -x to skip tests
+        default: ''
+        required: false
+        type: string
 
 env:
   TT_VERSION: "2.*"
@@ -47,7 +52,5 @@ jobs:
       - name: Stop Mono server
         run: sudo kill -9 $(sudo lsof -t -i tcp:8084) || true
 
-      - run: cmake -S . -B build
-
       - name: Run regression tests
-        run: make -C build luatest-no-coverage
+        run: .rocks/bin/luatest -v ${{ inputs.luatest_args }}
