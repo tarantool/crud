@@ -38,7 +38,7 @@ add_custom_target(luatest
 )
 
 add_custom_target(luatest-no-coverage
-  COMMAND ${LUATEST} -v
+  COMMAND ${LUATEST} -v -c test/
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   COMMENT "Run regression tests without coverage"
 )
