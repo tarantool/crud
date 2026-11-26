@@ -57,7 +57,12 @@ function utils.set_run_as_user(enabled)
 end
 
 function utils.is_run_as_user_enabled()
-    return box.session.storage[RUN_AS_USER_SESSION_KEY] ~= false
+    -- box.session.storage is unavailable in application threads [1]
+    -- so utils.is_run_as_user_enabled() always returns true (default).
+    --
+    -- [1]: https://github.com/tarantool/tarantool/issues/13649
+    return box.session.storage == nil or
+        box.session.storage[RUN_AS_USER_SESSION_KEY] ~= false
 end
 
 --- Returns the storage dispatcher name and its arguments for the current session.
@@ -886,6 +891,15 @@ local function determine_enabled_features()
                                 3, 0, 1, nil, 35,
                                 3, 0, math.huge, nil, nil)
     )
+
+    -- Support for application threads first appeared in Tarantool 3.7.0,
+    -- but it was marked experimental and lacked many features. The full
+    -- feature set required to run CRUD routers is available only starting
+    -- from 3.10.0.
+    --
+    -- https://github.com/tarantool/tarantool/commit/a43012c1fca3953cd99cea0cdef1581eba66eb76
+    enabled_tarantool_features.threads = is_version_ge(major, minor, patch, suffix, commits_since,
+                                                       3, 10, 0, 'entrypoint', 62)
 end
 
 determine_enabled_features()

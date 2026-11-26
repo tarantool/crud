@@ -1,12 +1,19 @@
+-- Exports a function via IPROTO.
+--
+-- Uses box.iproto.export if available because adding a function to _G has
+-- no effect with application threads.
+local export = box.iproto and box.iproto.export or
+               function(name, func) rawset(_G, name, func) end
+
 return {
     init = function()
         rawset(_G, 'vshard_calls', {})
 
-        rawset(_G, 'clear_vshard_calls', function()
+        export('clear_vshard_calls', function()
             table.clear(_G.vshard_calls)
         end)
 
-        rawset(_G, 'patch_vshard_calls', function(vshard_call_names)
+        export('patch_vshard_calls', function(vshard_call_names)
             local vshard = require('vshard')
 
             local replicasets = vshard.router.routeall()

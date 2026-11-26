@@ -1,6 +1,5 @@
 local errors = require('errors')
 
-local crud = require('crud')
 local common_role_utils = require('crud.common.roles')
 local common_utils = require('crud.common.utils')
 local stats = require('crud.stats')
@@ -74,14 +73,35 @@ local function validate(roles_cfg)
     validate_roles_cfg(roles_cfg)
 end
 
-local function apply(roles_cfg)
-    crud.init_router()
+--
+-- Evaluates a Lua expression in each thread of the sharding router thread
+-- group. If application threads are unavailable, evalutes it in the current
+-- (main) thread.
+--
+local function threads_eval(expr, args)
+    if common_utils.tarantool_supports_threads() then
+        local config = require('config')
+        local threads = require('threads')
+        local group = config:get('sharding.router_thread_group')
+        threads.eval(group, expr, args)
+    else
+        dostring(expr, unpack(args))
+    end
+end
 
-    crud.cfg(roles_cfg)
+local function apply(roles_cfg)
+    threads_eval([[
+        local crud = require('crud')
+        crud.init_router()
+        crud.cfg(...)
+    ]], {roles_cfg})
 end
 
 local function stop()
-    crud.stop_router()
+    threads_eval([[
+        local crud = require('crud')
+        crud.stop_router()
+    ]])
 end
 
 return {

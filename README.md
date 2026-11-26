@@ -57,6 +57,7 @@ It also provides the `crud-storage` and `crud-router` roles for
   - [Schema](#schema)
 - [Tarantool 3 roles](#tarantool-3-roles)
   - [Usage](#usage-1)
+  - [Multi-threaded router](#multi-threaded-router)
 - [Cartridge roles](#cartridge-roles)
   - [Usage](#usage-2)
 - [License](#license)
@@ -2660,6 +2661,30 @@ Now your cluster contains storages that are configured to be used for
 CRUD-operations.
 You can simply call CRUD functions on the router to insert, select, and update
 data across the cluster.
+
+### Multi-threaded router
+
+CRUD supports the `sharding.router_thread_group` configuration option, which
+was introduced in Tarantool 3.10. If this option is set, the CRUD router role
+is loaded on each thread of the specified thread group instead of the main
+thread, and IPROTO calls to CRUD router API functions are distributed evenly
+among all router threads. This allows scaling a CRUD router within the same
+Tarantool process, without spawning extra Tarantool instances.
+
+Notes about running a CRUD application on a custom thread group:
+
+* To load an application that depends on the CRUD router role on the same
+  thread group, use the `app.thread_group` option along with the `app.module`.
+* Adding a function to the global Lua namespace in an application thread
+  doesn't make it callable via IPROTO. To export a function over IPROTO in
+  an application thread, use `box.iproto.export()`.
+* The only way to give a user access to a function exported over IPROTO in
+  an application is granting the `execute` privilege to `lua_call` via
+  Tarantool 3 configuration. Other kinds of privileges, including `execute`
+  access to `universe` or the `super` role, wouldn't work.
+* `utils.set_run_as_user()` is currently incompatible with multi-threaded
+  routers and must not be used if the router is configured to run on a custom
+  thread group.
 
 ## Cartridge roles
 
