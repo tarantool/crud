@@ -1,0 +1,54 @@
+name: Run performance check for storage operations
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  run-perf-check:
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v7
+    - uses: bencherdev/bencher@main
+    - uses: tarantool/setup-tarantool@v4
+      with:
+        tarantool-version: '3.7'
+
+    - name: Setup tt
+      run: |
+        curl -L https://tarantool.io/release/2/installer.sh | sudo bash
+        sudo apt install -y tt
+        tt version
+
+    - name: Setup luabench
+      run: |
+        tt init
+        tt rocks install argparse 0.6.0
+        tt rocks install errors
+        tt rocks install vshard 0.1.41
+        tt rocks --server https://moonlibs.org install luabench 0.3.0
+
+    - name: Run benchmarks and compare crud vs raw performance
+      run: |
+          rm -f bench.jsonl
+          for i in {0..9}
+          do
+            .rocks/bin/luabench --bmf -d 5s test/bench/ >>bench.jsonl
+          done
+          test/bench/scripts/compare_metrics.py bench.jsonl
+
+    - name: Upload benchmark results
+      run: |
+        bencher run \
+        --project ${{ vars.BENCHER_PROJECT }} \
+        --key '${{ secrets.BENCHER_API_KEY }}' \
+        --branch "${{ github.ref_name }}" \
+        --testbed ubuntu-latest \
+        --error-on-alert \
+        --adapter json \
+        --github-actions '${{ secrets.GITHUB_TOKEN }}' \
+        test/bench/scripts/compare_metrics.py --bmf bench.jsonl
