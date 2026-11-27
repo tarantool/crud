@@ -51,6 +51,9 @@ schema.system_spaces = {
     -- https://github.com/tarantool/cluster-federation/blob/01738cafa0dc7a3138e64f93c4e84cb323653257/src/internal/utils/utils.go#L17
     ['_cdc_state'] = true,
     [SETTINGS_SPACE] = true,
+    -- crud.idempotency marker spaces (crud/idempotency/spaces.lua).
+    ['_crud_idempotency'] = true,
+    ['_crud_idempotency_vinyl'] = true,
 }
 
 local function get_crud_schema(space)

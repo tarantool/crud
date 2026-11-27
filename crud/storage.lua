@@ -27,6 +27,8 @@ local readview = require('crud.readview')
 local atomic_batch = require('crud.atomic_batch')
 local storage_call = require('crud.storage_call')
 local storage_info = require('crud.storage_info')
+local idempotency_spaces = require('crud.idempotency.spaces')
+local idempotency_storage = require('crud.idempotency.storage')
 
 local storage = {}
 
@@ -118,6 +120,8 @@ local function init_impl()
 
     schema.init()
     rebalance.init()
+    idempotency_spaces.ensure()
+    idempotency_storage.init()
 end
 
 function storage.init(opts)
@@ -153,6 +157,8 @@ function storage.stop()
         internal_stash.watcher:unregister()
         internal_stash.watcher = nil
     end
+
+    idempotency_storage.deinit()
 
     rawset(_G, utils.STORAGE_NAMESPACE, nil)
 end

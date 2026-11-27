@@ -26,6 +26,7 @@ local schema = require('crud.schema')
 local storage_info = require('crud.storage_info')
 local storage_call = require('crud.storage_call')
 local storage = require('crud.storage')
+local idempotency = require('crud.idempotency')
 local rebalance = require('crud.common.rebalance')
 
 local crud = {}
@@ -181,6 +182,9 @@ crud.readview = readview.new
 -- @refer schema.call
 -- @function schema
 crud.schema = schema.call
+
+-- Idempotency primitive for stored procedures, see crud/idempotency.lua.
+crud.idempotency = idempotency
 
 crud.rebalance = {}
 
