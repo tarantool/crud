@@ -145,6 +145,32 @@ function storage.mark(opts)
     return storage.commit_marker(space, idem.key, bucket_id, idem.seq, idem.ttl)
 end
 
+--- For DML handlers: the options are already validated on the router.
+--- Must be called inside the DML transaction, so the marker is committed
+--- or rolled back together with the DML (ADR 4.1).
+--- `_space_name` and `_operation` label the call site for the storage
+--- metrics (passed since the first DML integration so the signature does
+--- not change when metrics land).
+--- Returns true or nil, an idempotency error.
+function storage.mark_dml(idem, bucket_id, engine, _space_name, _operation) --luacheck: ignore
+    if not storage.initialized then
+        return nil, idem_errors.IdempotencyError:new(
+            'crud storage is not initialized: crud.idempotency is unavailable')
+    end
+
+    local space, err = engine_space(engine)
+    if err ~= nil then
+        return nil, err
+    end
+
+    local ok, check_err = storage.check(space, idem.key, bucket_id, idem.seq)
+    if not ok then
+        return nil, check_err
+    end
+
+    return storage.commit_marker(space, idem.key, bucket_id, idem.seq, idem.ttl)
+end
+
 function storage.init()
     storage.initialized = true
 end

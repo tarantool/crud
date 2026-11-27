@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   primitive for stored procedures: it validates idempotency options, checks
   the operation marker and commits it within the current transaction on a
   storage (TNTP-9290).
+* Add `opts.idempotency` support to `crud.insert`, `crud.insert_object`,
+  `crud.replace` and `crud.replace_object`: the idempotency marker and the
+  DML are committed by a single storage-side transaction, so a retry of the
+  same operation is rejected without distorting the data (TNTP-9290).
 
 ### Changed
 * Update `vshard` dependency to [1.0.0](https://github.com/tarantool/vshard/releases/tag/1.0.0).

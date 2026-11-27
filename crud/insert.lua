@@ -8,6 +8,9 @@ local sharding = require('crud.common.sharding')
 local dev_checks = require('crud.common.dev_checks')
 local schema = require('crud.common.schema')
 local bucket_ref_unref = require('crud.common.sharding.bucket_ref_unref')
+local idempotency = require('crud.idempotency')
+local idempotency_errors = require('crud.idempotency.errors')
+local idempotency_storage = require('crud.idempotency.storage')
 
 local InsertError = errors.new_class('InsertError', {capture_stack = false})
 
@@ -25,6 +28,7 @@ local function insert_on_storage(space_name, tuple, opts)
         skip_sharding_hash_check = '?boolean',
         noreturn = '?boolean',
         fetch_latest_metadata = '?boolean',
+        idempotency = '?table',
     })
 
     opts = opts or {}
@@ -53,12 +57,43 @@ local function insert_on_storage(space_name, tuple, opts)
     -- add_space_schema_hash is true only in case of insert_object
     -- the only one case when reloading schema can avoid insert error
     -- is flattening object on router
-    local result = schema.wrap_func_result(space, space.insert, {
-        add_space_schema_hash = opts.add_space_schema_hash,
-        field_names = opts.fields,
-        noreturn = opts.noreturn,
-        fetch_latest_metadata = opts.fetch_latest_metadata,
-    }, space, tuple)
+    local result
+    if opts.idempotency ~= nil then
+        -- The marker and the DML are committed by one transaction (ADR 4.1),
+        -- so a rejection or a DML failure rolls the marker back with the DML.
+        box.begin()
+        local _, mark_err = idempotency_storage.mark_dml(
+            opts.idempotency, bucket_id, space.engine, space_name, 'insert')
+        if mark_err ~= nil then
+            box.rollback()
+            -- The error object is returned as data (see atomic_batch), so
+            -- the router passes it to the client with all its fields.
+            result = {err = mark_err}
+        else
+            result = schema.wrap_func_result(space, space.insert, {
+                add_space_schema_hash = opts.add_space_schema_hash,
+                field_names = opts.fields,
+                noreturn = opts.noreturn,
+                fetch_latest_metadata = opts.fetch_latest_metadata,
+            }, space, tuple)
+
+            if result.err ~= nil then
+                box.rollback()
+            else
+                local ok, commit_err = pcall(box.commit)
+                if not ok then
+                    result = {err = commit_err}
+                end
+            end
+        end
+    else
+        result = schema.wrap_func_result(space, space.insert, {
+            add_space_schema_hash = opts.add_space_schema_hash,
+            field_names = opts.fields,
+            noreturn = opts.noreturn,
+            fetch_latest_metadata = opts.fetch_latest_metadata,
+        }, space, tuple)
+    end
 
     local unref_ok, err_unref = unref(bucket_id, space.engine)
     if not unref_ok then
@@ -83,7 +118,17 @@ local function call_insert_on_router(vshard_router, space_name, original_tuple, 
         skip_nullability_check_on_flatten = '?boolean',
         noreturn = '?boolean',
         fetch_latest_metadata = '?boolean',
+        idempotency = '?table',
     })
+
+    local idem = nil
+    if opts.idempotency ~= nil then
+        local err
+        idem, err = idempotency.validate(opts.idempotency)
+        if err ~= nil then
+            return nil, err
+        end
+    end
 
     local space, err, netbox_schema_version = utils.get_space(space_name, vshard_router, {timeout = opts.timeout})
     if err ~= nil then
@@ -108,6 +153,7 @@ local function call_insert_on_router(vshard_router, space_name, original_tuple, 
         skip_sharding_hash_check = sharding_data.skip_sharding_hash_check,
         noreturn = opts.noreturn,
         fetch_latest_metadata = opts.fetch_latest_metadata,
+        idempotency = idem,
     }
 
     local call_opts = {
@@ -132,6 +178,12 @@ local function call_insert_on_router(vshard_router, space_name, original_tuple, 
     end
 
     if storage_result.err ~= nil then
+        -- An idempotency rejection is passed to the client as is, so the
+        -- error class and its fields stay accessible (see atomic_batch).
+        if idempotency_errors.is_idempotency_error(storage_result.err) then
+            return nil, storage_result.err
+        end
+
         local err_wrapped = InsertError:new("Failed to insert: %s", storage_result.err)
 
         if schema.result_needs_reload(space, storage_result) then
@@ -196,6 +248,7 @@ function insert.tuple(space_name, tuple, opts)
         vshard_router = '?string|table',
         noreturn = '?boolean',
         fetch_latest_metadata = '?boolean',
+        idempotency = '?table',
     })
 
     opts = opts or {}
@@ -236,6 +289,7 @@ function insert.object(space_name, obj, opts)
         skip_nullability_check_on_flatten = '?boolean',
         noreturn = '?boolean',
         fetch_latest_metadata = '?boolean',
+        idempotency = '?table',
     })
 
     opts = opts or {}
